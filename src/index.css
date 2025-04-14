@@ -1,0 +1,423 @@
+@import url("https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons");
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons+Round");
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons+Outlined");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #8CC3EE;
+  --primary-variant1: #488BBE;
+  --primary-variant2: #3399E9;
+  --primary-light: #E2F9FF;
+  --accent: #87C054;
+  --accent-variant1: #6DAF31;
+  --accent-variant2: #A1CA7D;
+  --orange: #F59E0B;
+  --slate-400: #94A3B8;
+  --zinc-500: #71717A;
+  --white: #FFFFFF;
+}
+
+/* Reset default padding/margin */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Apply Public Sans font globally to all text */
+body {
+  font-family: "Public Sans", sans-serif;
+  background-color: #F8F7FA;
+  color: #333;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Navbar styles */
+header {
+  width: 100%;
+  height: 123px;
+  box-shadow: 0px 20px 20px rgba(164, 166, 140, 0.09);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 56px;
+}
+
+/* Navigation active indicators */
+.nav-indicator {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  bottom: -7px;
+  left: 0;
+}
+
+.nav-indicator-long {
+  width: 58px;
+  height: 5px;
+  background-color: var(--orange);
+}
+
+.nav-indicator-short {
+  width: 19px;
+  height: 5px;
+  background-color: var(--orange);
+}
+
+/* Service cards */
+.service-card {
+  width: 314px;
+  height: 314px;
+  border-radius: 9999px; /* Full rounded */
+  border: 3px solid #E5E5E5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--white);
+  transition: all 0.3s ease;
+}
+
+.service-card:hover {
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.service-card h3 {
+  margin-top: 16px;
+  font-size: 24px;
+  line-height: 32px;
+  text-align: center;
+}
+
+.service-card h3 span:first-child {
+  color: var(--primary-variant1);
+  font-weight: 400;
+}
+
+.service-card h3 span:last-child {
+  color: var(--slate-400);
+  font-weight: 800;
+}
+
+/* Button styles */
+.btn-selengkapnya {
+  width: 117px;
+  height: 25px;
+  border-radius: 44px;
+  background-color: var(--primary);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-selengkapnya:hover {
+  background-color: var(--primary-variant1);
+}
+
+.btn-mulai-sekarang {
+  height: 43px;
+  border-radius: 44px;
+  background-color: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 16px;
+  border: 1px solid var(--primary);
+  cursor: pointer;
+  padding: 0 32px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-mulai-sekarang:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-kontak-kami {
+  width: 161px;
+  height: 43px;
+  border-radius: 44px;
+  background-color: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 16px;
+  border: 1px solid var(--primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-kontak-kami:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-masuk {
+  width: 109px;
+  height: 44px;
+  border-radius: 44px;
+  background-color: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  border: 1px solid var(--primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-masuk:hover {
+  background-color: var(--primary-light);
+}
+
+.btn-daftar {
+  width: 109px;
+  height: 44px;
+  border-radius: 44px;
+  background-color: var(--primary);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-daftar:hover {
+  background-color: var(--primary-variant1);
+}
+
+/* Section styles */
+.hero-section {
+  position: relative;
+  min-height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.services-section {
+  position: relative;
+  min-height: 810px;
+  padding-top: 60px;
+  background-image: url('/layanan-kami-bg.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.testimonials-section {
+  position: relative;
+  min-height: 600px;
+  padding: 60px 0;
+}
+
+.clients-section {
+  position: relative;
+  min-height: 400px;
+  margin-bottom: 80px;
+  padding: 60px 0;
+}
+
+/* Dropdown menu styles */
+.dropdown-menu {
+  position: absolute;
+  right: 56px;
+  top: 123px;
+  width: 442px;
+  z-index: 50;
+}
+
+.dropdown-user-type {
+  width: 50%;
+  background-color: var(--white);
+}
+
+.dropdown-client-type {
+  width: 50%;
+  background-color: var(--white);
+}
+
+.dropdown-item {
+  color: var(--zinc-500);
+  font-size: 14px;
+  padding: 8px 16px;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.dropdown-item.active {
+  color: var(--white);
+  font-weight: 700;
+  position: relative;
+}
+
+.dropdown-item.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 221px;
+  height: 34.5px;
+  background-color: var(--primary);
+  z-index: -1;
+}
+
+/* ScrollButton styles */
+.scroll-button {
+  position: absolute;
+  right: 48px;
+  bottom: 32px;
+  width: 62px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.scroll-button img {
+  width: 42px;
+  height: 58px;
+  object-fit: contain;
+}
+
+.scroll-button .text {
+  margin-top: 10px;
+  color: var(--zinc-500);
+  font-size: 14px;
+  text-align: center;
+  white-space: pre-line;
+}
+
+/* Section Headings */
+.section-heading {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.section-heading .normal {
+  color: var(--primary-variant1);
+  font-weight: 400;
+}
+
+.section-heading .bold {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+/* Hero text styles */
+.hero-title {
+  font-size: 48px;
+  line-height: 56px;
+  color: var(--primary);
+}
+
+.hero-title .bold {
+  font-weight: 800;
+}
+
+.hero-title .light {
+  font-weight: 300;
+}
+
+.hero-description {
+  font-size: 16px;
+  color: var(--zinc-500);
+  margin: 28px 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1440px) {
+  header {
+    padding: 0 24px;
+  }
+  
+  .dropdown-menu {
+    right: 24px;
+  }
+  
+  .scroll-button {
+    right: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  header {
+    height: auto;
+    padding: 16px;
+    flex-direction: column;
+  }
+  
+  .dropdown-menu {
+    position: relative;
+    right: auto;
+    top: auto;
+    width: 100%;
+    max-width: 442px;
+    margin: 0 auto;
+  }
+  
+  .service-card {
+    margin-bottom: 32px;
+  }
+  
+  .scroll-button {
+    right: 16px;
+    bottom: 16px;
+  }
+  
+  .section-heading {
+    font-size: 36px;
+  }
+  
+  .hero-title {
+    font-size: 36px;
+    line-height: 44px;
+  }
+}
+
+@layer utilities {
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 8px;
+  }
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background-color: #e5e7eb;
+    border-radius: 9999px;
+  }
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background-color: #9ca3af;
+    border-radius: 9999px;
+  }
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background-color: #6b7280;
+  }
+
+  .date-none::-webkit-inner-spin-button,
+  .date-none::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+  }
+}
