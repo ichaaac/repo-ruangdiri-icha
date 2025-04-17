@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/layout/Navbar";
 import Footer from "../../components/layout/Footer";
@@ -122,7 +122,7 @@ const HeroSection = ({ activeSlide, handleNextSlide }) => {
   const currentHero = heroData[activeSlide];
 
   return (
-    <section className="pt-[140px] min-h-[700px] md:min-h-[810px] flex flex-col mx-auto mt-[123px]">
+    <section className="pt-[140px] min-h-[700px] md:min-h-[810px] flex flex-col mx-auto">
       <div className="relative max-w-[1440px] mx-auto px-4 md:px-10">
         <div className="flex flex-col md:flex-row justify-between items-center gap-10">
           {/* Hero Image Container - Fixed Height to Prevent Shifting */}
@@ -350,42 +350,60 @@ function Homepage() {
   const [currentSection, setCurrentSection] = useState("hero");
   const [showScrollDown, setShowScrollDown] = useState(true);
   const [showScrollUp, setShowScrollUp] = useState(false);
+  const sectionsRef = useRef({});
+  const mainContentRef = useRef(null);
+  const isInitialMount = useRef(true);
   
+  // Handle scroll event to determine current section
+  const handleScroll = () => {
+    const scrollPosition = window.scrollY + window.innerHeight / 2;
+    
+    // Check each section to determine the current one
+    Object.entries(sectionsRef.current).forEach(([id, section]) => {
+      if (section) {
+        const { offsetTop, offsetHeight } = section;
+        if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+          setCurrentSection(id);
+          
+          // Toggle scroll buttons based on section
+          if (id === "clients") {
+            setShowScrollDown(false);
+            setShowScrollUp(true);
+          } else {
+            setShowScrollDown(true);
+            setShowScrollUp(false);
+          }
+        }
+      }
+    });
+  };
+  
+  // Initialize section refs after render
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY + window.innerHeight / 2;
-      const sections = {
+    // Wait for elements to be rendered
+    const timer = setTimeout(() => {
+      sectionsRef.current = {
         hero: document.getElementById("hero"),
         services: document.getElementById("services"),
         testimonials: document.getElementById("testimonials"),
         clients: document.getElementById("clients")
       };
       
-      // Determine current section
-      for (const [id, section] of Object.entries(sections)) {
-        if (section) {
-          const { offsetTop, offsetHeight } = section;
-          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
-            setCurrentSection(id);
-
-            if (id === "clients") {
-              setShowScrollDown(false);
-              setShowScrollUp(true);
-            } else {
-              setShowScrollDown(true);
-              setShowScrollUp(false);
-            }
-            
-            break;
-          }
-        }
-      }
-    };
+      // Run initial scroll check to set correct section
+      handleScroll();
+    }, 100);
     
+    // Add scroll event listener
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      clearTimeout(timer);
+    };
   }, []);
   
+  // Handle slide navigation
   const handleNextSlide = (action, index) => {
     if (action === 'next') {
       setActiveSlide(activeSlide === 0 ? 1 : 0);
@@ -409,19 +427,26 @@ function Homepage() {
       
       <Navbar activeTab={activeTab} />
       
-      <main>
-        <section id="hero">
+      {/* Add spacing after navbar to fix the tight layout */}
+      <main ref={mainContentRef} className="pt-[20px]">
+        <section id="hero" ref={el => sectionsRef.current.hero = el}>
           <HeroSection 
             activeSlide={activeSlide}
             handleNextSlide={handleNextSlide}
           />
         </section>
         
-        <ServicesSection />
+        <section id="services" ref={el => sectionsRef.current.services = el}>
+          <ServicesSection />
+        </section>
         
-        <TestimonialsSection />
+        <section id="testimonials" ref={el => sectionsRef.current.testimonials = el}>
+          <TestimonialsSection />
+        </section>
         
-        <ClientsSection />
+        <section id="clients" ref={el => sectionsRef.current.clients = el}>
+          <ClientsSection />
+        </section>
       </main>
       
       <Footer />
