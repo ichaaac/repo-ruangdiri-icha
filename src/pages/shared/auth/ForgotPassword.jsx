@@ -21,14 +21,20 @@ const ForgotPassword = () => {
   // Forgot password mutation
   const forgotPasswordMutation = useMutation({
     mutationFn: (email) => authAPI.forgotPassword(email),
-    onSuccess: () => {
-      setSuccessMessage("Link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam Anda.");
+    onSuccess: (response) => {
+      // Access the message from the response if available
+      const message = response.message || "Link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam Anda.";
+      setSuccessMessage(message);
       setShowModal(true);
     },
     onError: (error) => {
       console.error("Forgot password error:", error);
-      if (error.response && error.response.data && error.response.data.message) {
-        setErrorMessage(error.response.data.message);
+      if (error.response && error.response.data) {
+        if (error.response.data.message) {
+          setErrorMessage(error.response.data.message);
+        } else {
+          setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+        }
       } else {
         setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
       }
@@ -39,8 +45,9 @@ const ForgotPassword = () => {
   // Resend email mutation
   const resendEmailMutation = useMutation({
     mutationFn: (email) => authAPI.forgotPassword(email),
-    onSuccess: () => {
-      setSuccessMessage("Link reset password telah dikirim ulang ke email Anda.");
+    onSuccess: (response) => {
+      const message = response.message || "Link reset password telah dikirim ulang ke email Anda.";
+      setSuccessMessage(message);
     },
     onError: (error) => {
       console.error("Resend email error:", error);

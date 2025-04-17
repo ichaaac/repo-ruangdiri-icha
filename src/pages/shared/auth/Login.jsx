@@ -17,34 +17,62 @@ const Login = () => {
   
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
-  // Login mutation
   const loginMutation = useMutation({
     mutationFn: (credentials) => authAPI.login(credentials),
-    onSuccess: (data) => {
-      // Store token and user data
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      // Redirect based on user role
-      if (data.user.role === 'school') {
-        navigate('/school/dashboard');
+    onSuccess: (response) => {
+      // Only proceed if we have the expected data structure
+      if (response?.data?.access_token && response?.data?.user) {
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        
+        // Redirect based on user role
+        if (response.data.user.role === 'admin') {
+          navigate('/school/dashboard');
+        } else {
+          navigate('/');
+        }
       } else {
-        navigate('/');
+        console.error('Unexpected response structure:', response);
+        setErrorMessage('Terjadi kesalahan dengan format respons. Silakan coba lagi nanti.');
       }
     },
     onError: (error) => {
       console.error('Login error:', error);
-      if (error.response && error.response.data) {
+      
+      // Detailed error logging
+      if (error.response) {
+        console.log('Error response:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
+        // Handle various error responses
         if (error.response.status === 401) {
           setErrorMessage('Email atau password tidak valid.');
           setPasswordError(true);
-        } else if (error.response.data.message) {
-          setErrorMessage(error.response.data.message);
+        } else if (error.response.status === 400) {
+          setErrorMessage('Permintaan tidak valid. Periksa data yang Anda masukkan.');
+          setEmailError(true);
+          setPasswordError(true);
+        } else if (error.response.data && typeof error.response.data === 'object') {
+          // Try to extract message from various potential structures
+          const message = error.response.data.message || 
+                          error.response.data.error || 
+                          (error.response.data.data && error.response.data.data.message) ||
+                          'Terjadi kesalahan. Silakan coba lagi nanti.';
+          setErrorMessage(message);
         } else {
           setErrorMessage('Terjadi kesalahan. Silakan coba lagi nanti.');
         }
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.log('Error request:', error.request);
+        setErrorMessage('Tidak ada respons dari server. Periksa koneksi internet Anda.');
       } else {
-        setErrorMessage('Terjadi kesalahan. Silakan coba lagi nanti.');
+        // Something happened in setting up the request
+        console.log('Error message:', error.message);
+        setErrorMessage('Terjadi kesalahan saat mengirim permintaan.');
       }
     }
   });
@@ -70,7 +98,10 @@ const Login = () => {
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    // Always ensure prevention of default behavior
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
     
     setErrorMessage("");
     setEmailError(false);
@@ -95,8 +126,14 @@ const Login = () => {
       return;
     }
     
-    // Execute login mutation
-    loginMutation.mutate({ email, password, rememberMe });
+    try {
+      // Execute login mutation
+      loginMutation.mutate({ email, password, rememberMe });
+    } catch (error) {
+      // This is a fallback in case of uncaught exceptions during mutation
+      console.error("Uncaught exception in login mutation:", error);
+      setErrorMessage("Terjadi kesalahan tak terduga. Silakan coba lagi.");
+    }
   };
 
   return (
@@ -130,7 +167,7 @@ const Login = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="w-full" id="loginForm">
             {/* Email input */}
             <div className={`flex gap-2.5 items-center px-6 py-3 mb-6 bg-white border-solid border ${emailError ? 'border-rose-500' : 'border-zinc-500'} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}>
               <span className={`material-icons ${emailError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}>
@@ -138,6 +175,7 @@ const Login = () => {
               </span>
               <input
                 type="email"
+                name="email"
                 placeholder="Email"
                 className={`w-full text-base border-none outline-none ${emailError ? 'text-rose-500' : 'text-zinc-500'}`}
                 value={email}
@@ -160,6 +198,7 @@ const Login = () => {
               </span>
               <input
                 type={showPassword ? "text" : "password"}
+                name="password"
                 placeholder="Password"
                 className={`flex-1 text-base border-none outline-none ${passwordError ? 'text-rose-500' : 'text-zinc-500'}`}
                 value={password}

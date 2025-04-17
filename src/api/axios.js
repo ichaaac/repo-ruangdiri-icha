@@ -4,7 +4,7 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const axiosInstance = axios.create({
-  baseURL: `${API_URL}/v1`,
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -26,7 +26,12 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    // Don't redirect on 401 errors during login attempts
+    // This ensures login errors are handled by the component
+    const isLoginAttempt = error.config.url.includes('/auth/login');
+    
+    if (error.response && error.response.status === 401 && !isLoginAttempt) {
+      // Only clear tokens and redirect for non-login 401 errors
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

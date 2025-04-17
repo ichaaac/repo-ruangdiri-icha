@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { authAPI } from "../../../api/auth";
 
@@ -18,7 +18,9 @@ const PasswordRequirement = ({ isValid, text }) => {
 };
 
 const ResetPassword = () => {
-  const { token } = useParams();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const token = queryParams.get('token');
   const navigate = useNavigate();
   
   // Form state
@@ -43,22 +45,35 @@ const ResetPassword = () => {
     hasSpecialChar: false,
     passwordsMatch: false,
   });
+  
+  // Check if token is present
+  useEffect(() => {
+    if (!token) {
+      setErrorMessage("Link reset password tidak valid atau sudah kadaluarsa.");
+      setTimeout(() => {
+        navigate('/forgot-password');
+      }, 3000);
+    }
+  }, [token, navigate]);
 
-  // Reset password mutation
   const resetPasswordMutation = useMutation({
     mutationFn: ({ token, newPassword }) => authAPI.resetPassword(token, newPassword),
-    onSuccess: () => {
-      setSuccessMessage("Password berhasil diubah. Anda akan diarahkan ke halaman Login.");
+    onSuccess: (response) => {
+      const message = response.message || "Password berhasil diubah. Anda akan diarahkan ke halaman Login.";
+      setSuccessMessage(message);
       
-      // Redirect to login page after 2 seconds
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     },
     onError: (error) => {
       console.error("Reset password error:", error);
-      if (error.response && error.response.data && error.response.data.message) {
-        setErrorMessage(error.response.data.message);
+      if (error.response && error.response.data) {
+        if (error.response.data.message) {
+          setErrorMessage(error.response.data.message);
+        } else {
+          setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+        }
       } else {
         setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
       }
