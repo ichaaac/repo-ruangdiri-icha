@@ -1,13 +1,9 @@
 "use client";
 import React, { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { authAPI } from "../../../api/auth";
 import SuccessModal from "../../../components/auth/SuccessModal";
 
-/**
- * ForgotPassword component
- * Allows users to request a password reset link via email
- * 
- * @returns {JSX.Element} The ForgotPassword component
- */
 const ForgotPassword = () => {
   // Form state
   const [email, setEmail] = useState("");
@@ -19,17 +15,41 @@ const ForgotPassword = () => {
   // Success message state
   const [successMessage, setSuccessMessage] = useState("");
   
-  // Loading state
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
   // Modal state
   const [showModal, setShowModal] = useState(false);
 
-  /**
-   * Handle form submission
-   * @param {Event} e - Form submit event
-   */
-  const handleSubmit = async (e) => {
+  // Forgot password mutation
+  const forgotPasswordMutation = useMutation({
+    mutationFn: (email) => authAPI.forgotPassword(email),
+    onSuccess: () => {
+      setSuccessMessage("Link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam Anda.");
+      setShowModal(true);
+    },
+    onError: (error) => {
+      console.error("Forgot password error:", error);
+      if (error.response && error.response.data && error.response.data.message) {
+        setErrorMessage(error.response.data.message);
+      } else {
+        setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+      }
+      setEmailError(true);
+    }
+  });
+
+  // Resend email mutation
+  const resendEmailMutation = useMutation({
+    mutationFn: (email) => authAPI.forgotPassword(email),
+    onSuccess: () => {
+      setSuccessMessage("Link reset password telah dikirim ulang ke email Anda.");
+    },
+    onError: (error) => {
+      console.error("Resend email error:", error);
+      setErrorMessage("Gagal mengirim ulang email. Silakan coba lagi nanti.");
+      setShowModal(false);
+    }
+  });
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     
     // Reset messages
@@ -52,64 +72,16 @@ const ForgotPassword = () => {
       return;
     }
     
-    // Set loading state
-    setIsSubmitting(true);
-    
-    try {
-      // API call simulation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // For demo purposes, we'll simulate an error for specific test emails
-      if (email === "notfound@example.com") {
-        setErrorMessage("Email tidak ditemukan. Pastikan email yang kamu masukkan sudah benar terdaftar");
-        setEmailError(true);
-        return;
-      }
-      
-      // Simulate successful request
-      console.log("Reset password email sent to:", email);
-      setSuccessMessage("Link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam Anda.");
-      setShowModal(true); // Show the success modal
-      
-    } catch (error) {
-      // Handle any unexpected errors
-      console.error("Forgot password error:", error);
-      setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Execute forgot password mutation
+    forgotPasswordMutation.mutate(email);
   };
 
-  /**
-   * Handle modal close
-   */
   const handleCloseModal = () => {
     setShowModal(false);
-    // Optionally, you can redirect to login page after closing modal
-    // window.location.href = "/login";
   };
 
-  /**
-   * Handle resend email
-   */
-  const handleResendEmail = async () => {
-    setIsSubmitting(true);
-    
-    try {
-      // Simulate API call for resending email
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Resent password reset email to:", email);
-      // You might want to show a different message for resend
-      setSuccessMessage("Link reset password telah dikirim ulang ke email Anda.");
-      
-    } catch (error) {
-      console.error("Resend error:", error);
-      setErrorMessage("Gagal mengirim ulang email. Silakan coba lagi nanti.");
-      setShowModal(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleResendEmail = () => {
+    resendEmailMutation.mutate(email);
   };
 
   return (
@@ -183,7 +155,7 @@ const ForgotPassword = () => {
                       }
                     }}
                     className={`flex-1 outline-none text-base ${emailError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}
-                    disabled={isSubmitting}
+                    disabled={forgotPasswordMutation.isPending}
                   />
                 </div>
               </div>
@@ -192,10 +164,10 @@ const ForgotPassword = () => {
             {/* Submit button */}
             <button 
               type="submit"
-              disabled={isSubmitting}
-              className={`mb-10 md:mb-20 text-base text-white bg-primary hover:bg-primary-variant1 transition-colors flex items-center justify-center h-[52px] rounded-[50px] w-full hover:scale-[1.01] active:scale-[0.99] transition-transform ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={forgotPasswordMutation.isPending}
+              className={`mb-10 md:mb-20 text-base text-white bg-primary hover:bg-primary-variant1 transition-colors flex items-center justify-center h-[52px] rounded-[50px] w-full hover:scale-[1.01] active:scale-[0.99] transition-transform ${forgotPasswordMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              {isSubmitting ? (
+              {forgotPasswordMutation.isPending ? (
                 <span className="flex items-center">
                   <span className="material-icons animate-spin mr-2">
                     sync
@@ -209,7 +181,7 @@ const ForgotPassword = () => {
             <a
               href="/login"
               className="flex gap-1.5 items-center text-xs cursor-pointer text-zinc-500 hover:text-primary transition-colors hover:-translate-x-1 transition-transform"
-              tabIndex={isSubmitting ? -1 : 0}
+              tabIndex={forgotPasswordMutation.isPending ? -1 : 0}
             >
               <span className="material-icons text-[18px]">
                 arrow_back
@@ -226,7 +198,7 @@ const ForgotPassword = () => {
           email={email}
           onClose={handleCloseModal}
           onResend={handleResendEmail}
-          isResending={isSubmitting}
+          isResending={resendEmailMutation.isPending}
         />
       )}
     </div>

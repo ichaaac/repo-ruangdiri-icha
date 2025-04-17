@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { authAPI } from "../../../api/auth";
 
 const PasswordRequirement = ({ isValid, text }) => {
   return (
@@ -33,9 +35,6 @@ const ResetPassword = () => {
   // Success message state
   const [successMessage, setSuccessMessage] = useState("");
   
-  // Loading state
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
   // Password validation state
   const [validations, setValidations] = useState({
     minLength: false,
@@ -43,6 +42,27 @@ const ResetPassword = () => {
     hasNumber: false,
     hasSpecialChar: false,
     passwordsMatch: false,
+  });
+
+  // Reset password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ token, newPassword }) => authAPI.resetPassword(token, newPassword),
+    onSuccess: () => {
+      setSuccessMessage("Password berhasil diubah. Anda akan diarahkan ke halaman Login.");
+      
+      // Redirect to login page after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    },
+    onError: (error) => {
+      console.error("Reset password error:", error);
+      if (error.response && error.response.data && error.response.data.message) {
+        setErrorMessage(error.response.data.message);
+      } else {
+        setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+      }
+    }
   });
 
   // Validate password as user types
@@ -64,7 +84,7 @@ const ResetPassword = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     
     // Reset errors
@@ -88,28 +108,8 @@ const ResetPassword = () => {
       return;
     }
     
-    // Set loading state
-    setIsSubmitting(true);
-    
-    try {
-      // API call simulation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate successful password reset
-      console.log("Password reset successful");
-      setSuccessMessage("Password berhasil diubah. Anda akan diarahkan ke halaman Login.");
-      
-      // Redirect to login page after 2 seconds
-      setTimeout(() => {
-        console.log("Redirecting to login page...");
-      }, 2000);
-      
-    } catch (error) {
-      console.error("Reset password error:", error);
-      setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Execute reset password mutation
+    resetPasswordMutation.mutate({ token, newPassword: password });
   };
 
   return (
@@ -175,11 +175,11 @@ const ResetPassword = () => {
                       }
                     }}
                     className={`flex-1 outline-none text-base ${passwordError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}
-                    disabled={isSubmitting}
+                    disabled={resetPasswordMutation.isPending}
                   />
                   <span
                     className={`material-icons cursor-pointer ${passwordError ? 'text-rose-500' : 'text-[#8B8B8B]'} hover:scale-110 transition-transform`}
-                    onClick={!isSubmitting ? togglePasswordVisibility : undefined}
+                    onClick={!resetPasswordMutation.isPending ? togglePasswordVisibility : undefined}
                   >
                     {showPassword ? "visibility" : "visibility_off"}
                   </span>
@@ -231,11 +231,11 @@ const ResetPassword = () => {
                       }
                     }}
                     className={`flex-1 outline-none text-base ${confirmPasswordError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}
-                    disabled={isSubmitting}
+                    disabled={resetPasswordMutation.isPending}
                   />
                   <span
                     className={`material-icons cursor-pointer ${confirmPasswordError ? 'text-rose-500' : 'text-[#8B8B8B]'} hover:scale-110 transition-transform`}
-                    onClick={!isSubmitting ? toggleConfirmPasswordVisibility : undefined}
+                    onClick={!resetPasswordMutation.isPending ? toggleConfirmPasswordVisibility : undefined}
                   >
                     {showConfirmPassword ? "visibility" : "visibility_off"}
                   </span>
@@ -246,10 +246,10 @@ const ResetPassword = () => {
             {/* Submit button */}
             <button 
               type="submit"
-              disabled={isSubmitting}
-              className={`mb-10 text-base text-white bg-primary hover:bg-primary-variant1 transition-colors flex items-center justify-center h-[52px] rounded-[50px] w-full hover:scale-[1.01] active:scale-[0.99] transition-transform ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={resetPasswordMutation.isPending}
+              className={`mb-10 text-base text-white bg-primary hover:bg-primary-variant1 transition-colors flex items-center justify-center h-[52px] rounded-[50px] w-full hover:scale-[1.01] active:scale-[0.99] transition-transform ${resetPasswordMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              {isSubmitting ? (
+              {resetPasswordMutation.isPending ? (
                 <span className="flex items-center">
                   <span className="material-icons animate-spin mr-2">
                     sync
@@ -263,7 +263,7 @@ const ResetPassword = () => {
             <a
               href="/login"
               className="flex gap-1.5 items-center text-xs cursor-pointer text-zinc-500 hover:text-primary transition-colors mt-4 hover:-translate-x-1 transition-transform"
-              tabIndex={isSubmitting ? -1 : 0}
+              tabIndex={resetPasswordMutation.isPending ? -1 : 0}
             >
               <span className="material-icons text-[18px]">
                 arrow_back

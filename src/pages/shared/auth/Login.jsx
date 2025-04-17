@@ -1,8 +1,11 @@
 "use client";
 import React, { useState } from "react";
-
+import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { authAPI } from "../../../api/auth";
 
 const Login = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -12,8 +15,39 @@ const Login = () => {
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+
+  // Login mutation
+  const loginMutation = useMutation({
+    mutationFn: (credentials) => authAPI.login(credentials),
+    onSuccess: (data) => {
+      // Store token and user data
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Redirect based on user role
+      if (data.user.role === 'school') {
+        navigate('/school/dashboard');
+      } else {
+        navigate('/');
+      }
+    },
+    onError: (error) => {
+      console.error('Login error:', error);
+      if (error.response && error.response.data) {
+        if (error.response.status === 401) {
+          setErrorMessage('Email atau password tidak valid.');
+          setPasswordError(true);
+        } else if (error.response.data.message) {
+          setErrorMessage(error.response.data.message);
+        } else {
+          setErrorMessage('Terjadi kesalahan. Silakan coba lagi nanti.');
+        }
+      } else {
+        setErrorMessage('Terjadi kesalahan. Silakan coba lagi nanti.');
+      }
+    }
+  });
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -35,7 +69,7 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     
     setErrorMessage("");
@@ -61,33 +95,8 @@ const Login = () => {
       return;
     }
     
-    setIsSubmitting(true);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulating an unregistered email error
-      if (email === "test@unregistered.com") {
-        setErrorMessage("Email tidak terdaftar. Silakan daftar terlebih dahulu atau periksa kembali email Anda.");
-        setEmailError(true);
-        return;
-      }
-      
-      // Simulating incorrect password
-      if (password && password.length < 6) {
-        setErrorMessage("Password tidak valid. Periksa kembali password Anda.");
-        setPasswordError(true);
-        return;
-      }
-      
-      console.log("Login successful:", { email, password, rememberMe });
-      
-    } catch (error) {
-      console.error("Login error:", error);
-      setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Execute login mutation
+    loginMutation.mutate({ email, password, rememberMe });
   };
 
   return (
@@ -121,8 +130,6 @@ const Login = () => {
             </div>
           )}
 
-          
-
           <form onSubmit={handleSubmit}>
             {/* Email input */}
             <div className={`flex gap-2.5 items-center px-6 py-3 mb-6 bg-white border-solid border ${emailError ? 'border-rose-500' : 'border-zinc-500'} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}>
@@ -141,7 +148,7 @@ const Login = () => {
                     setErrorMessage("");
                   }
                 }}
-                disabled={isSubmitting}
+                disabled={loginMutation.isPending}
                 required
               />
             </div>
@@ -163,12 +170,12 @@ const Login = () => {
                     setErrorMessage("");
                   }
                 }}
-                disabled={isSubmitting}
+                disabled={loginMutation.isPending}
                 required
               />
               <span
                 className={`material-icons cursor-pointer hover:scale-110 transition-transform ${passwordError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}
-                onClick={!isSubmitting ? togglePasswordVisibility : undefined}
+                onClick={!loginMutation.isPending ? togglePasswordVisibility : undefined}
               >
                 {showPassword ? "visibility" : "visibility_off"}
               </span>
@@ -182,8 +189,8 @@ const Login = () => {
                     type="checkbox"
                     className="sr-only"
                     checked={rememberMe}
-                    onChange={() => !isSubmitting && setRememberMe(!rememberMe)}
-                    disabled={isSubmitting}
+                    onChange={() => !loginMutation.isPending && setRememberMe(!rememberMe)}
+                    disabled={loginMutation.isPending}
                   />
                   <span className="material-icons text-lg" style={{ color: rememberMe ? '#488BBE' : '#8B8B8B' }}>
                     {rememberMe ? 'check_circle' : 'circle'}
@@ -195,7 +202,7 @@ const Login = () => {
               <a
                 href="/forgot-password"
                 className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"
-                tabIndex={isSubmitting ? -1 : 0}
+                tabIndex={loginMutation.isPending ? -1 : 0}
               >
                 Lupa Password?
               </a>
@@ -205,7 +212,7 @@ const Login = () => {
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              disabled={isGoogleSubmitting || isSubmitting}
+              disabled={isGoogleSubmitting || loginMutation.isPending}
               className="w-full mb-4 flex items-center justify-center gap-3 h-[52px] rounded-[50px] border border-zinc-300 bg-white text-zinc-800 font-medium hover:bg-gray-50 transition-colors hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-transform"
             >
               {isGoogleSubmitting ? (
@@ -228,11 +235,11 @@ const Login = () => {
             {/* Submit button */}
             <button
               type="submit"
-              disabled={isSubmitting || isGoogleSubmitting}
+              disabled={loginMutation.isPending || isGoogleSubmitting}
               className={`mb-4 w-full text-base text-white bg-primary cursor-pointer border-none h-[52px] rounded-[50px] hover:bg-primary-variant1 transition-colors flex items-center justify-center hover:scale-[1.01] active:scale-[0.99] transition-transform
-                        ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        ${loginMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              {isSubmitting ? (
+              {loginMutation.isPending ? (
                 <span className="flex items-center">
                   <span className="material-icons animate-spin mr-2">
                     sync
@@ -248,7 +255,7 @@ const Login = () => {
               <a
                 href="#"
                 className="font-bold text-orange-400 underline hover:text-orange-500 hover:scale-[1.05] inline-block transition-transform"
-                tabIndex={isSubmitting ? -1 : 0}
+                tabIndex={loginMutation.isPending ? -1 : 0}
               >
                 Kontak Kami
               </a>
