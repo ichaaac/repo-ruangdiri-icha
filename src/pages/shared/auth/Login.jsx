@@ -1,40 +1,47 @@
 "use client";
 import React, { useState } from "react";
 
-/**
- * Login component
- * Handles user authentication with email and password
- * 
- * @returns {JSX.Element} The Login component
- */
+
 const Login = () => {
-  // Form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   
-  // Error handling
   const [errorMessage, setErrorMessage] = useState("");
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
   
-  // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+  
+  const handleGoogleSignIn = async () => {
+    setIsGoogleSubmitting(true);
+    try {
+      // Simulate Google sign-in process
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      console.log("Google Sign-in initiated");
+      
+      // In a real implementation, this would redirect to Google Auth
+    } catch (error) {
+      console.error("Google Sign-in error:", error);
+      setErrorMessage("Terjadi kesalahan saat masuk dengan Google. Silakan coba lagi.");
+    } finally {
+      setIsGoogleSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Reset errors
     setErrorMessage("");
     setEmailError(false);
     setPasswordError(false);
     
-    // Validate inputs
     if (!email.trim()) {
       setErrorMessage("Email tidak boleh kosong");
       setEmailError(true);
@@ -47,7 +54,6 @@ const Login = () => {
       return;
     }
     
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setErrorMessage("Format email tidak valid");
@@ -55,11 +61,9 @@ const Login = () => {
       return;
     }
     
-    // Set loading state
     setIsSubmitting(true);
     
     try {
-      // API call simulation
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Simulating an unregistered email error
@@ -76,7 +80,6 @@ const Login = () => {
         return;
       }
       
-      // Simulate successful login
       console.log("Login successful:", { email, password, rememberMe });
       
     } catch (error) {
@@ -117,6 +120,8 @@ const Login = () => {
               {errorMessage}
             </div>
           )}
+
+          
 
           <form onSubmit={handleSubmit}>
             {/* Email input */}
@@ -196,10 +201,34 @@ const Login = () => {
               </a>
             </div>
 
+            {/* Google Sign In Button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleSubmitting || isSubmitting}
+              className="w-full mb-4 flex items-center justify-center gap-3 h-[52px] rounded-[50px] border border-zinc-300 bg-white text-zinc-800 font-medium hover:bg-gray-50 transition-colors hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-transform"
+            >
+              {isGoogleSubmitting ? (
+                <span className="material-icons animate-spin">sync</span>
+              ) : (
+                <>
+                  <img src="/logo/google-logo.png" alt="Google" className="w-5 h-5" />
+                  <span>Masuk dengan Google</span>
+                </>
+              )}
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center mb-4">
+              <div className="flex-grow h-px bg-[#D9D9D9]"></div>
+              <span className="px-4 text-sm text-zinc-500">Atau</span>
+              <div className="flex-grow h-px bg-[#D9D9D9]"></div>
+            </div>
+            
             {/* Submit button */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isGoogleSubmitting}
               className={`mb-4 w-full text-base text-white bg-primary cursor-pointer border-none h-[52px] rounded-[50px] hover:bg-primary-variant1 transition-colors flex items-center justify-center hover:scale-[1.01] active:scale-[0.99] transition-transform
                         ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
