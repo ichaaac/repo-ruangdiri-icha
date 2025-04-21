@@ -6,6 +6,7 @@ import Login from "../pages/shared/auth/Login.jsx";
 import ForgotPassword from "../pages/shared/auth/ForgotPassword.jsx";
 import ResetPassword from "../pages/shared/auth/ResetPassword.jsx";
 import SchoolDashboard from "../pages/school/SchoolDashboard.jsx";
+import ProfilePage from "../pages/school/ProfilePage.jsx";
 
 // Protected route component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -31,6 +32,8 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/profile" element={<ProfilePage />} />
+
       
       {/* Protected routes */}
       <Route 
