@@ -13,9 +13,10 @@ const Sidebar = ({ expanded, setExpanded }) => {
   // Gmail-like behavior: expand on hover when collapsed
   useEffect(() => {
     if (!expanded && hovered) {
+      // Increased timeout to 1000ms to make hover state last longer
       const timer = setTimeout(() => {
         setHovered(false);
-      }, 300);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [expanded, hovered]);
@@ -24,10 +25,10 @@ const Sidebar = ({ expanded, setExpanded }) => {
   
   return (
     <nav 
-      className="fixed top-[123px] left-0 h-[687px] bg-white shadow-lg z-10 transition-all duration-300 ease-in-out border-r border-gray-200"
+      className="fixed top-[123px] left-0 h-[calc(100vh-123px)] bg-white shadow-lg z-20 transition-all duration-300 ease-in-out border-r border-gray-200"
       style={{ width: isOpen ? '200px' : '69px' }}
       onMouseEnter={() => !expanded && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => !expanded && setHovered(false)}
     >
       <div className="flex overflow-hidden z-10 flex-col items-start w-full px-4 py-5">
         {sidebarItems.map((item, index) => (
@@ -51,16 +52,16 @@ const Sidebar = ({ expanded, setExpanded }) => {
         ))}
       </div>
       
-      {/* Collapse/Expand button */}
+      {/* Collapse/Expand button - Increased size */}
       <div 
-        className="absolute cursor-pointer top-4"
+        className="absolute cursor-pointer top-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-all"
         style={{ 
           left: isOpen ? '160px' : '30px',
           transition: 'left 0.3s ease-in-out'
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="material-icons text-primary-variant1 text-sm">
+        <span className="material-icons text-primary-variant1 text-xl">
           {isOpen ? 'keyboard_double_arrow_left' : 'keyboard_double_arrow_right'}
         </span>
       </div>

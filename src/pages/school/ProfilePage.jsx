@@ -82,39 +82,37 @@ const ProfilePage = () => {
     <div className="min-h-screen bg-[#F8F7FA]">
       <Navbar />
       
-      <div className="flex">
+      <div className="flex pt-[123px]">
         <Sidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} />
         
         <div 
-          className="w-full transition-all duration-300 ease-in-out"
+          className="w-full min-h-[calc(100vh-123px)] transition-all duration-300 ease-in-out relative"
           style={{ 
-            marginLeft: sidebarExpanded ? '200px' : '69px', 
-            paddingLeft: '36px' 
+            marginLeft: sidebarExpanded ? '200px' : '69px'
           }}
         >
-          <section 
-            className="flex flex-wrap self-end w-full max-w-[1440px] max-md:max-w-full"
+          {/* Full-screen background */}
+          <div 
+            className="absolute inset-0 z-0"
             style={{
               background: `url('/layanan-kami-bg.svg')`,
               backgroundSize: "cover",
               backgroundPosition: "center"
             }}
-          >
-
-            <div className="flex flex-wrap flex-auto gap-8 px-20 py-9 max-md:px-5 max-md:max-w-full">
-              
-              <ProfileFormCard 
-                isEditing={isEditing}
-                setIsEditing={setIsEditing}
-                formData={formData}
-                handleChange={handleChange}
-                handleSave={handleSave}
-                handleCancel={handleCancel}
-                profilePhoto={isEditing ? tempProfilePhoto : profilePhoto}
-                setProfilePhoto={setTempProfilePhoto}
-              />
-            </div>
-          </section>
+          />
+          
+          <div className="relative z-10 p-6 md:p-10 w-full max-w-[1440px] mx-auto">
+            <ProfileFormCard 
+              isEditing={isEditing}
+              setIsEditing={setIsEditing}
+              formData={formData}
+              handleChange={handleChange}
+              handleSave={handleSave}
+              handleCancel={handleCancel}
+              profilePhoto={isEditing ? tempProfilePhoto : profilePhoto}
+              setProfilePhoto={setTempProfilePhoto}
+            />
+          </div>
         </div>
       </div>
 
@@ -158,30 +156,24 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
   };
 
   return (
-    <article className="flex flex-col grow shrink-0 py-11 pr-20 pl-7 bg-white rounded-xl basis-0 shadow-[0px_261px_73px_rgba(0,0,0,0)] w-[1145px] h-[618px] max-md:px-5 max-md:max-w-full mx-auto my-6">
-      <div className="flex flex-wrap gap-10 max-w-full w-[490px]">
-        <img
-          src="https://cdn.builder.io/api/v1/image/assets/73c81d79ac744ebdbace89fe9a639d99/84d390ab30367a8ca7cc56ced40fc86cb014f779?placeholderIfAbsent=true"
-          alt="Decoration"
-          className="object-contain shrink-0 self-end mt-32 aspect-[1.36] w-[19px] max-md:mt-10"
-        />
-        
+    <article className="flex flex-col grow shrink-0 py-8 md:py-11 px-6 md:px-10 bg-white rounded-xl shadow-md w-full max-w-[1145px] mx-auto my-6">
+      <div className="flex flex-wrap gap-10 max-w-full w-full md:w-[490px]">
         <div className="flex flex-col grow shrink-0 basis-0 w-fit">
-          <h1 className="self-start text-3xl font-bold leading-none text-blue-500">
+          <h1 className="self-start text-2xl md:text-3xl font-bold leading-none text-blue-500">
             Profil
           </h1>
 
-          <div className="flex gap-5 justify-between mt-7">
-            <div className={`w-[148.39px] h-[148.39px] rounded-full border-4 ${profilePhoto ? 'border-accent' : 'border-[#d9d9d9]'} flex items-center justify-center relative`}>
+          <div className="flex flex-col md:flex-row gap-5 justify-between mt-7">
+            <div className={`w-[120px] h-[120px] md:w-[148.39px] md:h-[148.39px] rounded-full border-4 ${profilePhoto ? 'border-accent' : 'border-[#d9d9d9]'} flex items-center justify-center relative mx-auto md:mx-0`}>
               {profilePhoto ? (
                 <img 
                   src={profilePhoto || "/placeholder.svg"} 
                   alt="Profile" 
-                  className="w-[120px] h-[120px] rounded-full object-cover"
+                  className="w-[100px] h-[100px] md:w-[120px] md:h-[120px] rounded-full object-cover"
                 />
               ) : (
-                <div className="w-[120px] h-[120px] bg-[#d9d9d9] flex items-center justify-center rounded-full">
-                  <span className="material-symbols-outlined text-[60px] text-[#8B8B8B]">
+                <div className="w-[100px] h-[100px] md:w-[120px] md:h-[120px] bg-[#d9d9d9] flex items-center justify-center rounded-full">
+                  <span className="material-symbols-outlined text-[40px] md:text-[60px] text-[#8B8B8B]">
                     photo
                   </span>
                 </div>
@@ -197,9 +189,9 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
                 onChange={handlePhotoChange}
               />
             </div>
-            <div className="flex flex-col my-auto">
+            <div className="flex flex-col my-auto mx-auto md:mx-0">
               <button 
-                className={`gap-2.5 self-start px-5 py-2 text-base leading-none bg-zinc-100 rounded-[50px] text-neutral-500 ${isEditing ? 'hover:bg-zinc-200 cursor-pointer' : 'opacity-50 cursor-not-allowed'} transition-colors min-h-[35px]`}
+                className={`gap-2.5 self-start px-4 md:px-5 py-2 text-sm md:text-base leading-none bg-zinc-100 rounded-[50px] text-neutral-500 ${isEditing ? 'hover:bg-zinc-200 cursor-pointer' : 'opacity-50 cursor-not-allowed'} transition-colors min-h-[35px]`}
                 onClick={handleUploadClick}
                 disabled={!isEditing}
               >
@@ -215,11 +207,11 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
         </div>
       </div>
 
-      <div className="self-center px-5 py-6 mt-9 max-w-full bg-blue-50 rounded-xl w-[921px]">
-        <div className="flex gap-5 max-md:flex-col">
-          <div className="w-6/12 max-md:ml-0 max-md:w-full">
-            <div className="flex flex-col items-start w-full text-xs leading-5 text-zinc-500 max-md:mt-10">
-              <h2 className="text-3xl font-bold leading-none text-blue-500">
+      <div className="self-center px-4 md:px-5 py-5 md:py-6 mt-8 md:mt-9 max-w-full bg-blue-50 rounded-xl w-full md:w-[921px]">
+        <div className="flex flex-col md:flex-row gap-5">
+          <div className="w-full md:w-6/12">
+            <div className="flex flex-col items-start w-full text-xs leading-5 text-zinc-500">
+              <h2 className="text-xl md:text-3xl font-bold leading-none text-blue-500">
                 Informasi Sekolah
               </h2>
 
@@ -264,8 +256,8 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
             </div>
           </div>
 
-          <div className="ml-5 w-6/12 max-md:ml-0 max-md:w-full">
-            <div className="flex flex-col mt-10 w-full text-xs leading-5 max-md:mt-10">
+          <div className="w-full md:w-6/12 md:ml-5">
+            <div className="flex flex-col mt-6 md:mt-10 w-full text-xs leading-5">
               <label className="self-start text-zinc-400">
                 Email
               </label>
@@ -321,14 +313,14 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
                   <button 
                     type="button"
                     onClick={handleCancel}
-                    className="gap-3 self-stretch px-1.5 py-1 my-auto text-blue-500 min-h-7 rounded-[50px] w-[82px] border border-blue-500"
+                    className="gap-3 self-stretch px-3 py-1.5 my-auto text-blue-500 min-h-7 rounded-[50px] w-[82px] border border-blue-500 hover:bg-blue-50 transition-colors"
                   >
                     Batal
                   </button>
                   <button 
                     type="button"
                     onClick={handleSave}
-                    className="gap-3 self-stretch px-1.5 py-1 my-auto text-white bg-blue-500 hover:bg-blue-600 transition-colors min-h-7 rounded-[50px] w-[82px]"
+                    className="gap-3 self-stretch px-3 py-1.5 my-auto text-white bg-blue-500 hover:bg-blue-600 transition-colors min-h-7 rounded-[50px] w-[82px]"
                   >
                     Simpan
                   </button>
@@ -351,13 +343,15 @@ function SuccessModal({ onClose }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
+      onClick={onClose}
     >
       <motion.div 
-        className="bg-white rounded-xl w-[454px] py-10 flex flex-col items-center justify-center relative shadow-lg"
+        className="bg-white rounded-xl w-[90%] max-w-[454px] py-8 md:py-10 flex flex-col items-center justify-center relative shadow-lg"
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         transition={{ duration: 0.3 }}
+        onClick={(e) => e.stopPropagation()}
       >
         <button 
           onClick={onClose}
@@ -366,11 +360,11 @@ function SuccessModal({ onClose }) {
           <span className="material-icons">close</span>
         </button>
         
-        <span className="material-icons text-[80px] text-primary-variant1">
+        <span className="material-icons text-[60px] md:text-[80px] text-primary-variant1">
           check_circle
         </span>
         
-        <p className="text-xl mt-4 text-primary-variant1 font-bold">
+        <p className="text-lg md:text-xl mt-4 text-primary-variant1 font-bold text-center px-4">
           Profil kamu berhasil diubah!
         </p>
       </motion.div>
@@ -387,23 +381,25 @@ function CancelModal({ onCancel, onConfirm }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
+      onClick={onCancel}
     >
       <motion.div 
-        className="bg-white rounded-xl w-[454px] py-8 flex flex-col items-center justify-center relative shadow-lg"
+        className="bg-white rounded-xl w-[90%] max-w-[454px] py-6 md:py-8 flex flex-col items-center justify-center relative shadow-lg"
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         transition={{ duration: 0.3 }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <span className="material-icons text-[80px] text-[#EE4266]">
+        <span className="material-icons text-[60px] md:text-[80px] text-[#EE4266]">
           error
         </span>
         
-        <p className="text-xl mt-4 text-[#EE4266] font-bold">
+        <p className="text-lg md:text-xl mt-4 text-[#EE4266] font-bold text-center">
           Apakah kamu yakin?
         </p>
         
-        <p className="text-sm mt-3 text-[#8B8B8B] max-w-[300px] text-center">
+        <p className="text-sm mt-3 text-[#8B8B8B] max-w-[300px] text-center px-4">
           Perubahan yang belum disimpan akan hilang.
         </p>
         
@@ -412,14 +408,14 @@ function CancelModal({ onCancel, onConfirm }) {
         <div className="flex gap-4">
           <button 
             onClick={onCancel}
-            className="px-6 py-2 border border-[#EE4266] text-[#EE4266] rounded-[50px] hover:bg-red-50 transition-colors"
+            className="px-5 md:px-6 py-2 border border-[#EE4266] text-[#EE4266] rounded-[50px] hover:bg-red-50 transition-colors"
           >
             Batal
           </button>
           
           <button 
             onClick={onConfirm}
-            className="px-6 py-2 bg-[#EE4266] text-white rounded-[50px] hover:bg-red-700 transition-colors"
+            className="px-5 md:px-6 py-2 bg-[#EE4266] text-white rounded-[50px] hover:bg-red-700 transition-colors"
           >
             Ya
           </button>
