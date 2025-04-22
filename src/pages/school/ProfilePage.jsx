@@ -6,6 +6,7 @@ import Sidebar from "../../components/school/Sidebar";
 const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -78,17 +79,24 @@ const ProfilePage = () => {
     setHasChanges(false);
   };
   
+  // Determine effective sidebar state for content positioning
+  const isSidebarOpen = sidebarExpanded || sidebarHovered;
+  
   return (
     <div className="min-h-screen bg-[#F8F7FA]">
       <Navbar />
       
       <div className="flex pt-[123px]">
-        <Sidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} />
+        <Sidebar 
+          expanded={sidebarExpanded} 
+          setExpanded={setSidebarExpanded}
+          onHoverChange={setSidebarHovered}
+        />
         
         <div 
-          className="w-full min-h-[calc(100vh-123px)] transition-all duration-300 ease-in-out relative"
+          className="w-full min-h-[calc(100vh-123px)] transition-all duration-400 ease-in-out relative"
           style={{ 
-            marginLeft: sidebarExpanded ? '200px' : '69px'
+            marginLeft: isSidebarOpen ? '200px' : '69px'
           }}
         >
           {/* Full-screen background */}
@@ -159,7 +167,7 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
     <article className="flex flex-col grow shrink-0 py-8 md:py-11 px-6 md:px-10 bg-white rounded-xl shadow-md w-full max-w-[1145px] mx-auto my-6">
       <div className="flex flex-wrap gap-10 max-w-full w-full md:w-[490px]">
         <div className="flex flex-col grow shrink-0 basis-0 w-fit">
-          <h1 className="self-start text-2xl md:text-3xl font-bold leading-none text-blue-500">
+          <h1 className="self-start text-2xl md:text-3xl font-bold leading-none text-primary">
             Profil
           </h1>
 
@@ -211,7 +219,7 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
         <div className="flex flex-col md:flex-row gap-5">
           <div className="w-full md:w-6/12">
             <div className="flex flex-col items-start w-full text-xs leading-5 text-zinc-500">
-              <h2 className="text-xl md:text-3xl font-bold leading-none text-blue-500">
+              <h2 className="text-xl md:text-3xl font-bold leading-none text-primary">
                 Informasi Sekolah
               </h2>
 
@@ -338,7 +346,7 @@ function ProfileFormCard({ isEditing, setIsEditing, formData, handleChange, hand
 function SuccessModal({ onClose }) {
   return (
     <motion.div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-[#8DD0DEB2] flex items-center justify-center z-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -376,7 +384,7 @@ function SuccessModal({ onClose }) {
 function CancelModal({ onCancel, onConfirm }) {
   return (
     <motion.div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-[#8DD0DEB2] flex items-center justify-center z-50"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

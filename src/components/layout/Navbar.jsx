@@ -1,104 +1,81 @@
-"use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
-const Navbar = ({ activeTab }) => {
-  const [scrolled, setScrolled] = useState(false);
-  const [visible, setVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-
+const Navbar = () => {
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  // Close dropdown when clicking outside
   useEffect(() => {
-    let ticking = false;
-    
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY;
-          
-          setScrolled(currentScrollY > 20);
-          setVisible(currentScrollY <= lastScrollY || currentScrollY <= 20);
-          setLastScrollY(currentScrollY);
-          
-          ticking = false;
-        });
-        
-        ticking = true;
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false);
       }
-    };
+    }
     
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
-
-  const navItems = [
-    "Beranda", 
-    "Layanan Kami", 
-    "Tentang Kami", 
-    "Assesmen Diri", 
-    "Artikel"
-  ];
-
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownRef]);
+  
   return (
-    <header 
-      className={`w-full bg-white shadow-xl fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ${
-        scrolled ? 'shadow-md' : ''
-      } ${visible ? 'translate-y-0' : '-translate-y-full'}`}
-    >
-      <nav className="flex justify-between items-center px-12 mx-auto h-[123px] max-w-[1440px] max-md:px-8 max-sm:px-5 max-md:h-[100px] max-sm:h-[80px]">
-        <div className="flex gap-14 items-center max-md:gap-8 max-sm:gap-4">
-          {/* Logo */}
-          <div className="p-2.5 w-[120px] max-md:w-[100px] max-sm:w-[90px]">
-            <img
-              src="/logo/ruang-diri-logo.png"
-              alt="Ruang Diri Logo"
-              className="w-[100px] h-[89px] max-md:w-[80px] max-md:h-[70px] max-sm:w-[70px] max-sm:h-[60px]"
-            />
+    <header className="fixed top-0 left-0 right-0 flex flex-wrap gap-5 justify-between items-center px-14 h-[123px] w-full bg-white shadow-[0px_20px_20px_rgba(164,166,140,0.09)] max-md:px-5 max-md:max-w-full z-30">
+      <div className="flex flex-col justify-center self-start p-2.5 hover:opacity-90 transition-all duration-200 cursor-pointer">
+        <div className="overflow-hidden w-full">
+          <img
+            src="/logo/ruang-diri-logo.png"
+            alt="Ruang Diri Logo"
+            className="object-contain aspect-[1.12] w-[100px]"
+          />
+        </div>
+      </div>
+      <div className="flex gap-10 my-auto items-center">
+        <div className="my-auto text-sm font-bold text-center text-blue-500 cursor-pointer hover:opacity-80 transition-all duration-200">
+          ID /{" "}
+          <span style={{ fontWeight: 400, color: "rgba(139,139,139,1)" }} className="hover:text-primary-variant1 transition-colors">
+            EN
+          </span>
+        </div>
+        <div className="cursor-pointer hover:scale-110 transition-transform duration-200">
+          <span className="material-icons text-[#8B8B8B] text-2xl hover:text-primary-variant1 transition-colors">
+            notifications
+          </span>
+        </div>
+        <div className="relative" ref={dropdownRef}>
+          <div 
+            className="flex flex-col items-center cursor-pointer hover:scale-110 transition-transform duration-200"
+            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+          >
+            <span className="material-icons text-[46px] text-primary-variant1 hover:text-primary transition-colors">
+              account_circle
+            </span>
+            <span className="text-xs text-[#8B8B8B] hover:text-primary-variant1 transition-colors">Profil</span>
           </div>
-
-          {/* Navigation Links - Desktop Only */}
-          <ul className="flex gap-12 items-center max-md:hidden">
-            {navItems.map((item) => (
-              <li key={item} className="relative">
+          
+          {showProfileDropdown && (
+            <div className="absolute right-0 mt-[4px] w-[120px] bg-white rounded-md shadow-lg z-50 border border-gray-200">
+              <div className="py-2">
                 <a 
-                  href="#" 
-                  className={`text-xl text-[#8CC3EE] transition-all duration-200 hover:font-bold ${
-                    activeTab === item ? 'font-extrabold' : 'hover:text-[#488BBE]'
-                  }`}
+                  href="/school/profile"
+                  className="block px-4 py-2 text-sm text-primary-variant1 hover:bg-primary-light font-medium cursor-pointer transition-colors"
                 >
-                  {item}
+                  Profil
                 </a>
-                {activeTab === item && (
-                  <div className="flex absolute left-0 gap-1 bottom-[-7px]">
-                    <div className="bg-orange-400 h-[5px] w-[58px]" />
-                    <div className="bg-orange-400 h-[5px] w-[19px]" />
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+                <a 
+                  href="/school/settings"
+                  className="block px-4 py-2 text-sm text-primary-variant1 hover:bg-primary-light font-medium cursor-pointer transition-colors"
+                >
+                  Pengaturan
+                </a>
+                <div className="w-full h-[1px] bg-gray-200 my-1"></div>
+                <div className="px-4 py-2 text-sm text-rose-500 hover:bg-red-50 cursor-pointer font-medium transition-colors">
+                  Keluar
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Right Section - Language & Buttons - Desktop Only */}
-        <div className="flex gap-6 items-center max-md:hidden">
-          {/* Increased spacing between Artikel and language selector */}
-          <div className="text-sm text-zinc-500 ml-4">
-            <span className="font-bold text-[#8CC3EE]">ID /</span>
-            <span>EN</span>
-          </div>
-          <div className="flex gap-4 items-center">
-            <button className="px-8 py-3 h-11 text-sm font-bold text-[#8CC3EE] bg-white border border-[#8CC3EE] rounded-[44px] hover:bg-[#E2F9FF] transition-colors">
-              Masuk
-            </button>
-            <button className="px-8 py-3 h-11 text-sm font-bold text-white bg-[#8CC3EE] rounded-[44px] hover:bg-[#488BBE] transition-colors">
-              Daftar
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu Button */}
-        <button className="hidden max-md:block" aria-label="Toggle menu">
-          <span className="material-icons text-[#8CC3EE] text-2xl">menu</span>
-        </button>
-      </nav>
+      </div>
     </header>
   );
 };
