@@ -1,132 +1,201 @@
-import React, { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { Link, useLocation } from "react-router-dom"
+import { motion } from "framer-motion"
 
 const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
-  const [hovered, setHovered] = useState(false);
-  const hoverTimeoutRef = useRef(null);
-  
-  const sidebarItems = [
-    { icon: "bar_chart", label: "Dashboard", active: window.location.pathname === "/school/dashboard", href: "/school/dashboard" },
-    { icon: "table_chart", label: "Daftar Siswa", active: window.location.pathname === "/school/students", href: "/school/students" },
-    { icon: "calendar_month", label: "Jadwal", active: window.location.pathname === "/school/schedule", href: "/school/schedule" },
-    { icon: "brightness_5", label: "Pengaturan", active: window.location.pathname === "/school/settings", href: "/school/settings" },
-  ];
-  
-  // Toggle expanded state
-  const toggleExpanded = () => {
-    setExpanded(!expanded);
-  };
-  
-  const handleMouseEnter = () => {
-    if (!expanded) {
-      // Clear any existing timeout
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
+  const location = useLocation()
+  const [hovered, setHovered] = useState(false)
+  const hoverTimeoutRef = useRef(null)
+  const expandTimeoutRef = useRef(null)
+  const sidebarRef = useRef(null)
+
+  // Handle hover state changes with delay
+  const handleMouseEnter = (e) => {
+    // Only apply hover effect if mouse enters below the divider
+    if (e.clientY > 200) {
+      clearTimeout(hoverTimeoutRef.current)
+      setHovered(true)
+      if (onHoverChange) {
+        onHoverChange(true)
       }
-      
-      // Set a timeout before expanding
-      hoverTimeoutRef.current = setTimeout(() => {
-        setHovered(true);
-        if (onHoverChange) onHoverChange(true);
-      }, 300);
     }
-  };
-  
+  }
+
   const handleMouseLeave = () => {
-    // Clear any existing timeout
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    
-    // Set hovered to false immediately when mouse leaves
-    if (!expanded) {
-      setHovered(false);
-      if (onHoverChange) onHoverChange(false);
-    }
-  };
-  
-  // Clean up timeout on unmount
+    // Add delay before collapsing (500ms for smoother transition)
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHovered(false)
+      if (onHoverChange) {
+        onHoverChange(false)
+      }
+    }, 500)
+  }
+
+  // Toggle sidebar expansion with delay
+  const toggleSidebar = () => {
+    clearTimeout(expandTimeoutRef.current)
+    expandTimeoutRef.current = setTimeout(() => {
+      setExpanded(!expanded)
+    }, 100)
+  }
+
+  // Clean up timeouts
   useEffect(() => {
     return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-  
-  // Update parent component when expanded state changes
-  useEffect(() => {
-    if (onHoverChange) {
-      onHoverChange(hovered);
+      clearTimeout(hoverTimeoutRef.current)
+      clearTimeout(expandTimeoutRef.current)
     }
-  }, [hovered, onHoverChange]);
-  
-  const isOpen = expanded || hovered;
-  
-  return (
-    <motion.nav 
-      className="fixed top-[123px] left-0 h-[calc(100vh-123px)] bg-white shadow-lg z-20 border-r border-gray-200"
-      initial={{ width: '69px' }}
-      animate={{ width: isOpen ? '200px' : '69px' }}
-      transition={{ 
-        duration: 0.4, 
-        ease: [0.4, 0.0, 0.2, 1]  // Material Design standard easing
-      }}
-    >
-      {/* Toggle button centered horizontally */}
-      <div className="flex justify-center mt-3">
-        <motion.div 
-          className="cursor-pointer w-8 h-8 flex items-center justify-center hover:text-primary bg-white rounded-full transition-all hover:shadow-sm"
-          onClick={toggleExpanded}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <motion.span 
-            className="material-icons text-primary-variant1 text-lg"
-            initial={{ rotate: expanded ? 0 : 180 }}
-            animate={{ rotate: isOpen ? 0 : 180 }}
-            transition={{ duration: 0.3 }}
-          >
-            keyboard_double_arrow_left
-          </motion.span>
-        </motion.div>
-      </div>
-      
-      {/* Menu items with reduced spacing from toggle button */}
-      <div 
-        className="flex flex-col items-start w-full px-4 pt-8"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        {sidebarItems.map((item, index) => (
-          <motion.a 
-            key={index} 
-            href={item.href}
-            className={`flex items-center ${index === 0 ? '' : 'mt-5'} py-3 px-2 w-full rounded-md ${
-              item.active ? 'bg-primary-light' : 'hover:bg-gray-100'
-            } cursor-pointer`}
-            style={{ justifyContent: isOpen ? 'flex-start' : 'center' }}
-            whileHover={{ backgroundColor: item.active ? '#E2F9FF' : '#f7f7f7' }}
-          >
-            <span className={`material-icons ${item.active ? 'text-primary-variant1' : 'text-zinc-500'}`}>
-              {item.icon}
-            </span>
-            
-            <motion.div 
-              className={`ml-4 text-base leading-none ${item.active ? 'font-bold text-primary-variant1' : 'text-zinc-500'}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isOpen ? 1 : 0 }}
-              transition={{ duration: 0.3 }}
-              style={{ display: isOpen ? 'block' : 'none' }}
-            >
-              {item.label}
-            </motion.div>
-          </motion.a>
-        ))}
-      </div>
-    </motion.nav>
-  );
-};
+  }, [])
 
-export default Sidebar;
+  // Menu items
+  const menuItems = [
+    {
+      icon: "bar_chart",
+      label: "Dashboard",
+      path: "/school/dashboard",
+    },
+    {
+      icon: "table_chart",
+      label: "Daftar Karyawan",
+      path: "/school/employees",
+    },
+    {
+      icon: "calendar_month",
+      label: "Jadwal",
+      path: "/school/schedule",
+    },
+    {
+      icon: "brightness_5",
+      label: "Pengaturan",
+      path: "/school/settings",
+    },
+  ]
+
+  // Check if a menu item is active
+  const isActive = (path) => {
+    return location.pathname === path
+  }
+
+  return (
+    <motion.div
+      ref={sidebarRef}
+      className="fixed top-0 left-0 h-screen bg-[#F7F7F9] shadow-md z-40"
+      initial={{ width: expanded ? 240 : 69 }}
+      animate={{ width: expanded || hovered ? 240 : 69 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className="flex flex-col h-full">
+        {/* Logo */}
+        <div className="p-4 flex justify-center">
+          <motion.img
+            src="/logo/ruang-diri-logo.png"
+            alt="Ruang Diri Logo"
+            animate={{
+              width: expanded || hovered ? "64px" : "32px",
+              height: expanded || hovered ? "54px" : "27px",
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          />
+        </div>
+
+        {/* Admin Profile */}
+        <div className="mt-9 px-4 flex items-center">
+          <motion.div
+            className="rounded-full overflow-hidden"
+            animate={{
+              width: expanded || hovered ? "40px" : "37px",
+              height: expanded || hovered ? "40px" : "37px",
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <img
+              src="https://randomuser.me/api/portraits/men/1.jpg"
+              alt="Admin"
+              className="w-full h-full object-cover"
+            />
+          </motion.div>
+          <motion.div
+            className="ml-3"
+            initial={{ opacity: expanded ? 1 : 0, width: expanded ? "auto" : 0 }}
+            animate={{
+              opacity: expanded || hovered ? 1 : 0,
+              width: expanded || hovered ? "auto" : 0,
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="text-sm font-medium text-[#488BBE]">Admin</div>
+            <div className="text-xs text-[#488BBE] flex items-center">
+              PT Mencari Cinta Sejati
+              <span className="material-icons text-sm ml-1 text-[#488BBE]">expand_more</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Divider */}
+        <motion.div
+          className="mt-8 mx-auto h-[1px]"
+          style={{
+            backgroundColor: expanded || hovered ? "#D8EEFF" : "#8B8B8B",
+          }}
+          animate={{
+            width: expanded || hovered ? "237px" : "59px",
+          }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        ></motion.div>
+
+        {/* Toggle Button */}
+        <div
+          className="absolute"
+          style={{
+            top: "34px",
+            left: expanded ? "226px" : "48px",
+            transition: "left 0.3s ease-in-out",
+          }}
+        >
+          <button
+            onClick={toggleSidebar}
+            className="flex items-center justify-center w-[11px] h-[36px] bg-[#D8EEFF] text-[#488BBE] rounded-tl-[3px] rounded-bl-[3px]"
+            style={{ marginLeft: expanded ? "0" : "7px" }}
+          >
+            <span className="material-icons" style={{ fontSize: "11px" }}>
+              {expanded ? "keyboard_arrow_left" : "keyboard_arrow_right"}
+            </span>
+          </button>
+        </div>
+
+        {/* Navigation Menu */}
+        <div className="flex flex-col mt-8">
+          {menuItems.map((item, index) => (
+            <Link
+              key={index}
+              to={item.path}
+              className={`flex items-center mx-3 my-1 px-[17px] py-[8px] rounded-md transition-colors ${
+                isActive(item.path) ? "bg-[#488BBE] text-white" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
+              }`}
+              style={{ width: expanded || hovered ? "213px" : "auto", gap: "11px" }}
+            >
+              <span className="material-icons">{item.icon}</span>
+              <motion.span
+                initial={{ opacity: expanded ? 1 : 0, width: expanded ? "auto" : 0 }}
+                animate={{
+                  opacity: expanded || hovered ? 1 : 0,
+                  width: expanded || hovered ? "auto" : 0,
+                }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="whitespace-nowrap overflow-hidden"
+              >
+                {item.label}
+              </motion.span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+export default Sidebar
