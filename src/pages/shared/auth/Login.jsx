@@ -127,10 +127,8 @@ const Login = () => {
     }
     
     try {
-      // Execute login mutation
       loginMutation.mutate({ email, password, rememberMe });
     } catch (error) {
-      // This is a fallback in case of uncaught exceptions during mutation
       console.error("Uncaught exception in login mutation:", error);
       setErrorMessage("Terjadi kesalahan tak terduga. Silakan coba lagi.");
     }
@@ -176,7 +174,7 @@ const Login = () => {
               <input
                 type="email"
                 name="email"
-                placeholder="Email"
+                placeholder="Email / ID"
                 className={`w-full text-base border-none outline-none ${emailError ? 'text-rose-500' : 'text-zinc-500'}`}
                 value={email}
                 onChange={(e) => {
