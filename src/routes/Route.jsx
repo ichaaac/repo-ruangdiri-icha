@@ -8,24 +8,28 @@ import ResetPassword from "../pages/shared/auth/ResetPassword.jsx";
 import SchoolDashboard from "../pages/school/SchoolDashboard.jsx";
 import ProfilePage from "../pages/school/ProfilePage.jsx";
 import SettingsPage from "../pages/school/SettingsPage.jsx";
+import ProtectedLayout from "../components/layout/ProtectedLayout.jsx";
+
 const AppRoutes = () => {
-  return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/" element={<Homepage />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+	return (
+		<Routes>
+			{/* Public routes */}
+			<Route path="/" element={<Homepage />} />
+			<Route path="/login" element={<Login />} />
+			<Route path="/forgot-password" element={<ForgotPassword />} />
+			<Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* Unprotected routes sementara */}
-      <Route path="/school/dashboard" element={<SchoolDashboard />} />
-      <Route path="/school/profile" element={<ProfilePage />} />
-      <Route path="/school/settings" element={<SettingsPage />} />
+			{/* Unprotected routes sementara */}
+			<Route path="/school/dashboard" element={<SchoolDashboard />} />
+			<Route element={<ProtectedLayout />}>
+				<Route path="/school/profile" element={<ProfilePage />} />
+				<Route path="/school/settings" element={<SettingsPage />} />
+			</Route>
 
-      {/* Redirect unknown paths to homepage */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
+			{/* Redirect unknown paths to homepage */}
+			<Route path="*" element={<Navigate to="/" replace />} />
+		</Routes>
+	);
 };
 
 export default AppRoutes;
