@@ -1,4 +1,3 @@
-// src/routes/Route.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Homepage from "../pages/shared/HomePage.jsx";
@@ -8,9 +7,9 @@ import ResetPassword from "../pages/shared/auth/ResetPassword.jsx";
 import SchoolDashboard from "../pages/school/SchoolDashboard.jsx";
 import ProfilePage from "../pages/school/ProfilePage.jsx";
 import SettingsPage from "../pages/school/SettingsPage.jsx";
-import ProtectedLayout from "../components/layout/ProtectedLayout.jsx";
 import EmployeeListPage from "../pages/organization/EmployeeListPage.jsx";
 import StudentListPage from "../pages/school/StudentListPage.jsx";
+import SchoolLayout from "../components/school/layout/SchoolLayout.jsx";
 
 const AppRoutes = () => {
 	return (
@@ -21,14 +20,14 @@ const AppRoutes = () => {
 			<Route path="/forgot-password" element={<ForgotPassword />} />
 			<Route path="/reset-password" element={<ResetPassword />} />
 			<Route path="/organization/list" element={<EmployeeListPage />} />
-			<Route path="/school/student-list" element={<StudentListPage />} />
 
 
 			{/* Unprotected routes sementara */}
 			<Route path="/school/dashboard" element={<SchoolDashboard />} />
-			<Route element={<ProtectedLayout />}>
+			<Route element={<SchoolLayout />}>
 				<Route path="/school/profile" element={<ProfilePage />} />
 				<Route path="/school/settings" element={<SettingsPage />} />
+				<Route path="/school/student-list" element={<StudentListPage />} />
 			</Route>
 
 			{/* Redirect unknown paths to homepage */}

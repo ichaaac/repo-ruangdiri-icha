@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import OrganizationSidebar from "../../components/organization/OrganizationSidebar"
 
 const generateEmployeeData = (count) => {
   const departments = ["Creative", "Finance", "Marketing", "IT", "HR", "Operations", "Sales"]
@@ -148,15 +147,27 @@ const EmployeeListPage = () => {
   }
 
   // Pagination controls
-  const nextPage = () => {
+  const goToFirstPage = () => {
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const goToNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1)
     }
   }
 
-  const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
+  const goToLastPage = () => {
+    if (currentPage !== totalPages) {
+      setCurrentPage(totalPages)
     }
   }
 
@@ -166,42 +177,35 @@ const EmployeeListPage = () => {
     }
   }
 
-  const getPageNumbers = () => {
+  // Render page numbers (1, 2, 3, ...)
+  const renderPageNumbers = () => {
     const pageNumbers = []
-    const maxPagesToShow = 5
-    
-    if (totalPages <= maxPagesToShow) {
-      // Show all pages if total pages is less than max pages to show
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i)
-      }
-    } else {
-      // Always include first page
-      pageNumbers.push(1)
-      
-      // Calculate start and end of page numbers to show
-      let startPage = Math.max(2, currentPage - 1)
-      let endPage = Math.min(totalPages - 1, currentPage + 1)
-      
-      // Add dots if there's a gap after first page
-      if (startPage > 2) {
-        pageNumbers.push('...')
-      }
-      
-      // Add pages in the middle
-      for (let i = startPage; i <= endPage; i++) {
-        pageNumbers.push(i)
-      }
-      
-      // Add dots if there's a gap before last page
-      if (endPage < totalPages - 1) {
-        pageNumbers.push('...')
-      }
-      
-      // Always include last page
-      pageNumbers.push(totalPages)
+    const maxVisiblePages = 3 // Show maximum 3 page numbers
+
+    let startPage = Math.max(1, currentPage - 1)
+    let endPage = Math.min(startPage + maxVisiblePages - 1, totalPages)
+
+    // Adjust start page if we're at the end to still show max visible pages
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
     }
-    
+
+    for (let i = startPage; i <= endPage; i++) {
+      pageNumbers.push(
+        <button
+          key={i}
+          onClick={() => goToPage(i)}
+          className={`flex items-center justify-center w-8 h-8 ${
+            i === currentPage
+              ? "bg-[#4E9DD3] text-white rounded"
+              : "text-[#6B7280] hover:bg-gray-100"
+          }`}
+        >
+          {i}
+        </button>
+      )
+    }
+
     return pageNumbers
   }
 
@@ -257,44 +261,28 @@ const EmployeeListPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header - Defined directly in the page */}
-      <div
-        className="fixed top-0 right-0 z-50 bg-white h-[60px] flex items-center justify-end px-6 shadow-sm"
-        style={{ 
-          left: isMobile ? (isSidebarOpen ? "240px" : "0") : (isSidebarOpen ? "240px" : "69px"), 
-          transition: "left 0.3s ease" 
-        }}
-      >
-        {isMobile && (
-          <button 
-            className="absolute left-4" 
-            onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          >
-            <span className="material-icons text-[#8b8b8b]">
-              {isSidebarOpen ? "close" : "menu"}
-            </span>
-          </button>
-        )}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[#8b8b8b] text-sm font-medium">ID / EN</span>
-          </div>
-
-          <div className="flex items-center">
-            <span className="material-icons text-[#8b8b8b]">notifications</span>
-          </div>
-        </div>
-      </div>
-
       <div className="flex">
         <OrganizationSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
 
         <div
-          className="w-full min-h-screen transition-all duration-300 ease-in-out pt-[60px] bg-white"
+          className="w-full min-h-screen transition-all duration-300 ease-in-out pt-4 bg-white"
           style={{
             marginLeft: isMobile ? (isSidebarOpen ? "240px" : "0") : (isSidebarOpen ? "240px" : "69px"),
           }}
         >
+          {/* Language and notification controls directly in the page */}
+          <div className="flex justify-end px-6 py-4 bg-white">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[#8b8b8b] text-sm font-medium">ID / <span className="font-normal">EN</span></span>
+              </div>
+
+              <div className="flex items-center">
+                <span className="material-icons text-[#8b8b8b] cursor-pointer hover:text-[#488BBE] transition-colors">notifications</span>
+              </div>
+            </div>
+          </div>
+          
           <div className="p-4 md:p-10 w-full max-w-[1440px] mx-auto">
             {/* Page Header - Part of the header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8">
@@ -600,83 +588,60 @@ const EmployeeListPage = () => {
                 </table>
               </div>
 
-              {/* Pagination */}
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Menampilkan <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> s/d <span className="font-medium">{Math.min(currentPage * pageSize, totalEmployees)}</span> dari <span className="font-medium">{totalEmployees}</span> karyawan
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={prevPage}
-                        disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="sr-only">Previous</span>
-                        <span className="material-icons text-[18px]">chevron_left</span>
-                      </button>
-                      
-                      {getPageNumbers().map((pageNumber, index) => (
-                        pageNumber === '...' ? (
-                          <span key={`ellipsis-${index}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={pageNumber}
-                            onClick={() => goToPage(pageNumber)}
-                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                              currentPage === pageNumber ? 'bg-[#488BBE] text-white' : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNumber}
-                          </button>
-                        )
-                      ))}
-                      
-                      <button
-                        onClick={nextPage}
-                        disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="sr-only">Next</span>
-                        <span className="material-icons text-[18px]">chevron_right</span>
-                      </button>
-                    </nav>
-                  </div>
+              {/* Customized Pagination - Directly in the page */}
+              <div className="flex items-center justify-center bg-[#F0F2F5] py-2">
+                {/* First page button */}
+                <button
+                  onClick={goToFirstPage}
+                  disabled={currentPage === 1}
+                  className={`flex items-center justify-center w-8 h-8 ${
+                    currentPage === 1 ? "text-gray-300 cursor-not-allowed" : "text-[#6B7280] hover:text-[#4E9DD3]"
+                  }`}
+                  aria-label="Go to first page"
+                >
+                  <span className="material-icons text-xl">first_page</span>
+                </button>
+
+                {/* Previous page button */}
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className={`flex items-center justify-center w-8 h-8 ${
+                    currentPage === 1 ? "text-gray-300 cursor-not-allowed" : "text-[#6B7280] hover:text-[#4E9DD3]"
+                  }`}
+                  aria-label="Go to previous page"
+                >
+                  <span className="material-icons text-xl">chevron_left</span>
+                </button>
+
+                {/* Page numbers */}
+                <div className="flex mx-1">
+                  {renderPageNumbers()}
                 </div>
-                
-                {/* Mobile pagination */}
-                <div className="flex flex-1 justify-between sm:hidden">
-                  <button
-                    onClick={prevPage}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1 ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Sebelumnya
-                  </button>
-                  <div className="text-sm text-gray-700 py-2">
-                    {currentPage} / {totalPages}
-                  </div>
-                  <button
-                    onClick={nextPage}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Selanjutnya
-                  </button>
-                </div>
+
+                {/* Next page button */}
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center justify-center w-8 h-8 ${
+                    currentPage === totalPages ? "text-gray-300 cursor-not-allowed" : "text-[#6B7280] hover:text-[#4E9DD3]"
+                  }`}
+                  aria-label="Go to next page"
+                >
+                  <span className="material-icons text-xl">chevron_right</span>
+                </button>
+
+                {/* Last page button */}
+                <button
+                  onClick={goToLastPage}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center justify-center w-8 h-8 ${
+                    currentPage === totalPages ? "text-gray-300 cursor-not-allowed" : "text-[#6B7280] hover:text-[#4E9DD3]"
+                  }`}
+                  aria-label="Go to last page"
+                >
+                  <span className="material-icons text-xl">last_page</span>
+                </button>
               </div>
             </div>
           </div>
