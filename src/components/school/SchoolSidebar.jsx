@@ -1,10 +1,8 @@
-"use client"
-
 import { useState, useEffect, useRef } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { motion } from "framer-motion"
 
-const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
+const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const location = useLocation()
   const [hovered, setHovered] = useState(false)
   const hoverTimeoutRef = useRef(null)
@@ -49,17 +47,17 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
     }
   }, [])
 
-  // Menu items
+  // Menu items for school
   const menuItems = [
     {
-      icon: "bar_chart",
+      icon: "dashboard",
       label: "Dashboard",
       path: "/school/dashboard",
     },
     {
-      icon: "table_chart",
-      label: "Daftar Karyawan",
-      path: "/school/employees",
+      icon: "people",
+      label: "Daftar Siswa",
+      path: "/school/students",
     },
     {
       icon: "calendar_month",
@@ -67,7 +65,12 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
       path: "/school/schedule",
     },
     {
-      icon: "brightness_5",
+      icon: "school",
+      label: "Profil Sekolah",
+      path: "/school/profile",
+    },
+    {
+      icon: "settings",
       label: "Pengaturan",
       path: "/school/settings",
     },
@@ -102,7 +105,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
           />
         </div>
 
-        {/* Admin Profile */}
+        {/* School Profile */}
         <div className="mt-9 px-4 flex items-center">
           <motion.div
             className="rounded-full overflow-hidden"
@@ -113,8 +116,8 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             <img
-              src="https://randomuser.me/api/portraits/men/1.jpg"
-              alt="Admin"
+              src="/school-avatar.jpg"
+              alt="School"
               className="w-full h-full object-cover"
             />
           </motion.div>
@@ -127,9 +130,9 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <div className="text-sm font-medium text-[#488BBE]">Admin</div>
+            <div className="text-sm font-medium text-[#488BBE]">SMA</div>
             <div className="text-xs text-[#488BBE] flex items-center">
-              PT Mencari Cinta Sejati
+              Veteran 007
               <span className="material-icons text-sm ml-1 text-[#488BBE]">expand_more</span>
             </div>
           </motion.div>
@@ -198,4 +201,4 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange }) => {
   )
 }
 
-export default Sidebar
+export default SchoolSidebar

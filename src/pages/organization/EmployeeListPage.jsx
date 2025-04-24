@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import Sidebar from "../../components/school/Sidebar"
+import OrganizationSidebar from "../../components/organization/OrganizationSidebar"
 
-const generateEmployeeData = (start, count) => {
+const generateEmployeeData = (count) => {
   const departments = ["Creative", "Finance", "Marketing", "IT", "HR", "Operations", "Sales"]
   const positions = ["Staff", "Head", "Manager", "Assistant", "Supervisor", "Director"]
   const screeningStatuses = ["warning", "error", "success"]
@@ -12,17 +12,13 @@ const generateEmployeeData = (start, count) => {
   const genders = ["L", "P"]
   const ages = ["25 Tahun", "28 Tahun", "30 Tahun", "32 Tahun", "35 Tahun", "36 Tahun", "40 Tahun", "42 Tahun"]
   const workDurations = ["1 Tahun", "2 Tahun", "3 Tahun", "4 Tahun", "5 Tahun", "6 Tahun", "7 Tahun"]
-  const employeeIds = Array.from({ length: count }, (_, i) => {
-    const id = start + i
-    return `EMP-${String(id).padStart(5, '0')}`
-  })
 
   return Array.from({ length: count }, (_, i) => {
-    const id = start + i
+    const id = i + 1
     const gender = genders[Math.floor(Math.random() * genders.length)]
     return {
       id,
-      employeeId: employeeIds[i],
+      employeeId: `EMP-${String(id).padStart(5, '0')}`,
       name: `Employee ${id}`,
       department: departments[Math.floor(Math.random() * departments.length)],
       position: positions[Math.floor(Math.random() * positions.length)],
@@ -36,30 +32,28 @@ const generateEmployeeData = (start, count) => {
   })
 }
 
-// Initial employee data
-const initialEmployeeData = generateEmployeeData(1, 20)
+// Initial employee data - we generate more than needed to simulate backend data
+const allEmployeeData = generateEmployeeData(50)
 
 const EmployeeListPage = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(true)
   const [sidebarHovered, setSidebarHovered] = useState(false)
-  const [employees, setEmployees] = useState([...initialEmployeeData])
-  const [displayedEmployees, setDisplayedEmployees] = useState([...initialEmployeeData.slice(0, 10)])
+  const [employees, setEmployees] = useState([...allEmployeeData])
+  const [filteredEmployees, setFilteredEmployees] = useState([...allEmployeeData])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null })
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
   const [hasChanges, setHasChanges] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [page, setPage] = useState(1)
-  const [hoveredEmployeeId, setHoveredEmployeeId] = useState(null)
   const [isMobile, setIsMobile] = useState(false)
-  const observerRef = useRef(null)
-  const listContainerRef = useRef(null)
 
-  const totalEmployees = employees.length
-  const femaleEmployees = employees.filter((emp) => emp.gender === "P").length
-  const maleEmployees = employees.filter((emp) => emp.gender === "L").length
+  const totalEmployees = filteredEmployees.length
+  const femaleEmployees = filteredEmployees.filter((emp) => emp.gender === "P").length
+  const maleEmployees = filteredEmployees.filter((emp) => emp.gender === "L").length
 
   // Check for mobile screen on mount and resize
   useEffect(() => {
@@ -78,29 +72,60 @@ const EmployeeListPage = () => {
       window.removeEventListener('resize', checkMobile)
     }
   }, [])
-  
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value)
-    setPage(1)
-    setDisplayedEmployees([])
-  }
 
+  // Filter employees based on search term
   useEffect(() => {
     if (searchTerm.trim() === "") {
-      setEmployees([...initialEmployeeData])
+      setFilteredEmployees([...allEmployeeData])
     } else {
-      const filtered = initialEmployeeData.filter(
+      const filtered = allEmployeeData.filter(
         (emp) =>
           emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
           emp.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
           emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()),
       )
-      setEmployees(filtered)
+      setFilteredEmployees(filtered)
     }
-
-    setDisplayedEmployees(employees.slice(0, 10))
+    
+    // Reset to first page when search changes
+    setCurrentPage(1)
   }, [searchTerm])
+
+  // Calculate total pages
+  useEffect(() => {
+    setTotalPages(Math.ceil(filteredEmployees.length / pageSize))
+  }, [filteredEmployees, pageSize])
+
+  // Apply sorting
+  useEffect(() => {
+    let sortedEmployees = [...filteredEmployees]
+    
+    if (sortConfig.key !== null) {
+      sortedEmployees.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === "ascending" ? -1 : 1
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === "ascending" ? 1 : -1
+        }
+        return 0
+      })
+    }
+    
+    setEmployees(sortedEmployees)
+  }, [filteredEmployees, sortConfig])
+
+  // Get current page data
+  const getCurrentPageData = () => {
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    return employees.slice(startIndex, endIndex)
+  }
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value)
+  }
 
   const requestSort = (key) => {
     let direction = "ascending"
@@ -112,24 +137,6 @@ const EmployeeListPage = () => {
     }
 
     setSortConfig({ key, direction })
-
-    if (direction === null) {
-      setEmployees([...initialEmployeeData])
-      return
-    }
-
-    const sortedItems = [...employees].sort((a, b) => {
-      if (a[key] < b[key]) {
-        return direction === "ascending" ? -1 : 1
-      }
-      if (a[key] > b[key]) {
-        return direction === "ascending" ? 1 : -1
-      }
-      return 0
-    })
-
-    setEmployees(sortedItems)
-    setDisplayedEmployees(sortedItems.slice(0, 10))
   }
 
   // Get sort icon
@@ -140,48 +147,63 @@ const EmployeeListPage = () => {
     return sortConfig.direction === "ascending" ? "arrow_upward" : "arrow_downward"
   }
 
-  const loadMoreEmployees = useCallback(() => {
-    if (isLoading) return
-
-    setIsLoading(true)
-
-    setTimeout(() => {
-      const nextPage = page + 1
-      const startIndex = displayedEmployees.length
-      const endIndex = startIndex + 10
-
-      // Add more employees if needed
-      if (employees.length < endIndex + 10) {
-        const newEmployees = generateEmployeeData(employees.length + 1, 20)
-        setEmployees((prev) => [...prev, ...newEmployees])
-      }
-
-      setDisplayedEmployees((prev) => [...prev, ...employees.slice(startIndex, endIndex)])
-      setPage(nextPage)
-      setIsLoading(false)
-    }, 1000)
-  }, [isLoading, page, employees, displayedEmployees.length])
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          loadMoreEmployees()
-        }
-      },
-      { threshold: 0.5 },
-    )
-
-    if (observerRef.current) {
-      observer.observe(observerRef.current)
+  // Pagination controls
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1)
     }
+  }
 
-    return () => {
-      if (observerRef.current) {
-        observer.unobserve(observerRef.current)
-      }
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1)
     }
-  }, [loadMoreEmployees])
+  }
+
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page)
+    }
+  }
+
+  const getPageNumbers = () => {
+    const pageNumbers = []
+    const maxPagesToShow = 5
+    
+    if (totalPages <= maxPagesToShow) {
+      // Show all pages if total pages is less than max pages to show
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i)
+      }
+    } else {
+      // Always include first page
+      pageNumbers.push(1)
+      
+      // Calculate start and end of page numbers to show
+      let startPage = Math.max(2, currentPage - 1)
+      let endPage = Math.min(totalPages - 1, currentPage + 1)
+      
+      // Add dots if there's a gap after first page
+      if (startPage > 2) {
+        pageNumbers.push('...')
+      }
+      
+      // Add pages in the middle
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i)
+      }
+      
+      // Add dots if there's a gap before last page
+      if (endPage < totalPages - 1) {
+        pageNumbers.push('...')
+      }
+      
+      // Always include last page
+      pageNumbers.push(totalPages)
+    }
+    
+    return pageNumbers
+  }
 
   // Edit functionality
   const startEditing = (id) => {
@@ -211,24 +233,14 @@ const EmployeeListPage = () => {
     if (!hasChanges) return // Prevent saving if no changes
 
     // In a real app, you would update the data in your backend
-    const updatedEmployees = employees.map((emp) => {
+    const updatedEmployees = filteredEmployees.map((emp) => {
       if (emp.id === id) {
         return { ...emp, ...editData }
       }
       return emp
     })
 
-    setEmployees(updatedEmployees)
-
-    // Update displayed employees
-    const updatedDisplayed = displayedEmployees.map((emp) => {
-      if (emp.id === id) {
-        return { ...emp, ...editData }
-      }
-      return emp
-    })
-
-    setDisplayedEmployees(updatedDisplayed)
+    setFilteredEmployees(updatedEmployees)
     setEditingId(null)
     setEditData({})
     setHasChanges(false)
@@ -275,7 +287,7 @@ const EmployeeListPage = () => {
       </div>
 
       <div className="flex">
-        <Sidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
+        <OrganizationSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
 
         <div
           className="w-full min-h-screen transition-all duration-300 ease-in-out pt-[60px] bg-white"
@@ -352,285 +364,318 @@ const EmployeeListPage = () => {
               </button>
             </div>
 
-            {/* Employee Table with Fixed Header and Scrollable Body */}
+            {/* Employee Table with Fixed Width Columns */}
             <div className="bg-white rounded-xl shadow-md overflow-hidden">
               <div className="overflow-x-auto">
-                <div className="overflow-hidden flex flex-col" style={{ maxHeight: "calc(100vh - 280px)" }}>
-                  {/* Fixed Table Header */}
-                  <table className="min-w-full">
-                    <thead className="bg-[#e8f5ff]">
-                      <tr>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                          onClick={() => requestSort("name")}
-                        >
+                <table className="min-w-full table-fixed">
+                  <thead className="bg-[#e8f5ff]">
+                    <tr>
+                      <th 
+                        className="w-[200px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                        onClick={() => requestSort("name")}
+                      >
+                        <div className="flex items-center">
+                          NAMA
+                          <span className="material-icons text-sm ml-1">{getSortIcon("name")}</span>
+                        </div>
+                      </th>
+                      <th 
+                        className="w-[120px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                        onClick={() => requestSort("employeeId")}
+                      >
+                        <div className="flex items-center">
+                          ID KARYAWAN
+                          <span className="material-icons text-sm ml-1">{getSortIcon("employeeId")}</span>
+                        </div>
+                      </th>
+                      <th className="w-[120px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider">
+                        DEPARTEMEN
+                      </th>
+                      <th className="w-[100px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider">
+                        JABATAN
+                      </th>
+                      <th className="w-[80px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider">
+                        JENIS KELAMIN
+                      </th>
+                      <th 
+                        className="w-[100px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                        onClick={() => requestSort("age")}
+                      >
+                        <div className="flex items-center">
+                          USIA
+                          <span className="material-icons text-sm ml-1">{getSortIcon("age")}</span>
+                        </div>
+                      </th>
+                      <th 
+                        className="w-[120px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                        onClick={() => requestSort("workDuration")}
+                      >
+                        <div className="flex items-center">
+                          LAMA BEKERJA
+                          <span className="material-icons text-sm ml-1">{getSortIcon("workDuration")}</span>
+                        </div>
+                      </th>
+                      <th className="w-[100px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider">
+                        SKRINING
+                      </th>
+                      <th className="w-[100px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider">
+                        KONSELING
+                      </th>
+                      <th className="w-[80px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider">
+                        AKSI
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getCurrentPageData().map((employee) => (
+                      <tr 
+                        key={employee.id}
+                        className="hover:bg-gradient-to-r from-white via-[#488BBE20] to-white transition-all duration-300"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            Nama
-                            <span className="material-icons text-sm ml-1">{getSortIcon("name")}</span>
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <img
+                                className="h-10 w-10 rounded-full"
+                                src={employee.image || "/placeholder.svg"}
+                                alt={employee.name}
+                              />
+                            </div>
+                            <div className="ml-4">
+                              {editingId === employee.id ? (
+                                <input
+                                  type="text"
+                                  name="name"
+                                  value={editData.name}
+                                  onChange={handleEditChange}
+                                  className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
+                                />
+                              ) : (
+                                <div className="text-sm font-medium text-gray-900">
+                                  {employee.name}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                          onClick={() => requestSort("employeeId")}
-                        >
-                          <div className="flex items-center">
-                            ID Karyawan
-                            <span className="material-icons text-sm ml-1">{getSortIcon("employeeId")}</span>
-                          </div>
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider whitespace-nowrap hidden md:table-cell"
-                        >
-                          Departemen
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider whitespace-nowrap hidden md:table-cell"
-                        >
-                          Jabatan
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider whitespace-nowrap"
-                        >
-                          Jenis Kelamin
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap hidden md:table-cell"
-                          onClick={() => requestSort("age")}
-                        >
-                          <div className="flex items-center">
-                            Usia
-                            <span className="material-icons text-sm ml-1">{getSortIcon("age")}</span>
-                          </div>
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap hidden md:table-cell"
-                          onClick={() => requestSort("workDuration")}
-                        >
-                          <div className="flex items-center">
-                            Lama Bekerja
-                            <span className="material-icons text-sm ml-1">{getSortIcon("workDuration")}</span>
-                          </div>
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider whitespace-nowrap"
-                        >
-                          Skrining
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider whitespace-nowrap hidden md:table-cell"
-                        >
-                          Konseling
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-3 md:px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider whitespace-nowrap"
-                        >
-                          Aksi
-                        </th>
-                      </tr>
-                    </thead>
-                  </table>
-
-                  {/* Scrollable Table Body */}
-                  <div className="overflow-y-auto" ref={listContainerRef} style={{ maxHeight: "calc(100vh - 320px)" }}>
-                    <table className="min-w-full">
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {displayedEmployees.map((employee) => (
-                          <tr
-                            key={employee.id}
-                            className="hover:bg-gradient-to-r from-white via-[#488BBE20] to-white transition-all duration-300"
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <input
+                              type="text"
+                              name="employeeId"
+                              value={editData.employeeId}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.employeeId}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <input
+                              type="text"
+                              name="department"
+                              value={editData.department}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.department}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <input
+                              type="text"
+                              name="position"
+                              value={editData.position}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.position}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <select
+                              name="gender"
+                              value={editData.gender}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
+                            >
+                              <option value="L">L</option>
+                              <option value="P">P</option>
+                            </select>
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.gender}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <input
+                              type="text"
+                              name="age"
+                              value={editData.age}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.age}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <input
+                              type="text"
+                              name="workDuration"
+                              value={editData.workDuration}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.workDuration}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                              employee.screening.status === "warning"
+                                ? "bg-red-100"
+                                : employee.screening.status === "error"
+                                  ? "bg-yellow-100"
+                                  : "bg-green-100"
+                            }`}
                           >
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-8 w-8 md:h-10 md:w-10">
-                                  <img
-                                    className="h-8 w-8 md:h-10 md:w-10 rounded-full"
-                                    src={employee.image || "/placeholder.svg"}
-                                    alt={employee.name}
-                                  />
-                                </div>
-                                <div className="ml-3 md:ml-4">
-                                  {editingId === employee.id ? (
-                                    <input
-                                      type="text"
-                                      name="name"
-                                      value={editData.name}
-                                      onChange={handleEditChange}
-                                      className="text-xs md:text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
-                                    />
-                                  ) : (
-                                    <div
-                                      className={`text-xs md:text-sm font-medium ${hoveredEmployeeId === employee.id ? "text-[#488BBE] underline cursor-pointer" : "text-gray-900"}`}
-                                      onMouseEnter={() => setHoveredEmployeeId(employee.id)}
-                                      onMouseLeave={() => setHoveredEmployeeId(null)}
-                                      title="Lihat Detail (Under Development)"
-                                    >
-                                      {employee.name}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                              {editingId === employee.id ? (
-                                <input
-                                  type="text"
-                                  name="employeeId"
-                                  value={editData.employeeId}
-                                  onChange={handleEditChange}
-                                  className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                                />
-                              ) : (
-                                <div className="text-xs md:text-sm text-gray-500">{employee.employeeId}</div>
-                              )}
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap hidden md:table-cell">
-                              {editingId === employee.id ? (
-                                <input
-                                  type="text"
-                                  name="department"
-                                  value={editData.department}
-                                  onChange={handleEditChange}
-                                  className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                                />
-                              ) : (
-                                <div className="text-xs md:text-sm text-gray-500">{employee.department}</div>
-                              )}
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap hidden md:table-cell">
-                              {editingId === employee.id ? (
-                                <input
-                                  type="text"
-                                  name="position"
-                                  value={editData.position}
-                                  onChange={handleEditChange}
-                                  className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                                />
-                              ) : (
-                                <div className="text-xs md:text-sm text-gray-500">{employee.position}</div>
-                              )}
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                              {editingId === employee.id ? (
-                                <select
-                                  name="gender"
-                                  value={editData.gender}
-                                  onChange={handleEditChange}
-                                  className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
-                                >
-                                  <option value="L">L</option>
-                                  <option value="P">P</option>
-                                </select>
-                              ) : (
-                                <div className="text-xs md:text-sm text-gray-500">{employee.gender}</div>
-                              )}
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap hidden md:table-cell">
-                              {editingId === employee.id ? (
-                                <input
-                                  type="text"
-                                  name="age"
-                                  value={editData.age}
-                                  onChange={handleEditChange}
-                                  className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                                />
-                              ) : (
-                                <div className="text-xs md:text-sm text-gray-500">{employee.age}</div>
-                              )}
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap hidden md:table-cell">
-                              {editingId === employee.id ? (
-                                <input
-                                  type="text"
-                                  name="workDuration"
-                                  value={editData.workDuration}
-                                  onChange={handleEditChange}
-                                  className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                                />
-                              ) : (
-                                <div className="text-xs md:text-sm text-gray-500">{employee.workDuration}</div>
-                              )}
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-center">
-                              <span
-                                className={`inline-flex items-center justify-center w-6 h-6 md:w-8 md:h-8 rounded-full ${
-                                  employee.screening.status === "warning"
-                                    ? "bg-red-100"
-                                    : employee.screening.status === "error"
-                                      ? "bg-yellow-100"
-                                      : "bg-green-100"
-                                }`}
+                            {employee.screening.status === "warning" && (
+                              <span className="material-icons text-red-500">warning</span>
+                            )}
+                            {employee.screening.status === "error" && (
+                              <span className="material-icons text-yellow-500">error</span>
+                            )}
+                            {employee.screening.status === "success" && (
+                              <span className="material-icons text-green-500">check_circle</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                          <span className={`${employee.counseling === "Sudah" ? "text-green-500" : "text-red-500"}`}>
+                            {employee.counseling}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                          {editingId === employee.id ? (
+                            <div className="flex space-x-2 justify-center">
+                              <button
+                                className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges ? "opacity-50 cursor-not-allowed" : ""}`}
+                                onClick={() => hasChanges && saveEditing(employee.id)}
+                                disabled={!hasChanges}
+                                aria-label="Save"
                               >
-                                {employee.screening.status === "warning" && (
-                                  <span className="material-icons text-sm md:text-base text-red-500">warning</span>
-                                )}
-                                {employee.screening.status === "error" && (
-                                  <span className="material-icons text-sm md:text-base text-yellow-500">error</span>
-                                )}
-                                {employee.screening.status === "success" && (
-                                  <span className="material-icons text-sm md:text-base text-green-500">check_circle</span>
-                                )}
-                              </span>
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-center hidden md:table-cell">
-                              <span className={`${employee.counseling === "Sudah" ? "text-green-500" : "text-red-500"}`}>
-                                {employee.counseling}
-                              </span>
-                            </td>
-                            <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-500 text-center">
-                              {editingId === employee.id ? (
-                                <div className="flex space-x-2 justify-center">
-                                  <button
-                                    className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges ? "opacity-50 cursor-not-allowed" : ""}`}
-                                    onClick={() => hasChanges && saveEditing(employee.id)}
-                                    disabled={!hasChanges}
-                                    aria-label="Save"
-                                  >
-                                    <span className="material-icons" style={{ fontSize: "20px" }}>
-                                      check_circle
-                                    </span>
-                                  </button>
-                                  <button className="text-[#EE4266] hover:text-red-700" onClick={cancelEditing} aria-label="Cancel">
-                                    <span className="material-icons" style={{ fontSize: "20px" }}>
-                                      cancel
-                                    </span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
-                                  onClick={() => editingId === null && startEditing(employee.id)}
-                                  disabled={editingId !== null}
-                                  aria-label="Edit employee"
-                                >
-                                  <span className="material-icons text-sm md:text-base">edit</span>
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                <span className="material-icons">
+                                  check_circle
+                                </span>
+                              </button>
+                              <button className="text-[#EE4266] hover:text-red-700" onClick={cancelEditing} aria-label="Cancel">
+                                <span className="material-icons">
+                                  cancel
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
+                              onClick={() => editingId === null && startEditing(employee.id)}
+                              disabled={editingId !== null}
+                              aria-label="Edit employee"
+                            >
+                              <span className="material-icons">edit</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-                    {/* Loading indicator for infinite scroll */}
-                    {isLoading && (
-                      <div className="flex justify-center items-center py-4" ref={observerRef}>
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#488BBE]"></div>
-                      </div>
-                    )}
-
-                    {/* Intersection observer target */}
-                    {!isLoading && <div ref={observerRef} className="h-4"></div>}
+              {/* Pagination */}
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Menampilkan <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> s/d <span className="font-medium">{Math.min(currentPage * pageSize, totalEmployees)}</span> dari <span className="font-medium">{totalEmployees}</span> karyawan
+                    </p>
                   </div>
+                  <div>
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                      <button
+                        onClick={prevPage}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                          currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="sr-only">Previous</span>
+                        <span className="material-icons text-[18px]">chevron_left</span>
+                      </button>
+                      
+                      {getPageNumbers().map((pageNumber, index) => (
+                        pageNumber === '...' ? (
+                          <span key={`ellipsis-${index}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                            ...
+                          </span>
+                        ) : (
+                          <button
+                            key={pageNumber}
+                            onClick={() => goToPage(pageNumber)}
+                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                              currentPage === pageNumber ? 'bg-[#488BBE] text-white' : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        )
+                      ))}
+                      
+                      <button
+                        onClick={nextPage}
+                        disabled={currentPage === totalPages}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                          currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="sr-only">Next</span>
+                        <span className="material-icons text-[18px]">chevron_right</span>
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+                
+                {/* Mobile pagination */}
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <button
+                    onClick={prevPage}
+                    disabled={currentPage === 1}
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                      currentPage === 1 ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    Sebelumnya
+                  </button>
+                  <div className="text-sm text-gray-700 py-2">
+                    {currentPage} / {totalPages}
+                  </div>
+                  <button
+                    onClick={nextPage}
+                    disabled={currentPage === totalPages}
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                      currentPage === totalPages ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    Selanjutnya
+                  </button>
                 </div>
               </div>
             </div>

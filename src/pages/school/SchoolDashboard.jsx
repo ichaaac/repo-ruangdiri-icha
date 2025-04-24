@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { Menu } from '@headlessui/react';
 import clsx from 'clsx';
-import SuccessModal from "../../components/dashboard/school/SuccessModal";
+import SuccessModal from "../../components/school/SuccessModal";
 
 function AtRiskStudentsList({ onClose }) {
   const [currentPage, setCurrentPage] = useState(2);

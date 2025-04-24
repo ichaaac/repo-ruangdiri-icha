@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/school/Navbar";
-import Sidebar from "../../components/school/Sidebar";
+import Sidebar from "../../components/school/SchoolSidebar";
 
 const SettingsPage = () => {
 	const [sidebarExpanded, setSidebarExpanded] = useState(false);
