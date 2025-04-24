@@ -10,6 +10,7 @@ import ProfilePage from "../pages/school/ProfilePage.jsx";
 import SettingsPage from "../pages/school/SettingsPage.jsx";
 import ProtectedLayout from "../components/layout/ProtectedLayout.jsx";
 import EmployeeListPage from "../pages/organization/EmployeeListPage.jsx";
+import StudentListPage from "../pages/school/StudentListPage.jsx";
 
 const AppRoutes = () => {
 	return (
@@ -20,6 +21,7 @@ const AppRoutes = () => {
 			<Route path="/forgot-password" element={<ForgotPassword />} />
 			<Route path="/reset-password" element={<ResetPassword />} />
 			<Route path="/organization/list" element={<EmployeeListPage />} />
+			<Route path="/school/student-list" element={<StudentListPage />} />
 
 
 			{/* Unprotected routes sementara */}
