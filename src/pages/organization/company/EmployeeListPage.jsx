@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-
+import OrganizationSidebar from "../../../components/organization/company/OrganizationSidebar"
 const generateEmployeeData = (count) => {
   const departments = ["Creative", "Finance", "Marketing", "IT", "HR", "Operations", "Sales"]
   const positions = ["Staff", "Head", "Manager", "Assistant", "Supervisor", "Director"]

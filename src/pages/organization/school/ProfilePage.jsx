@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Navbar from "../../components/school/Navbar";
-import Sidebar from "../../components/school/SchoolSidebar";
-
+import SchoolSidebar from "../../../components/organization/school/SchoolSidebar";
 const ProfilePage = () => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [sidebarExpanded, setSidebarExpanded] = useState(false);

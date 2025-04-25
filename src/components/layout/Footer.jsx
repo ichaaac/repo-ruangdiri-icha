@@ -1,4 +1,3 @@
-"use client";
 import React from "react";
 
 const Footer = () => {
@@ -44,11 +43,7 @@ const Footer = () => {
             </a>
           </div>
         </div>
-
-        {/* Divider */}
         <div className="border-t border-white/30 w-[90%] mx-auto my-8"></div>
-
-        {/* Copyright Section */}
         <div className="text-sm text-center text-white px-4 pb-14">
           <span>© 2025</span>{" "}
           <a href="https://ruangdiri.id/" className="text-white underline hover:text-white/80">

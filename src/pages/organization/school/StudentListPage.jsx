@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import SchoolSidebar from "../../components/school/SchoolSidebar"
-
+import SchoolSidebar from "../../../components/organization/school/SchoolSidebar"
 const generateStudentData = (count) => {
   const classes = ["10A", "10B", "10C", "11A", "11B", "11C", "12A", "12B", "12C"]
   const majors = ["IPA", "IPS", "Bahasa", "Unggulan"]
@@ -59,7 +58,6 @@ const StudentListPage = () => {
   const femaleStudents = filteredStudents.filter((student) => student.gender === "P").length
   const maleStudents = filteredStudents.filter((student) => student.gender === "L").length
 
-  // Check for mobile screen on mount and resize
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -77,7 +75,6 @@ const StudentListPage = () => {
     }
   }, [])
 
-  // Filter students based on search term
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredStudents([...allStudentData])
@@ -91,16 +88,13 @@ const StudentListPage = () => {
       setFilteredStudents(filtered)
     }
     
-    // Reset to first page when search changes
     setCurrentPage(1)
   }, [searchTerm])
 
-  // Calculate total pages
   useEffect(() => {
     setTotalPages(Math.ceil(filteredStudents.length / pageSize))
   }, [filteredStudents, pageSize])
 
-  // Apply sorting
   useEffect(() => {
     let sortedStudents = [...filteredStudents]
     
@@ -119,7 +113,6 @@ const StudentListPage = () => {
     setStudents(sortedStudents)
   }, [filteredStudents, sortConfig])
 
-  // Get current page data
   const getCurrentPageData = () => {
     const startIndex = (currentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
@@ -142,7 +135,6 @@ const StudentListPage = () => {
     setSortConfig({ key, direction })
   }
 
-  // Get sort icon
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) {
       return "sort"
