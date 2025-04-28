@@ -1,35 +1,40 @@
+// src/components/organization/company/layout/CompanyLayout.jsx
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import CompanySidebar from "../CompanySidebar";
 
 /**
  * Company layout wrapper component with sidebar
- * Simple layout that only includes sidebar and outlet
+ * Enhanced with synchronized content shifting behavior
  */
 const CompanyLayout = () => {
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false); // Start with collapsed sidebar
   const [sidebarHovered, setSidebarHovered] = useState(false);
   
-  // Determine effective sidebar state for content positioning
-  const isSidebarOpen = sidebarExpanded || sidebarHovered;
-
+  // Calculate content margin based on sidebar state
+  const contentMargin = sidebarExpanded || sidebarHovered ? '240px' : '64px';
+  
   return (
-    <div className="min-h-screen bg-white">
-      <div className="flex">
-        <CompanySidebar 
-          expanded={sidebarExpanded} 
-          setExpanded={setSidebarExpanded} 
-          onHoverChange={setSidebarHovered} 
-        />
+    <div className="min-h-screen bg-white overflow-x-hidden">
+      <CompanySidebar 
+        expanded={sidebarExpanded} 
+        setExpanded={setSidebarExpanded}
+        onHoverChange={(isHovered) => {
+          setSidebarHovered(isHovered);
+        }}
+      />
 
-        <div
-          className="w-full min-h-screen transition-all duration-300 ease-in-out"
-          style={{
-            marginLeft: isSidebarOpen ? "200px" : "70px",
-          }}
-        >
-          <Outlet />
-        </div>
+      <div
+        className="min-h-screen transition-all duration-300 ease-in-out"
+        style={{
+          marginLeft: contentMargin,
+          // Use the same transition timing as the sidebar to synchronize animations
+          transitionProperty: "margin-left",
+          transitionDuration: "0.3s",
+          transitionTimingFunction: "ease-in-out"
+        }}
+      >
+        <Outlet />
       </div>
     </div>
   );

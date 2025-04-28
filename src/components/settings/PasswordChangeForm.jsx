@@ -18,7 +18,6 @@ const PasswordChangeForm = ({ onCancel, onSubmit, isSubmitting = false }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   
-  // Form state using React Hook Form
   const { 
     register, 
     handleSubmit, 

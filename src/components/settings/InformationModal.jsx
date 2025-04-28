@@ -15,7 +15,7 @@ import { schoolProfileSchema, companyProfileSchema } from '../../schemas/validat
  */
 const InformationModal = ({ type = 'school', initialData = {}, onClose, onSubmit }) => {
   // Set up form validation with zod schema based on organization type
-  const { register, handleSubmit, watch, formState: { errors, isDirty, isValid } } = useForm({
+  const { register, handleSubmit, formState: { errors, isDirty, isValid } } = useForm({
     resolver: zodResolver(type === 'school' ? schoolProfileSchema : companyProfileSchema),
     defaultValues: {
       // School fields
@@ -32,7 +32,6 @@ const InformationModal = ({ type = 'school', initialData = {}, onClose, onSubmit
   });
 
   // Check if form has any changes to enable/disable submit button
-  const formValues = watch();
   const isFormChanged = isDirty && isValid;
 
   // Handle form submission
@@ -41,114 +40,124 @@ const InformationModal = ({ type = 'school', initialData = {}, onClose, onSubmit
   };
 
   return (
-    <form
-      onSubmit={handleSubmit(submitHandler)}
-      className="flex flex-col gap-2.5 justify-center items-center px-8 py-6 mx-auto max-w-none bg-white rounded-xl shadow-xl w-[523px] max-md:p-5 max-md:max-w-[991px] max-md:w-[90%] max-sm:p-4 max-sm:w-full max-sm:max-w-screen-sm"
-    >
-      <h2 className="mb-6 text-xl font-bold text-primary max-md:text-lg max-sm:text-base">
-        {type === 'school' ? 'Edit Informasi Sekolah' : 'Edit Informasi Organisasi'}
-      </h2>
-
-      {/* Name field - conditional based on type */}
-      <div className="flex flex-col gap-2.5 items-start w-full">
-        <label
-          htmlFor={type === 'school' ? 'schoolName' : 'companyName'}
-          className="text-xs text-zinc-500"
-        >
-          {type === 'school' ? 'Nama Sekolah' : 'Nama Organisasi'}
-        </label>
-        <input
-          type="text"
-          id={type === 'school' ? 'schoolName' : 'companyName'}
-          {...register(type === 'school' ? 'schoolName' : 'companyName')}
-          className="w-full rounded-md border border-solid border-zinc-500 h-[34px] px-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-        />
-        {errors[type === 'school' ? 'schoolName' : 'companyName'] && (
-          <span className="text-xs text-red-500">
-            {errors[type === 'school' ? 'schoolName' : 'companyName'].message}
-          </span>
-        )}
-      </div>
-
-      {/* Address field */}
-      <div className="flex flex-col gap-2.5 items-start w-full">
-        <label
-          htmlFor="address"
-          className="text-xs text-zinc-500"
-        >
-          Alamat
-        </label>
-        <input
-          type="text"
-          id="address"
-          {...register('address')}
-          className="w-full rounded-md border border-solid border-zinc-500 h-[34px] px-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-        />
-        {errors.address && (
-          <span className="text-xs text-red-500">{errors.address.message}</span>
-        )}
-      </div>
-
-      {/* Phone number field */}
-      <div className="flex flex-col gap-2.5 items-start w-full">
-        <label
-          htmlFor="phoneNumber"
-          className="text-xs text-zinc-500"
-        >
-          Nomor Telepon
-        </label>
-        <input
-          type="tel"
-          id="phoneNumber"
-          {...register('phoneNumber')}
-          className="w-full rounded-md border border-solid border-zinc-500 h-[34px] px-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-        />
-        {errors.phoneNumber && (
-          <span className="text-xs text-red-500">{errors.phoneNumber.message}</span>
-        )}
-      </div>
-
-      {/* Industry field - only for company */}
-      {type === 'company' && (
-        <div className="flex flex-col gap-2.5 items-start w-full">
-          <label
-            htmlFor="industry"
-            className="text-xs text-zinc-500"
-          >
-            Industri
-          </label>
-          <input
-            type="text"
-            id="industry"
-            {...register('industry')}
-            className="w-full rounded-md border border-solid border-zinc-500 h-[34px] px-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-          />
-          {errors.industry && (
-            <span className="text-xs text-red-500">{errors.industry.message}</span>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex justify-end gap-2 w-full mt-4">
-        <button
-          type="button"
+    <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-auto">
+      <div className="p-6 relative">
+        {/* Close button */}
+        <button 
           onClick={onClose}
-          className="h-8 text-base font-bold text-primary bg-white border border-primary hover:bg-primary-light rounded-md cursor-pointer px-4 flex items-center justify-center transition-colors duration-200"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          aria-label="Close"
         >
-          Batal
+          <span className="material-icons">cancel</span>
         </button>
-        <button
-          type="submit"
-          disabled={!isFormChanged}
-          className={`h-8 text-base font-bold text-white rounded-md cursor-pointer w-[114px] flex items-center justify-center transition-colors duration-200 ${
-            isFormChanged ? 'bg-primary hover:bg-primary-variant2' : 'bg-[#D9D9D9] cursor-not-allowed'
-          }`}
-        >
-          Simpan
-        </button>
+
+        <h2 className="text-xl font-bold text-primary mb-6">
+          {type === 'school' ? 'Edit Informasi Sekolah' : 'Edit Informasi Organisasi'}
+        </h2>
+
+        <form onSubmit={handleSubmit(submitHandler)} className="space-y-5">
+          {/* Name field - conditional based on type */}
+          <div className="space-y-1">
+            <label 
+              htmlFor={type === 'school' ? 'schoolName' : 'companyName'} 
+              className="block text-sm text-zinc-500"
+            >
+              {type === 'school' ? 'Nama Sekolah' : 'Nama Organisasi'}
+            </label>
+            <input
+              type="text"
+              id={type === 'school' ? 'schoolName' : 'companyName'}
+              {...register(type === 'school' ? 'schoolName' : 'companyName')}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {errors[type === 'school' ? 'schoolName' : 'companyName'] && (
+              <p className="text-[#EE4266] text-xs mt-1">
+                {errors[type === 'school' ? 'schoolName' : 'companyName'].message}
+              </p>
+            )}
+          </div>
+
+          {/* Address field */}
+          <div className="space-y-1">
+            <label htmlFor="address" className="block text-sm text-zinc-500">
+              Alamat
+            </label>
+            <textarea
+              id="address"
+              {...register('address')}
+              rows="3"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {errors.address && (
+              <p className="text-[#EE4266] text-xs mt-1">{errors.address.message}</p>
+            )}
+          </div>
+
+          {/* Phone number field */}
+          <div className="space-y-1">
+            <label htmlFor="phoneNumber" className="block text-sm text-zinc-500">
+              Nomor Telepon
+            </label>
+            <input
+              type="tel"
+              id="phoneNumber"
+              {...register('phoneNumber')}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {errors.phoneNumber && (
+              <p className="text-[#EE4266] text-xs mt-1">{errors.phoneNumber.message}</p>
+            )}
+          </div>
+
+          {/* Industry field - only for company */}
+          {type === 'company' && (
+            <div className="space-y-1">
+              <label htmlFor="industry" className="block text-sm text-zinc-500">
+                Industri
+              </label>
+              <input
+                type="text"
+                id="industry"
+                {...register('industry')}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {errors.industry && (
+                <p className="text-[#EE4266] text-xs mt-1">{errors.industry.message}</p>
+              )}
+            </div>
+          )}
+
+          {/* Email field */}
+          <div className="space-y-1">
+            <label htmlFor="email" className="block text-sm text-zinc-500">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              {...register('email')}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {errors.email && (
+              <p className="text-[#EE4266] text-xs mt-1">{errors.email.message}</p>
+            )}
+          </div>
+
+          {/* Action button */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={!isFormChanged}
+              className={`w-full py-2 rounded-md text-white font-medium transition-colors ${
+                isFormChanged ? 'bg-primary hover:bg-primary-variant1' : 'bg-[#D9D9D9] cursor-not-allowed'
+              }`}
+            >
+              Simpan
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
   );
 };
 
