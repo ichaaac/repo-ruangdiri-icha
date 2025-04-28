@@ -1,3 +1,4 @@
+// src/components/organization/school/SchoolSidebar.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,14 +10,14 @@ import { motion, AnimatePresence } from "framer-motion";
  * @param {Object} props - Component props
  * @param {boolean} props.expanded - Whether the sidebar is expanded
  * @param {Function} props.setExpanded - Function to toggle expanded state
+ * @param {Function} props.onHoverChange - Function to notify parent of hover state change
  * @returns {JSX.Element}
  */
-const SchoolSidebar = ({ expanded, setExpanded }) => {
+const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const location = useLocation();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [toggleHovered, setToggleHovered] = useState(false);
-  const hoverTimeoutRef = useRef(null);
   const expandTimeoutRef = useRef(null);
   const collapseTimeoutRef = useRef(null);
   const sidebarRef = useRef(null);
@@ -33,6 +34,7 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
     if (!expanded) {
       expandTimeoutRef.current = setTimeout(() => {
         setHovered(true);
+        if (onHoverChange) onHoverChange(true);
       }, 200);
     }
   };
@@ -45,6 +47,7 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
       collapseTimeoutRef.current = setTimeout(() => {
         if (!showProfileDropdown) {
           setHovered(false);
+          if (onHoverChange) onHoverChange(false);
         }
       }, 300);
     }
@@ -53,6 +56,7 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
   // Toggle expanded state
   const toggleSidebar = () => {
     setExpanded(!expanded);
+    if (onHoverChange) onHoverChange(!expanded);
     if (showProfileDropdown) {
       setShowProfileDropdown(false);
     }
@@ -69,28 +73,22 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
-      clearTimeout(hoverTimeoutRef.current);
       clearTimeout(expandTimeoutRef.current);
       clearTimeout(collapseTimeoutRef.current);
     };
   }, [dropdownRef]);
 
-  // Menu items for school
+  // Menu items for school - updated as per requirements
   const menuItems = [
     {
-      icon: "dashboard",
+      icon: "bar_chart",
       label: "Dashboard",
       path: "/school/dashboard",
     },
     {
-      icon: "people",
+      icon: "settings_ethernet", // Using settings_ethernet as bounding box icon
       label: "Daftar Siswa",
       path: "/school/students",
-    },
-    {
-      icon: "school",
-      label: "Profil Sekolah",
-      path: "/school/profile",
     },
     {
       icon: "calendar_month",
@@ -98,7 +96,7 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
       path: "/school/schedule",
     },
     {
-      icon: "settings",
+      icon: "brightness_5",
       label: "Pengaturan",
       path: "/school/settings",
     },
@@ -241,9 +239,9 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
         ))}
       </div>
 
-      {/* Toggle Button */}
+      {/* Toggle Button - properly positioned inside sidebar */}
       <div
-        className="absolute -right-3 top-24"
+        className="absolute right-0 top-24"
         onMouseEnter={() => setToggleHovered(true)}
         onMouseLeave={() => setToggleHovered(false)}
       >
@@ -252,6 +250,7 @@ const SchoolSidebar = ({ expanded, setExpanded }) => {
           className={`flex items-center justify-center w-6 h-10 rounded-r-md shadow-md transition-colors ${
             toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'
           }`}
+          style={{ transform: 'translateX(6px)' }}
         >
           <span className="material-icons" style={{ fontSize: "16px" }}>
             {expanded ? "chevron_left" : "chevron_right"}
