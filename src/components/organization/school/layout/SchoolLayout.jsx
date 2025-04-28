@@ -1,3 +1,5 @@
+// src/components/organization/school/layout/SchoolLayout.jsx
+
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import SchoolSidebar from "../SchoolSidebar";

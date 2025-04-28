@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import OrganizationSidebar from "../../../components/organization/company/OrganizationSidebar"
+import CompanySidebar from "../../../components/organization/company/CompanySidebar"
 const generateEmployeeData = (count) => {
   const departments = ["Creative", "Finance", "Marketing", "IT", "HR", "Operations", "Sales"]
   const positions = ["Staff", "Head", "Manager", "Assistant", "Supervisor", "Director"]
@@ -262,7 +262,7 @@ const EmployeeListPage = () => {
   return (
     <div className="min-h-screen bg-white">
       <div className="flex">
-        <OrganizationSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
+        <CompanySidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
 
         <div
           className="w-full min-h-screen transition-all duration-300 ease-in-out pt-4 bg-white"

@@ -13,16 +13,14 @@ import ResetPassword from "../pages/shared/auth/ResetPassword";
 
 // Company pages
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
-import CompanyProfilePage from "../pages/organization/company/ProfilePage";
 import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
 
 // School pages
-import SchoolDashboard from "../pages/organization/school/SchoolDashboard";
-import SchoolProfilePage from "../pages/organization/school/ProfilePage";
+import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
 import StudentListPage from "../pages/organization/school/StudentListPage";
+import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
 
 // Shared organization pages
-import SettingsPage from "../pages/organization/SettingsPage";
 
 const routes = [
   // Public routes
@@ -57,14 +55,6 @@ const routes = [
         element: <CompanyDashboard />
       },
       {
-        path: "profile",
-        element: <CompanyProfilePage />
-      },
-      {
-        path: "settings",
-        element: <SettingsPage />
-      },
-      {
         path: "employee-list",
         element: <EmployeeListPage />
       }
@@ -87,10 +77,6 @@ const routes = [
       {
         path: "profile",
         element: <SchoolProfilePage />
-      },
-      {
-        path: "settings",
-        element: <SettingsPage />
       },
       {
         path: "student-list",

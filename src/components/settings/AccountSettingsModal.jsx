@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { passwordSchema } from './validationSchema';
-
+import { passwordSchema } from '../../schemas/validationSchema';
 /**
  * Account Settings Modal for both School and Company users
  * Handles password change with validation
