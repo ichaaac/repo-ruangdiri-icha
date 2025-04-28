@@ -1,4 +1,4 @@
-"use client";
+// src/pages/shared/auth/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";

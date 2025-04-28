@@ -1,5 +1,7 @@
+// src/routes/routeConfig.jsx
 import React from "react";
 import { Navigate } from "react-router-dom";
+import ProtectedRoute from "../components/auth/ProtectedRoute";
 
 // Layouts
 import CompanyLayout from "../components/organization/company/layout/CompanyLayout";
@@ -14,14 +16,21 @@ import ResetPassword from "../pages/shared/auth/ResetPassword";
 // Company pages
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
 import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
+import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage";
+// import CompanySchedulePage from "../pages/organization/company/CompanySchedulePage"; // Not yet developed
+// import CandidatesPage from "../pages/organization/company/CandidatesPage"; // Not yet developed
+// import JobsPage from "../pages/organization/company/JobsPage"; // Not yet developed
 
 // School pages
 import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
 import StudentListPage from "../pages/organization/school/StudentListPage";
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
+// import SchoolSchedulePage from "../pages/organization/school/SchoolSchedulePage"; // Not yet developed
 
-// Shared organization pages
-
+/**
+ * Route configuration for the application
+ * Using a declarative array-based approach for easier maintenance
+ */
 const routes = [
   // Public routes
   {
@@ -41,9 +50,93 @@ const routes = [
     element: <ResetPassword />
   },
 
-  // Organization routes - Company (UNPROTECTED)
+  // Organization routes - Company
   {
     path: "/organization/company",
+    element: (
+      <ProtectedRoute requiredOrgType="company">
+        <CompanyLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="dashboard" replace />
+      },
+      {
+        path: "dashboard",
+        element: <CompanyDashboard />
+      },
+      {
+        path: "profile",
+        element: <CompanyProfilePage />
+      },
+      {
+        path: "employee-list",
+        element: <EmployeeListPage />
+      },
+      // Route to profile page when settings is clicked (settings is profile page)
+      {
+        path: "settings",
+        element: <Navigate to="profile" replace />
+      },
+      // Placeholder routes for features not yet developed
+      {
+        path: "candidates",
+        element: <div className="p-6">Candidates page - Under development</div> // Placeholder
+      },
+      {
+        path: "jobs",
+        element: <div className="p-6">Jobs page - Under development</div> // Placeholder
+      },
+      {
+        path: "schedule",
+        element: <div className="p-6">Schedule page - Under development</div> // Placeholder
+      }
+    ]
+  },
+
+  // Organization routes - School
+  {
+    path: "/organization/school",
+    element: (
+      <ProtectedRoute requiredOrgType="school">
+        <SchoolLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="dashboard" replace />
+      },
+      {
+        path: "dashboard",
+        element: <SchoolDashboard />
+      },
+      {
+        path: "profile",
+        element: <SchoolProfilePage />
+      },
+      {
+        path: "student-list",
+        element: <StudentListPage />
+      },
+      // Route to profile page when settings is clicked (settings is profile page)
+      {
+        path: "settings",
+        element: <Navigate to="profile" replace />
+      },
+      // Placeholder route for schedule feature not yet developed
+      {
+        path: "schedule",
+        element: <div className="p-6">Schedule page - Under development</div> // Placeholder
+      }
+    ]
+  },
+
+  // Unprotected demo routes (for development/preview)
+  {
+    path: "/demo/organization/company",
     element: <CompanyLayout />,
     children: [
       {
@@ -55,15 +148,36 @@ const routes = [
         element: <CompanyDashboard />
       },
       {
+        path: "profile",
+        element: <CompanyProfilePage />
+      },
+      {
         path: "employee-list",
         element: <EmployeeListPage />
+      },
+      // Route to profile page when settings is clicked (settings is profile page)
+      {
+        path: "settings",
+        element: <Navigate to="profile" replace />
+      },
+      // Placeholder routes for features not yet developed
+      {
+        path: "candidates",
+        element: <div className="p-6">Candidates page - Under development</div> // Placeholder
+      },
+      {
+        path: "jobs",
+        element: <div className="p-6">Jobs page - Under development</div> // Placeholder
+      },
+      {
+        path: "schedule",
+        element: <div className="p-6">Schedule page - Under development</div> // Placeholder
       }
     ]
   },
 
-  // Organization routes - School (UNPROTECTED)
   {
-    path: "/organization/school",
+    path: "/demo/organization/school",
     element: <SchoolLayout />,
     children: [
       {
@@ -81,30 +195,28 @@ const routes = [
       {
         path: "student-list",
         element: <StudentListPage />
+      },
+      // Route to profile page when settings is clicked (settings is profile page)
+      {
+        path: "settings",
+        element: <Navigate to="profile" replace />
+      },
+      // Placeholder route for schedule feature not yet developed
+      {
+        path: "schedule",
+        element: <div className="p-6">Schedule page - Under development</div> // Placeholder
       }
     ]
   },
 
   // Legacy redirect routes
   {
-    path: "/school/dashboard",
-    element: <Navigate to="/organization/school/dashboard" replace />
+    path: "/school/*",
+    element: <Navigate to="/organization/school/*" replace />
   },
   {
-    path: "/school/profile",
-    element: <Navigate to="/organization/school/profile" replace />
-  },
-  {
-    path: "/school/settings",
-    element: <Navigate to="/organization/school/settings" replace />
-  },
-  {
-    path: "/school/student-list",
-    element: <Navigate to="/organization/school/student-list" replace />
-  },
-  {
-    path: "/organization/list",
-    element: <Navigate to="/organization/company/employee-list" replace />
+    path: "/company/*",
+    element: <Navigate to="/organization/company/*" replace />
   },
 
   // Catch-all fallback

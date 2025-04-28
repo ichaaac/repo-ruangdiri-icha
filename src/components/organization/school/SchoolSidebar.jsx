@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 /**
  * School Sidebar Component
  * Navigation sidebar for school pages with collapsible behavior
+ * Updated to match current app navigation structure
  * 
  * @param {Object} props - Component props
  * @param {boolean} props.expanded - Whether the sidebar is expanded
@@ -78,32 +79,36 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
     };
   }, [dropdownRef]);
 
-  // Menu items for school - updated as per requirements
+  // Menu items for school - Updated based on current app structure
   const menuItems = [
     {
       icon: "bar_chart",
       label: "Dashboard",
-      path: "/school/dashboard",
+      path: "/organization/school/dashboard",
     },
     {
       icon: "settings_ethernet", // Using settings_ethernet as bounding box icon
       label: "Daftar Siswa",
-      path: "/school/students",
+      path: "/organization/school/student-list",
     },
     {
       icon: "calendar_month",
       label: "Jadwal",
-      path: "/school/schedule",
+      path: "/organization/school/schedule",
     },
     {
       icon: "brightness_5",
       label: "Pengaturan",
-      path: "/school/settings",
+      path: "/organization/school/profile",
     },
   ];
 
   // Check if a menu item is active
   const isActive = (path) => {
+    // Handle special case for "Pengaturan" which maps to profile
+    if (path === "/organization/school/profile" && location.pathname === "/organization/school/settings") {
+      return true;
+    }
     return location.pathname === path;
   };
 
@@ -176,16 +181,10 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
             >
               <div className="py-2">
                 <Link
-                  to="/school/profile"
+                  to="/organization/school/profile"
                   className="block py-2 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
                 >
                   Profil
-                </Link>
-                <Link
-                  to="/school/settings"
-                  className="block py-2 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
-                >
-                  Pengaturan
                 </Link>
                 <div className="w-full h-[1px] bg-gray-200 my-1"></div>
                 <button
