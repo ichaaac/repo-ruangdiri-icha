@@ -1,60 +1,79 @@
-"use client"
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
-import { useState, useEffect, useRef } from "react"
-import { Link, useLocation } from "react-router-dom"
-import { motion, AnimatePresence } from "framer-motion"
+/**
+ * School Sidebar Component
+ * Navigation sidebar for school pages with collapsible behavior
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.expanded - Whether the sidebar is expanded
+ * @param {Function} props.setExpanded - Function to toggle expanded state
+ * @returns {JSX.Element}
+ */
+const SchoolSidebar = ({ expanded, setExpanded }) => {
+  const location = useLocation();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [toggleHovered, setToggleHovered] = useState(false);
+  const hoverTimeoutRef = useRef(null);
+  const expandTimeoutRef = useRef(null);
+  const collapseTimeoutRef = useRef(null);
+  const sidebarRef = useRef(null);
+  const dropdownRef = useRef(null);
 
-const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
-  const location = useLocation()
-  const [hovered, setHovered] = useState(false)
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-  const [toggleHovered, setToggleHovered] = useState(false)
-  const hoverTimeoutRef = useRef(null)
-  const sidebarRef = useRef(null)
-  const dropdownRef = useRef(null)
+  // Constants for sidebar widths
+  const expandedWidth = 240;
+  const collapsedWidth = 64;
 
-  // Handle hover state changes with delay
+  // Handle mouse enter - expand sidebar after short delay
   const handleMouseEnter = () => {
-    clearTimeout(hoverTimeoutRef.current)
-    setHovered(true)
-    if (onHoverChange) {
-      onHoverChange(true)
+    clearTimeout(collapseTimeoutRef.current);
+    
+    if (!expanded) {
+      expandTimeoutRef.current = setTimeout(() => {
+        setHovered(true);
+      }, 200);
     }
-  }
+  };
 
+  // Handle mouse leave - collapse sidebar after delay
   const handleMouseLeave = () => {
-    // Prevent immediate collapse when hovering dropdown
-    if (showProfileDropdown) return
+    clearTimeout(expandTimeoutRef.current);
+    
+    if (!expanded && hovered) {
+      collapseTimeoutRef.current = setTimeout(() => {
+        if (!showProfileDropdown) {
+          setHovered(false);
+        }
+      }, 300);
+    }
+  };
 
-    // Add delay before collapsing (300ms for smoother transition)
-    hoverTimeoutRef.current = setTimeout(() => {
-      setHovered(false)
-      if (onHoverChange) {
-        onHoverChange(false)
-      }
-    }, 300)
-  }
-
-  // Toggle sidebar expansion
+  // Toggle expanded state
   const toggleSidebar = () => {
-    setExpanded(!expanded)
-    setShowProfileDropdown(false) // Close dropdown when toggling sidebar
-  }
+    setExpanded(!expanded);
+    if (showProfileDropdown) {
+      setShowProfileDropdown(false);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowProfileDropdown(false)
+        setShowProfileDropdown(false);
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-      clearTimeout(hoverTimeoutRef.current)
-    }
-  }, [dropdownRef])
+      document.removeEventListener("mousedown", handleClickOutside);
+      clearTimeout(hoverTimeoutRef.current);
+      clearTimeout(expandTimeoutRef.current);
+      clearTimeout(collapseTimeoutRef.current);
+    };
+  }, [dropdownRef]);
 
   // Menu items for school
   const menuItems = [
@@ -83,22 +102,20 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
       label: "Pengaturan",
       path: "/school/settings",
     },
-  ]
+  ];
 
   // Check if a menu item is active
   const isActive = (path) => {
-    return location.pathname === path
-  }
+    return location.pathname === path;
+  };
 
-  // Width and style values
-  const expandedWidth = 240
-  const collapsedWidth = 69
-  const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
+  // Calculate sidebar width based on state
+  const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth;
 
   return (
     <motion.div
       ref={sidebarRef}
-      className="fixed top-0 left-0 h-screen bg-[#F7F7F9] shadow-md z-40"
+      className="fixed top-0 left-0 h-screen bg-[#F7F7F9] shadow-md z-40 flex flex-col"
       initial={{ width: expanded ? expandedWidth : collapsedWidth }}
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -106,15 +123,16 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
       onMouseLeave={handleMouseLeave}
     >
       {/* Logo Section */}
-      <div className="p-4 flex justify-center">
+      <div className="p-4 flex justify-center items-center border-b border-gray-100">
         <motion.img
           src="/logo/ruang-diri-logo.png"
           alt="Ruang Diri Logo"
           animate={{
-            width: expanded || hovered ? "64px" : "32px",
-            height: expanded || hovered ? "54px" : "27px",
+            width: expanded || hovered ? "140px" : "32px",
+            opacity: 1
           }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="h-8 object-contain"
         />
       </div>
       
@@ -124,26 +142,19 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
           className="flex items-center cursor-pointer"
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
-          <motion.div
-            className="rounded-full overflow-hidden"
-            animate={{
-              width: expanded || hovered ? "40px" : "37px",
-              height: expanded || hovered ? "40px" : "37px",
-            }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
+          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
             <img
               src="/school-avatar.jpg"
               alt="School"
               className="w-full h-full object-cover"
             />
-          </motion.div>
+          </div>
+          
           <motion.div
-            className="ml-3"
-            initial={{ opacity: expanded ? 1 : 0, width: expanded ? "auto" : 0 }}
+            className="ml-3 overflow-hidden"
             animate={{
-              opacity: expanded || hovered ? 1 : 0,
               width: expanded || hovered ? "auto" : 0,
+              opacity: expanded || hovered ? 1 : 0
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
@@ -192,36 +203,37 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
       </div>
 
       {/* Divider */}
-      <motion.div
-        className="mt-6 mx-auto h-[1px]"
-        style={{
-          backgroundColor: expanded || hovered ? "#D8EEFF" : "#8B8B8B",
-        }}
-        animate={{
-          width: expanded || hovered ? expandedWidth - 20 : collapsedWidth - 20,
-        }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-      ></motion.div>
+      <div className="mt-6 px-4">
+        <motion.div
+          className="h-[1px] bg-[#D8EEFF] mx-auto"
+          animate={{
+            width: "100%"
+          }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        ></motion.div>
+      </div>
 
       {/* Navigation Menu */}
-      <div className="flex flex-col mt-6">
+      <div className="flex flex-col mt-6 flex-1 overflow-y-auto">
         {menuItems.map((item, index) => (
           <Link
             key={index}
             to={item.path}
-            className={`flex items-center mx-3 my-1 px-[17px] py-[8px] rounded-md transition-colors ${
-              isActive(item.path) ? "bg-[#488BBE] text-white" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
+            className={`flex items-center mx-3 my-1 px-3 py-2 rounded-md transition-colors ${
+              isActive(item.path) 
+                ? "bg-[#488BBE] text-white" 
+                : "text-[#488BBE] hover:bg-[#E2F9FF]"
             }`}
           >
-            <span className="material-icons">{item.icon}</span>
+            <span className="material-icons text-[22px]">{item.icon}</span>
             <motion.span
-              initial={{ opacity: expanded ? 1 : 0, width: expanded ? "auto" : 0 }}
               animate={{
-                opacity: expanded || hovered ? 1 : 0,
                 width: expanded || hovered ? "auto" : 0,
+                opacity: expanded || hovered ? 1 : 0,
+                marginLeft: expanded || hovered ? "12px" : 0
               }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="ml-3 whitespace-nowrap overflow-hidden"
+              className="whitespace-nowrap overflow-hidden"
             >
               {item.label}
             </motion.span>
@@ -231,21 +243,23 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
 
       {/* Toggle Button */}
       <div
-        className="absolute top-32 -right-3 z-50"
+        className="absolute -right-3 top-24"
         onMouseEnter={() => setToggleHovered(true)}
         onMouseLeave={() => setToggleHovered(false)}
       >
         <button
           onClick={toggleSidebar}
-          className={`flex items-center justify-center w-6 h-12 ${toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'} rounded-r-md transition-colors`}
+          className={`flex items-center justify-center w-6 h-10 rounded-r-md shadow-md transition-colors ${
+            toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'
+          }`}
         >
-          <span className="material-icons" style={{ fontSize: "18px" }}>
+          <span className="material-icons" style={{ fontSize: "16px" }}>
             {expanded ? "chevron_left" : "chevron_right"}
           </span>
         </button>
       </div>
     </motion.div>
-  )
-}
+  );
+};
 
-export default SchoolSidebar
+export default SchoolSidebar;
