@@ -1,3 +1,4 @@
+// src/pages/organization/school/StudentListPage.jsx
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -34,36 +35,37 @@ const StudentListPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch students data
-  const { 
-    data: studentsData, 
-    isLoading,
-    isError,
-    error
-  } = useQuery({
-    queryKey: ['students', currentPage, pageSize, searchTerm, sortConfig],
-    queryFn: async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
+ // Inside StudentListPage.jsx useQuery function
+const { 
+  data: studentsData, 
+  isLoading,
+  isError,
+  error
+} = useQuery({
+  queryKey: ['students', currentPage, pageSize, searchTerm, sortConfig],
+  queryFn: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
 
-      // Build query parameters
-      const params = new URLSearchParams({
-        page: currentPage,
-        limit: pageSize
-      });
+    // Build query parameters
+    const params = new URLSearchParams({
+      page: currentPage,
+      limit: pageSize
+    });
 
-      if (searchTerm) {
-        params.append('search', searchTerm);
-      }
+    if (searchTerm) {
+      params.append('search', searchTerm);
+    }
 
-      // Add sorting if applicable
-      if (sortConfig.key && sortConfig.direction) {
-        params.append('sortBy', sortConfig.key);
-        params.append('sortDirection', sortConfig.direction === 'ascending' ? 'asc' : 'desc');
-      }
+    // Add sorting if applicable
+    if (sortConfig.key && sortConfig.direction) {
+      params.append('sortBy', sortConfig.key);
+      params.append('sortDirection', sortConfig.direction === 'ascending' ? 'asc' : 'desc');
+    }
 
+    try {
       const response = await axios.get(
         `${API_URL}/organizations/students?${params.toString()}`,
         {
@@ -73,14 +75,34 @@ const StudentListPage = () => {
         }
       );
       
-      if (response.data?.status !== 'success') {
-        throw new Error(response.data?.message || 'Failed to fetch students');
+      // Log the response for debugging
+      console.log('Students API Response:', response.data);
+      
+      if (response.data) {
+        // If the data is in the expected format with data field
+        if (response.data.data) {
+          return response.data;
+        }
+        
+        // If data is at the root level (no data wrapper), restructure it
+        // to match what the component expects
+        return { 
+          data: Array.isArray(response.data) ? response.data : [],
+          metadata: response.data.metadata || {
+            totalPage: 1,
+            totalData: Array.isArray(response.data) ? response.data.length : 0
+          }
+        };
       }
       
-      return response.data;
-    },
-    staleTime: 1000 * 60 * 2 // 2 minutes
-  });
+      throw new Error('No data returned from API');
+    } catch (error) {
+      console.error('Students API error details:', error);
+      throw error;
+    }
+  },
+  staleTime: 1000 * 60 * 2 // 2 minutes
+});
 
   // Student update mutation
   const updateStudentMutation = useMutation({

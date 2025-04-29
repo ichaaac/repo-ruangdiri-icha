@@ -117,17 +117,33 @@ const SchoolProfilePage = () => {
         throw new Error('No authentication token found');
       }
       
-      const response = await axios.get(`${API_URL}/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      try {
+        const response = await axios.get(`${API_URL}/users/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        // Log the response for debugging
+        console.log('Profile API Response:', response.data);
+        
+        // If the API returns data directly without the status field check
+        // or if the status is not "success" but we have data
+        if (response.data) {
+          // If the data is wrapped in a data field, return that
+          if (response.data.data) {
+            return response.data.data;
+          }
+          // Otherwise return the response data directly
+          return response.data;
         }
-      });
-      
-      if (response.data?.status !== 'success') {
-        throw new Error(response.data?.message || 'Failed to fetch profile');
+        
+        // If we get here, we didn't find usable data
+        throw new Error('No data returned from API');
+      } catch (error) {
+        console.error('API error details:', error);
+        throw error;
       }
-      
-      return response.data.data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
