@@ -205,10 +205,14 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                       : "bg-gray-400 cursor-not-allowed"
                   )}
                 >
-                  {isSubmitting ? (
-                    <span className="material-icons animate-spin text-sm inline-block mr-1">refresh</span>
-                  ) : null}
-                  Simpan
+                  {isSubmitting || updateProfileMutation.isPending ? (
+                    <span className="flex items-center">
+                      <span className="material-icons animate-spin text-sm inline-block mr-1">refresh</span>
+                      <span>Menyimpan...</span>
+                    </span>
+                  ) : (
+                    "Simpan"
+                  )}
                 </button>
               </div>
             </div>

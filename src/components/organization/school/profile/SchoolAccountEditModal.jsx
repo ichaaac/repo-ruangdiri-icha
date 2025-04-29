@@ -84,6 +84,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -135,6 +136,9 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
         throw new Error('No authentication token found');
       }
       
+      // Reset any previous error message
+      setErrorMessage("");
+      
       return axios.patch(
         `${API_URL}/users/change-password`,
         {
@@ -149,14 +153,28 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       );
     },
     onSuccess: () => {
+      // No need to invalidate queries as the password change doesn't affect profile data
       if (onClose) onClose(true); // Pass true to indicate success
     },
     onError: (error) => {
       console.error("Error changing password:", error);
+      
+      // Handle specific error messages
+      if (error.response?.data?.message) {
+        setErrorMessage(error.response.data.message);
+      } else if (error.response?.status === 401) {
+        setErrorMessage("Password lama tidak valid");
+      } else {
+        setErrorMessage("Terjadi kesalahan saat mengubah password");
+      }
     },
   });
 
   const onSubmit = (data) => {
+    // Clear any previous error
+    setErrorMessage("");
+    
+    // Submit the password change
     changePasswordMutation.mutate(data);
   };
 
@@ -182,6 +200,15 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
               <span className="material-icons">close</span>
             </button>
           </div>
+
+          {errorMessage && (
+            <div className="px-4 py-3 mb-4 text-xs bg-pink-100 border border-red-400 text-red-700 rounded-md">
+              <div className="flex items-center">
+                <span className="material-icons mr-2 text-sm">error</span>
+                {errorMessage}
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-5">
@@ -323,18 +350,22 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isDirty || Object.keys(errors).length > 0}
+                  disabled={isSubmitting || !isDirty || Object.keys(errors).length > 0 || changePasswordMutation.isPending}
                   className={clsx(
                     "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                    isDirty && !isSubmitting && Object.keys(errors).length === 0
+                    isDirty && !isSubmitting && Object.keys(errors).length === 0 && !changePasswordMutation.isPending
                       ? "bg-primary hover:bg-primary-variant1"
                       : "bg-gray-400 cursor-not-allowed"
                   )}
                 >
-                  {isSubmitting ? (
-                    <span className="material-icons animate-spin text-sm inline-block mr-1">refresh</span>
-                  ) : null}
-                  Simpan
+                  {isSubmitting || changePasswordMutation.isPending ? (
+                    <span className="flex items-center">
+                      <span className="material-icons animate-spin text-sm inline-block mr-1">refresh</span>
+                      <span>Menyimpan...</span>
+                    </span>
+                  ) : (
+                    "Simpan"
+                  )}
                 </button>
               </div>
             </div>
