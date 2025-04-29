@@ -64,14 +64,31 @@ const SchoolProfilePage = () => {
   const [activeModal, setActiveModal] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   
-  // Fetch user profile data
+  // Fetch user profile data with school-specific query key
   const { data: userData, isLoading } = useQuery({
-    queryKey: ['userProfile'],
+    queryKey: ['school', 'profile'],
     queryFn: async () => {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/users/me`);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await axios.get(`${API_URL}/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data?.status !== 'success') {
+        throw new Error(response.data?.message || 'Failed to fetch profile');
+      }
+      
       return response.data.data;
     },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
   });
 
   const handleModalClose = (success) => {
@@ -135,7 +152,8 @@ const SchoolProfilePage = () => {
                 </h2>
                 <p className="text-xs text-neutral-600">Admin</p>
                 <p className="text-xs text-neutral-600">
-                  Jakarta, Indonesia
+                  {userData?.organization?.address ? userData.organization.address.split(',')[0] : 'Jakarta'}, 
+                  {userData?.organization?.address ? 'Indonesia' : 'Indonesia'}
                 </p>
               </div>
             </div>
@@ -163,23 +181,23 @@ const SchoolProfilePage = () => {
                 }}></div>
               </div>
               
-              <div className="flex">
-                <div className="w-[270px]">
+              <div className="flex flex-wrap">
+                <div className="w-full md:w-[270px] mb-4 md:mb-0">
                   <span className="block text-xs text-zinc-500">Nama Sekolah</span>
                   <span className="block text-base text-neutral-600 mt-1 pl-0">
-                    SMA Veteran 007 Jakarta
+                    {userData?.fullName || 'SMA Veteran 007 Jakarta'}
                   </span>
                 </div>
-                <div className="w-[369px]">
+                <div className="w-full md:w-[369px] mb-4 md:mb-0">
                   <span className="block text-xs text-zinc-500">Alamat</span>
                   <span className="block text-base text-neutral-600 mt-1 pl-0">
-                    Jl. Bintaro Raya, RT.4/RW.10, Bintaro, Kec. Pesanggrahan, Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12330
+                    {userData?.organization?.address || 'Jl. Bintaro Raya, RT.4/RW.10, Bintaro, Kec. Pesanggrahan, Kota Jakarta Selatan, Daerah Khusus Ibukota Jakarta 12330'}
                   </span>
                 </div>
-                <div>
+                <div className="w-full md:w-auto">
                   <span className="block text-xs text-zinc-500">Nomor Telepon</span>
                   <span className="block text-base text-neutral-600 mt-1 pl-0">
-                    +62 | 858-1484-2474
+                    {userData?.organization?.phone || '+62 | 858-1484-2474'}
                   </span>
                 </div>
               </div>
@@ -208,14 +226,14 @@ const SchoolProfilePage = () => {
                 }}></div>
               </div>
               
-              <div className="flex">
-                <div className="w-[320px]">
+              <div className="flex flex-wrap">
+                <div className="w-full md:w-[320px] mb-4 md:mb-0">
                   <span className="block text-xs text-zinc-500">Email</span>
                   <span className="block text-base text-neutral-600 mt-1 pl-0">
-                    smaveteranjakarta@gmail.com
+                    {userData?.email || 'smaveteranjakarta@gmail.com'}
                   </span>
                 </div>
-                <div>
+                <div className="w-full md:w-auto">
                   <span className="block text-xs text-zinc-500">Password</span>
                   <span className="block text-base text-neutral-600 mt-1 pl-0">********</span>
                 </div>

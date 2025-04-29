@@ -9,25 +9,40 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const [previewImage, setPreviewImage] = useState(currentProfilePicture);
   const [isHovering, setIsHovering] = useState(false);
   const queryClient = useQueryClient();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   // Upload profile picture mutation
   const uploadProfilePicture = useMutation({
     mutationFn: async (file) => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       const formData = new FormData();
       formData.append("profilePicture", file);
       
       return axios.put(
-        `${process.env.REACT_APP_API_URL}/organizations/profile-picture`,
+        `${API_URL}/organizations/profile-picture`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
+            "Authorization": `Bearer ${token}`
           },
         }
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+    onSuccess: (response) => {
+      // Invalidate both the general user profile and the specific organization profile
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
+      queryClient.invalidateQueries({ queryKey: ['company', 'profile'] });
+      
+      // Update image preview if response contains new image URL
+      if (response.data?.data?.organization?.profilePicture) {
+        setPreviewImage(response.data.data.organization.profilePicture);
+      }
     },
     onError: (error) => {
       console.error("Error uploading profile picture:", error);

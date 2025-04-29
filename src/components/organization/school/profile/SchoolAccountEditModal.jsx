@@ -86,6 +86,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   
   const queryClient = useQueryClient();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   // Initialize form with current user data
   const {
@@ -129,10 +130,23 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: async (data) => {
-      return axios.patch(`${process.env.REACT_APP_API_URL}/users/change-password`, {
-        oldPassword: data.oldPassword,
-        newPassword: data.newPassword,
-      });
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      return axios.patch(
+        `${API_URL}/users/change-password`,
+        {
+          oldPassword: data.oldPassword,
+          newPassword: data.newPassword,
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      );
     },
     onSuccess: () => {
       if (onClose) onClose(true); // Pass true to indicate success

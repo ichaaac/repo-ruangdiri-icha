@@ -47,6 +47,7 @@ const ConfirmationModal = ({ onCancel, onConfirm }) => (
 const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const queryClient = useQueryClient();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   // Initialize form with current user data
   const {
@@ -66,10 +67,26 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
-      return axios.patch(`${process.env.REACT_APP_API_URL}/organizations/profile`, data);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      return axios.patch(
+        `${API_URL}/organizations/profile`,
+        data,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        }
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
+      // Invalidate both general user profile and organization-specific queries
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
+      
       if (onClose) onClose(true); // Pass true to indicate success
     },
     onError: (error) => {
@@ -81,7 +98,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     updateProfileMutation.mutate(data);
   };
 
-  // Reset form with user data when component mounts
+  // Reset form with user data when component mounts or userData changes
   useEffect(() => {
     if (userData) {
       reset({

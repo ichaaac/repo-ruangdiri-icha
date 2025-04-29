@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { authAPI } from "../../../api/auth";
+import axios from "axios";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,24 +16,86 @@ const Login = () => {
   const [passwordError, setPasswordError] = useState(false);
   
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   const loginMutation = useMutation({
-    mutationFn: (credentials) => authAPI.login(credentials),
-    onSuccess: (response) => {
-      // Only proceed if we have the expected data structure
-      if (response?.data?.access_token && response?.data?.user) {
-        localStorage.setItem('token', response.data.access_token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+    mutationFn: async (credentials) => {
+      try {
+        // Just do the login, no profile fetch
+        const loginResponse = await axios.post(`${API_URL}/auth/login`, credentials);
+        console.log("Login Response:", loginResponse.data);
         
-        // Redirect based on user role
-        if (response.data.user.role === 'admin') {
-          navigate('/school/dashboard');
-        } else {
-          navigate('/');
+        if (loginResponse.data?.status !== 'success') {
+          throw new Error(loginResponse.data?.message || 'Login failed');
         }
-      } else {
-        console.error('Unexpected response structure:', response);
-        setErrorMessage('Terjadi kesalahan dengan format respons. Silakan coba lagi nanti.');
+        
+        // Extract token and organization type
+        const { accessToken, organizationType } = loginResponse.data.data;
+        
+        if (!accessToken) {
+          console.error("Token not found in response:", loginResponse.data);
+          throw new Error('Access token tidak ditemukan dalam respons');
+        }
+        
+        return { accessToken, organizationType };
+      } catch (error) {
+        console.error("Login error:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      console.log("Login Success Data:", data);
+      
+      // Clear any existing data
+      localStorage.removeItem('token');
+      localStorage.removeItem('organizationType');
+      localStorage.removeItem('user');
+      
+      // Save token to localStorage
+      localStorage.setItem('token', data.accessToken);
+      
+      // Save organization type to localStorage
+      localStorage.setItem('organizationType', data.organizationType);
+      
+      console.log("Token and organizationType saved to localStorage");
+      
+      // For testing purpose, make a dummy API call to /users/me to pre-populate cache
+      // This is to reduce the chance of infinite redirect loops
+      try {
+        axios.get(`${API_URL}/users/me`, {
+          headers: {
+            Authorization: `Bearer ${data.accessToken}`
+          }
+        }).then(() => {
+          // Navigate after ensuring profile data is fetched
+          if (data.organizationType === 'school') {
+            // Use the demo route first to avoid protected route issues
+            window.location.href = '/demo/organization/school/profile';
+          } else if (data.organizationType === 'company') {
+            window.location.href = '/demo/organization/company/profile';
+          } else {
+            window.location.href = '/';
+          }
+        }).catch(() => {
+          // Even if profile fetch fails, still redirect
+          if (data.organizationType === 'school') {
+            window.location.href = '/demo/organization/school/profile';
+          } else if (data.organizationType === 'company') {
+            window.location.href = '/demo/organization/company/profile';
+          } else {
+            window.location.href = '/';
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching profile after login:", error);
+        // Still try to navigate
+        if (data.organizationType === 'school') {
+          window.location.href = '/demo/organization/school/profile';
+        } else if (data.organizationType === 'company') {
+          window.location.href = '/demo/organization/company/profile';
+        } else {
+          window.location.href = '/';
+        }
       }
     },
     onError: (error) => {
@@ -72,7 +134,7 @@ const Login = () => {
       } else {
         // Something happened in setting up the request
         console.log('Error message:', error.message);
-        setErrorMessage('Terjadi kesalahan saat mengirim permintaan.');
+        setErrorMessage(error.message || 'Terjadi kesalahan saat mengirim permintaan.');
       }
     }
   });
@@ -126,12 +188,7 @@ const Login = () => {
       return;
     }
     
-    try {
-      loginMutation.mutate({ email, password, rememberMe });
-    } catch (error) {
-      console.error("Uncaught exception in login mutation:", error);
-      setErrorMessage("Terjadi kesalahan tak terduga. Silakan coba lagi.");
-    }
+    loginMutation.mutate({ email, password, rememberMe });
   };
 
   return (
@@ -186,6 +243,7 @@ const Login = () => {
                 }}
                 disabled={loginMutation.isPending}
                 required
+                autoComplete="username"
               />
             </div>
 
@@ -209,6 +267,7 @@ const Login = () => {
                 }}
                 disabled={loginMutation.isPending}
                 required
+                autoComplete="current-password"
               />
               <span
                 className={`material-icons cursor-pointer hover:scale-110 transition-transform ${passwordError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}
