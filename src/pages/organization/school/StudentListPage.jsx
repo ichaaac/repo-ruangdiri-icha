@@ -36,6 +36,7 @@ const StudentListPage = () => {
   }, []);
 
  // Inside StudentListPage.jsx useQuery function
+// Fixed students query function for StudentListPage.jsx
 const { 
   data: studentsData, 
   isLoading,
@@ -78,24 +79,19 @@ const {
       // Log the response for debugging
       console.log('Students API Response:', response.data);
       
-      if (response.data) {
-        // If the data is in the expected format with data field
-        if (response.data.data) {
-          return response.data;
-        }
-        
-        // If data is at the root level (no data wrapper), restructure it
-        // to match what the component expects
-        return { 
-          data: Array.isArray(response.data) ? response.data : [],
+      // Check if the API returns data with expected structure
+      if (response.data && response.data.status === "success") {
+        // Create a properly structured data object that matches what the component expects
+        return {
+          data: response.data.data.students || [],
           metadata: response.data.metadata || {
             totalPage: 1,
-            totalData: Array.isArray(response.data) ? response.data.length : 0
+            totalData: 0
           }
         };
       }
       
-      throw new Error('No data returned from API');
+      throw new Error(response.data?.message || 'No usable data returned from API');
     } catch (error) {
       console.error('Students API error details:', error);
       throw error;
@@ -105,38 +101,48 @@ const {
 });
 
   // Student update mutation
-  const updateStudentMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
-      return axios.patch(
-        `${API_URL}/organizations/students/${id}`,
-        data,
-        {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
+// Update the student update mutation in StudentListPage.jsx
+const updateStudentMutation = useMutation({
+  mutationFn: async ({ id, data }) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    // Log what we're trying to update
+    console.log(`Updating student ${id} with data:`, data);
+    
+    return axios.patch(
+      `${API_URL}/organizations/students/${id}`,
+      data,
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`
         }
-      );
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-      setEditingId(null);
-      setEditData({});
-      setHasChanges(false);
-    },
-    onError: (error) => {
-      console.error("Error updating student:", error);
-    },
-  });
-
+      }
+    );
+  },
+  onSuccess: (response) => {
+    // Log success response for debugging
+    console.log('Student update successful:', response.data);
+    
+    // Invalidate queries to refetch data
+    queryClient.invalidateQueries({ queryKey: ['students'] });
+    
+    // Reset editing state
+    setEditingId(null);
+    setEditData({});
+    setHasChanges(false);
+  },
+  onError: (error) => {
+    console.error("Error updating student:", error);
+    // Could display an error message to the user here
+  },
+});
   // Calculate student statistics
   const totalStudents = studentsData?.data?.length || 0;
-  const femaleStudents = studentsData?.data?.filter(student => student.gender === "f").length || 0;
-  const maleStudents = studentsData?.data?.filter(student => student.gender === "m").length || 0;
+  const femaleStudents = studentsData?.data?.filter(student => student.gender === "female").length || 0;
+  const maleStudents = studentsData?.data?.filter(student => student.gender === "male").length || 0;
 
   const totalPages = studentsData?.metadata?.totalPage || 1;
 
@@ -548,12 +554,12 @@ const {
                                 onChange={handleEditChange}
                                 className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
                               >
-                                <option value="m">Laki-laki</option>
-                                <option value="f">Perempuan</option>
+                                <option value="male">Laki-laki</option>
+                                <option value="female">Perempuan</option>
                               </select>
                             ) : (
                               <div className="text-sm text-gray-500">
-                                {student.gender === 'm' ? 'Laki-laki' : 'Perempuan'}
+                                {student.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
                               </div>
                             )}
                           </td>

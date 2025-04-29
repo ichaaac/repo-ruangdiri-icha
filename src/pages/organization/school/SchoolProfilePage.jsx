@@ -104,50 +104,46 @@ const SchoolProfilePage = () => {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
   
   // Fetch user profile data with school-specific query key
-  const { 
-    data: userData, 
-    isLoading, 
-    error, 
-    refetch 
-  } = useQuery({
-    queryKey: ['school', 'profile'],
-    queryFn: async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
+  // Fixed profile query function for SchoolProfilePage.jsx
+// Fixed profile query function for SchoolProfilePage.jsx
+const { 
+  data: userData, 
+  isLoading, 
+  error, 
+  refetch 
+} = useQuery({
+  queryKey: ['school', 'profile'],
+  queryFn: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    try {
+      const response = await axios.get(`${API_URL}/users/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      // Log the response for debugging
+      console.log('Profile API Response:', response.data);
+      
+      // The API returns data with status and data fields
+      if (response.data && response.data.status === "success") {
+        return response.data.data;
       }
       
-      try {
-        const response = await axios.get(`${API_URL}/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        // Log the response for debugging
-        console.log('Profile API Response:', response.data);
-        
-        // If the API returns data directly without the status field check
-        // or if the status is not "success" but we have data
-        if (response.data) {
-          // If the data is wrapped in a data field, return that
-          if (response.data.data) {
-            return response.data.data;
-          }
-          // Otherwise return the response data directly
-          return response.data;
-        }
-        
-        // If we get here, we didn't find usable data
-        throw new Error('No data returned from API');
-      } catch (error) {
-        console.error('API error details:', error);
-        throw error;
-      }
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1,
-  });
+      // If we don't have success status or data field
+      throw new Error(response.data?.message || 'No usable data returned from API');
+    } catch (error) {
+      console.error('Profile API error details:', error);
+      throw error;
+    }
+  },
+  staleTime: 1000 * 60 * 5, // 5 minutes
+  retry: 1,
+});
 
   const handleModalClose = (success) => {
     setActiveModal(null);
