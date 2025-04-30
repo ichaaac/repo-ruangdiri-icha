@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { motion } from "framer-motion";
 
@@ -89,7 +89,6 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
   const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-  // Initialize form with current user data
   const {
     register,
     handleSubmit,
@@ -139,7 +138,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       // Reset any previous error message
       setErrorMessage("");
       
-      return axios.patch(
+      return apiClient.patch(
         `${API_URL}/users/change-password`,
         {
           oldPassword: data.oldPassword,
