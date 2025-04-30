@@ -1,28 +1,17 @@
-"use client";
 import React, { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { authAPI } from "../../../api/auth";
+import api from "../../../lib/api";
 import SuccessModal from "../../../components/auth/SuccessModal";
 
 const ForgotPassword = () => {
-  // Form state
   const [email, setEmail] = useState("");
-  
-  // Error handling
   const [errorMessage, setErrorMessage] = useState("");
   const [emailError, setEmailError] = useState(false);
-  
-  // Success message state
   const [successMessage, setSuccessMessage] = useState("");
-  
-  // Modal state
   const [showModal, setShowModal] = useState(false);
-
-  // Forgot password mutation
   const forgotPasswordMutation = useMutation({
-    mutationFn: (email) => authAPI.forgotPassword(email),
+    mutationFn: (email) => api.forgotPassword(email),
     onSuccess: (response) => {
-      // Access the message from the response if available
       const message = response.message || "Link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam Anda.";
       setSuccessMessage(message);
       setShowModal(true);

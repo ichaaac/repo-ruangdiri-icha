@@ -52,7 +52,7 @@ const Navbar = () => {
 
   const navItems = [
     { name: "Beranda", path: "/" },
-    { name: "Layanan Kami", path: "/layanan" },
+    { name: "Layanan Kami", scrollTo: "services" },
     { name: "Tentang Kami", path: "/tentang" },
     { name: "Assesmen Diri", path: "/assesmen" },
     { name: "Artikel", path: "/artikel" }

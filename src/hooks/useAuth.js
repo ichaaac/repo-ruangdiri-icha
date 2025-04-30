@@ -1,38 +1,41 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { authAPI } from "../api/auth";
+import api, { getMe } from "../lib/api";
 
-/**
- * Custom hook for authentication-related operations
- * Using React Query to manage state without useEffect or Context
- */
+
 export const useAuth = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Get current user query
   const {
     data: user,
     isLoading,
     error,
-    refetch
+    refetch,
   } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => {
-      const userStr = localStorage.getItem('user');
-      if (!userStr) return null;
-      
+    queryKey: ["currentUser"],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+
+      // If no token, return null (not authenticated)
+      if (!token) return null;
+
       try {
-        return JSON.parse(userStr);
+        // Use the consolidated getMe function
+        const response = await getMe();
+        
+        if (response.data?.status === "success") {
+          return response.data.data;
+        }
+
+        return null;
       } catch (e) {
-        console.error('Error parsing user data:', e);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        console.error("Error fetching user data:", e);
         return null;
       }
     },
-    // Don't refetch automatically - we'll control refetching
-    staleTime: Infinity
+    retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   /**
@@ -40,26 +43,43 @@ export const useAuth = () => {
    * Handles user authentication and stores tokens
    */
   const login = useMutation({
-    mutationFn: (credentials) => authAPI.login(credentials),
-    onSuccess: (response) => {
-      // Store auth token and user data
-      if (response?.data?.access_token && response?.data?.user) {
-        localStorage.setItem('token', response.data.access_token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        // Update query cache with user data
-        queryClient.setQueryData(['currentUser'], response.data.user);
-        
-        // Redirect based on user role/organization type
-        if (response.data.user.organization?.type === 'school') {
-          navigate('/organization/school/dashboard');
-        } else if (response.data.user.organization?.type === 'company') {
-          navigate('/organization/company/dashboard');
-        } else {
-          navigate('/');
+    mutationFn: async (credentials) => {
+      try {
+        // Use the consolidated api.auth.login
+        const loginResponse = await api.auth.login(credentials);
+
+        if (loginResponse?.status !== "success") {
+          throw new Error(loginResponse?.message || "Login failed");
         }
+
+        // Extract token using the correct property name
+        const accessToken = loginResponse.data.accessToken;
+        const organizationType = loginResponse.data.organizationType;
+
+        if (!accessToken) {
+          throw new Error("Access token tidak ditemukan dalam respons");
+        }
+
+        return { accessToken, organizationType };
+      } catch (error) {
+        console.error("Login error:", error);
+        throw error;
       }
-    }
+    },
+    onSuccess: (data) => {
+      // Save token to localStorage
+      localStorage.setItem("token", data.accessToken);
+      localStorage.setItem("organizationType", data.organizationType);
+
+      // Use window.location for a hard navigation to bypass React Router issues
+      if (data.organizationType === "school") {
+        window.location.href = "/demo/organization/school/profile";
+      } else if (data.organizationType === "company") {
+        window.location.href = "/demo/organization/company/profile";
+      } else {
+        window.location.href = "/";
+      }
+    },
   });
 
   /**
@@ -67,7 +87,10 @@ export const useAuth = () => {
    * Sends a password reset email
    */
   const forgotPassword = useMutation({
-    mutationFn: (email) => authAPI.forgotPassword(email)
+    mutationFn: async (email) => {
+      const response = await api.auth.forgotPassword(email);
+      return response;
+    },
   });
 
   /**
@@ -75,13 +98,16 @@ export const useAuth = () => {
    * Resets user password using token
    */
   const resetPassword = useMutation({
-    mutationFn: ({ token, newPassword }) => authAPI.resetPassword(token, newPassword),
+    mutationFn: async ({ token, newPassword }) => {
+      const response = await api.auth.resetPassword(token, newPassword);
+      return response;
+    },
     onSuccess: () => {
       // Navigate to login page after successful password reset
       setTimeout(() => {
-        navigate('/login');
+        navigate("/login");
       }, 2000);
-    }
+    },
   });
 
   /**
@@ -89,7 +115,10 @@ export const useAuth = () => {
    * Updates user's current password
    */
   const changePassword = useMutation({
-    mutationFn: ({ oldPassword, newPassword }) => authAPI.changePassword(oldPassword, newPassword)
+    mutationFn: async ({ oldPassword, newPassword }) => {
+      const response = await api.auth.changePassword(oldPassword, newPassword);
+      return response;
+    },
   });
 
   /**
@@ -97,39 +126,57 @@ export const useAuth = () => {
    * Clears auth tokens and user data
    */
   const logout = useMutation({
-    mutationFn: () => authAPI.logout(),
-    onSuccess: () => {
-      // Clear user data and tokens
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      
-      // Clear query cache
-      queryClient.setQueryData(['currentUser'], null);
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      
-      // Navigate to login page
-      navigate('/login');
+    mutationFn: async () => {
+      try {
+        // Call logout endpoint using the consolidated API
+        await api.auth.logout();
+      } catch (error) {
+        console.error("Logout error:", error);
+        // Continue with local logout even if API call fails
+      }
     },
-    onError: () => {
-      // Even on error, clear tokens and redirect
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      queryClient.setQueryData(['currentUser'], null);
-      navigate('/login');
-    }
+    onSettled: () => {
+      // Clear user data and tokens regardless of success/failure
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("organizationType");
+
+      // Clear query cache
+      queryClient.setQueryData(["currentUser"], null);
+      queryClient.setQueryData(["school", "profile"], null);
+      queryClient.setQueryData(["company", "profile"], null);
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+
+      // Navigate to login page
+      navigate("/login");
+    },
   });
 
   /**
    * Check if user is authenticated
+   * First check token, then check user data if needed
    */
   const isAuthenticated = () => {
-    return !!user && !!localStorage.getItem('token');
+    // First check for token - this is the primary authentication check
+    const token = localStorage.getItem("token");
+    if (!token) return false;
+
+    // If we're still loading, consider the user authenticated based on token
+    if (isLoading) return true;
+
+    // If loading completed but no user data, still consider authenticated if token exists
+    return !!token;
   };
 
   /**
    * Get user's organization type
    */
   const getOrganizationType = () => {
+    // First check localStorage
+    const storedType = localStorage.getItem("organizationType");
+    if (storedType) return storedType;
+
+    // Fallback to user data if available
     return user?.organization?.type || null;
   };
 
@@ -144,6 +191,6 @@ export const useAuth = () => {
     logout,
     isAuthenticated,
     getOrganizationType,
-    refetchUser: refetch
+    refetchUser: refetch,
   };
 };
