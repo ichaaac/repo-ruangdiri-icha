@@ -1,11 +1,12 @@
 // src/pages/shared/auth/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 const Login = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -16,12 +17,11 @@ const Login = () => {
   const [passwordError, setPasswordError] = useState(false);
   
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+  const API_URL = import.meta.env.VITE_API_URL || ("");
 
   const loginMutation = useMutation({
     mutationFn: async (credentials) => {
       try {
-        // Just do the login, no profile fetch
         const loginResponse = await axios.post(`${API_URL}/auth/login`, credentials);
         console.log("Login Response:", loginResponse.data);
         
@@ -46,56 +46,19 @@ const Login = () => {
     onSuccess: (data) => {
       console.log("Login Success Data:", data);
       
-      // Clear any existing data
-      localStorage.removeItem('token');
-      localStorage.removeItem('organizationType');
-      localStorage.removeItem('user');
-      
       // Save token to localStorage
       localStorage.setItem('token', data.accessToken);
       
-      // Save organization type to localStorage
+      // Save organization type to localStorage to use it in profile page
       localStorage.setItem('organizationType', data.organizationType);
       
-      console.log("Token and organizationType saved to localStorage");
-      
-      // For testing purpose, make a dummy API call to /users/me to pre-populate cache
-      // This is to reduce the chance of infinite redirect loops
-      try {
-        axios.get(`${API_URL}/users/me`, {
-          headers: {
-            Authorization: `Bearer ${data.accessToken}`
-          }
-        }).then(() => {
-          // Navigate after ensuring profile data is fetched
-          if (data.organizationType === 'school') {
-            // Use the demo route first to avoid protected route issues
-            window.location.href = '/demo/organization/school/profile';
-          } else if (data.organizationType === 'company') {
-            window.location.href = '/demo/organization/company/profile';
-          } else {
-            window.location.href = '/';
-          }
-        }).catch(() => {
-          // Even if profile fetch fails, still redirect
-          if (data.organizationType === 'school') {
-            window.location.href = '/demo/organization/school/profile';
-          } else if (data.organizationType === 'company') {
-            window.location.href = '/demo/organization/company/profile';
-          } else {
-            window.location.href = '/';
-          }
-        });
-      } catch (error) {
-        console.error("Error fetching profile after login:", error);
-        // Still try to navigate
-        if (data.organizationType === 'school') {
-          window.location.href = '/demo/organization/school/profile';
-        } else if (data.organizationType === 'company') {
-          window.location.href = '/demo/organization/company/profile';
-        } else {
-          window.location.href = '/';
-        }
+      // Simply redirect based on organization type
+      if (data.organizationType === 'school') {
+        navigate('/organization/school/profile');
+      } else if (data.organizationType === 'company') {
+        navigate('/organization/company/profile');
+      } else {
+        navigate('/');
       }
     },
     onError: (error) => {
@@ -243,7 +206,6 @@ const Login = () => {
                 }}
                 disabled={loginMutation.isPending}
                 required
-                autoComplete="username"
               />
             </div>
 
@@ -267,7 +229,6 @@ const Login = () => {
                 }}
                 disabled={loginMutation.isPending}
                 required
-                autoComplete="current-password"
               />
               <span
                 className={`material-icons cursor-pointer hover:scale-110 transition-transform ${passwordError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}

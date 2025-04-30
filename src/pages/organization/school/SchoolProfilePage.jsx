@@ -101,49 +101,61 @@ const SchoolProfilePage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://amazingly-prime-anchovy.ngrok-free.app/api/v1';
   
-  // Fetch user profile data with school-specific query key
-  // Fixed profile query function for SchoolProfilePage.jsx
-// Fixed profile query function for SchoolProfilePage.jsx
-const { 
-  data: userData, 
-  isLoading, 
-  error, 
-  refetch 
-} = useQuery({
-  queryKey: ['school', 'profile'],
-  queryFn: async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    
-    try {
-      const response = await axios.get(`${API_URL}/users/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      // Log the response for debugging
-      console.log('Profile API Response:', response.data);
-      
-      // The API returns data with status and data fields
-      if (response.data && response.data.status === "success") {
-        return response.data.data;
+  const { 
+    data: userData, 
+    isLoading, 
+    error, 
+    refetch 
+  } = useQuery({
+    queryKey: ['school', 'profile'],
+    queryFn: async () => {
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
       }
       
-      // If we don't have success status or data field
-      throw new Error(response.data?.message || 'No usable data returned from API');
-    } catch (error) {
-      console.error('Profile API error details:', error);
-      throw error;
-    }
-  },
-  staleTime: 1000 * 60 * 5, // 5 minutes
-  retry: 1,
-});
+      try {
+        // Make API request
+        console.log(`Making API request to: ${API_URL}/users/me`);
+        
+        const response = await axios.get(`${API_URL}/users/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        console.log('Profile API Response:', response.data);
+        
+        // Proper data structure validation
+        if (response && response.data && response.data.status === 'success') {
+          if (response.data.data) {
+            return response.data.data; // Return the actual user data
+          }
+        }
+        
+        // If we got here, the response is not in the expected format
+        console.error('Unexpected API response format:', response.data);
+        throw new Error('API response format not as expected');
+      } catch (error) {
+        console.error('API error details:', error);
+        
+        // Check for HTML response
+        if (error.response && typeof error.response.data === 'string' && 
+            error.response.data.includes('<!DOCTYPE html>')) {
+          throw new Error('Server returned HTML instead of JSON. Check your API endpoint and configuration.');
+        }
+        
+        // Enhanced error message that provides more details
+        const errorMessage = error.response?.data?.message || error.message || 'Unknown error occurred';
+        throw new Error(errorMessage);
+      }
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
+  });
 
   const handleModalClose = (success) => {
     setActiveModal(null);

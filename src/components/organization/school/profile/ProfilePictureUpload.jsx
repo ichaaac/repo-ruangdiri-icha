@@ -1,5 +1,5 @@
 // src/components/organization/school/profile/ProfilePictureUpload.jsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import clsx from "clsx";
@@ -11,6 +11,11 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const [uploadError, setUploadError] = useState(null);
   const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+  // Update preview when currentProfilePicture changes
+  useEffect(() => {
+    setPreviewImage(currentProfilePicture);
+  }, [currentProfilePicture]);
 
   // Upload profile picture mutation
   const uploadProfilePicture = useMutation({
@@ -26,18 +31,23 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       const formData = new FormData();
       formData.append("profilePicture", file);
       
+      console.log("Uploading profile picture...");
+      
       return axios.put(
-        `${API_URL}/organizations/profile-picture`,
+        `${API_URL}/api/v1/organizations/profile-picture`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
-            "Authorization": `Bearer ${token}`
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json"
           },
         }
       );
     },
     onSuccess: (response) => {
+      console.log("Profile picture upload success:", response.data);
+      
       // Invalidate both the general user profile and the specific organization profile
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
@@ -46,6 +56,8 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       // Update image preview if response contains new image URL
       if (response.data?.data?.organization?.profilePicture) {
         setPreviewImage(response.data.data.organization.profilePicture);
+      } else if (response.data?.data?.profilePicture) {
+        setPreviewImage(response.data.data.profilePicture);
       }
     },
     onError: (error) => {

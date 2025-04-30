@@ -35,114 +35,162 @@ const StudentListPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
- // Inside StudentListPage.jsx useQuery function
-// Fixed students query function for StudentListPage.jsx
-const { 
-  data: studentsData, 
-  isLoading,
-  isError,
-  error
-} = useQuery({
-  queryKey: ['students', currentPage, pageSize, searchTerm, sortConfig],
-  queryFn: async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
+  // Fetch students data
+  const { 
+    data: studentsData, 
+    isLoading,
+    isError,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['students', currentPage, pageSize, searchTerm, sortConfig],
+    queryFn: async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-    // Build query parameters
-    const params = new URLSearchParams({
-      page: currentPage,
-      limit: pageSize
-    });
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: currentPage,
+        limit: pageSize
+      });
 
-    if (searchTerm) {
-      params.append('search', searchTerm);
-    }
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
 
-    // Add sorting if applicable
-    if (sortConfig.key && sortConfig.direction) {
-      params.append('sortBy', sortConfig.key);
-      params.append('sortDirection', sortConfig.direction === 'ascending' ? 'asc' : 'desc');
-    }
+      // Add sorting if applicable
+      if (sortConfig.key && sortConfig.direction) {
+        params.append('sortBy', sortConfig.key);
+        params.append('sortDirection', sortConfig.direction === 'ascending' ? 'asc' : 'desc');
+      }
 
-    try {
-      const response = await axios.get(
-        `${API_URL}/organizations/students?${params.toString()}`,
+      try {
+        const response = await axios.get(
+          `${API_URL}/organizations/students?${params.toString()}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        
+        // Log the entire response
+        console.log('Students API Raw Response:', response);
+        console.log('Students API Data:', response.data);
+        
+        // Check different possible response structures
+        let studentsArray = [];
+        let metadata = {
+          totalPage: 1,
+          totalData: 0,
+          page: currentPage,
+          limit: pageSize,
+          hasNextPage: false
+        };
+        
+        // Extract students from common response structures
+        if (response.data && response.data.status === "success") {
+          // If response is in the format from your example
+          if (response.data.data && response.data.data.students) {
+            studentsArray = response.data.data.students;
+          } 
+          // If data is directly under the data field
+          else if (response.data.data && Array.isArray(response.data.data)) {
+            studentsArray = response.data.data;
+          }
+          
+          // Extract metadata if available
+          if (response.data.metadata) {
+            metadata = response.data.metadata;
+          }
+        }
+        // If response has students array directly at root
+        else if (response.data && Array.isArray(response.data)) {
+          studentsArray = response.data;
+        }
+        // Other possible structures
+        else if (response.data && response.data.students && Array.isArray(response.data.students)) {
+          studentsArray = response.data.students;
+          
+          if (response.data.metadata) {
+            metadata = response.data.metadata;
+          }
+        }
+        
+        console.log('Extracted students:', studentsArray);
+        console.log('Extracted metadata:', metadata);
+        
+        if (studentsArray.length > 0 || (metadata && metadata.totalData === 0)) {
+          // Use the extracted data
+          return {
+            data: studentsArray,
+            metadata: metadata
+          };
+        }
+        
+        throw new Error('Could not extract students data from API response');
+      } catch (error) {
+        console.error('Students API error details:', error);
+        
+        // More detailed error for debugging
+        if (error.response) {
+          console.error('Error response status:', error.response.status);
+          console.error('Error response data:', error.response.data);
+        }
+        
+        throw error;
+      }
+    },
+    staleTime: 1000 * 60 * 2 // 2 minutes
+  });
+
+  // Student update mutation
+  const updateStudentMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      console.log(`Updating student ${id} with data:`, data);
+      
+      return axios.patch(
+        `${API_URL}/organizations/students/${id}`,
+        data,
         {
           headers: {
-            Authorization: `Bearer ${token}`
+            "Authorization": `Bearer ${token}`
           }
         }
       );
+    },
+    onSuccess: (response) => {
+      console.log('Student update successful:', response.data);
       
-      // Log the response for debugging
-      console.log('Students API Response:', response.data);
-      
-      // Check if the API returns data with expected structure
-      if (response.data && response.data.status === "success") {
-        // Create a properly structured data object that matches what the component expects
-        return {
-          data: response.data.data.students || [],
-          metadata: response.data.metadata || {
-            totalPage: 1,
-            totalData: 0
-          }
-        };
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      setEditingId(null);
+      setEditData({});
+      setHasChanges(false);
+    },
+    onError: (error) => {
+      console.error("Error updating student:", error);
+      if (error.response) {
+        console.error('Update error response status:', error.response.status);
+        console.error('Update error response data:', error.response.data);
       }
-      
-      throw new Error(response.data?.message || 'No usable data returned from API');
-    } catch (error) {
-      console.error('Students API error details:', error);
-      throw error;
-    }
-  },
-  staleTime: 1000 * 60 * 2 // 2 minutes
-});
+    },
+  });
 
-  // Student update mutation
-// Update the student update mutation in StudentListPage.jsx
-const updateStudentMutation = useMutation({
-  mutationFn: async ({ id, data }) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    
-    // Log what we're trying to update
-    console.log(`Updating student ${id} with data:`, data);
-    
-    return axios.patch(
-      `${API_URL}/organizations/students/${id}`,
-      data,
-      {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      }
-    );
-  },
-  onSuccess: (response) => {
-    // Log success response for debugging
-    console.log('Student update successful:', response.data);
-    
-    // Invalidate queries to refetch data
-    queryClient.invalidateQueries({ queryKey: ['students'] });
-    
-    // Reset editing state
-    setEditingId(null);
-    setEditData({});
-    setHasChanges(false);
-  },
-  onError: (error) => {
-    console.error("Error updating student:", error);
-    // Could display an error message to the user here
-  },
-});
   // Calculate student statistics
   const totalStudents = studentsData?.data?.length || 0;
-  const femaleStudents = studentsData?.data?.filter(student => student.gender === "female").length || 0;
-  const maleStudents = studentsData?.data?.filter(student => student.gender === "male").length || 0;
+  const femaleStudents = studentsData?.data?.filter(student => 
+    student.gender === "female" || student.gender === "f"
+  ).length || 0;
+  const maleStudents = studentsData?.data?.filter(student => 
+    student.gender === "male" || student.gender === "m"
+  ).length || 0;
 
   const totalPages = studentsData?.metadata?.totalPage || 1;
 
@@ -235,13 +283,15 @@ const updateStudentMutation = useMutation({
     if (editingId !== null) return; // Prevent editing multiple rows
 
     const student = studentsData.data.find((student) => student.id === id);
+    if (!student) return;
+    
     setEditingId(id);
     setEditData({
       fullName: student.fullName,
       nis: student.nis,
       classroom: student.classroom,
       gender: student.gender,
-      iqScore: student.iqScore
+      iqScore: student.iqScore !== undefined ? student.iqScore : 0
     });
     setHasChanges(false);
   };
@@ -328,7 +378,7 @@ const updateStudentMutation = useMutation({
             <p className="text-red-500 font-semibold mb-2">Gagal memuat data siswa</p>
             <p className="text-gray-600 mb-4">{error?.message || 'Terjadi kesalahan saat mengambil data.'}</p>
             <button 
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['students'] })}
+              onClick={() => refetch()}
               className="px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-variant1"
             >
               Coba Lagi
@@ -559,7 +609,7 @@ const updateStudentMutation = useMutation({
                               </select>
                             ) : (
                               <div className="text-sm text-gray-500">
-                                {student.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
+                                {student.gender === 'male' || student.gender === 'm' ? 'Laki-laki' : 'Perempuan'}
                               </div>
                             )}
                           </td>
@@ -767,11 +817,11 @@ const updateStudentMutation = useMutation({
                     <span className="ml-2">Semua</span>
                   </label>
                   <label className="inline-flex items-center">
-                    <input type="radio" name="gender" value="L" className="form-radio" />
+                    <input type="radio" name="gender" value="male" className="form-radio" />
                     <span className="ml-2">Laki-laki</span>
                   </label>
                   <label className="inline-flex items-center">
-                    <input type="radio" name="gender" value="P" className="form-radio" />
+                    <input type="radio" name="gender" value="female" className="form-radio" />
                     <span className="ml-2">Perempuan</span>
                   </label>
                 </div>
@@ -781,9 +831,9 @@ const updateStudentMutation = useMutation({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status Skrining</label>
                 <select className="w-full p-2 border border-gray-300 rounded-md">
                   <option value="">Semua Status</option>
-                  <option value="success">Aman</option>
-                  <option value="error">Pengawasan</option>
-                  <option value="warning">Beresiko</option>
+                  <option value="stable">Aman</option>
+                  <option value="monitored">Pengawasan</option>
+                  <option value="at_risk">Beresiko</option>
                 </select>
               </div>
 
@@ -791,8 +841,8 @@ const updateStudentMutation = useMutation({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status Konseling</label>
                 <select className="w-full p-2 border border-gray-300 rounded-md">
                   <option value="">Semua Status</option>
-                  <option value="Sudah">Sudah</option>
-                  <option value="Belum">Belum</option>
+                  <option value="true">Sudah</option>
+                  <option value="false">Belum</option>
                 </select>
               </div>
 

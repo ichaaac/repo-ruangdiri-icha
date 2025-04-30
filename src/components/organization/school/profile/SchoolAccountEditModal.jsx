@@ -140,7 +140,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       setErrorMessage("");
       
       return axios.patch(
-        `${API_URL}/users/change-password`,
+        `${API_URL}/api/v1/users/change-password`,
         {
           oldPassword: data.oldPassword,
           newPassword: data.newPassword,
@@ -221,6 +221,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
                   {...register("email")}
                   disabled
                   className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 bg-gray-100"
+                  autoComplete="email"
                 />
               </div>
 
@@ -237,6 +238,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
                       errors.oldPassword ? "border-red-500" : "border-gray-300"
                     )}
                     placeholder="Masukkan password lama"
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
@@ -270,6 +272,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
                       errors.newPassword ? "border-red-500" : "border-gray-300"
                     )}
                     placeholder="Masukkan password baru"
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -327,6 +330,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
                       errors.confirmPassword ? "border-red-500" : "border-gray-300"
                     )}
                     placeholder="Konfirmasi password baru"
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"

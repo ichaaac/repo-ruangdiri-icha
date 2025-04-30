@@ -46,6 +46,7 @@ const ConfirmationModal = ({ onCancel, onConfirm }) => (
 
 const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -72,17 +73,26 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
         throw new Error('No authentication token found');
       }
       
+      // Clear previous error messages
+      setErrorMessage("");
+      
+      console.log("Updating organization profile with data:", data);
+      
       return axios.patch(
-        `${API_URL}/organizations/profile`,
+        `${API_URL}/api/v1/organizations/profile`,
         data,
         {
           headers: {
-            "Authorization": `Bearer ${token}`
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
           }
         }
       );
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Profile update success:", response.data);
+      
       // Invalidate both general user profile and organization-specific queries
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
@@ -91,6 +101,13 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     },
     onError: (error) => {
       console.error("Error updating profile:", error);
+      
+      // Handle specific error messages
+      if (error.response?.data?.message) {
+        setErrorMessage(error.response.data.message);
+      } else {
+        setErrorMessage("Terjadi kesalahan saat memperbarui profil");
+      }
     },
   });
 
@@ -132,13 +149,23 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
             </button>
           </div>
 
+          {errorMessage && (
+            <div className="px-4 py-3 mb-4 text-xs bg-pink-100 border border-red-400 text-red-700 rounded-md">
+              <div className="flex items-center">
+                <span className="material-icons mr-2 text-sm">error</span>
+                {errorMessage}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-5">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-sm text-gray-500 mb-1" htmlFor="fullName">
                   Nama Sekolah
                 </label>
                 <input
+                  id="fullName"
                   type="text"
                   {...register("fullName")}
                   className={clsx(
@@ -155,10 +182,11 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-sm text-gray-500 mb-1" htmlFor="address">
                   Alamat Sekolah
                 </label>
                 <input
+                  id="address"
                   type="text"
                   {...register("address")}
                   className={clsx(
@@ -175,10 +203,11 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-sm text-gray-500 mb-1" htmlFor="phone">
                   Nomor Telepon
                 </label>
                 <input
+                  id="phone"
                   type="text"
                   {...register("phone")}
                   className={clsx(
@@ -197,10 +226,10 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isDirty}
+                  disabled={isSubmitting || !isDirty || updateProfileMutation.isPending}
                   className={clsx(
                     "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                    isDirty && !isSubmitting
+                    isDirty && !isSubmitting && !updateProfileMutation.isPending
                       ? "bg-primary hover:bg-primary-variant1"
                       : "bg-gray-400 cursor-not-allowed"
                   )}
