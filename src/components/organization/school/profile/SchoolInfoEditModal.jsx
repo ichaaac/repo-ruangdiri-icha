@@ -1,17 +1,56 @@
 // src/components/organization/school/profile/SchoolInfoEditModal.jsx
-import React, { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import React, { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import clsx from "clsx";
+import { PhoneInput } from 'react-international-phone';
+import 'react-international-phone/style.css';
+import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 
-// Zod schema for form validation
+// Format phone number with proper hyphens for Indonesia
+const formatIndonesianPhoneNumber = (value) => {
+  if (!value) return '';
+  
+  try {
+    // Ensure the value starts with a country code
+    const phoneValue = value.startsWith('+') ? value : `+${value}`;
+    const phoneNumber = parsePhoneNumber(phoneValue, 'ID');
+    
+    if (phoneNumber && phoneNumber.isValid()) {
+      const nationalNumber = phoneNumber.nationalNumber;
+      
+      // Format Indonesian numbers: +62 8XX-XXXX-XXXX
+      if (nationalNumber.length > 7) {
+        return `+${phoneNumber.countryCallingCode} ${nationalNumber.slice(0, 3)}-${nationalNumber.slice(3, 7)}-${nationalNumber.slice(7)}`;
+      } else if (nationalNumber.length > 3) {
+        return `+${phoneNumber.countryCallingCode} ${nationalNumber.slice(0, 3)}-${nationalNumber.slice(3)}`;
+      } else {
+        return `+${phoneNumber.countryCallingCode} ${nationalNumber}`;
+      }
+    }
+  } catch (error) {
+    console.error("Error formatting phone number:", error);
+  }
+  
+  return value;
+};
+
 const schoolInfoSchema = z.object({
   fullName: z.string().min(1, "Nama sekolah wajib diisi"),
   address: z.string().min(1, "Alamat sekolah wajib diisi"),
-  phone: z.string().min(1, "Nomor telepon wajib diisi"),
+  phone: z.string()
+    .min(1, "Nomor telepon wajib diisi")
+    .refine((value) => {
+      try {
+        if (value.length < 8) return true;
+        return isValidPhoneNumber(value, 'ID');
+      } catch (error) {
+        return false;
+      }
+    }, "Format nomor telepon tidak valid")
 });
 
 // Confirmation modal component
@@ -54,15 +93,16 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   const {
     register,
     handleSubmit,
-    reset,
+    control,
     formState: { errors, isSubmitting, isDirty },
   } = useForm({
     resolver: zodResolver(schoolInfoSchema),
     defaultValues: {
       fullName: userData?.fullName || "",
       address: userData?.organization?.address || "",
-      phone: userData?.organization?.phone || "",
+      phone: userData?.organization?.phone || "+62", // Ensure we have at least the country code
     },
+    mode: "onChange",
   });
 
   // Update profile mutation
@@ -79,7 +119,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
       console.log("Updating organization profile with data:", data);
       
       return axios.patch(
-        `${API_URL}/api/v1/organizations/profile`,
+        `${API_URL}/organizations/profile`,
         data,
         {
           headers: {
@@ -114,17 +154,6 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   const onSubmit = (data) => {
     updateProfileMutation.mutate(data);
   };
-
-  // Reset form with user data when component mounts or userData changes
-  useEffect(() => {
-    if (userData) {
-      reset({
-        fullName: userData.fullName || "",
-        address: userData.organization?.address || "",
-        phone: userData.organization?.phone || "",
-      });
-    }
-  }, [userData, reset]);
 
   const handleCloseClick = () => {
     if (isDirty) {
@@ -206,15 +235,39 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                 <label className="block text-sm text-gray-500 mb-1" htmlFor="phone">
                   Nomor Telepon
                 </label>
-                <input
-                  id="phone"
-                  type="text"
-                  {...register("phone")}
-                  className={clsx(
-                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
-                    errors.phone ? "border-red-500" : "border-gray-300"
+                <Controller
+                  name="phone"
+                  control={control}
+                  render={({ field }) => (
+                    <PhoneInput
+                      defaultCountry="ID"
+                      value={field.value}
+                      onChange={(value) => {
+                        // Apply custom formatting and update the field
+                        const formattedValue = formatIndonesianPhoneNumber(value);
+                        field.onChange(formattedValue);
+                      }}
+                      onBlur={field.onBlur}
+                      inputClassName={clsx(
+                        "w-full h-12 border-[1.5px] text-base px-4 focus:outline-none focus:border-primary",
+                        errors.phone ? "border-red-500" : "border-gray-300"
+                      )}
+                      containerClassName={clsx(
+                        "rounded-md overflow-hidden", 
+                        errors.phone ? "border-red-500" : "border-gray-300"
+                      )}
+                      buttonClassName="h-12 px-3 flex items-center justify-center border-r border-gray-300"
+                      placeholder="Masukkan nomor telepon"
+                      inputProps={{
+                        id: "phone",
+                        name: "phone",
+                      }}
+                      international={true}
+                      withCountryCallingCode={true}
+                      disableDialCodeAndPrefix={false}
+                      forceDialCode={true}
+                    />
                   )}
-                  placeholder="Masukkan nomor telepon"
                 />
                 {errors.phone && (
                   <span className="text-xs text-red-500 mt-1">
