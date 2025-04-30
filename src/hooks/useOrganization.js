@@ -1,3 +1,5 @@
+// src/hooks//useOrganization.js
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { organizationAPI } from "../api/organization";
 import { useAuth } from "./useAuth";

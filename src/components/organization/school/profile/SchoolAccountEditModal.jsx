@@ -140,7 +140,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       setErrorMessage("");
       
       return axios.patch(
-        `${API_URL}/api/v1/users/change-password`,
+        `${API_URL}/users/change-password`,
         {
           oldPassword: data.oldPassword,
           newPassword: data.newPassword,

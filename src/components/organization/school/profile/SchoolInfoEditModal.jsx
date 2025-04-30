@@ -79,7 +79,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
       console.log("Updating organization profile with data:", data);
       
       return axios.patch(
-        `${API_URL}/api/v1/organizations/profile`,
+        `${API_URL}/organizations/profile`,
         data,
         {
           headers: {

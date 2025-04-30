@@ -8,214 +8,229 @@ import axios from "axios";
  * Using React Query to manage state without useEffect or Context
  */
 export const useAuth = () => {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-  // Get current user query
-  const {
-    data: user,
-    isLoading,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: async () => {
-      const token = localStorage.getItem('token');
-      
-      // If no token, return null (not authenticated)
-      if (!token) return null;
-      
-      try {
-        // Fetch current user from API
-        const response = await axios.get(`${API_URL}/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        if (response.data?.status === 'success') {
-          return response.data.data;
-        }
-        
-        return null;
-      } catch (e) {
-        console.error('Error fetching user data:', e);
-        // Don't remove token here, just return null
-        return null;
-      }
-    },
-    retry: false,
-    staleTime: 1000 * 60 * 5 // 5 minutes
-  });
+	// Get current user query
+	const {
+		data: user,
+		isLoading,
+		error,
+		refetch,
+	} = useQuery({
+		queryKey: ["currentUser"],
+		queryFn: async () => {
+			const token = localStorage.getItem("token");
 
-  /**
-   * Login mutation
-   * Handles user authentication and stores tokens
-   */
-  const login = useMutation({
-    mutationFn: async (credentials) => {
-      try {
-        // Step 1: Login to get the access token
-        const loginResponse = await axios.post(`${API_URL}/auth/login`, credentials);
-        
-        if (loginResponse.data?.status !== 'success') {
-          throw new Error(loginResponse.data?.message || 'Login failed');
-        }
-        
-        // Extract token using the correct property name
-        const accessToken = loginResponse.data.data.accessToken;
-        const organizationType = loginResponse.data.data.organizationType;
-        
-        if (!accessToken) {
-          throw new Error('Access token tidak ditemukan dalam respons');
-        }
-        
-        return { accessToken, organizationType };
-      } catch (error) {
-        console.error('Login error:', error);
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      // Save token to localStorage
-      localStorage.setItem('token', data.accessToken);
-      localStorage.setItem('organizationType', data.organizationType);
-      
-      // Use window.location for a hard navigation to bypass React Router issues
-      if (data.organizationType === 'school') {
-        window.location.href = '/demo/organization/school/profile';
-      } else if (data.organizationType === 'company') {
-        window.location.href = '/demo/organization/company/profile';
-      } else {
-        window.location.href = '/';
-      }
-    }
-  });
+			// If no token, return null (not authenticated)
+			if (!token) return null;
 
-  /**
-   * Forgot password mutation
-   * Sends a password reset email
-   */
-  const forgotPassword = useMutation({
-    mutationFn: async (email) => {
-      const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
-      return response.data;
-    }
-  });
+			console.log("this is running");
 
-  /**
-   * Reset password mutation
-   * Resets user password using token
-   */
-  const resetPassword = useMutation({
-    mutationFn: async ({ token, newPassword }) => {
-      const response = await axios.post(`${API_URL}/auth/reset-password`, {
-        token,
-        newPassword,
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      // Navigate to login page after successful password reset
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-    }
-  });
+			try {
+				// Fetch current user from API
+				const response = await axios.get(`${API_URL}/users/me`, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+						"ngrok-skip-browser-warning": "true",
+					},
+				});
 
-  /**
-   * Change password mutation
-   * Updates user's current password
-   */
-  const changePassword = useMutation({
-    mutationFn: async ({ oldPassword, newPassword }) => {
-      const response = await axios.patch(`${API_URL}/users/change-password`, {
-        oldPassword,
-        newPassword,
-      }, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      return response.data;
-    }
-  });
+				if (response.data?.status === "success") {
+					return response.data.data;
+				}
 
-  /**
-   * Logout function
-   * Clears auth tokens and user data
-   */
-  const logout = useMutation({
-    mutationFn: async () => {
-      try {
-        // Call logout endpoint if available
-        await axios.post(`${API_URL}/auth/logout`, {}, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-      } catch (error) {
-        console.error('Logout error:', error);
-        // Continue with local logout even if API call fails
-      }
-    },
-    onSettled: () => {
-      // Clear user data and tokens regardless of success/failure
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('organizationType');
-      
-      // Clear query cache
-      queryClient.setQueryData(['currentUser'], null);
-      queryClient.setQueryData(['school', 'profile'], null);
-      queryClient.setQueryData(['company', 'profile'], null);
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      
-      // Navigate to login page
-      navigate('/login');
-    }
-  });
+				return null;
+			} catch (e) {
+				console.error("Error fetching user data:", e);
+				return null;
+			}
+		},
+		retry: false,
+		staleTime: 1000 * 60 * 5, // 5 minutes
+	});
 
-  /**
-   * Check if user is authenticated
-   * First check token, then check user data if needed
-   */
-  const isAuthenticated = () => {
-    // First check for token - this is the primary authentication check
-    const token = localStorage.getItem('token');
-    if (!token) return false;
-    
-    // If we're still loading, consider the user authenticated based on token
-    if (isLoading) return true;
-    
-    // If loading completed but no user data, still consider authenticated if token exists
-    return !!token;
-  };
+	/**
+	 * Login mutation
+	 * Handles user authentication and stores tokens
+	 */
+	const login = useMutation({
+		mutationFn: async (credentials) => {
+			try {
+				// Step 1: Login to get the access token
+				const loginResponse = await axios.post(
+					`${API_URL}/auth/login`,
+					credentials
+				);
 
-  /**
-   * Get user's organization type
-   */
-  const getOrganizationType = () => {
-    // First check localStorage
-    const storedType = localStorage.getItem('organizationType');
-    if (storedType) return storedType;
-    
-    // Fallback to user data if available
-    return user?.organization?.type || null;
-  };
+				if (loginResponse.data?.status !== "success") {
+					throw new Error(loginResponse.data?.message || "Login failed");
+				}
 
-  return {
-    user,
-    isLoading,
-    error,
-    login,
-    forgotPassword,
-    resetPassword,
-    changePassword,
-    logout,
-    isAuthenticated,
-    getOrganizationType,
-    refetchUser: refetch
-  };
+				// Extract token using the correct property name
+				const accessToken = loginResponse.data.data.accessToken;
+				const organizationType = loginResponse.data.data.organizationType;
+
+				if (!accessToken) {
+					throw new Error("Access token tidak ditemukan dalam respons");
+				}
+
+				return { accessToken, organizationType };
+			} catch (error) {
+				console.error("Login error:", error);
+				throw error;
+			}
+		},
+		onSuccess: (data) => {
+			// Save token to localStorage
+			localStorage.setItem("token", data.accessToken);
+			localStorage.setItem("organizationType", data.organizationType);
+
+			// Use window.location for a hard navigation to bypass React Router issues
+			if (data.organizationType === "school") {
+				window.location.href = "/demo/organization/school/profile";
+			} else if (data.organizationType === "company") {
+				window.location.href = "/demo/organization/company/profile";
+			} else {
+				window.location.href = "/";
+			}
+		},
+	});
+
+	/**
+	 * Forgot password mutation
+	 * Sends a password reset email
+	 */
+	const forgotPassword = useMutation({
+		mutationFn: async (email) => {
+			const response = await axios.post(`${API_URL}/auth/forgot-password`, {
+				email,
+			});
+			return response.data;
+		},
+	});
+
+	/**
+	 * Reset password mutation
+	 * Resets user password using token
+	 */
+	const resetPassword = useMutation({
+		mutationFn: async ({ token, newPassword }) => {
+			const response = await axios.post(`${API_URL}/auth/reset-password`, {
+				token,
+				newPassword,
+			});
+			return response.data;
+		},
+		onSuccess: () => {
+			// Navigate to login page after successful password reset
+			setTimeout(() => {
+				navigate("/login");
+			}, 2000);
+		},
+	});
+
+	/**
+	 * Change password mutation
+	 * Updates user's current password
+	 */
+	const changePassword = useMutation({
+		mutationFn: async ({ oldPassword, newPassword }) => {
+			const response = await axios.patch(
+				`${API_URL}/users/change-password`,
+				{
+					oldPassword,
+					newPassword,
+				},
+				{
+					headers: {
+						Authorization: `Bearer ${localStorage.getItem("token")}`,
+					},
+				}
+			);
+			return response.data;
+		},
+	});
+
+	/**
+	 * Logout function
+	 * Clears auth tokens and user data
+	 */
+	const logout = useMutation({
+		mutationFn: async () => {
+			try {
+				// Call logout endpoint if available
+				await axios.post(
+					`${API_URL}/auth/logout`,
+					{},
+					{
+						headers: {
+							Authorization: `Bearer ${localStorage.getItem("token")}`,
+						},
+					}
+				);
+			} catch (error) {
+				console.error("Logout error:", error);
+				// Continue with local logout even if API call fails
+			}
+		},
+		onSettled: () => {
+			// Clear user data and tokens regardless of success/failure
+			localStorage.removeItem("token");
+			localStorage.removeItem("user");
+			localStorage.removeItem("organizationType");
+
+			// Clear query cache
+			queryClient.setQueryData(["currentUser"], null);
+			queryClient.setQueryData(["school", "profile"], null);
+			queryClient.setQueryData(["company", "profile"], null);
+			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+
+			// Navigate to login page
+			navigate("/login");
+		},
+	});
+
+	/**
+	 * Check if user is authenticated
+	 * First check token, then check user data if needed
+	 */
+	const isAuthenticated = () => {
+		// First check for token - this is the primary authentication check
+		const token = localStorage.getItem("token");
+		if (!token) return false;
+
+		// If we're still loading, consider the user authenticated based on token
+		if (isLoading) return true;
+
+		// If loading completed but no user data, still consider authenticated if token exists
+		return !!token;
+	};
+
+	/**
+	 * Get user's organization type
+	 */
+	const getOrganizationType = () => {
+		// First check localStorage
+		const storedType = localStorage.getItem("organizationType");
+		if (storedType) return storedType;
+
+		// Fallback to user data if available
+		return user?.organization?.type || null;
+	};
+
+	return {
+		user,
+		isLoading,
+		error,
+		login,
+		forgotPassword,
+		resetPassword,
+		changePassword,
+		logout,
+		isAuthenticated,
+		getOrganizationType,
+		refetchUser: refetch,
+	};
 };

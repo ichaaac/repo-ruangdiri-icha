@@ -34,7 +34,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       console.log("Uploading profile picture...");
       
       return axios.put(
-        `${API_URL}/api/v1/organizations/profile-picture`,
+        `${API_URL}/organizations/profile-picture`,
         formData,
         {
           headers: {
@@ -48,12 +48,10 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
     onSuccess: (response) => {
       console.log("Profile picture upload success:", response.data);
       
-      // Invalidate both the general user profile and the specific organization profile
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
       queryClient.invalidateQueries({ queryKey: ['company', 'profile'] });
       
-      // Update image preview if response contains new image URL
       if (response.data?.data?.organization?.profilePicture) {
         setPreviewImage(response.data.data.organization.profilePicture);
       } else if (response.data?.data?.profilePicture) {
