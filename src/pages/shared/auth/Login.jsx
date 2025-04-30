@@ -2,8 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-
+import api, { apiClient } from "../../../lib/api";
 const Login = () => {
 	const navigate = useNavigate();
 	const [email, setEmail] = useState("");
@@ -22,7 +21,7 @@ const Login = () => {
 		mutationFn: async (credentials) => {
 			try {
 				// Just do the login, no profile fetch
-				const loginResponse = await axios.post(
+				const loginResponse = await apiClient.post(
 					`${API_URL}/auth/login`,
 					credentials
 				);
@@ -65,7 +64,7 @@ const Login = () => {
 			// For testing purpose, make a dummy API call to /users/me to pre-populate cache
 			// This is to reduce the chance of infinite redirect loops
 			try {
-				axios
+				api
 					.get(`${API_URL}/users/me`, {
 						headers: {
 							Authorization: `Bearer ${data.accessToken}`,

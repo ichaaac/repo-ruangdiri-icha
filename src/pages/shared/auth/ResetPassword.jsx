@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { authAPI } from "../../../api/auth";
+import api from "../../../lib/api";
 
 const PasswordRequirement = ({ isValid, text }) => {
   return (
@@ -58,7 +58,7 @@ const ResetPassword = () => {
 
   // Reset password mutation
   const resetPasswordMutation = useMutation({
-    mutationFn: ({ token, newPassword }) => authAPI.resetPassword(token, newPassword),
+    mutationFn: ({ token, newPassword }) => api.resetPassword(token, newPassword),
     onSuccess: (response) => {
       // Access the message from the response if available
       const message = response.message || "Password berhasil diubah. Anda akan diarahkan ke halaman Login.";

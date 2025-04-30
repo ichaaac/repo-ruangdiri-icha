@@ -1,7 +1,5 @@
-// src/hooks//useOrganization.js
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { organizationAPI } from "../api/organization";
+import api from "../lib/api";
 import { useAuth } from "./useAuth";
 
 /**
@@ -19,7 +17,7 @@ export const useOrganization = () => {
   const useProfileData = () => {
     return useQuery({
       queryKey: [`${orgType || 'organization'}-profile`],
-      queryFn: () => organizationAPI.getProfile(),
+      queryFn: () => api.organization.getProfile(),
       // Skip query if no organization type available
       enabled: !!orgType,
       staleTime: 60000, // 1 minute
@@ -31,7 +29,7 @@ export const useOrganization = () => {
    */
   const useUpdateProfile = () => {
     return useMutation({
-      mutationFn: (profileData) => organizationAPI.updateProfile(profileData),
+      mutationFn: (profileData) => api.organization.updateProfile(profileData),
       onSuccess: () => {
         // Invalidate profile query to trigger refetch
         queryClient.invalidateQueries([`${orgType || 'organization'}-profile`]);
@@ -44,7 +42,7 @@ export const useOrganization = () => {
    */
   const useUpdateProfilePicture = () => {
     return useMutation({
-      mutationFn: (file) => organizationAPI.updateProfilePicture(file),
+      mutationFn: (file) => api.organization.updateProfilePicture(file),
       onSuccess: () => {
         // Invalidate profile query to trigger refetch with new picture
         queryClient.invalidateQueries([`${orgType || 'organization'}-profile`]);
@@ -58,7 +56,7 @@ export const useOrganization = () => {
   const useStudents = (params = {}) => {
     return useQuery({
       queryKey: ['students', params],
-      queryFn: () => organizationAPI.school.getStudents(params),
+      queryFn: () => api.organization.school.getStudents(params),
       // Only enable this query for school organizations
       enabled: orgType === 'school',
     });
@@ -70,7 +68,7 @@ export const useOrganization = () => {
   const useEmployees = (params = {}) => {
     return useQuery({
       queryKey: ['employees', params],
-      queryFn: () => organizationAPI.company.getEmployees(params),
+      queryFn: () => api.organization.company.getEmployees(params),
       // Only enable this query for company organizations
       enabled: orgType === 'company',
     });

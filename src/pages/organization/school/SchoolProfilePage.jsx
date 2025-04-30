@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-// import axios from "../../../lib/axios";
-import { getMe } from "../../../api/users";
 import { motion, AnimatePresence } from "framer-motion";
 import SchoolInfoEditModal from "../../../components/organization/school/profile/SchoolInfoEditModal";
 import SchoolAccountEditModal from "../../../components/organization/school/profile/SchoolAccountEditModal";
 import ProfilePictureUpload from "../../../components/organization/school/profile/ProfilePictureUpload";
-
+import { apiClient, getMe } from "../../../lib/api";
 // Enhanced Modal component with proper styling based on design images
 const Modal = ({ isOpen, onClose, children }) => {
 	if (!isOpen) return null;

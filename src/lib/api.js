@@ -1,0 +1,242 @@
+import axios from "axios";
+
+// Base API URL from environment variable or default
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+// Create axios instance with common configuration
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+  },
+});
+
+// Add request interceptor to include auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Add response interceptor to handle 401 errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Don't redirect on 401 errors during login attempts
+    // This ensures login errors are handled by the component
+    const isLoginAttempt = error.config.url.includes("/auth/login");
+
+    if (error.response && error.response.status === 401 && !isLoginAttempt) {
+      // Only clear tokens and redirect for non-login 401 errors
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Consolidated API object with all endpoints
+const api = {
+  // ===== User endpoints =====
+  user: {
+    /**
+     * Get current user data
+     * This is a high-frequency endpoint that's used throughout the app
+     * @returns {Promise} API response with user data
+     */
+    getMe: async () => {
+      try {
+        const response = await apiClient.get("/users/me");
+        return response;
+      } catch (error) {
+        throw error;
+      }
+    },
+  },
+
+  // ===== Authentication endpoints =====
+  auth: {
+    /**
+     * Login with email and password
+     * @param {Object} credentials - User credentials
+     * @param {string} credentials.email - User email
+     * @param {string} credentials.password - User password
+     * @param {boolean} credentials.rememberMe - Remember me flag
+     * @returns {Promise} API response
+     */
+    login: async (credentials) => {
+      try {
+        const response = await apiClient.post("/auth/login", credentials);
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Send forgot password email
+     * @param {string} email - User email
+     * @returns {Promise} API response
+     */
+    forgotPassword: async (email) => {
+      try {
+        const response = await apiClient.post("/auth/forgot-password", { email });
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Reset password with token
+     * @param {string} token - Reset password token
+     * @param {string} newPassword - New password
+     * @returns {Promise} API response
+     */
+    resetPassword: async (token, newPassword) => {
+      try {
+        const response = await apiClient.post("/auth/reset-password", {
+          token,
+          newPassword,
+        });
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Change password
+     * @param {string} oldPassword - Current password
+     * @param {string} newPassword - New password
+     * @returns {Promise} API response
+     */
+    changePassword: async (oldPassword, newPassword) => {
+      try {
+        const response = await apiClient.patch("/auth/password", {
+          oldPassword,
+          newPassword,
+        });
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Logout user (clear token)
+     * @returns {Promise} API response
+     */
+    logout: async () => {
+      try {
+        const response = await apiClient.post("/auth/logout");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        return response.data;
+      } catch (error) {
+        // Still remove token on error
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        throw error;
+      }
+    },
+  },
+
+  // ===== Organization endpoints =====
+  organization: {
+    /**
+     * Get organization profile
+     * @returns {Promise} API response with organization profile data
+     */
+    getProfile: async () => {
+      try {
+        const response = await apiClient.get("/organizations/profile");
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Update organization profile
+     * @param {Object} profileData - Profile data to update
+     * @returns {Promise} API response
+     */
+    updateProfile: async (profileData) => {
+      try {
+        const response = await apiClient.patch("/organizations/profile", profileData);
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Update organization profile picture
+     * @param {File} file - Profile picture file
+     * @returns {Promise} API response
+     */
+    updateProfilePicture: async (file) => {
+      try {
+        const formData = new FormData();
+        formData.append("profilePicture", file);
+
+        const response = await apiClient.put("/organizations/profile-picture", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    // School-specific endpoints
+    school: {
+      /**
+       * Get school student list
+       * @param {Object} params - Query parameters (pagination, filters, etc.)
+       * @returns {Promise} API response with students data
+       */
+      getStudents: async (params = {}) => {
+        try {
+          const response = await apiClient.get("/organizations/school/students", { params });
+          return response.data;
+        } catch (error) {
+          throw error;
+        }
+      },
+    },
+
+    // Company-specific endpoints
+    company: {
+      /**
+       * Get company employee list
+       * @param {Object} params - Query parameters (pagination, filters, etc.) 
+       * @returns {Promise} API response with employees data
+       */
+      getEmployees: async (params = {}) => {
+        try {
+          const response = await apiClient.get("/organizations/company/employees", { params });
+          return response.data;
+        } catch (error) {
+          throw error;
+        }
+      },
+    },
+  },
+};
+
+export default api;
+
+export { apiClient };
+
+export const getMe = api.user.getMe;
