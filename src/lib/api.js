@@ -1,3 +1,5 @@
+// src/lib/api.js
+
 import axios from "axios";
 
 // Base API URL from environment variable or default
@@ -177,7 +179,49 @@ const api = {
         throw error;
       }
     },
+// Adding the new student update endpoint to the api.js file
 
+// The existing organization section should be updated to include:
+organization: {
+  // ... existing methods ...
+
+  // School-specific endpoints
+  school: {
+    /**
+     * Get school student list
+     * @param {Object} params - Query parameters (pagination, filters, etc.)
+     * @returns {Promise} API response with students data
+     */
+    getStudents: async (params = {}) => {
+      try {
+        const response = await apiClient.get("/organizations/school/students", { params });
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    /**
+     * Update a student's profile
+     * @param {string} studentId - The ID of the student to update
+     * @param {Object} studentData - Profile data to update
+     * @returns {Promise} API response with updated student data
+     */
+    updateStudent: async (studentId, studentData) => {
+      try {
+        const response = await apiClient.patch(`/organizations/students/${studentId}`, studentData);
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+  },
+
+  // Company-specific endpoints
+  company: {
+    // ... existing methods ...
+  },
+},
     /**
      * Update organization profile picture
      * @param {File} file - Profile picture file
@@ -215,8 +259,7 @@ const api = {
         }
       },
     },
-
-    // Company-specific endpoints
+        // Company-specific endpoints
     company: {
       /**
        * Get company employee list

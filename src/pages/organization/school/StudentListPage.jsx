@@ -1,81 +1,135 @@
-// src/pages/organization/school/StudentListPage.jsx
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import SchoolSidebar from "../../../components/organization/school/SchoolSidebar";
-import api, { apiClient } from "../../../lib/api";
+import { motion, AnimatePresence } from "framer-motion";
+import { apiClient } from "../../../lib/api";
+import { useDebounce } from "../../../hooks/useDebounce"; // We'll create this hook
+
+// Custom hook for debouncing search input
+const useDebounceValue = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
 
 const StudentListPage = () => {
   const queryClient = useQueryClient();
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  // Raw input states - these won't trigger immediate refetches
+  const [searchInput, setSearchInput] = useState("");
+  const [sortConfigInput, setSortConfigInput] = useState({ key: null, direction: null });
+  
+  // Debounced states - these will be used for queries
+  const debouncedSearchTerm = useDebounceValue(searchInput, 500);
+  // Apply sort config directly, but we'll add a confirmation button in the UI if needed
+  const [appliedSortConfig, setAppliedSortConfig] = useState({ key: null, direction: null });
+  
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const observerRef = useRef(null);
-  
-  // Handle window resize without useEffect using event listeners
-  const handleResize = useCallback(() => {
-    const mobile = window.innerWidth < 768;
-    setIsMobile(mobile);
-    // Close sidebar on mobile automatically
-    if (mobile) {
-      setSidebarExpanded(false);
-    }
-  }, []);
-  
-  // Add resize listener when component mounts
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', handleResize);
-  }
+  const helpIconRef = useRef(null);
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
 
-  // Get user profile data
+  // Filter states - raw input and applied
+  const [filtersInput, setFiltersInput] = useState({
+    grade: null, // X, XI, XII
+    classNumber: null, // 1-10
+    gender: null, // L, P
+    screeningStatus: null, // stable, monitored, at_risk
+    counselingStatus: null // true, false
+  });
+  
+  const [appliedFilters, setAppliedFilters] = useState({
+    grade: null,
+    classNumber: null,
+    gender: null,
+    screeningStatus: null,
+    counselingStatus: null
+  });
+
+  // Get user profile data with better debugging
   const { 
     data: userData,
     isLoading: userLoading
   } = useQuery({
     queryKey: ['userProfile'],
     queryFn: async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       try {
-        const response = await apiClient.get(
-          `${API_URL}/users/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
+        const response = await apiClient.get("/users/me");
+        // Log what we received to debug
+        console.log("User data response:", response?.data);
         
-        // Make sure we're returning the correct data path and handle potential undefined
-        if (response.data && response.data.data) {
-          return response.data.data;
+        // Extract data properly
+        const userData = response?.data?.data;
+        
+        // Validate data
+        if (!userData || !userData.fullName) {
+          console.warn("User data missing fullName:", userData);
         }
-        // Return an empty object if the expected data structure isn't found
-        return {};
+        
+        return userData || { fullName: "Pengguna" };
       } catch (error) {
         console.error('User profile API error:', error);
-        // Return empty object instead of throwing to prevent undefined
-        return {};
+        // Return fallback data with a name to display
+        return { fullName: "Pengguna" };
       }
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1,
+    retry: 2, // Increase retries
     retryDelay: 1000,
     // Ensure we don't use stale error data
     useErrorBoundary: false
   });
 
-  // Fetch students data with infinite query
+  // Helper function to build filter params
+  const buildFilterParams = () => {
+    const params = {
+      page: 1,
+      limit: 10
+    };
+
+    // Add search term
+    if (debouncedSearchTerm) {
+      params.search = debouncedSearchTerm;
+    }
+
+    // Add sorting if applicable
+    if (appliedSortConfig.key && appliedSortConfig.direction) {
+      params.sortBy = appliedSortConfig.key === "fullName" ? "name" : appliedSortConfig.key;
+      params.sortOrder = appliedSortConfig.direction === 'ascending' ? 'asc' : 'desc';
+    }
+
+    // Add filters if applicable
+    if (appliedFilters.grade && appliedFilters.classNumber) {
+      params.classId = `${appliedFilters.grade}-${appliedFilters.classNumber}`;
+    }
+
+    if (appliedFilters.gender) {
+      params.gender = appliedFilters.gender === 'L' ? 'male' : 'female';
+    }
+
+    if (appliedFilters.screeningStatus) {
+      params.screening = appliedFilters.screeningStatus;
+    }
+
+    if (appliedFilters.counselingStatus !== null) {
+      params.hasCounseled = appliedFilters.counselingStatus ? '1' : '0';
+    }
+
+    return params;
+  };
+
+  // Fetch students data with infinite query - now using our debounced values
   const { 
     data: infiniteStudentsData, 
     fetchNextPage,
@@ -86,45 +140,20 @@ const StudentListPage = () => {
     error,
     refetch
   } = useInfiniteQuery({
-    queryKey: ['infiniteStudents', searchTerm, sortConfig],
+    queryKey: ['infiniteStudents', debouncedSearchTerm, appliedSortConfig, appliedFilters],
     queryFn: async ({ pageParam = 1 }) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
       // Build query parameters
-      const params = new URLSearchParams({
-        page: pageParam,
-        limit: 10 // Fixed to 10 per request as specified
-      });
-
-      if (searchTerm) {
-        params.append('search', searchTerm);
-      }
-
-      // Add sorting if applicable
-      if (sortConfig.key && sortConfig.direction) {
-        params.append('sortBy', sortConfig.key);
-        params.append('sortDirection', sortConfig.direction === 'ascending' ? 'asc' : 'desc');
-      }
+      const params = { ...buildFilterParams(), page: pageParam };
 
       try {
-        const response = await api.get(
-          `${API_URL}/organizations/students?${params.toString()}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
+        const response = await apiClient.get(
+          `/organizations/students`, 
+          { params }
         );
         
-        // Log the entire response for debugging
-        console.log('Students API Raw Response:', response);
-        
-        // Extract the data
-        const studentsData = response.data.data?.students || [];
-        const metadata = response.data.metadata || {
+        // Extract the data from API response
+        const studentsData = response.data?.data?.students || [];
+        const metadata = response.data?.metadata || {
           totalPage: 1,
           totalData: 0,
           page: pageParam,
@@ -174,21 +203,10 @@ const StudentListPage = () => {
   // Student update mutation
   const updateStudentMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
       console.log(`Updating student ${id} with data:`, data);
-      
-      return api.patch(
-        `${API_URL}/organizations/students/${id}`,
-        data,
-        {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        }
+      return apiClient.patch(
+        `/organizations/students/${id}`,
+        data
       );
     },
     onSuccess: (response) => {
@@ -213,42 +231,89 @@ const StudentListPage = () => {
     ? infiniteStudentsData.pages.flatMap(page => page.data)
     : [];
 
-  // Calculate student statistics
-  const totalStudents = allStudents.length;
-  const femaleStudents = allStudents.filter(student => 
-    student.gender === "female" || student.gender === "f"
-  ).length;
-  const maleStudents = allStudents.filter(student => 
-    student.gender === "male" || student.gender === "m"
-  ).length;
-
-  // Search handling
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-    // When search changes, we'll need to refetch from the beginning
-    queryClient.resetQueries(['infiniteStudents']);
+  // Extract counts directly using selectors instead of useEffect to avoid infinite loops
+  const studentCounts = {
+    // Get total from first page metadata if available
+    total: infiniteStudentsData?.pages?.[0]?.metadata?.totalData || 0,
+    
+    // Count by gender from current loaded data
+    female: allStudents.filter(student => 
+      student.gender === "female" || student.gender === "f"
+    ).length,
+    
+    male: allStudents.filter(student => 
+      student.gender === "male" || student.gender === "m"
+    ).length
   };
 
-  // Sorting
+  // Search handling - update local state without triggering query
+  const handleSearch = (e) => {
+    setSearchInput(e.target.value);
+    // The debounced value will trigger the query after delay
+  };
+
+  // Sorting - use immediate visual feedback but delayed query trigger
   const requestSort = (key) => {
     let direction = "ascending";
 
-    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+    if (sortConfigInput.key === key && sortConfigInput.direction === "ascending") {
       direction = "descending";
-    } else if (sortConfig.key === key && sortConfig.direction === "descending") {
+    } else if (sortConfigInput.key === key && sortConfigInput.direction === "descending") {
       direction = null;
     }
 
-    setSortConfig({ key, direction });
-    // When sort changes, we'll need to refetch from the beginning
-    queryClient.resetQueries(['infiniteStudents']);
+    // Update the visual state immediately
+    setSortConfigInput({ key, direction });
+    // Apply the sort config for the query
+    setAppliedSortConfig({ key, direction });
   };
 
   const getSortIcon = (key) => {
-    if (sortConfig.key !== key) {
+    if (sortConfigInput.key !== key) {
       return "sort";
     }
-    return sortConfig.direction === "ascending" ? "arrow_upward" : "arrow_downward";
+    return sortConfigInput.direction === "ascending" ? "arrow_upward" : "arrow_downward";
+  };
+
+  // Filter functions - only update input state, not applied state
+  const handleFilterSelect = (filterType, value) => {
+    if (filterType === 'classNumber' && !filtersInput.grade) {
+      // Can't select class number without grade
+      return;
+    }
+    
+    // If clicking the same value, toggle it off
+    if (filtersInput[filterType] === value) {
+      setFiltersInput(prev => {
+        const newFilters = { ...prev, [filterType]: null };
+        // If unsetting grade, also unset classNumber
+        if (filterType === 'grade') {
+          newFilters.classNumber = null;
+        }
+        return newFilters;
+      });
+    } else {
+      setFiltersInput(prev => ({ ...prev, [filterType]: value }));
+    }
+  };
+
+  // Apply button handler - only this will trigger the query
+  const applyFilters = () => {
+    setAppliedFilters(filtersInput);
+    setShowFilterModal(false);
+  };
+
+  const clearFilters = () => {
+    const resetFilters = {
+      grade: null,
+      classNumber: null,
+      gender: null,
+      screeningStatus: null,
+      counselingStatus: null
+    };
+    
+    setFiltersInput(resetFilters);
+    setAppliedFilters(resetFilters);
   };
 
   // Edit functionality
@@ -290,9 +355,6 @@ const StudentListPage = () => {
     setHasChanges(true);
   };
 
-  // Determine effective sidebar state for content positioning
-  const isSidebarOpen = sidebarExpanded || sidebarHovered;
-
   // Map screening status to UI components
   const getScreeningStatusUI = (status) => {
     switch (status) {
@@ -315,21 +377,34 @@ const StudentListPage = () => {
     }
   };
 
+  // Highlight search text
+  const highlightText = (text) => {
+    if (!searchInput || !text) return <span>{text}</span>;
+    
+    const parts = text.split(new RegExp(`(${searchInput})`, 'gi'));
+    return (
+      <span>
+        {parts.map((part, index) => 
+          part.toLowerCase() === searchInput.toLowerCase() ? 
+            <span key={index} className="font-bold bg-yellow-200">{part}</span> : 
+            <span key={index}>{part}</span>
+        )}
+      </span>
+    );
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = appliedFilters.grade || appliedFilters.classNumber || 
+                         appliedFilters.gender || appliedFilters.screeningStatus !== null || 
+                         appliedFilters.counselingStatus !== null;
+
   // Render helper for loading states
   if (isLoading && !isFetchingNextPage) {
     return (
-      <div className="min-h-screen bg-white flex">
-        <SchoolSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
-        <div 
-          className="w-full min-h-screen transition-all duration-300 ease-in-out pt-[60px] bg-white flex justify-center items-center"
-          style={{
-            marginLeft: isMobile ? (isSidebarOpen ? "240px" : "0") : (isSidebarOpen ? "240px" : "69px"),
-          }}
-        >
-          <div className="flex flex-col items-center">
-            <span className="material-icons animate-spin text-primary text-4xl mb-4">refresh</span>
-            <p className="text-primary">Memuat data siswa...</p>
-          </div>
+      <div className="flex justify-center items-center h-full min-h-[80vh]">
+        <div className="flex flex-col items-center">
+          <span className="material-icons animate-spin text-[#488bbe] text-4xl mb-4">refresh</span>
+          <p className="text-[#488bbe]">Memuat data siswa...</p>
         </div>
       </div>
     );
@@ -338,491 +413,535 @@ const StudentListPage = () => {
   // Render helper for error states
   if (isError) {
     return (
-      <div className="min-h-screen bg-white flex">
-        <SchoolSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
-        <div 
-          className="w-full min-h-screen transition-all duration-300 ease-in-out pt-[60px] bg-white flex justify-center items-center"
-          style={{
-            marginLeft: isMobile ? (isSidebarOpen ? "240px" : "0") : (isSidebarOpen ? "240px" : "69px"),
-          }}
-        >
-          <div className="flex flex-col items-center text-center p-6">
-            <span className="material-icons text-red-500 text-4xl mb-4">error_outline</span>
-            <p className="text-red-500 font-semibold mb-2">Gagal memuat data siswa</p>
-            <p className="text-gray-600 mb-4">{error?.message || 'Terjadi kesalahan saat mengambil data.'}</p>
-            <button 
-              onClick={() => refetch()}
-              className="px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-variant1"
-            >
-              Coba Lagi
-            </button>
-          </div>
+      <div className="flex justify-center items-center h-full min-h-[80vh]">
+        <div className="flex flex-col items-center text-center p-6">
+          <span className="material-icons text-red-500 text-4xl mb-4">error_outline</span>
+          <p className="text-red-500 font-semibold mb-2">Gagal memuat data siswa</p>
+          <p className="text-gray-600 mb-4">{error?.message || 'Terjadi kesalahan saat mengambil data.'}</p>
+          <button 
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-[#488bbe] text-white rounded-full hover:bg-[#3399e9]"
+          >
+            Coba Lagi
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header - Defined directly in the page */}
-      <div
-        className="fixed top-0 right-0 z-50 bg-white h-[60px] flex items-center justify-end px-6 shadow-sm"
-        style={{ 
-          left: isMobile ? (isSidebarOpen ? "240px" : "0") : (isSidebarOpen ? "240px" : "69px"), 
-          transition: "left 0.3s ease" 
-        }}
-      >
-        {isMobile && (
-          <button 
-            className="absolute left-4" 
-            onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          >
-            <span className="material-icons text-[#8b8b8b]">
-              {isSidebarOpen ? "close" : "menu"}
-            </span>
-          </button>
-        )}
+    <>
+      {/* Top notification/language section - not fixed anymore, scrolls with content */}
+      <div className="sticky top-0 right-0 z-50 bg-[#F8F7FA] flex items-center justify-end px-6" style={{ height: "60px" }}>
         <div className="flex items-center gap-4">
+          {/* Language switch */}
           <div className="flex items-center gap-2">
             <span className="text-[#8b8b8b] text-sm font-medium">ID / EN</span>
           </div>
 
+          {/* Notifications icon */}
           <div className="flex items-center">
             <span className="material-icons text-[#8b8b8b]">notifications</span>
           </div>
-          
-          {/* User profile info */}
-          {userData && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#488BBE] flex items-center justify-center text-white">
-                {userData.fullName ? userData.fullName.charAt(0).toUpperCase() : '?'}
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="pt-16 pb-8 px-4 md:px-8">
+        {/* User greeting and Stats in same row for better alignment */}
+        <div className="flex flex-wrap justify-between items-center mb-6">
+          {/* User greeting - with better fallback */}
+          <div className="mb-4 md:mb-0">
+            <h1 className="text-xl md:text-3xl font-bold text-[#488bbe]">
+              Halo, {userData?.fullName || 'Pengguna'}
+            </h1>
+          </div>
+
+          {/* Student Stats - Moved up to align with greeting */}
+          <div className="flex flex-wrap gap-3">
+            <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
+              <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
+              <div className="z-10 flex items-center justify-center w-full">
+                <span className="material-icons text-[#3399E9] mr-2">groups</span>
+                <div className="flex flex-col items-center">
+                  <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{studentCounts.total}</div>
+                  <div className="text-xs text-[#488BBE]">Siswa</div>
+                </div>
               </div>
-              <span className="text-sm font-medium hidden md:block">
-                {userData.fullName || 'User'}
-              </span>
+            </div>
+
+            <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
+              <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
+              <div className="z-10 flex items-center justify-center w-full">
+                <span className="material-icons text-[#FF86E1] mr-2">face_2</span>
+                <div className="flex flex-col items-center">
+                  <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{studentCounts.female}</div>
+                  <div className="text-xs text-[#488BBE]">Perempuan</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
+              <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
+              <div className="z-10 flex items-center justify-center w-full">
+                <span className="material-icons text-[#FF7173] mr-2">face</span>
+                <div className="flex flex-col items-center">
+                  <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{studentCounts.male}</div>
+                  <div className="text-xs text-[#488BBE]">Laki Laki</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Filter Row */}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          {/* Search bar */}
+          <div className="relative w-full max-w-md">
+            <span className="absolute inset-y-0 left-3 flex items-center">
+              <span className="material-icons text-[#8b8b8b]">search</span>
+            </span>
+            <input
+              type="text"
+              placeholder="Cari Nama atau NIS..."
+              value={searchInput}
+              onChange={handleSearch}
+              className="pl-10 pr-4 py-2 w-full rounded-full border border-[#d9d9d9] focus:outline-none focus:border-[#488bbe]"
+            />
+          </div>
+
+          {/* Filter button - placed right next to search */}
+          <div className="flex items-center gap-2">
+            <button
+              className="flex items-center justify-center px-4 py-2 rounded-full text-[#8b8b8b] hover:bg-[#f7f7f9] transition-colors"
+              onClick={() => setShowFilterModal(true)}
+            >
+              <span className="material-icons mr-2">filter_alt</span>
+              <span>Filter</span>
+            </button>
+            
+            {/* Clear all button - only shown when filters are active */}
+            {hasActiveFilters && (
+              <button 
+                className="flex items-center justify-center px-4 py-2 rounded-full text-[#488bbe] hover:bg-[#e8f5ff] transition-colors"
+                onClick={clearFilters}
+              >
+                <span className="material-icons mr-1 text-sm">close</span>
+                <span>Clear all</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Student Table with Fixed Width Columns */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-fixed">
+              <thead className="bg-[#e8f5ff]">
+                <tr>
+                  <th 
+                    className="w-[200px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    onClick={() => requestSort("fullName")}
+                  >
+                    <div className="flex items-center">
+                      NAMA
+                      <span className="material-icons text-sm ml-1">{getSortIcon("fullName")}</span>
+                    </div>
+                  </th>
+                  <th 
+                    className="w-[120px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                  >
+                    KELAS
+                  </th>
+                  <th className="w-[120px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                    JENIS KELAMIN
+                  </th>
+                  <th 
+                    className="w-[120px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    onClick={() => requestSort("nis")}
+                  >
+                    <div className="flex items-center">
+                      NIS
+                      <span className="material-icons text-sm ml-1">{getSortIcon("nis")}</span>
+                    </div>
+                  </th>
+                  <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                    <div className="flex items-center justify-center relative">
+                      SKRINING
+                      <span 
+                        className="material-icons text-sm ml-1 text-gray-400 cursor-help" 
+                        ref={helpIconRef}
+                        onMouseEnter={() => setShowHelpTooltip(true)}
+                        onMouseLeave={() => setShowHelpTooltip(false)}
+                      >
+                        help_outline
+                      </span>
+                      
+                      {/* Help tooltip */}
+                      {showHelpTooltip && (
+                        <div 
+                          className="absolute top-8 left-1/2 transform -translate-x-1/2 w-[95px] h-[89px] bg-[#535353CC] bg-opacity-80 backdrop-blur-sm text-white text-xs rounded p-2 z-20 shadow-lg"
+                        >
+                          <div className="flex items-center mb-1">
+                            <span className="material-icons text-red-500 text-sm mr-1">warning</span>
+                            <span>Berisiko</span>
+                          </div>
+                          <div className="flex items-center mb-1">
+                            <span className="material-icons text-yellow-500 text-sm mr-1">error</span>
+                            <span>Pengawasan</span>
+                          </div>
+                          <div className="flex items-center mb-1">
+                            <span className="material-icons text-green-500 text-sm mr-1">check_circle</span>
+                            <span>Stabil</span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="material-icons text-gray-400 text-sm mr-1">remove</span>
+                            <span>Belum Skrining</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                  <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                    KONSELING
+                  </th>
+                  <th 
+                    className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    onClick={() => requestSort("iqScore")}
+                  >
+                    <div className="flex items-center justify-center">
+                      SKOR IQ
+                      <span className="material-icons text-sm ml-1">{getSortIcon("iqScore")}</span>
+                    </div>
+                  </th>
+                  <th className="w-[80px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                    AKSI
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {allStudents.map((student, index) => {
+                  // Get status of the current student for UI
+                  const screeningStatus = student.screeningStatus || student.screening || 'stable';
+                  const screeningUI = getScreeningStatusUI(screeningStatus);
+                  const counselingStatus = student.counselingStatus !== undefined ? student.counselingStatus : student.isDoneCounseling;
+                  
+                  // Check if this is the last element and should be observed
+                  const isLastElement = index === allStudents.length - 1;
+                  
+                  return (
+                    <tr 
+                      key={student.id}
+                      className="hover:bg-gradient-to-r from-white via-[#488BBE20] to-white transition-all duration-300"
+                      ref={isLastElement ? lastStudentElementRef : null}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                              <span className="material-icons text-gray-500">person</span>
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            {editingId === student.id ? (
+                              <input
+                                type="text"
+                                name="fullName"
+                                value={editData.fullName}
+                                onChange={handleEditChange}
+                                className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
+                              />
+                            ) : (
+                              <div className="text-sm font-medium text-gray-900">
+                                {highlightText(student.fullName)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingId === student.id ? (
+                          <input
+                            type="text"
+                            name="classroom"
+                            value={editData.classroom}
+                            onChange={handleEditChange}
+                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-500">{student.classroom}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingId === student.id ? (
+                          <select
+                            name="gender"
+                            value={editData.gender}
+                            onChange={handleEditChange}
+                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
+                          >
+                            <option value="male">Laki-laki</option>
+                            <option value="female">Perempuan</option>
+                          </select>
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            {student.gender === 'male' || student.gender === 'm' ? 'Laki-laki' : 'Perempuan'}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingId === student.id ? (
+                          <input
+                            type="text"
+                            name="nis"
+                            value={editData.nis}
+                            onChange={handleEditChange}
+                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-500">
+                            {highlightText(student.nis)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${screeningUI.bgColor}`}
+                        >
+                          {screeningUI.icon}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
+                          {counselingStatus ? "Sudah" : "Belum"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {editingId === student.id ? (
+                          <input
+                            type="number"
+                            name="iqScore"
+                            value={editData.iqScore}
+                            onChange={handleEditChange}
+                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-500">{student.iqScore}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        {editingId === student.id ? (
+                          <div className="flex space-x-2 justify-center">
+                            <button
+                              className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges || updateStudentMutation.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
+                              onClick={() => hasChanges && saveEditing(student.id)}
+                              disabled={!hasChanges || updateStudentMutation.isPending}
+                              aria-label="Save"
+                            >
+                              <span className="material-icons">
+                                {updateStudentMutation.isPending ? "hourglass_empty" : "check_circle"}
+                              </span>
+                            </button>
+                            <button 
+                              className="text-[#EE4266] hover:text-red-700" 
+                              onClick={cancelEditing} 
+                              disabled={updateStudentMutation.isPending}
+                              aria-label="Cancel"
+                            >
+                              <span className="material-icons">
+                                cancel
+                              </span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
+                            onClick={() => editingId === null && startEditing(student.id)}
+                            disabled={editingId !== null}
+                            aria-label="Edit student"
+                          >
+                            <span className="material-icons">edit</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Infinite Scroll Loading Indicator */}
+          {isFetchingNextPage && (
+            <div className="py-4 text-center">
+              <div className="flex justify-center items-center space-x-2">
+                <span className="material-icons animate-spin text-[#488bbe] text-xl">refresh</span>
+                <span className="text-[#488bbe] text-sm">Memuat data tambahan...</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Infinite Scroll End Message */}
+          {!hasNextPage && allStudents.length > 0 && (
+            <div className="py-4 text-center text-gray-500 text-sm">
+              Semua data siswa telah dimuat
+            </div>
+          )}
+          
+          {/* Empty State */}
+          {allStudents.length === 0 && !isLoading && (
+            <div className="py-16 text-center">
+              <span className="material-icons text-gray-400 text-5xl mb-4">school</span>
+              <p className="text-gray-500">Tidak ada data siswa yang tersedia</p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex">
-        <SchoolSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
-
-        <div
-          className="w-full min-h-screen transition-all duration-300 ease-in-out pt-[60px] bg-white"
-          style={{
-            marginLeft: isMobile ? (isSidebarOpen ? "240px" : "0") : (isSidebarOpen ? "240px" : "69px"),
-          }}
-        >
-          <div className="p-4 md:p-10 w-full max-w-[1440px] mx-auto">
-            {/* Page Header - Part of the header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8">
-              <h1 className="text-xl md:text-3xl font-bold text-[#488bbe] mb-4 md:mb-0">
-                Daftar Siswa
-              </h1>
-
-              <div className="flex flex-wrap gap-3 md:gap-4 w-full md:w-auto justify-center md:justify-end">
-                {/* Student Stats - Part of the header */}
-                <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
-                  <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
-                  <div className="absolute top-2 right-2">
-                    <span className="material-icons text-[#3399E9]">groups</span>
+      {/* Fixed Filter Modal Design */}
+      <AnimatePresence>
+        {showFilterModal && (
+          <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
+            <motion.div
+              className="bg-white rounded-[10px] shadow-lg w-[655px] max-h-[90vh] overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+            >
+              <div className="p-5 flex flex-col max-h-[90vh]">
+                <div className="flex flex-col justify-start items-start gap-5 overflow-y-auto">
+                  <div className="inline-flex justify-between items-center w-full">
+                    <div className="text-[#488bbe] text-xl font-semibold">Filter</div>
+                    <button 
+                      onClick={() => setShowFilterModal(false)}
+                      className="text-[#488bbe] hover:text-[#3399e9]"
+                    >
+                      <span className="material-icons">close</span>
+                    </button>
                   </div>
-                  <div className="z-10 flex flex-col items-center">
-                    <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{totalStudents}</div>
-                    <div className="text-xs text-[#488BBE]">Siswa</div>
-                  </div>
-                </div>
-
-                <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
-                  <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
-                  <div className="absolute top-2 right-2">
-                    <span className="material-icons text-[#FF86E1]">face_2</span>
-                  </div>
-                  <div className="z-10 flex flex-col items-center">
-                    <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{femaleStudents}</div>
-                    <div className="text-xs text-[#488BBE]">Perempuan</div>
-                  </div>
-                </div>
-
-                <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
-                  <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
-                  <div className="absolute top-2 right-2">
-                    <span className="material-icons text-[#FF7173]">face</span>
-                  </div>
-                  <div className="z-10 flex flex-col items-center">
-                    <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{maleStudents}</div>
-                    <div className="text-xs text-[#488BBE]">Laki Laki</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Search and Filter - Part of the header */}
-            <div className="flex flex-col md:flex-row items-center gap-3 mb-6">
-              <div className="relative flex-grow w-full md:max-w-md">
-                <span className="absolute inset-y-0 left-3 flex items-center">
-                  <span className="material-icons text-[#8b8b8b]">search</span>
-                </span>
-                <input
-                  type="text"
-                  placeholder="Cari Nama atau NIS..."
-                  value={searchTerm}
-                  onChange={handleSearch}
-                  className="pl-10 pr-4 py-2 w-full rounded-full border border-[#d9d9d9] focus:outline-none focus:border-[#488bbe]"
-                />
-              </div>
-
-              {/* Global Filter Button - No background */}
-              <button
-                className="flex items-center justify-center px-4 py-2 rounded-full text-[#8b8b8b] hover:bg-[#f7f7f9] transition-colors w-full md:w-auto"
-                onClick={() => setShowFilterModal(true)}
-              >
-                <span className="material-icons mr-2">filter_alt</span>
-                <span>Filter</span>
-              </button>
-            </div>
-
-            {/* Student Table with Fixed Width Columns */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full table-fixed">
-                  <thead className="bg-[#e8f5ff]">
-                    <tr>
-                      <th 
-                        className="w-[200px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort("fullName")}
-                      >
-                        <div className="flex items-center">
-                          NAMA
-                          <span className="material-icons text-sm ml-1">{getSortIcon("fullName")}</span>
-                        </div>
-                      </th>
-                      <th 
-                        className="w-[120px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider"
-                      >
-                        KELAS
-                      </th>
-                      <th className="w-[120px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider">
-                        JENIS KELAMIN
-                      </th>
-                      <th 
-                        className="w-[120px] px-6 py-3 text-left text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort("nis")}
-                      >
-                        <div className="flex items-center">
-                          NIS
-                          <span className="material-icons text-sm ml-1">{getSortIcon("nis")}</span>
-                        </div>
-                      </th>
-                      <th className="w-[100px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider">
-                        SKRINING
-                      </th>
-                      <th className="w-[100px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider">
-                        KONSELING
-                      </th>
-                      <th 
-                        className="w-[100px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider cursor-pointer"
-                        onClick={() => requestSort("iqScore")}
-                      >
-                        <div className="flex items-center justify-center">
-                          SKOR IQ
-                          <span className="material-icons text-sm ml-1">{getSortIcon("iqScore")}</span>
-                        </div>
-                      </th>
-                      <th className="w-[80px] px-6 py-3 text-center text-xs font-medium text-[#488bbe] uppercase tracking-wider">
-                        AKSI
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {allStudents.map((student, index) => {
-                      // Get status of the current student for UI
-                      const screeningStatus = student.screeningStatus || student.screening || 'stable';
-                      const screeningUI = getScreeningStatusUI(screeningStatus);
-                      const counselingStatus = student.counselingStatus !== undefined ? student.counselingStatus : student.isDoneCounseling;
+                  
+                  <div className="flex flex-col justify-start items-start gap-5 w-full">
+                    {/* Grade Selection */}
+                    <div className="w-full flex flex-col justify-start items-start gap-2.5">
+                      <div className="text-[#488bbe] text-sm font-normal">Kelas</div>
+                      <div className="inline-flex justify-start items-center gap-[5px] flex-wrap">
+                        {/* Grade Level Buttons (X, XI, XII) */}
+                        {["X", "XI", "XII"].map((grade) => (
+                          <button
+                            key={grade}
+                            className={`h-7 px-2.5 py-1 ${filtersInput.grade === grade ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
+                            onClick={() => handleFilterSelect('grade', grade)}
+                          >
+                            <div className="text-center text-xs font-normal">{grade}</div>
+                          </button>
+                        ))}
+                      </div>
                       
-                      // Check if this is the last element and should be observed
-                      const isLastElement = index === allStudents.length - 1;
+                      {/* Class Number Buttons (1-10) */}
+                      <div className="inline-flex justify-start items-center gap-[5px] flex-wrap">
+                        {[...Array(10)].map((_, i) => (
+                          <button
+                            key={i+1}
+                            className={`h-7 px-2.5 py-1 ${
+                              !filtersInput.grade 
+                                ? 'bg-[#eaecee] text-gray-400 cursor-not-allowed' 
+                                : filtersInput.classNumber === (i+1).toString() 
+                                  ? 'bg-[#488bbe] text-white' 
+                                  : 'bg-[#eaecee] text-gray-700'
+                            } rounded-[5px] flex justify-center items-center transition-colors`}
+                            onClick={() => handleFilterSelect('classNumber', (i+1).toString())}
+                            disabled={!filtersInput.grade}
+                          >
+                            <div className="text-center text-xs font-normal">{i+1}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Gender, Screening and Counseling Selection */}
+                    <div className="inline-flex justify-start items-start gap-[35px] flex-wrap">
+                      {/* Gender Selection */}
+                      <div className="inline-flex flex-col justify-start items-start gap-2.5">
+                        <div className="text-[#488bbe] text-sm font-normal">Jenis Kelamin</div>
+                        <div className="inline-flex justify-start items-center gap-[5px]">
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.gender === 'L' ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
+                            onClick={() => handleFilterSelect('gender', 'L')}
+                          >
+                            <div className="text-xs font-normal">L</div>
+                          </button>
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.gender === 'P' ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
+                            onClick={() => handleFilterSelect('gender', 'P')}
+                          >
+                            <div className="text-xs font-normal">P</div>
+                          </button>
+                        </div>
+                      </div>
                       
-                      return (
-                        <tr 
-                          key={student.id}
-                          className="hover:bg-gradient-to-r from-white via-[#488BBE20] to-white transition-all duration-300"
-                          ref={isLastElement ? lastStudentElementRef : null}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                  <span className="material-icons text-gray-500">person</span>
-                                </div>
-                              </div>
-                              <div className="ml-4">
-                                {editingId === student.id ? (
-                                  <input
-                                    type="text"
-                                    name="fullName"
-                                    value={editData.fullName}
-                                    onChange={handleEditChange}
-                                    className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
-                                  />
-                                ) : (
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {student.fullName}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {editingId === student.id ? (
-                              <input
-                                type="text"
-                                name="classroom"
-                                value={editData.classroom}
-                                onChange={handleEditChange}
-                                className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                              />
-                            ) : (
-                              <div className="text-sm text-gray-500">{student.classroom}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {editingId === student.id ? (
-                              <select
-                                name="gender"
-                                value={editData.gender}
-                                onChange={handleEditChange}
-                                className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
-                              >
-                                <option value="male">Laki-laki</option>
-                                <option value="female">Perempuan</option>
-                              </select>
-                            ) : (
-                              <div className="text-sm text-gray-500">
-                                {student.gender === 'male' || student.gender === 'm' ? 'Laki-laki' : 'Perempuan'}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {editingId === student.id ? (
-                              <input
-                                type="text"
-                                name="nis"
-                                value={editData.nis}
-                                onChange={handleEditChange}
-                                className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                              />
-                            ) : (
-                              <div className="text-sm text-gray-500">{student.nis}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <span
-                              className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${screeningUI.bgColor}`}
-                            >
-                              {screeningUI.icon}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                            <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
-                              {counselingStatus ? "Sudah" : "Belum"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            {editingId === student.id ? (
-                              <input
-                                type="number"
-                                name="iqScore"
-                                value={editData.iqScore}
-                                onChange={handleEditChange}
-                                className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                              />
-                            ) : (
-                              <div className="text-sm text-gray-500">{student.iqScore}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                            {editingId === student.id ? (
-                              <div className="flex space-x-2 justify-center">
-                                <button
-                                  className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges || updateStudentMutation.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
-                                  onClick={() => hasChanges && saveEditing(student.id)}
-                                  disabled={!hasChanges || updateStudentMutation.isPending}
-                                  aria-label="Save"
-                                >
-                                  <span className="material-icons">
-                                    {updateStudentMutation.isPending ? "hourglass_empty" : "check_circle"}
-                                  </span>
-                                </button>
-                                <button 
-                                  className="text-[#EE4266] hover:text-red-700" 
-                                  onClick={cancelEditing} 
-                                  disabled={updateStudentMutation.isPending}
-                                  aria-label="Cancel"
-                                >
-                                  <span className="material-icons">
-                                    cancel
-                                  </span>
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
-                                onClick={() => editingId === null && startEditing(student.id)}
-                                disabled={editingId !== null}
-                                aria-label="Edit student"
-                              >
-                                <span className="material-icons">edit</span>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Infinite Scroll Loading Indicator */}
-              {isFetchingNextPage && (
-                <div className="py-4 text-center">
-                  <div className="flex justify-center items-center space-x-2">
-                    <span className="material-icons animate-spin text-primary text-xl">refresh</span>
-                    <span className="text-primary text-sm">Memuat data tambahan...</span>
+                      {/* Screening Selection */}
+                      <div className="inline-flex flex-col justify-start items-start gap-2.5">
+                        <div className="text-[#488bbe] text-sm font-normal">Skrining</div>
+                        <div className="inline-flex justify-start items-center gap-[5px] flex-wrap">
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.screeningStatus === 'at_risk' ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-start items-center transition-colors`}
+                            onClick={() => handleFilterSelect('screeningStatus', 'at_risk')}
+                          >
+                            <div className="text-xs font-normal">Berisiko</div>
+                          </button>
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.screeningStatus === 'monitored' ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
+                            onClick={() => handleFilterSelect('screeningStatus', 'monitored')}
+                          >
+                            <div className="text-xs font-normal">Pengawasan</div>
+                          </button>
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.screeningStatus === 'stable' ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
+                            onClick={() => handleFilterSelect('screeningStatus', 'stable')}
+                          >
+                            <div className="text-xs font-normal">Stabil</div>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Counseling Selection - moved to be beside Screening */}
+                      <div className="inline-flex flex-col justify-start items-start gap-2.5">
+                        <div className="text-[#488bbe] text-sm font-normal">Konseling</div>
+                        <div className="inline-flex justify-start items-center gap-[5px]">
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.counselingStatus === true ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-start items-center transition-colors`}
+                            onClick={() => handleFilterSelect('counselingStatus', true)}
+                          >
+                            <div className="text-xs font-normal">Sudah</div>
+                          </button>
+                          <button
+                            className={`h-8 px-[9px] py-2.5 ${filtersInput.counselingStatus === false ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-start items-center transition-colors`}
+                            onClick={() => handleFilterSelect('counselingStatus', false)}
+                          >
+                            <div className="text-xs font-normal">Belum</div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-              
-              {/* Infinite Scroll End Message */}
-              {!hasNextPage && allStudents.length > 0 && (
-                <div className="py-4 text-center text-gray-500 text-sm">
-                  Semua data siswa telah dimuat
+                
+                {/* Save Button - Fixed at bottom */}
+                <div className="mt-4 pt-2 border-t border-gray-200">
+                  <button
+                    className="w-full h-[42px] px-7 py-2.5 bg-[#488bbe] rounded-[5px] flex justify-center items-center"
+                    onClick={applyFilters}
+                  >
+                    <div className="text-white text-xs font-semibold">Simpan</div>
+                  </button>
                 </div>
-              )}
-              
-              {/* Empty State */}
-              {allStudents.length === 0 && !isLoading && (
-                <div className="py-16 text-center">
-                  <span className="material-icons text-gray-400 text-5xl mb-4">school</span>
-                  <p className="text-gray-500">Tidak ada data siswa yang tersedia</p>
-                </div>
-              )}
-            </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </div>
-
-      {/* Filter Modal */}
-      {showFilterModal && (
-        <div className="fixed inset-0 bg-[#8DD0DEB2] flex items-center justify-center z-50 p-4">
-          <motion.div
-            className="bg-white rounded-xl p-4 md:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg md:text-xl font-bold text-[#488bbe]">Filter</h2>
-              <button onClick={() => setShowFilterModal(false)} aria-label="Close filter modal">
-                <span className="material-icons">close</span>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
-                <select className="w-full p-2 border border-gray-300 rounded-md">
-                  <option value="">Semua Kelas</option>
-                  <option value="10A">10A</option>
-                  <option value="10B">10B</option>
-                  <option value="10C">10C</option>
-                  <option value="11A">11A</option>
-                  <option value="11B">11B</option>
-                  <option value="11C">11C</option>
-                  <option value="12A">12A</option>
-                  <option value="12B">12B</option>
-                  <option value="12C">12C</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Kelamin</label>
-                <div className="flex space-x-4">
-                  <label className="inline-flex items-center">
-                    <input type="radio" name="gender" value="all" className="form-radio" defaultChecked />
-                    <span className="ml-2">Semua</span>
-                  </label>
-                  <label className="inline-flex items-center">
-                    <input type="radio" name="gender" value="male" className="form-radio" />
-                    <span className="ml-2">Laki-laki</span>
-                  </label>
-                  <label className="inline-flex items-center">
-                    <input type="radio" name="gender" value="female" className="form-radio" />
-                    <span className="ml-2">Perempuan</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status Skrining</label>
-                <select className="w-full p-2 border border-gray-300 rounded-md">
-                  <option value="">Semua Status</option>
-                  <option value="stable">Aman</option>
-                  <option value="monitored">Pengawasan</option>
-                  <option value="at_risk">Beresiko</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status Konseling</label>
-                <select className="w-full p-2 border border-gray-300 rounded-md">
-                  <option value="">Semua Status</option>
-                  <option value="true">Sudah</option>
-                  <option value="false">Belum</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Skor IQ</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    className="w-1/2 p-2 border border-gray-300 rounded-md"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    className="w-1/2 p-2 border border-gray-300 rounded-md"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end mt-6 space-x-3">
-              <button
-                className="px-4 py-2 border border-[#488bbe] text-[#488bbe] rounded-full hover:bg-[#e8f5ff]"
-                onClick={() => setShowFilterModal(false)}
-              >
-                Batal
-              </button>
-              <button
-                className="px-4 py-2 bg-[#488bbe] text-white rounded-full hover:bg-[#3399e9]"
-                onClick={() => {
-                  // Reset queries to apply filters
-                  queryClient.resetQueries(['infiniteStudents']);
-                  setShowFilterModal(false);
-                }}
-              >
-                Terapkan
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
