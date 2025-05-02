@@ -1,7 +1,7 @@
 // src/components/organization/school/profile/ProfilePictureUpload.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+
 import clsx from "clsx";
 
 const ProfilePictureUpload = ({ currentProfilePicture }) => {

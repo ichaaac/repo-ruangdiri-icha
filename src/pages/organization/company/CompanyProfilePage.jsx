@@ -65,7 +65,6 @@ const CompanyProfilePage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Fetch user profile data
   const { data: userData, isLoading } = useQuery({
     queryKey: ['userProfile'],
     queryFn: async () => {

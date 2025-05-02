@@ -1,17 +1,15 @@
 // src/pages/organization/school/StudentListPage.jsx
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import React, { useState, useRef, useCallback } from "react";
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import SchoolSidebar from "../../../components/organization/school/SchoolSidebar";
+import api, { apiClient } from "../../../lib/api";
 
 const StudentListPage = () => {
   const queryClient = useQueryClient();
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -19,32 +17,77 @@ const StudentListPage = () => {
   const [editData, setEditData] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  // Handle window resize
-  React.useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      // Close sidebar on mobile automatically
-      if (mobile) {
-        setSidebarExpanded(false);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+  const observerRef = useRef(null);
+  
+  // Handle window resize without useEffect using event listeners
+  const handleResize = useCallback(() => {
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
+    // Close sidebar on mobile automatically
+    if (mobile) {
+      setSidebarExpanded(false);
+    }
   }, []);
+  
+  // Add resize listener when component mounts
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleResize);
+  }
 
-  // Fetch students data
+  // Get user profile data
   const { 
-    data: studentsData, 
+    data: userData,
+    isLoading: userLoading
+  } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      try {
+        const response = await apiClient.get(
+          `${API_URL}/users/me`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+        
+        // Make sure we're returning the correct data path and handle potential undefined
+        if (response.data && response.data.data) {
+          return response.data.data;
+        }
+        // Return an empty object if the expected data structure isn't found
+        return {};
+      } catch (error) {
+        console.error('User profile API error:', error);
+        // Return empty object instead of throwing to prevent undefined
+        return {};
+      }
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
+    retryDelay: 1000,
+    // Ensure we don't use stale error data
+    useErrorBoundary: false
+  });
+
+  // Fetch students data with infinite query
+  const { 
+    data: infiniteStudentsData, 
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading,
     isError,
     error,
     refetch
-  } = useQuery({
-    queryKey: ['students', currentPage, pageSize, searchTerm, sortConfig],
-    queryFn: async () => {
+  } = useInfiniteQuery({
+    queryKey: ['infiniteStudents', searchTerm, sortConfig],
+    queryFn: async ({ pageParam = 1 }) => {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -52,8 +95,8 @@ const StudentListPage = () => {
 
       // Build query parameters
       const params = new URLSearchParams({
-        page: currentPage,
-        limit: pageSize
+        page: pageParam,
+        limit: 10 // Fixed to 10 per request as specified
       });
 
       if (searchTerm) {
@@ -67,7 +110,7 @@ const StudentListPage = () => {
       }
 
       try {
-        const response = await axios.get(
+        const response = await api.get(
           `${API_URL}/organizations/students?${params.toString()}`,
           {
             headers: {
@@ -76,75 +119,57 @@ const StudentListPage = () => {
           }
         );
         
-        // Log the entire response
+        // Log the entire response for debugging
         console.log('Students API Raw Response:', response);
-        console.log('Students API Data:', response.data);
         
-        // Check different possible response structures
-        let studentsArray = [];
-        let metadata = {
+        // Extract the data
+        const studentsData = response.data.data?.students || [];
+        const metadata = response.data.metadata || {
           totalPage: 1,
           totalData: 0,
-          page: currentPage,
-          limit: pageSize,
+          page: pageParam,
+          limit: 10,
           hasNextPage: false
         };
         
-        // Extract students from common response structures
-        if (response.data && response.data.status === "success") {
-          // If response is in the format from your example
-          if (response.data.data && response.data.data.students) {
-            studentsArray = response.data.data.students;
-          } 
-          // If data is directly under the data field
-          else if (response.data.data && Array.isArray(response.data.data)) {
-            studentsArray = response.data.data;
-          }
-          
-          // Extract metadata if available
-          if (response.data.metadata) {
-            metadata = response.data.metadata;
-          }
-        }
-        // If response has students array directly at root
-        else if (response.data && Array.isArray(response.data)) {
-          studentsArray = response.data;
-        }
-        // Other possible structures
-        else if (response.data && response.data.students && Array.isArray(response.data.students)) {
-          studentsArray = response.data.students;
-          
-          if (response.data.metadata) {
-            metadata = response.data.metadata;
-          }
-        }
-        
-        console.log('Extracted students:', studentsArray);
-        console.log('Extracted metadata:', metadata);
-        
-        if (studentsArray.length > 0 || (metadata && metadata.totalData === 0)) {
-          // Use the extracted data
-          return {
-            data: studentsArray,
-            metadata: metadata
-          };
-        }
-        
-        throw new Error('Could not extract students data from API response');
+        return {
+          data: studentsData,
+          metadata: metadata,
+          pageParam
+        };
       } catch (error) {
         console.error('Students API error details:', error);
-        
-        // More detailed error for debugging
-        if (error.response) {
-          console.error('Error response status:', error.response.status);
-          console.error('Error response data:', error.response.data);
-        }
-        
         throw error;
       }
     },
+    getNextPageParam: (lastPage) => {
+      // Check if there are more pages to load
+      const currentPage = lastPage.metadata.page;
+      const totalPages = lastPage.metadata.totalPage;
+      
+      return currentPage < totalPages ? currentPage + 1 : undefined;
+    },
     staleTime: 1000 * 60 * 2 // 2 minutes
   });
+
+  // Setup intersection observer for infinite scrolling
+  const lastStudentElementRef = useCallback(node => {
+    // Cleanup previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+    
+    // Skip if we're already fetching or there are no more pages
+    if (isFetchingNextPage || !hasNextPage) return;
+    
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasNextPage) {
+        fetchNextPage();
+      }
+    }, { threshold: 0.5 });
+    
+    if (node) observerRef.current.observe(node);
+  }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
   // Student update mutation
   const updateStudentMutation = useMutation({
@@ -156,7 +181,7 @@ const StudentListPage = () => {
       
       console.log(`Updating student ${id} with data:`, data);
       
-      return axios.patch(
+      return api.patch(
         `${API_URL}/organizations/students/${id}`,
         data,
         {
@@ -169,7 +194,7 @@ const StudentListPage = () => {
     onSuccess: (response) => {
       console.log('Student update successful:', response.data);
       
-      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['infiniteStudents'] });
       setEditingId(null);
       setEditData({});
       setHasChanges(false);
@@ -183,79 +208,25 @@ const StudentListPage = () => {
     },
   });
 
+  // Process all loaded pages into a flat array of students
+  const allStudents = infiniteStudentsData
+    ? infiniteStudentsData.pages.flatMap(page => page.data)
+    : [];
+
   // Calculate student statistics
-  const totalStudents = studentsData?.data?.length || 0;
-  const femaleStudents = studentsData?.data?.filter(student => 
+  const totalStudents = allStudents.length;
+  const femaleStudents = allStudents.filter(student => 
     student.gender === "female" || student.gender === "f"
-  ).length || 0;
-  const maleStudents = studentsData?.data?.filter(student => 
+  ).length;
+  const maleStudents = allStudents.filter(student => 
     student.gender === "male" || student.gender === "m"
-  ).length || 0;
-
-  const totalPages = studentsData?.metadata?.totalPage || 1;
-
-  // Pagination controls
-  const nextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const prevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
-  const getPageNumbers = () => {
-    const pageNumbers = [];
-    const maxPagesToShow = 5;
-    
-    if (totalPages <= maxPagesToShow) {
-      // Show all pages if total pages is less than max pages to show
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i);
-      }
-    } else {
-      // Always include first page
-      pageNumbers.push(1);
-      
-      // Calculate start and end of page numbers to show
-      let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
-      // Add dots if there's a gap after first page
-      if (startPage > 2) {
-        pageNumbers.push('...');
-      }
-      
-      // Add pages in the middle
-      for (let i = startPage; i <= endPage; i++) {
-        pageNumbers.push(i);
-      }
-      
-      // Add dots if there's a gap before last page
-      if (endPage < totalPages - 1) {
-        pageNumbers.push('...');
-      }
-      
-      // Always include last page
-      pageNumbers.push(totalPages);
-    }
-    
-    return pageNumbers;
-  };
+  ).length;
 
   // Search handling
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
-    setCurrentPage(1); // Reset to first page on search
+    // When search changes, we'll need to refetch from the beginning
+    queryClient.resetQueries(['infiniteStudents']);
   };
 
   // Sorting
@@ -269,6 +240,8 @@ const StudentListPage = () => {
     }
 
     setSortConfig({ key, direction });
+    // When sort changes, we'll need to refetch from the beginning
+    queryClient.resetQueries(['infiniteStudents']);
   };
 
   const getSortIcon = (key) => {
@@ -282,7 +255,7 @@ const StudentListPage = () => {
   const startEditing = (id) => {
     if (editingId !== null) return; // Prevent editing multiple rows
 
-    const student = studentsData.data.find((student) => student.id === id);
+    const student = allStudents.find((student) => student.id === id);
     if (!student) return;
     
     setEditingId(id);
@@ -343,7 +316,7 @@ const StudentListPage = () => {
   };
 
   // Render helper for loading states
-  if (isLoading) {
+  if (isLoading && !isFetchingNextPage) {
     return (
       <div className="min-h-screen bg-white flex">
         <SchoolSidebar expanded={sidebarExpanded} setExpanded={setSidebarExpanded} onHoverChange={setSidebarHovered} />
@@ -417,6 +390,18 @@ const StudentListPage = () => {
           <div className="flex items-center">
             <span className="material-icons text-[#8b8b8b]">notifications</span>
           </div>
+          
+          {/* User profile info */}
+          {userData && (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-[#488BBE] flex items-center justify-center text-white">
+                {userData.fullName ? userData.fullName.charAt(0).toUpperCase() : '?'}
+              </div>
+              <span className="text-sm font-medium hidden md:block">
+                {userData.fullName || 'User'}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -551,13 +536,20 @@ const StudentListPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {studentsData?.data?.map((student) => {
-                      const screeningUI = getScreeningStatusUI(student.screening);
+                    {allStudents.map((student, index) => {
+                      // Get status of the current student for UI
+                      const screeningStatus = student.screeningStatus || student.screening || 'stable';
+                      const screeningUI = getScreeningStatusUI(screeningStatus);
+                      const counselingStatus = student.counselingStatus !== undefined ? student.counselingStatus : student.isDoneCounseling;
+                      
+                      // Check if this is the last element and should be observed
+                      const isLastElement = index === allStudents.length - 1;
                       
                       return (
                         <tr 
                           key={student.id}
                           className="hover:bg-gradient-to-r from-white via-[#488BBE20] to-white transition-all duration-300"
+                          ref={isLastElement ? lastStudentElementRef : null}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -634,8 +626,8 @@ const StudentListPage = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                            <span className={`${student.isDoneCounseling ? "text-green-500" : "text-red-500"}`}>
-                              {student.isDoneCounseling ? "Sudah" : "Belum"}
+                            <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
+                              {counselingStatus ? "Sudah" : "Belum"}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -693,84 +685,30 @@ const StudentListPage = () => {
                 </table>
               </div>
 
-              {/* Pagination */}
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Menampilkan <span className="font-medium">{((currentPage - 1) * pageSize) + 1}</span> s/d <span className="font-medium">{Math.min(currentPage * pageSize, studentsData?.metadata?.totalData || 0)}</span> dari <span className="font-medium">{studentsData?.metadata?.totalData || 0}</span> siswa
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={prevPage}
-                        disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="sr-only">Previous</span>
-                        <span className="material-icons text-[18px]">chevron_left</span>
-                      </button>
-                      
-                      {getPageNumbers().map((pageNumber, index) => (
-                        pageNumber === '...' ? (
-                          <span key={`ellipsis-${index}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                            ...
-                          </span>
-                        ) : (
-                          <button
-                            key={pageNumber}
-                            onClick={() => goToPage(pageNumber)}
-                            className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                              currentPage === pageNumber ? 'bg-[#488BBE] text-white' : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNumber}
-                          </button>
-                        )
-                      ))}
-                      
-                      <button
-                        onClick={nextPage}
-                        disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="sr-only">Next</span>
-                        <span className="material-icons text-[18px]">chevron_right</span>
-                      </button>
-                    </nav>
+              {/* Infinite Scroll Loading Indicator */}
+              {isFetchingNextPage && (
+                <div className="py-4 text-center">
+                  <div className="flex justify-center items-center space-x-2">
+                    <span className="material-icons animate-spin text-primary text-xl">refresh</span>
+                    <span className="text-primary text-sm">Memuat data tambahan...</span>
                   </div>
                 </div>
-                
-                {/* Mobile pagination */}
-                <div className="flex flex-1 justify-between sm:hidden">
-                  <button
-                    onClick={prevPage}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1 ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Sebelumnya
-                  </button>
-                  <div className="text-sm text-gray-700 py-2">
-                    {currentPage} / {totalPages}
-                  </div>
-                  <button
-                    onClick={nextPage}
-                    disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages ? 'text-gray-300 bg-gray-50 cursor-not-allowed' : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Selanjutnya
-                  </button>
+              )}
+              
+              {/* Infinite Scroll End Message */}
+              {!hasNextPage && allStudents.length > 0 && (
+                <div className="py-4 text-center text-gray-500 text-sm">
+                  Semua data siswa telah dimuat
                 </div>
-              </div>
+              )}
+              
+              {/* Empty State */}
+              {allStudents.length === 0 && !isLoading && (
+                <div className="py-16 text-center">
+                  <span className="material-icons text-gray-400 text-5xl mb-4">school</span>
+                  <p className="text-gray-500">Tidak ada data siswa yang tersedia</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -872,7 +810,11 @@ const StudentListPage = () => {
               </button>
               <button
                 className="px-4 py-2 bg-[#488bbe] text-white rounded-full hover:bg-[#3399e9]"
-                onClick={() => setShowFilterModal(false)}
+                onClick={() => {
+                  // Reset queries to apply filters
+                  queryClient.resetQueries(['infiniteStudents']);
+                  setShowFilterModal(false);
+                }}
               >
                 Terapkan
               </button>

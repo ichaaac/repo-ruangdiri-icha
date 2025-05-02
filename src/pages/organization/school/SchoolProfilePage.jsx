@@ -5,7 +5,7 @@ import SchoolInfoEditModal from "../../../components/organization/school/profile
 import SchoolAccountEditModal from "../../../components/organization/school/profile/SchoolAccountEditModal";
 import ProfilePictureUpload from "../../../components/organization/school/profile/ProfilePictureUpload";
 import { apiClient, getMe } from "../../../lib/api";
-// Enhanced Modal component with proper styling based on design images
+
 const Modal = ({ isOpen, onClose, children }) => {
 	if (!isOpen) return null;
 
@@ -28,7 +28,6 @@ const Modal = ({ isOpen, onClose, children }) => {
 	);
 };
 
-// Success Modal component
 const SuccessModal = ({ isOpen, message, onClose }) => {
 	if (!isOpen) return null;
 
