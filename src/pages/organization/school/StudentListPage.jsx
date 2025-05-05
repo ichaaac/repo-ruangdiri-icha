@@ -1,35 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiClient } from "../../../lib/api";
-import { useDebounce } from "../../../hooks/useDebounce"; // We'll create this hook
-
-// Custom hook for debouncing search input
-const useDebounceValue = (value, delay = 500) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-  
-  return debouncedValue;
-};
+import useDebounce from "../../../hooks/useDebounce";
 
 const StudentListPage = () => {
   const queryClient = useQueryClient();
-  // Raw input states - these won't trigger immediate refetches
   const [searchInput, setSearchInput] = useState("");
   const [sortConfigInput, setSortConfigInput] = useState({ key: null, direction: null });
-  
-  // Debounced states - these will be used for queries
-  const debouncedSearchTerm = useDebounceValue(searchInput, 500);
-  // Apply sort config directly, but we'll add a confirmation button in the UI if needed
+  const debouncedSearchTerm = useDebounce(searchInput, 500);
   const [appliedSortConfig, setAppliedSortConfig] = useState({ key: null, direction: null });
   
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -40,13 +19,13 @@ const StudentListPage = () => {
   const helpIconRef = useRef(null);
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
 
-  // Filter states - raw input and applied
+  // Filter states
   const [filtersInput, setFiltersInput] = useState({
-    grade: null, // X, XI, XII
-    classNumber: null, // 1-10
-    gender: null, // L, P
-    screeningStatus: null, // stable, monitored, at_risk
-    counselingStatus: null // true, false
+    grade: null,
+    classNumber: null,
+    gender: null,
+    screeningStatus: null,
+    counselingStatus: null
   });
   
   const [appliedFilters, setAppliedFilters] = useState({
@@ -57,7 +36,7 @@ const StudentListPage = () => {
     counselingStatus: null
   });
 
-  // Get user profile data with better debugging
+  // Get user profile data
   const { 
     data: userData,
     isLoading: userLoading
@@ -66,52 +45,118 @@ const StudentListPage = () => {
     queryFn: async () => {
       try {
         const response = await apiClient.get("/users/me");
-        // Log what we received to debug
-        console.log("User data response:", response?.data);
-        
-        // Extract data properly
         const userData = response?.data?.data;
-        
-        // Validate data
-        if (!userData || !userData.fullName) {
-          console.warn("User data missing fullName:", userData);
-        }
-        
         return userData || { fullName: "Pengguna" };
       } catch (error) {
         console.error('User profile API error:', error);
-        // Return fallback data with a name to display
         return { fullName: "Pengguna" };
       }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 2, // Increase retries
-    retryDelay: 1000,
-    // Ensure we don't use stale error data
-    useErrorBoundary: false
+    staleTime: 1000 * 60 * 5
   });
+
+  // Fetch total student counts for the accurate totals display
+  const { 
+    data: totalCounts
+  } = useQuery({
+    queryKey: ['totalStudentCounts'],
+    queryFn: async () => {
+      try {
+        // Get the total count from metadata to show accurate totals
+        const response = await apiClient.get("/organizations/students", { 
+          params: { 
+            page: 1,
+            limit: 1
+          } 
+        });
+        
+        return {
+          total: response.data?.metadata?.totalData || 0,
+          female: response.data?.metadata?.femaleCount || 0,
+          male: response.data?.metadata?.maleCount || 0
+        };
+      } catch (error) {
+        console.error('Student counts API error:', error);
+        return { total: 0, female: 0, male: 0 };
+      }
+    },
+    staleTime: 1000 * 60 * 5
+  });
+
+  // Fetch available classrooms for filtering
+  const { 
+    data: classroomsData 
+  } = useQuery({
+    queryKey: ['classrooms'],
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get("/students/classrooms");
+        return response.data?.data || [];
+      } catch (error) {
+        console.error('Classrooms API error:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+
+  // Process classroom data to get unique grades and class numbers
+  const uniqueClassroomData = React.useMemo(() => {
+    if (!classroomsData || classroomsData.length === 0) {
+      return {
+        grades: ["X", "XI", "XII"],
+        classNumbers: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+      };
+    }
+
+    const uniqueGrades = new Set();
+    const uniqueClassNumbers = new Set();
+
+    classroomsData.forEach(item => {
+      const classroom = item.classroom;
+      if (!classroom) return;
+
+      const parts = classroom.split('-');
+      if (parts.length === 2) {
+        const grade = /^[XVI]+$/.test(parts[0]) ? parts[0] : 
+                     (parts[0] === "10" ? "X" : 
+                      parts[0] === "11" ? "XI" : 
+                      parts[0] === "12" ? "XII" : parts[0]);
+        
+        uniqueGrades.add(grade);
+        uniqueClassNumbers.add(parts[1]);
+      }
+    });
+
+    return {
+      grades: Array.from(uniqueGrades).length > 0 ? Array.from(uniqueGrades) : ["X", "XI", "XII"],
+      classNumbers: Array.from(uniqueClassNumbers).length > 0 ? Array.from(uniqueClassNumbers) : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+    };
+  }, [classroomsData]);
 
   // Helper function to build filter params
   const buildFilterParams = () => {
     const params = {
       page: 1,
-      limit: 10
+      limit: 10 // Ensure we only load 10 items per page
     };
 
-    // Add search term
     if (debouncedSearchTerm) {
       params.search = debouncedSearchTerm;
     }
 
-    // Add sorting if applicable
     if (appliedSortConfig.key && appliedSortConfig.direction) {
       params.sortBy = appliedSortConfig.key === "fullName" ? "name" : appliedSortConfig.key;
       params.sortOrder = appliedSortConfig.direction === 'ascending' ? 'asc' : 'desc';
     }
 
-    // Add filters if applicable
+    // Try multiple parameter formats for class filtering
     if (appliedFilters.grade && appliedFilters.classNumber) {
+      // Try all possible API parameter names to ensure filtering works
+      params.classroom = `${appliedFilters.grade}-${appliedFilters.classNumber}`;
       params.classId = `${appliedFilters.grade}-${appliedFilters.classNumber}`;
+      params.kelas = `${appliedFilters.grade}-${appliedFilters.classNumber}`;
+      params.class = `${appliedFilters.grade}-${appliedFilters.classNumber}`;
     }
 
     if (appliedFilters.gender) {
@@ -129,7 +174,7 @@ const StudentListPage = () => {
     return params;
   };
 
-  // Fetch students data with infinite query - now using our debounced values
+  // Fetch students data with infinite query
   const { 
     data: infiniteStudentsData, 
     fetchNextPage,
@@ -151,7 +196,6 @@ const StudentListPage = () => {
           { params }
         );
         
-        // Extract the data from API response
         const studentsData = response.data?.data?.students || [];
         const metadata = response.data?.metadata || {
           totalPage: 1,
@@ -172,30 +216,31 @@ const StudentListPage = () => {
       }
     },
     getNextPageParam: (lastPage) => {
-      // Check if there are more pages to load
       const currentPage = lastPage.metadata.page;
       const totalPages = lastPage.metadata.totalPage;
-      
       return currentPage < totalPages ? currentPage + 1 : undefined;
     },
-    staleTime: 1000 * 60 * 2 // 2 minutes
+    staleTime: 1000 * 60 * 2
   });
 
-  // Setup intersection observer for infinite scrolling
+  // Setup intersection observer for infinite scrolling with adjusted threshold
   const lastStudentElementRef = useCallback(node => {
-    // Cleanup previous observer
     if (observerRef.current) {
       observerRef.current.disconnect();
     }
     
-    // Skip if we're already fetching or there are no more pages
     if (isFetchingNextPage || !hasNextPage) return;
     
     observerRef.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasNextPage) {
         fetchNextPage();
       }
-    }, { threshold: 0.5 });
+    }, { 
+      // Use a lower threshold to trigger loading when element is partially visible
+      threshold: 0.1,
+      // Add rootMargin to ensure we start loading a bit before reaching the last element
+      rootMargin: '0px 0px 100px 0px'
+    });
     
     if (node) observerRef.current.observe(node);
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
@@ -203,15 +248,12 @@ const StudentListPage = () => {
   // Student update mutation
   const updateStudentMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      console.log(`Updating student ${id} with data:`, data);
       return apiClient.patch(
         `/organizations/students/${id}`,
         data
       );
     },
-    onSuccess: (response) => {
-      console.log('Student update successful:', response.data);
-      
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['infiniteStudents'] });
       setEditingId(null);
       setEditData({});
@@ -219,10 +261,6 @@ const StudentListPage = () => {
     },
     onError: (error) => {
       console.error("Error updating student:", error);
-      if (error.response) {
-        console.error('Update error response status:', error.response.status);
-        console.error('Update error response data:', error.response.data);
-      }
     },
   });
 
@@ -231,12 +269,12 @@ const StudentListPage = () => {
     ? infiniteStudentsData.pages.flatMap(page => page.data)
     : [];
 
-  // Extract counts directly using selectors instead of useEffect to avoid infinite loops
+  // Student counts display - calculate gender from loaded students
   const studentCounts = {
-    // Get total from first page metadata if available
-    total: infiniteStudentsData?.pages?.[0]?.metadata?.totalData || 0,
+    // Use the total count from the API metadata for accurate totals
+    total: totalCounts?.total || 0,
     
-    // Count by gender from current loaded data
+    // Calculate gender counts from the loaded students data to match the list
     female: allStudents.filter(student => 
       student.gender === "female" || student.gender === "f"
     ).length,
@@ -246,13 +284,12 @@ const StudentListPage = () => {
     ).length
   };
 
-  // Search handling - update local state without triggering query
+  // Search handling
   const handleSearch = (e) => {
     setSearchInput(e.target.value);
-    // The debounced value will trigger the query after delay
   };
 
-  // Sorting - use immediate visual feedback but delayed query trigger
+  // Sorting
   const requestSort = (key) => {
     let direction = "ascending";
 
@@ -262,9 +299,7 @@ const StudentListPage = () => {
       direction = null;
     }
 
-    // Update the visual state immediately
     setSortConfigInput({ key, direction });
-    // Apply the sort config for the query
     setAppliedSortConfig({ key, direction });
   };
 
@@ -275,20 +310,18 @@ const StudentListPage = () => {
     return sortConfigInput.direction === "ascending" ? "arrow_upward" : "arrow_downward";
   };
 
-  // Filter functions - only update input state, not applied state
+  // Filter functions - ensure screening status can only have one selection
   const handleFilterSelect = (filterType, value) => {
     if (filterType === 'classNumber' && !filtersInput.grade) {
-      // Can't select class number without grade
-      return;
+      return; // Can't select class number without grade
     }
     
-    // If clicking the same value, toggle it off
+    // Toggle logic - if clicking the same value, unset it
     if (filtersInput[filterType] === value) {
       setFiltersInput(prev => {
         const newFilters = { ...prev, [filterType]: null };
-        // If unsetting grade, also unset classNumber
         if (filterType === 'grade') {
-          newFilters.classNumber = null;
+          newFilters.classNumber = null; // Also reset class number when grade is unset
         }
         return newFilters;
       });
@@ -297,7 +330,7 @@ const StudentListPage = () => {
     }
   };
 
-  // Apply button handler - only this will trigger the query
+  // Apply filters
   const applyFilters = () => {
     setAppliedFilters(filtersInput);
     setShowFilterModal(false);
@@ -318,7 +351,7 @@ const StudentListPage = () => {
 
   // Edit functionality
   const startEditing = (id) => {
-    if (editingId !== null) return; // Prevent editing multiple rows
+    if (editingId !== null) return;
 
     const student = allStudents.find((student) => student.id === id);
     if (!student) return;
@@ -341,12 +374,8 @@ const StudentListPage = () => {
   };
 
   const saveEditing = (id) => {
-    if (!hasChanges) return; // Prevent saving if no changes
-
-    updateStudentMutation.mutate({ 
-      id, 
-      data: editData 
-    });
+    if (!hasChanges) return;
+    updateStudentMutation.mutate({ id, data: editData });
   };
 
   const handleEditChange = (e) => {
@@ -398,7 +427,7 @@ const StudentListPage = () => {
                          appliedFilters.gender || appliedFilters.screeningStatus !== null || 
                          appliedFilters.counselingStatus !== null;
 
-  // Render helper for loading states
+  // Render loading state
   if (isLoading && !isFetchingNextPage) {
     return (
       <div className="flex justify-center items-center h-full min-h-[80vh]">
@@ -410,7 +439,7 @@ const StudentListPage = () => {
     );
   }
 
-  // Render helper for error states
+  // Render error state
   if (isError) {
     return (
       <div className="flex justify-center items-center h-full min-h-[80vh]">
@@ -431,15 +460,12 @@ const StudentListPage = () => {
 
   return (
     <>
-      {/* Top notification/language section - not fixed anymore, scrolls with content */}
-      <div className="sticky top-0 right-0 z-50 bg-[#F8F7FA] flex items-center justify-end px-6" style={{ height: "60px" }}>
+      {/* Language/Notification icons */}
+      <div className="flex items-center justify-end px-6 pt-4">
         <div className="flex items-center gap-4">
-          {/* Language switch */}
           <div className="flex items-center gap-2">
             <span className="text-[#8b8b8b] text-sm font-medium">ID / EN</span>
           </div>
-
-          {/* Notifications icon */}
           <div className="flex items-center">
             <span className="material-icons text-[#8b8b8b]">notifications</span>
           </div>
@@ -447,23 +473,22 @@ const StudentListPage = () => {
       </div>
 
       {/* Main content */}
-      <div className="pt-16 pb-8 px-4 md:px-8">
-        {/* User greeting and Stats in same row for better alignment */}
+      <div className="pt-8 pb-8 px-4 md:px-8">
+        {/* User greeting and Stats */}
         <div className="flex flex-wrap justify-between items-center mb-6">
-          {/* User greeting - with better fallback */}
           <div className="mb-4 md:mb-0">
             <h1 className="text-xl md:text-3xl font-bold text-[#488bbe]">
               Halo, {userData?.fullName || 'Pengguna'}
             </h1>
           </div>
 
-          {/* Student Stats - Moved up to align with greeting */}
+          {/* Student Stats - using direct counts with fixed icon alignment */}
           <div className="flex flex-wrap gap-3">
             <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
               <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
-              <div className="z-10 flex items-center justify-center w-full">
-                <span className="material-icons text-[#3399E9] mr-2">groups</span>
-                <div className="flex flex-col items-center">
+              <div className="z-10 flex items-center w-full pl-3">
+                <span className="material-icons text-[#3399E9] text-lg">groups</span>
+                <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{studentCounts.total}</div>
                   <div className="text-xs text-[#488BBE]">Siswa</div>
                 </div>
@@ -472,9 +497,9 @@ const StudentListPage = () => {
 
             <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
               <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
-              <div className="z-10 flex items-center justify-center w-full">
-                <span className="material-icons text-[#FF86E1] mr-2">face_2</span>
-                <div className="flex flex-col items-center">
+              <div className="z-10 flex items-center w-full pl-3">
+                <span className="material-icons text-[#FF86E1] text-lg">face_2</span>
+                <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{studentCounts.female}</div>
                   <div className="text-xs text-[#488BBE]">Perempuan</div>
                 </div>
@@ -483,9 +508,9 @@ const StudentListPage = () => {
 
             <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px] flex items-center justify-center">
               <img src="/population-group-bg.svg" alt="Background" className="absolute inset-0 w-full h-full" />
-              <div className="z-10 flex items-center justify-center w-full">
-                <span className="material-icons text-[#FF7173] mr-2">face</span>
-                <div className="flex flex-col items-center">
+              <div className="z-10 flex items-center w-full pl-3">
+                <span className="material-icons text-[#FF7173] text-lg">face</span>
+                <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{studentCounts.male}</div>
                   <div className="text-xs text-[#488BBE]">Laki Laki</div>
                 </div>
@@ -496,7 +521,6 @@ const StudentListPage = () => {
 
         {/* Search and Filter Row */}
         <div className="flex flex-wrap items-center gap-4 mb-6">
-          {/* Search bar */}
           <div className="relative w-full max-w-md">
             <span className="absolute inset-y-0 left-3 flex items-center">
               <span className="material-icons text-[#8b8b8b]">search</span>
@@ -510,7 +534,6 @@ const StudentListPage = () => {
             />
           </div>
 
-          {/* Filter button - placed right next to search */}
           <div className="flex items-center gap-2">
             <button
               className="flex items-center justify-center px-4 py-2 rounded-full text-[#8b8b8b] hover:bg-[#f7f7f9] transition-colors"
@@ -520,7 +543,6 @@ const StudentListPage = () => {
               <span>Filter</span>
             </button>
             
-            {/* Clear all button - only shown when filters are active */}
             {hasActiveFilters && (
               <button 
                 className="flex items-center justify-center px-4 py-2 rounded-full text-[#488bbe] hover:bg-[#e8f5ff] transition-colors"
@@ -533,7 +555,7 @@ const StudentListPage = () => {
           </div>
         </div>
 
-        {/* Student Table with Fixed Width Columns */}
+        {/* Student Table */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full table-fixed">
@@ -566,7 +588,7 @@ const StudentListPage = () => {
                     </div>
                   </th>
                   <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
-                    <div className="flex items-center justify-center relative">
+                    <div className="flex items-center justify-center relative group">
                       SKRINING
                       <span 
                         className="material-icons text-sm ml-1 text-gray-400 cursor-help" 
@@ -577,26 +599,30 @@ const StudentListPage = () => {
                         help_outline
                       </span>
                       
-                      {/* Help tooltip */}
+                      {/* Fixed tooltip positioning with exact dimensions */}
                       {showHelpTooltip && (
-                        <div 
-                          className="absolute top-8 left-1/2 transform -translate-x-1/2 w-[95px] h-[89px] bg-[#535353CC] bg-opacity-80 backdrop-blur-sm text-white text-xs rounded p-2 z-20 shadow-lg"
-                        >
-                          <div className="flex items-center mb-1">
-                            <span className="material-icons text-red-500 text-sm mr-1">warning</span>
-                            <span>Berisiko</span>
-                          </div>
-                          <div className="flex items-center mb-1">
-                            <span className="material-icons text-yellow-500 text-sm mr-1">error</span>
-                            <span>Pengawasan</span>
-                          </div>
-                          <div className="flex items-center mb-1">
-                            <span className="material-icons text-green-500 text-sm mr-1">check_circle</span>
-                            <span>Stabil</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="material-icons text-gray-400 text-sm mr-1">remove</span>
-                            <span>Belum Skrining</span>
+                        <div className="absolute w-[115px] h-[109px] bg-[#00000059] text-white text-xs rounded-[5px] p-[10px] z-50"
+                             style={{ 
+                               left: "calc(100% + 5px)",
+                               top: "-40px"
+                             }}>
+                          <div className="flex flex-col gap-[10px]">
+                            <div className="flex items-center">
+                              <span className="material-icons text-red-500 text-sm mr-1">warning</span>
+                              <span>Berisiko</span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className="material-icons text-yellow-500 text-sm mr-1">error</span>
+                              <span>Pengawasan</span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className="material-icons text-green-500 text-sm mr-1">check_circle</span>
+                              <span>Stabil</span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className="material-icons text-gray-400 text-sm mr-1">remove</span>
+                              <span className="whitespace-nowrap">Belum Skrining</span>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -621,12 +647,9 @@ const StudentListPage = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {allStudents.map((student, index) => {
-                  // Get status of the current student for UI
                   const screeningStatus = student.screeningStatus || student.screening || 'stable';
                   const screeningUI = getScreeningStatusUI(screeningStatus);
                   const counselingStatus = student.counselingStatus !== undefined ? student.counselingStatus : student.isDoneCounseling;
-                  
-                  // Check if this is the last element and should be observed
                   const isLastElement = index === allStudents.length - 1;
                   
                   return (
@@ -798,7 +821,7 @@ const StudentListPage = () => {
         </div>
       </div>
 
-      {/* Fixed Filter Modal Design */}
+      {/* Filter Modal */}
       <AnimatePresence>
         {showFilterModal && (
           <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
@@ -826,8 +849,8 @@ const StudentListPage = () => {
                     <div className="w-full flex flex-col justify-start items-start gap-2.5">
                       <div className="text-[#488bbe] text-sm font-normal">Kelas</div>
                       <div className="inline-flex justify-start items-center gap-[5px] flex-wrap">
-                        {/* Grade Level Buttons (X, XI, XII) */}
-                        {["X", "XI", "XII"].map((grade) => (
+                        {/* Grade Level Buttons - using dynamic data */}
+                        {uniqueClassroomData.grades.map((grade) => (
                           <button
                             key={grade}
                             className={`h-7 px-2.5 py-1 ${filtersInput.grade === grade ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
@@ -838,22 +861,22 @@ const StudentListPage = () => {
                         ))}
                       </div>
                       
-                      {/* Class Number Buttons (1-10) */}
+                      {/* Class Number Buttons - using dynamic data */}
                       <div className="inline-flex justify-start items-center gap-[5px] flex-wrap">
-                        {[...Array(10)].map((_, i) => (
+                        {uniqueClassroomData.classNumbers.map((classNum) => (
                           <button
-                            key={i+1}
+                            key={classNum}
                             className={`h-7 px-2.5 py-1 ${
                               !filtersInput.grade 
                                 ? 'bg-[#eaecee] text-gray-400 cursor-not-allowed' 
-                                : filtersInput.classNumber === (i+1).toString() 
+                                : filtersInput.classNumber === classNum 
                                   ? 'bg-[#488bbe] text-white' 
                                   : 'bg-[#eaecee] text-gray-700'
                             } rounded-[5px] flex justify-center items-center transition-colors`}
-                            onClick={() => handleFilterSelect('classNumber', (i+1).toString())}
+                            onClick={() => handleFilterSelect('classNumber', classNum)}
                             disabled={!filtersInput.grade}
                           >
-                            <div className="text-center text-xs font-normal">{i+1}</div>
+                            <div className="text-center text-xs font-normal">{classNum}</div>
                           </button>
                         ))}
                       </div>
@@ -905,7 +928,7 @@ const StudentListPage = () => {
                         </div>
                       </div>
                       
-                      {/* Counseling Selection - moved to be beside Screening */}
+                      {/* Counseling Selection */}
                       <div className="inline-flex flex-col justify-start items-start gap-2.5">
                         <div className="text-[#488bbe] text-sm font-normal">Konseling</div>
                         <div className="inline-flex justify-start items-center gap-[5px]">
@@ -927,7 +950,7 @@ const StudentListPage = () => {
                   </div>
                 </div>
                 
-                {/* Save Button - Fixed at bottom */}
+                {/* Save Button */}
                 <div className="mt-4 pt-2 border-t border-gray-200">
                   <button
                     className="w-full h-[42px] px-7 py-2.5 bg-[#488bbe] rounded-[5px] flex justify-center items-center"

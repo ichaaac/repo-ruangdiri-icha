@@ -185,7 +185,6 @@ const api = {
 organization: {
   // ... existing methods ...
 
-  // School-specific endpoints
   school: {
     /**
      * Get school student list
@@ -194,13 +193,39 @@ organization: {
      */
     getStudents: async (params = {}) => {
       try {
-        const response = await apiClient.get("/organizations/school/students", { params });
+        const response = await apiClient.get("/organizations/students", { params });
         return response.data;
       } catch (error) {
         throw error;
       }
     },
-
+  
+    /**
+     * Get total student counts
+     * @returns {Promise} API response with total counts data
+     */
+    getStudentCounts: async () => {
+      try {
+        const response = await apiClient.get("/organizations/students/counts");
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+  
+    /**
+     * Get all available classrooms
+     * @returns {Promise} API response with classrooms data
+     */
+    getClassrooms: async () => {
+      try {
+        const response = await apiClient.get("/students/classrooms");
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+  
     /**
      * Update a student's profile
      * @param {string} studentId - The ID of the student to update
