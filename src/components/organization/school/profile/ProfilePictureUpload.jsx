@@ -1,8 +1,9 @@
 // src/components/organization/school/profile/ProfilePictureUpload.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+
 import clsx from "clsx";
+import { apiClient } from "../../../../lib/api";
 
 const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const fileInputRef = useRef(null);
@@ -33,7 +34,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       
       console.log("Uploading profile picture...");
       
-      return axios.put(
+      return apiClient.put(
         `${API_URL}/organizations/profile-picture`,
         formData,
         {

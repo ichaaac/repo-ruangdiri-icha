@@ -4,7 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import api, { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
@@ -118,16 +118,9 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
       
       console.log("Updating organization profile with data:", data);
       
-      return axios.patch(
+      return apiClient.patch(
         `${API_URL}/organizations/profile`,
         data,
-        {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          }
-        }
       );
     },
     onSuccess: (response) => {
@@ -240,7 +233,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                   control={control}
                   render={({ field }) => (
                     <PhoneInput
-                      defaultCountry="ID"
+                      defaultCountry="id"
                       value={field.value}
                       onChange={(value) => {
                         // Apply custom formatting and update the field

@@ -9,8 +9,12 @@ const ForgotPassword = () => {
   const [emailError, setEmailError] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
+  
+  // Create forgotPassword mutation with proper API path
   const forgotPasswordMutation = useMutation({
-    mutationFn: (email) => api.forgotPassword(email),
+    mutationFn: async (email) => {
+      return await api.auth.forgotPassword(email);
+    },
     onSuccess: (response) => {
       const message = response.message || "Link reset password telah dikirim ke email Anda. Silakan cek inbox atau folder spam Anda.";
       setSuccessMessage(message);
@@ -31,9 +35,11 @@ const ForgotPassword = () => {
     }
   });
 
-  // Resend email mutation
+  // Create a separate resend mutation using the API
   const resendEmailMutation = useMutation({
-    mutationFn: (email) => authAPI.forgotPassword(email),
+    mutationFn: async (email) => {
+      return await api.auth.forgotPassword(email);
+    },
     onSuccess: (response) => {
       const message = response.message || "Link reset password telah dikirim ulang ke email Anda.";
       setSuccessMessage(message);
