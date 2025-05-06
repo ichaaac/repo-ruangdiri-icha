@@ -226,12 +226,6 @@ const SchoolProfilePage = () => {
 									{userData?.fullName || "Nama Sekolah"}
 								</h2>
 								<p className="text-xs text-neutral-600">Admin</p>
-								<p className="text-xs text-neutral-600">
-									{userData?.organization?.address
-										? userData.organization.address.split(",")[0]
-										: "Alamat"}
-									, Indonesia
-								</p>
 							</div>
 						</div>
 					</section>
