@@ -32,7 +32,7 @@ apiClient.interceptors.response.use(
   (error) => {
     // Don't redirect on 401 errors during login attempts
     // This ensures login errors are handled by the component
-    const isLoginAttempt = error.config.url.includes("/auth/login");
+    const isLoginAttempt = error.config.url?.includes("/auth/login");
 
     if (error.response && error.response.status === 401 && !isLoginAttempt) {
       // Only clear tokens and redirect for non-login 401 errors
@@ -122,7 +122,7 @@ const api = {
      */
     changePassword: async (oldPassword, newPassword) => {
       try {
-        const response = await apiClient.patch("/auth/password", {
+        const response = await apiClient.patch("/users/change-password", {
           oldPassword,
           newPassword,
         });
@@ -179,74 +179,7 @@ const api = {
         throw error;
       }
     },
-// Adding the new student update endpoint to the api.js file
 
-// The existing organization section should be updated to include:
-organization: {
-  // ... existing methods ...
-
-  school: {
-    /**
-     * Get school student list
-     * @param {Object} params - Query parameters (pagination, filters, etc.)
-     * @returns {Promise} API response with students data
-     */
-    getStudents: async (params = {}) => {
-      try {
-        const response = await apiClient.get("/organizations/students", { params });
-        return response.data;
-      } catch (error) {
-        throw error;
-      }
-    },
-  
-    /**
-     * Get total student counts
-     * @returns {Promise} API response with total counts data
-     */
-    getStudentCounts: async () => {
-      try {
-        const response = await apiClient.get("/organizations/students/counts");
-        return response.data;
-      } catch (error) {
-        throw error;
-      }
-    },
-  
-    /**
-     * Get all available classrooms
-     * @returns {Promise} API response with classrooms data
-     */
-    getClassrooms: async () => {
-      try {
-        const response = await apiClient.get("/students/classrooms");
-        return response.data;
-      } catch (error) {
-        throw error;
-      }
-    },
-  
-    /**
-     * Update a student's profile
-     * @param {string} studentId - The ID of the student to update
-     * @param {Object} studentData - Profile data to update
-     * @returns {Promise} API response with updated student data
-     */
-    updateStudent: async (studentId, studentData) => {
-      try {
-        const response = await apiClient.patch(`/organizations/students/${studentId}`, studentData);
-        return response.data;
-      } catch (error) {
-        throw error;
-      }
-    },
-  },
-
-  // Company-specific endpoints
-  company: {
-    // ... existing methods ...
-  },
-},
     /**
      * Update organization profile picture
      * @param {File} file - Profile picture file
@@ -277,14 +210,56 @@ organization: {
        */
       getStudents: async (params = {}) => {
         try {
-          const response = await apiClient.get("/organizations/school/students", { params });
+          const response = await apiClient.get("/organizations/students", { params });
+          return response.data;
+        } catch (error) {
+          throw error;
+        }
+      },
+    
+      /**
+       * Get total student counts
+       * @returns {Promise} API response with total counts data
+       */
+      getStudentCounts: async () => {
+        try {
+          const response = await apiClient.get("/organizations/students/counts");
+          return response.data;
+        } catch (error) {
+          throw error;
+        }
+      },
+    
+      /**
+       * Get all available classrooms
+       * @returns {Promise} API response with classrooms data
+       */
+      getClassrooms: async () => {
+        try {
+          const response = await apiClient.get("/students/classrooms");
+          return response.data;
+        } catch (error) {
+          throw error;
+        }
+      },
+    
+      /**
+       * Update a student's profile
+       * @param {string} studentId - The ID of the student to update
+       * @param {Object} studentData - Profile data to update
+       * @returns {Promise} API response with updated student data
+       */
+      updateStudent: async (studentId, studentData) => {
+        try {
+          const response = await apiClient.patch(`/organizations/students/${studentId}`, studentData);
           return response.data;
         } catch (error) {
           throw error;
         }
       },
     },
-        // Company-specific endpoints
+
+    // Company-specific endpoints
     company: {
       /**
        * Get company employee list
@@ -293,13 +268,86 @@ organization: {
        */
       getEmployees: async (params = {}) => {
         try {
-          const response = await apiClient.get("/organizations/company/employees", { params });
+          const response = await apiClient.get("/organizations/employees", { params });
           return response.data;
         } catch (error) {
           throw error;
         }
       },
-    },
+
+      /**
+       * Update an employee's profile
+       * @param {string} employeeId - The ID of the employee to update
+       * @param {Object} employeeData - Profile data to update
+       * @returns {Promise} API response with updated employee data
+       */
+      updateEmployee: async (employeeId, employeeData) => {
+        try {
+          // Transform the data to match the expected API structure if needed
+          // The API expects specific fields in the profile object
+          const formattedData = {
+            // Map common fields directly
+            fullName: employeeData.fullName,
+            
+            // Add profile-specific fields
+            profile: {
+              employeeId: employeeData.employeeId,
+              department: employeeData.department,
+              position: employeeData.position,
+              gender: employeeData.gender,
+              age: employeeData.age ? parseInt(employeeData.age) : undefined,
+              yearsOfService: employeeData.workDuration ? parseInt(employeeData.workDuration) : undefined,
+              screeningStatus: employeeData.screeningStatus,
+              counselingStatus: employeeData.counselingStatus,
+            }
+          };
+          
+          // Remove undefined values
+          Object.keys(formattedData.profile).forEach(key => {
+            if (formattedData.profile[key] === undefined) {
+              delete formattedData.profile[key];
+            }
+          });
+          
+          console.log("Updating employee with data:", formattedData);
+          
+          const response = await apiClient.patch(`/organizations/employees/${employeeId}`, formattedData);
+          return response.data;
+        } catch (error) {
+          console.error("Error updating employee:", error);
+          throw error;
+        }
+      },
+
+      /**
+       * Get departments and positions
+       * Note: This is a fallback method for development in case the API endpoint isn't implemented
+       * In production, this would be replaced with a real API call
+       * @returns {Promise} API response with departments data
+       */
+      getDepartments: async () => {
+        try {
+          // Try to get from API first
+          const response = await apiClient.get("/organizations/departments");
+          return response.data;
+        } catch (error) {
+          // Fallback data for development/demo
+          console.log("Using fallback departments data");
+          return {
+            status: "success",
+            data: [
+              { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter"] },
+              { department: "Finance", positions: ["Head", "Manager", "Accountant", "Analyst"] },
+              { department: "Marketing", positions: ["Head", "Manager", "Specialist", "Coordinator"] },
+              { department: "Operations", positions: ["Head", "Lead", "Manager", "Staff"] },
+              { department: "Information Technology", positions: ["Head", "Lead", "Developer", "Designer", "Support"] },
+              { department: "Product Development", positions: ["Head", "Lead", "Manager", "Engineer"] },
+              { department: "Legal", positions: ["Head", "Counsel", "Specialist"] }
+            ]
+          };
+        }
+      }
+    }
   },
 };
 

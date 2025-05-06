@@ -1,21 +1,25 @@
 // src/components/organization/company/CompanySidebar.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../../../hooks/useAuth";
 
 /**
  * Company Sidebar Component
  * Navigation sidebar for company pages with collapsible behavior
- * Updated to match current app navigation structure
+ * Updated to match current app navigation structure with improved hover behavior
  * 
  * @param {Object} props - Component props
  * @param {boolean} props.expanded - Whether the sidebar is expanded
  * @param {Function} props.setExpanded - Function to toggle expanded state
  * @param {Function} props.onHoverChange - Function to notify parent of hover state change
+ * @param {Object} props.userData - User profile data
  * @returns {JSX.Element}
  */
-const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
+const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [toggleHovered, setToggleHovered] = useState(false);
@@ -23,34 +27,39 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const collapseTimeoutRef = useRef(null);
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
+  const navSectionRef = useRef(null);
 
   // Constants for sidebar widths
   const expandedWidth = 240;
   const collapsedWidth = 64;
 
-  // Handle mouse enter - expand sidebar after short delay
-  const handleMouseEnter = () => {
-    clearTimeout(collapseTimeoutRef.current);
-    
+  // Handle mouse enter for navigation section only
+  const handleNavSectionMouseEnter = () => {
     if (!expanded) {
+      // Clear any pending collapse timeout
+      clearTimeout(collapseTimeoutRef.current);
+      
+      // Set a shorter delay when hovering to make response feel more immediate
       expandTimeoutRef.current = setTimeout(() => {
         setHovered(true);
         if (onHoverChange) onHoverChange(true);
-      }, 200);
+      }, 100);
     }
   };
 
-  // Handle mouse leave - collapse sidebar after delay
-  const handleMouseLeave = () => {
-    clearTimeout(expandTimeoutRef.current);
-    
-    if (!expanded && hovered) {
+  // Handle mouse leave for navigation section
+  const handleNavSectionMouseLeave = () => {
+    if (!expanded) {
+      // Clear any pending expand timeout
+      clearTimeout(expandTimeoutRef.current);
+      
+      // Use a longer delay when leaving to avoid flickering
       collapseTimeoutRef.current = setTimeout(() => {
         if (!showProfileDropdown) {
           setHovered(false);
           if (onHoverChange) onHoverChange(false);
         }
-      }, 300);
+      }, 400);
     }
   };
 
@@ -60,6 +69,16 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
     if (onHoverChange) onHoverChange(!expanded);
     if (showProfileDropdown) {
       setShowProfileDropdown(false);
+    }
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await logout.mutateAsync();
+      // Navigation is handled by the logout function
+    } catch (error) {
+      console.error("Logout error:", error);
     }
   };
 
@@ -79,17 +98,12 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
     };
   }, [dropdownRef]);
 
-  // Menu items for company - Updated based on current app structure
+  // Menu items for company - Updated based on current app structure and requirements
   const menuItems = [
     {
       icon: "bar_chart",
       label: "Dashboard",
       path: "/organization/company/dashboard",
-    },
-    {
-      icon: "business",
-      label: "Lowongan",
-      path: "/organization/company/jobs",
     },
     {
       icon: "people",
@@ -127,11 +141,9 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
       initial={{ width: expanded ? expandedWidth : collapsedWidth }}
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
-      {/* Logo Section */}
-      <div className="p-4 flex justify-center items-center border-b border-gray-100">
+      {/* Logo Section with Toggle Button */}
+      <div className="p-4 flex justify-center items-center relative">
         <motion.img
           src="/logo/ruang-diri-logo.png"
           alt="Ruang Diri Logo"
@@ -142,6 +154,25 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="h-8 object-contain"
         />
+        
+        {/* Toggle Button - Positioned beside the logo */}
+        <div
+          className={`absolute ${expanded || hovered ? 'right-[-16px]' : 'right-[-12px]'} top-4`}
+          onMouseEnter={() => setToggleHovered(true)}
+          onMouseLeave={() => setToggleHovered(false)}
+        >
+          <button
+            onClick={toggleSidebar}
+            className={`flex items-center justify-center w-4 h-8 rounded-r-md shadow-md transition-colors ${
+              toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'
+            }`}
+            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            <span className="material-icons" style={{ fontSize: "12px" }}>
+              {expanded ? "chevron_left" : "chevron_right"}
+            </span>
+          </button>
+        </div>
       </div>
       
       {/* Profile Section */}
@@ -151,11 +182,17 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-            <img
-              src="/company-avatar.jpg"
-              alt="Company"
-              className="w-full h-full object-cover"
-            />
+            {userData && userData.organization && userData.organization.profilePicture ? (
+              <img
+                src={userData.organization.profilePicture}
+                alt="Organization"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
+                {userData && userData.fullName ? userData.fullName.charAt(0).toUpperCase() : 'C'}
+              </div>
+            )}
           </div>
           
           <motion.div
@@ -166,9 +203,11 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <div className="text-sm font-medium text-[#488BBE]">PT</div>
+            <div className="text-sm font-medium text-[#488BBE]">
+              {userData && userData.fullName ? userData.fullName.split(' ')[0] : 'Company'}
+            </div>
             <div className="text-xs text-[#488BBE] flex items-center">
-              Teknologi Digital
+              {userData && userData.organization && userData.organization.type ? userData.organization.type : 'Company'}
               <span className="material-icons text-sm ml-1 text-[#488BBE]">expand_more</span>
             </div>
           </motion.div>
@@ -188,13 +227,14 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
                 <Link
                   to="/organization/company/profile"
                   className="block py-2 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
+                  onClick={() => setShowProfileDropdown(false)}
                 >
                   Profil
                 </Link>
                 <div className="w-full h-[1px] bg-gray-200 my-1"></div>
                 <button
                   className="block py-2 w-full text-left text-sm text-rose-500 hover:text-rose-600 transition-colors"
-                  onClick={() => console.log("Logout clicked")}
+                  onClick={handleLogout}
                 >
                   Keluar
                 </button>
@@ -215,8 +255,13 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
         ></motion.div>
       </div>
 
-      {/* Navigation Menu */}
-      <div className="flex flex-col mt-6 flex-1 overflow-y-auto">
+      {/* Navigation Menu - with hover behavior only for this section */}
+      <div 
+        className="flex flex-col mt-6 flex-1 overflow-y-auto"
+        ref={navSectionRef}
+        onMouseEnter={handleNavSectionMouseEnter}
+        onMouseLeave={handleNavSectionMouseLeave}
+      >
         {menuItems.map((item, index) => (
           <Link
             key={index}
@@ -241,25 +286,6 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
             </motion.span>
           </Link>
         ))}
-      </div>
-
-      {/* Toggle Button - properly positioned inside sidebar */}
-      <div
-        className="absolute right-0 top-24"
-        onMouseEnter={() => setToggleHovered(true)}
-        onMouseLeave={() => setToggleHovered(false)}
-      >
-        <button
-          onClick={toggleSidebar}
-          className={`flex items-center justify-center w-6 h-10 rounded-r-md shadow-md transition-colors ${
-            toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'
-          }`}
-          style={{ transform: 'translateX(6px)' }}
-        >
-          <span className="material-icons" style={{ fontSize: "16px" }}>
-            {expanded ? "chevron_left" : "chevron_right"}
-          </span>
-        </button>
       </div>
     </motion.div>
   );

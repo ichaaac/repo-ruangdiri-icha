@@ -113,7 +113,6 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
     return location.pathname === path;
   };
 
-  // Calculate sidebar width based on state
   const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth;
 
   return (
