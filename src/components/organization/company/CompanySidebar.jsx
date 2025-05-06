@@ -155,15 +155,15 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
           className="h-8 object-contain"
         />
         
-        {/* Toggle Button - Positioned beside the logo */}
+        {/* Toggle Button - Positioned INSIDE the sidebar */}
         <div
-          className={`absolute ${expanded || hovered ? 'right-[-16px]' : 'right-[-12px]'} top-4`}
+          className={`absolute right-1 top-4`}
           onMouseEnter={() => setToggleHovered(true)}
           onMouseLeave={() => setToggleHovered(false)}
         >
           <button
             onClick={toggleSidebar}
-            className={`flex items-center justify-center w-4 h-8 rounded-r-md shadow-md transition-colors ${
+            className={`flex items-center justify-center w-5 h-8 rounded-md shadow-sm transition-colors ${
               toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'
             }`}
             aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
@@ -269,7 +269,7 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
             className={`flex items-center mx-3 my-1 px-3 py-2 rounded-md transition-colors ${
               isActive(item.path) 
                 ? "bg-[#488BBE] text-white" 
-                : "text-[#488BBE] hover:bg-[#E2F9FF]"
+                : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
             }`}
           >
             <span className="material-icons text-[22px]">{item.icon}</span>

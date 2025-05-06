@@ -91,18 +91,20 @@ const EmployeeListPage = () => {
     queryKey: ['departments'],
     queryFn: async () => {
       try {
-        // This endpoint might need to be updated based on your API structure
-        const response = await apiClient.get("/organizations/departments");
-        return response.data?.data || [];
+        // Use the getDepartments function from API
+        const response = await api.organization.company.getDepartments();
+        return response?.data || [];
       } catch (error) {
         console.error('Departments API error:', error);
         // Fallback data in case the API isn't implemented yet
         return [
-          { department: "IT", positions: ["Developer", "Designer", "Manager"] },
-          { department: "Marketing", positions: ["Specialist", "Manager", "Coordinator"] },
-          { department: "Finance", positions: ["Accountant", "Manager", "Analyst"] },
-          { department: "Creative", positions: ["Designer", "Writer", "Director"] },
-          { department: "HR", positions: ["Specialist", "Manager", "Recruiter"] }
+          { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter"] },
+          { department: "Finance", positions: ["Head", "Manager", "Accountant", "Analyst"] },
+          { department: "Marketing", positions: ["Head", "Manager", "Specialist", "Coordinator"] },
+          { department: "Operations", positions: ["Head", "Lead", "Manager", "Staff"] },
+          { department: "Information Technology", positions: ["Head", "Lead", "Developer", "Designer", "Support"] },
+          { department: "Product Development", positions: ["Head", "Lead", "Manager", "Engineer"] },
+          { department: "Legal", positions: ["Head", "Counsel", "Specialist"] }
         ];
       }
     },
@@ -362,14 +364,18 @@ const EmployeeListPage = () => {
     const employee = allEmployees.find((employee) => employee.id === id);
     if (!employee) return;
     
+    // Set default values or use existing ones
     setEditingId(id);
     setEditData({
-      fullName: employee.fullName,
-      employeeId: employee.employeeId,
-      department: employee.department,
-      position: employee.position,
-      gender: employee.gender,
-      age: employee.age || 0
+      fullName: employee.fullName || "",
+      employeeId: employee.employeeId || "",
+      department: employee.department || "",
+      position: employee.position || "",
+      gender: employee.gender || "male",
+      age: employee.age || 30,
+      workDuration: employee.yearsOfService || employee.workDuration || 2,
+      screeningStatus: employee.screeningStatus || "stable",
+      counselingStatus: employee.counselingStatus || false
     });
     setHasChanges(false);
   };
@@ -565,50 +571,63 @@ const EmployeeListPage = () => {
         {/* Employee Table */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full table-fixed">
-              <thead className="bg-[#e8f5ff]">
+            <table className="min-w-full table-fixed" style={{ width: "1163px" }}>
+              <thead style={{ backgroundColor: "#E8F5FF", height: "35px" }}>
                 <tr>
                   <th 
-                    className="w-[200px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    className="px-6 py-[7px] text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    style={{ paddingLeft: "41px", paddingRight: "10px" }}
                     onClick={() => requestSort("fullName")}
                   >
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-[10px]">
                       NAMA
-                      <span className="material-icons text-sm ml-1">{getSortIcon("fullName")}</span>
+                      <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
                     </div>
                   </th>
                   <th 
-                    className="w-[120px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                    className="px-6 py-[7px] text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
                   >
                     <div className="flex items-center">
                       DEPARTEMEN
                     </div>
                   </th>
-                  <th className="w-[120px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-[7px] text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
+                  >
                     JABATAN
                   </th>
-                  <th className="w-[120px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-[7px] text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
+                  >
                     JENIS KELAMIN
                   </th>
                   <th 
-                    className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    className="px-6 py-[7px] text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
                     onClick={() => requestSort("age")}
                   >
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-[10px]">
                       USIA
-                      <span className="material-icons text-sm ml-1">{getSortIcon("age")}</span>
+                      <span className="material-icons text-sm">{getSortIcon("age")}</span>
                     </div>
                   </th>
                   <th 
-                    className="w-[120px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    className="px-6 py-[7px] text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
                     onClick={() => requestSort("workDuration")}
                   >
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-center gap-[10px]">
                       LAMA BEKERJA
-                      <span className="material-icons text-sm ml-1">{getSortIcon("workDuration")}</span>
+                      <span className="material-icons text-sm">{getSortIcon("workDuration")}</span>
                     </div>
                   </th>
-                  <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-[7px] text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
+                  >
                     <div className="flex items-center justify-center relative group">
                       SKRINING
                       <span 
@@ -663,15 +682,19 @@ const EmployeeListPage = () => {
                       </AnimatePresence>
                     </div>
                   </th>
-                  <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+                  <th 
+                    className="px-6 py-[7px] text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider"
+                    style={{ paddingLeft: "10px", paddingRight: "10px" }}
+                  >
                     KONSELING
                   </th>
-                  <th className="w-[80px] px-6 py-3 text-center">
-                    {/* No text for action header, just empty space for edit buttons */}
-                  </th>
+                  <th 
+                    className="px-6 py-[7px] text-center"
+                    style={{ paddingLeft: "10px", paddingRight: "66px" }}
+                  ></th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {allEmployees.map((employee, index) => {
                   const screeningStatus = employee.screeningStatus || employee.screening || 'stable';
                   const screeningUI = getScreeningStatusUI(screeningStatus);
@@ -681,160 +704,174 @@ const EmployeeListPage = () => {
                   const workDuration = employee.workDuration || "2 Tahun";
                   
                   return (
-                    <tr 
-                      key={employee.id}
-                      className="hover:bg-gradient-to-r from-white via-[#488BBE20] to-white transition-all duration-300"
-                      ref={isLastElement ? lastEmployeeElementRef : null}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <span className="material-icons text-gray-500">person</span>
+                    <React.Fragment key={employee.id}>
+                      <tr 
+                        className="hover:bg-gradient-to-r from-white via-[#F0F9FF] to-white transition-all duration-300"
+                        ref={isLastElement ? lastEmployeeElementRef : null}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap" style={{ paddingLeft: "41px" }}>
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                <span className="material-icons text-gray-500">person</span>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              {editingId === employee.id ? (
+                                <input
+                                  type="text"
+                                  name="fullName"
+                                  value={editData.fullName}
+                                  onChange={handleEditChange}
+                                  className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
+                                />
+                              ) : (
+                                <div className="text-sm font-medium text-gray-900">
+                                  {highlightText(employee.fullName)}
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div className="ml-4">
-                            {editingId === employee.id ? (
-                              <input
-                                type="text"
-                                name="fullName"
-                                value={editData.fullName}
-                                onChange={handleEditChange}
-                                className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
-                              />
-                            ) : (
-                              <div className="text-sm font-medium text-gray-900">
-                                {highlightText(employee.fullName)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingId === employee.id ? (
-                          <select
-                            name="department"
-                            value={editData.department}
-                            onChange={handleEditChange}
-                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <select
+                              name="department"
+                              value={editData.department}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            >
+                              {uniqueDepartmentData.departments.map((dept) => (
+                                <option key={dept} value={dept}>{dept}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.department}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <select
+                              name="position"
+                              value={editData.position}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            >
+                              {uniqueDepartmentData.positions.map((pos) => (
+                                <option key={pos} value={pos}>{pos}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.position}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === employee.id ? (
+                            <select
+                              name="gender"
+                              value={editData.gender}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
+                            >
+                              <option value="male">Laki-laki</option>
+                              <option value="female">Perempuan</option>
+                            </select>
+                          ) : (
+                            <div className="text-sm text-gray-500">
+                              {employee.gender === 'male' || employee.gender === 'm' ? 'Laki-laki' : 'Perempuan'}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {editingId === employee.id ? (
+                            <input
+                              type="number"
+                              name="age"
+                              value={editData.age}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-16 mx-auto"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">{employee.age || "36"}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          {editingId === employee.id ? (
+                            <input
+                              type="text"
+                              name="workDuration"
+                              value={editData.workDuration || workDuration}
+                              onChange={handleEditChange}
+                              className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                            />
+                          ) : (
+                            <div className="text-sm text-gray-500">
+                              {workDuration}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${screeningUI.bgColor}`}
                           >
-                            {uniqueDepartmentData.departments.map((dept) => (
-                              <option key={dept} value={dept}>{dept}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="text-sm text-gray-500">{employee.department}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingId === employee.id ? (
-                          <select
-                            name="position"
-                            value={editData.position}
-                            onChange={handleEditChange}
-                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                          >
-                            {uniqueDepartmentData.positions.map((pos) => (
-                              <option key={pos} value={pos}>{pos}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="text-sm text-gray-500">{employee.position}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingId === employee.id ? (
-                          <select
-                            name="gender"
-                            value={editData.gender}
-                            onChange={handleEditChange}
-                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
-                          >
-                            <option value="male">Laki-laki</option>
-                            <option value="female">Perempuan</option>
-                          </select>
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            {employee.gender === 'male' || employee.gender === 'm' ? 'Laki-laki' : 'Perempuan'}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {editingId === employee.id ? (
-                          <input
-                            type="number"
-                            name="age"
-                            value={editData.age}
-                            onChange={handleEditChange}
-                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-16 mx-auto"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-500">{employee.age || "36"}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {editingId === employee.id ? (
-                          <input
-                            type="text"
-                            name="workDuration"
-                            value={editData.workDuration || workDuration}
-                            onChange={handleEditChange}
-                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
-                          />
-                        ) : (
-                          <div className="text-sm text-gray-500">
-                            {workDuration}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${screeningUI.bgColor}`}
-                        >
-                          {screeningUI.icon}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
-                          {counselingStatus ? "Sudah" : "Belum"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                        {editingId === employee.id ? (
-                          <div className="flex space-x-2 justify-center">
+                            {screeningUI.icon}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                          <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
+                            {counselingStatus ? "Sudah" : "Belum"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                          {editingId === employee.id ? (
+                            <div className="flex space-x-2 justify-center">
+                              <button
+                                className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges || updateEmployeeMutation.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
+                                onClick={() => hasChanges && saveEditing(employee.id)}
+                                disabled={!hasChanges || updateEmployeeMutation.isPending}
+                                aria-label="Save"
+                              >
+                                <span className="material-icons">
+                                  {updateEmployeeMutation.isPending ? "hourglass_empty" : "check_circle"}
+                                </span>
+                              </button>
+                              <button 
+                                className="text-[#EE4266] hover:text-red-700" 
+                                onClick={cancelEditing} 
+                                disabled={updateEmployeeMutation.isPending}
+                                aria-label="Cancel"
+                              >
+                                <span className="material-icons">
+                                  cancel
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges || updateEmployeeMutation.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
-                              onClick={() => hasChanges && saveEditing(employee.id)}
-                              disabled={!hasChanges || updateEmployeeMutation.isPending}
-                              aria-label="Save"
+                              className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
+                              onClick={() => editingId === null && startEditing(employee.id)}
+                              disabled={editingId !== null}
+                              aria-label="Edit employee"
                             >
-                              <span className="material-icons">
-                                {updateEmployeeMutation.isPending ? "hourglass_empty" : "check_circle"}
-                              </span>
+                              <span className="material-icons">edit</span>
                             </button>
-                            <button 
-                              className="text-[#EE4266] hover:text-red-700" 
-                              onClick={cancelEditing} 
-                              disabled={updateEmployeeMutation.isPending}
-                              aria-label="Cancel"
-                            >
-                              <span className="material-icons">
-                                cancel
-                              </span>
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
-                            onClick={() => editingId === null && startEditing(employee.id)}
-                            disabled={editingId !== null}
-                            aria-label="Edit employee"
-                          >
-                            <span className="material-icons">edit</span>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
+                          )}
+                        </td>
+                      </tr>
+                      {!isLastElement && (
+                        <tr className="h-[1px]">
+                          <td colSpan={9} className="p-0">
+                            <div 
+                              className="h-[1px] w-full"
+                              style={{ 
+                                background: 'linear-gradient(to right, #FFFFFF, #488BBE, #FFFFFF)'
+                              
+                              }}
+                            ></div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
