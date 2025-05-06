@@ -11,26 +11,45 @@ const Navbar = ({ activeSection, onSectionClick }) => {
   const location = useLocation();
   const navItemRefs = useRef({});
   
-  // Track scroll position for navbar appearance
+  // Ensure page starts from top on refresh
+  useEffect(() => {
+    window.history.scrollRestoration = "manual";
+    window.scrollTo(0, 0);
+  }, []);
+  
+  // Simplified scroll behavior - only hide after passing Layanan Kami section
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       
+      // Get services section dimensions
+      const servicesSection = document.getElementById("services");
+      const servicesSectionTop = servicesSection?.offsetTop || 0;
+      const servicesSectionBottom = servicesSectionTop + (servicesSection?.offsetHeight || 0);
+      
+      // Apply shadow when scrolled down
       if (currentScrollY > 20) {
         setScrolled(true);
       } else {
         setScrolled(false);
       }
       
-      if ((currentScrollY > lastScrollY + 50) && currentScrollY > 300) {
+      // Only hide navbar when scrolled PAST the services section
+      if (currentScrollY > servicesSectionBottom) {
         setVisible(false);
       } else {
+        setVisible(true);
+      }
+      
+      // Always show navbar when scrolling up
+      if (currentScrollY < lastScrollY) {
         setVisible(true);
       }
       
       setLastScrollY(currentScrollY);
     };
     
+    // Throttle scroll event for better performance
     let ticking = false;
     const onScroll = () => {
       if (!ticking) {
@@ -43,7 +62,14 @@ const Navbar = ({ activeSection, onSectionClick }) => {
     };
     
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    
+    // Initial check
+    handleScroll();
+    
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.history.scrollRestoration = "auto";
+    };
   }, [lastScrollY]);
 
   useEffect(() => {

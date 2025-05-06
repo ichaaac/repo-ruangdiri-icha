@@ -9,7 +9,7 @@ const Footer = () => {
           <div className="flex flex-col gap-2.5 items-start p-2.5 h-[109px] w-[120px]">
             <div>
               <img
-                src="/logo/ruang-diri-logo.png"
+                src="/logo/ruang-diri-logo.svg"
                 alt="Ruang Diri Logo"
                 className="w-[100px] h-[89px] brightness-0 invert" // Makes the logo white
               />
