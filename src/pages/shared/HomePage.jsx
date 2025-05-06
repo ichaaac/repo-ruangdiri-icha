@@ -230,6 +230,18 @@ function Homepage() {
   };
 
   const TestimonialsSection = () => {
+    // Reference to track if component has mounted already
+    const hasAnimatedRef = useRef(false);
+    const [shouldAnimate, setShouldAnimate] = useState(false);
+    
+    useEffect(() => {
+      // Only animate once when the component first mounts
+      if (!hasAnimatedRef.current) {
+        setShouldAnimate(true);
+        hasAnimatedRef.current = true;
+      }
+    }, []);
+    
     return (
       <section id="testimonials" className="min-h-[810px] flex flex-col justify-center">
         <h2 className="text-center mb-6 text-4xl md:text-5xl">
@@ -246,9 +258,8 @@ function Homepage() {
             src="/testimonials.svg"
             alt="Testimonials"
             className="object-contain max-w-full md:max-w-[1105px] w-full"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            initial={shouldAnimate ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           />
         </div>

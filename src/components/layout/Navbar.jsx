@@ -126,9 +126,10 @@ const Navbar = ({ activeSection, onSectionClick }) => {
             </ul>
           </div>
 
-          {/* Increased spacing for right-side elements */}
+          {/* Right side elements with adjusted spacing */}
           <div className="hidden md:flex items-center pr-8 md:pr-16 lg:pr-24">
-            <div className="text-sm text-zinc-500 mr-16 lg:mr-20">
+            {/* Increased space after articles and decreased space before login buttons */}
+            <div className="text-sm text-zinc-500 ml-12 mr-8">
               <span className="font-bold text-[#488BBE]">ID</span>
               <span className="mx-2">/</span>
               <span>EN</span>
