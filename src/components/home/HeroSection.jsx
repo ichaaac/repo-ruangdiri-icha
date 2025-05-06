@@ -74,7 +74,7 @@ const HeroSection = ({ activeSlide, handleNextSlide }) => {
                     <span className="font-light">Lebih Dekat</span>
                   </h1>
                 ) : (
-                  <h1 className="text-4xl md:text-5xl text-[#488BBE] leading-tight md:leading-[56px]">
+                  <h1 className="text-4xl md:text-5xl text-[#488BBE] leading-tight md:leading-[56px] whitespace-nowrap">
                     <span className="font-bold">Kolaborasi</span>{" "}
                     <span className="font-light">/ Kemitraan</span>
                   </h1>
