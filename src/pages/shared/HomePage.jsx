@@ -1,32 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../../components/layout/Navbar";
+import HeroSection from "../../components/home/HeroSection";
 import Footer from "../../components/layout/Footer";
 
-const ScrollButton = ({ direction = "down" }) => {
-  const imageSrc =
-    direction === "down"
-      ? "/scroll-down.png"
-      : "/scroll-up.png";
-
-  const handleClick = () => {
-    if (direction === "down") {
-      window.scrollBy({
-        top: window.innerHeight,
-        behavior: "smooth",
-      });
-    } else {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  };
+const ScrollButton = ({ direction = "down", onScroll }) => {
+  const imageSrc = direction === "down" ? "/scroll-down.png" : "/scroll-up.png";
 
   return (
     <motion.div
       className="fixed right-8 bottom-8 flex flex-col items-center cursor-pointer z-30"
-      onClick={handleClick}
+      onClick={onScroll}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -98,290 +82,26 @@ const ServiceCard = ({ title, boldTitle, thumbnailSrc, onClick }) => {
   );
 };
 
-const HeroSection = ({ activeSlide, handleNextSlide }) => {
-  const heroData = [
-    {
-      title: "Kenali Diri",
-      subtitle: "kamu",
-      caption: "Lebih Dekat",
-      description: "Jelajahi diri kamu bersama kami",
-      buttonText: "Mulai Sekarang",
-      buttonAction: () => window.location.href = "/login",
-      image: "/landing-hero-1.svg"
-    },
-    {
-      title: "Kolaborasi / Kemitraan",
-      subtitle: "",
-      caption: "",
-      description: "Berkembang bersama ahli terpercaya kami.",
-      buttonText: "Kontak Kami",
-      buttonAction: () => window.location.href = "/kontak",
-      image: "/landing-hero-2.svg"
-    }
-  ];
-
-  const currentHero = heroData[activeSlide];
-
-  return (
-    <section className="pt-[140px] min-h-[700px] md:min-h-[810px] flex flex-col mx-auto">
-      <div className="relative max-w-[1440px] mx-auto px-4 md:px-10">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-10">
-          {/* Hero Image Container - Fixed Height to Prevent Shifting */}
-          <div className="w-full md:w-1/2 h-[300px] md:h-[500px] flex items-center justify-center">
-            <AnimatePresence mode="wait">
-              <motion.img
-                key={activeSlide}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5 }}
-                src={currentHero.image}
-                alt="Hero Illustration"
-                className="w-auto h-full object-contain"
-              />
-            </AnimatePresence>
-          </div>
-          
-          {/* Hero Content Container */}
-          <div className="w-full md:w-1/2 text-center md:text-left">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeSlide}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.5 }}
-              >
-                {activeSlide === 0 ? (
-                  <h1 className="text-4xl md:text-5xl text-[#488BBE] leading-tight md:leading-[56px]">
-                    <span className="font-bold">Kenali Diri</span>{" "}
-                    <span className="font-normal">kamu</span><br />
-                    <span className="font-light">Lebih Dekat</span>
-                  </h1>
-                ) : (
-                  <h1 className="text-4xl md:text-5xl text-[#488BBE] leading-tight md:leading-[56px]">
-                    <span className="font-light whitespace-nowrap">Kolaborasi / Kemitraan</span>
-                  </h1>
-                )}
-                <p className="mt-7 text-base leading-8 text-[#8B8B8B]">
-                  {currentHero.description}
-                </p>
-                {activeSlide === 0 ? (
-                  <motion.button 
-                    className="mt-7 px-8 h-[43px] rounded-full text-base font-bold text-[#488BBE] border border-[#488BBE] hover:bg-[#E2F9FF]"
-                    onClick={currentHero.buttonAction}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {currentHero.buttonText}
-                  </motion.button>
-                ) : (
-                  <motion.button 
-                    className="mt-7 w-[161px] h-[43px] text-base rounded-full font-bold text-[#488BBE] border border-[#488BBE] hover:bg-[#E2F9FF]"
-                    onClick={currentHero.buttonAction}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {currentHero.buttonText}
-                  </motion.button>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Slide navigation arrows - positioned relative to the hero section */}
-        <div className="relative w-full h-0">
-          {activeSlide > 0 && (
-            <div 
-              className="absolute top-[-250px] left-4 cursor-pointer z-10 md:left-8"
-              onClick={() => handleNextSlide('prev')}
-              aria-label="Previous slide"
-            >
-              <svg width="38" height="23" viewBox="0 0 38 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 2L19 20L36 2" stroke="#8CC3EE" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-90 19 11.5)"/>
-              </svg>
-            </div>
-          )}
-          
-          {activeSlide < heroData.length - 1 && (
-            <div 
-              className="absolute top-[-250px] right-4 cursor-pointer z-10 md:right-8"
-              onClick={() => handleNextSlide('next')}
-              aria-label="Next slide"
-            >
-              <svg width="38" height="23" viewBox="0 0 38 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 2L19 20L36 2" stroke="#8CC3EE" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" transform="rotate(90 19 11.5)"/>
-              </svg>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Slide Indicators */}
-      <div className="flex justify-center mt-10 gap-3.5">
-        <button
-          className={`rounded-full h-[11px] w-[11px] ${activeSlide === 0 ? "bg-[#488BBE]" : "border border-[#488BBE]"}`}
-          onClick={() => handleNextSlide('goto', 0)}
-          aria-label="Slide 1"
-        />
-        <button
-          className={`rounded-full h-[11px] w-[11px] ${activeSlide === 1 ? "bg-[#488BBE]" : "border border-[#488BBE]"}`}
-          onClick={() => handleNextSlide('goto', 1)}
-          aria-label="Slide 2"
-        />
-      </div>
-    </section>
-  );
-};
-
-const ServicesSection = () => {
-  // Service data
-  const services = [
-    {
-      title: "Konseling",
-      boldTitle: "Klinis",
-      thumbnailSrc: "/layanan-kami-1.png",
-      action: () => window.location.href = "/layanan/klinis"
-    },
-    {
-      title: "Konseling",
-      boldTitle: "Pendidikan",
-      thumbnailSrc: "/layanan-kami-2.png",
-      action: () => window.location.href = "/layanan/pendidikan"
-    },
-    {
-      title: "Konseling",
-      boldTitle: "Karir",
-      thumbnailSrc: "/layanan-kami-3.png",
-      action: () => window.location.href = "/layanan/karir"
-    }
-  ];
-
-  return (
-    <section 
-      id="services" 
-      className="min-h-[810px] flex flex-col justify-center"
-      style={{ 
-        background: "linear-gradient(to bottom, #FFFFFF, #BFE9F3, #FFFFFF)",
-        backgroundSize: "100% 100%",
-        backgroundPosition: "center",
-        width: "100%",
-        height: "810px"
-      }}
-    >
-      <h2 className="mt-16 mb-16 text-center text-4xl md:text-5xl">
-        <span className="text-[#488BBE] font-normal">Layanan </span>
-        <span className="text-[#488BBE] font-extrabold">Kami</span>
-      </h2>
-      <div className="flex flex-wrap gap-10 justify-center mb-16 px-4">
-        {services.map((service, index) => (
-          <ServiceCard 
-            key={index}
-            title={service.title}
-            boldTitle={service.boldTitle}
-            thumbnailSrc={service.thumbnailSrc}
-            onClick={service.action}
-          />
-        ))}
-      </div>
-    </section>
-  );
-};
-
-const TestimonialsSection = () => {
-  return (
-    <section id="testimonials" className="min-h-[810px] flex flex-col justify-center">
-      <h2 className="text-center mb-6 text-4xl md:text-5xl">
-        <span className="text-[#488BBE] font-extrabold">Kata mereka</span>{" "}
-        <span className="text-[#488BBE] font-normal">yang telah menjalaninya bersama Ruangdiri.id</span>
-      </h2>
-      <p className="text-center text-base text-zinc-500 max-w-[800px] mx-auto mb-16 px-4">
-        Kisah mereka yang sudah menggunakan layanan Ruangdiri.id Kamu juga bisa
-        seperti mereka, karena ceritamu layak didengar
-      </p>
-      
-      <div className="flex justify-center px-4">
-        <motion.img
-          src="/testimonials.svg"
-          alt="Testimonials"
-          className="object-contain max-w-full md:max-w-[1105px] w-full"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-        />
-      </div>
-    </section>
-  );
-};
-
-const ClientsSection = () => {
-  const clients = [
-    { name: "BRI", logo: "/logo/client/bri-logo.png" },
-    { name: "FIFGROUP", logo: "/logo/client/fifgroup-logo.png" },
-    { name: "NRA", logo: "/logo/client/nra-logo.png" },
-    { name: "Sosro", logo: "/logo/client/sosro-logo.png" },
-    { name: "BANK INDONESIA", logo: "/logo/client/bank-indonesia-logo.png" },
-    { name: "Asuransi Asei", logo: "/logo/client/asei-logo.png" },
-    { name: "Ford", logo: "/logo/client/ford-logo.png" }
-  ];
-
-  return (
-    <section id="clients" className="bg-white">
-      <div className="pt-16 pb-16 max-w-[1440px] mx-auto">
-        <h2 className="text-center mb-16">
-          <span className="text-[#488BBE] font-normal text-4xl md:text-5xl">Klien </span>
-          <span className="text-[#488BBE] font-extrabold text-4xl md:text-5xl">Kami</span>
-        </h2>
-        <motion.div 
-          className="flex flex-wrap gap-10 items-center justify-center px-4 mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, staggerChildren: 0.1 }}
-        >
-          {clients.map((client, index) => (
-            <motion.img
-              key={index}
-              src={client.logo}
-              alt={`${client.name} Logo`}
-              className="object-contain h-12 md:h-16"
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ scale: 1.1 }}
-            />
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  );
-};
-
 function Homepage() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [currentSection, setCurrentSection] = useState("hero");
   const [showScrollDown, setShowScrollDown] = useState(true);
   const [showScrollUp, setShowScrollUp] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
   const sectionsRef = useRef({});
-  const mainContentRef = useRef(null);
+  const sectionOrderRef = useRef(["hero", "services", "testimonials", "clients"]);
   
   // Handle scroll event to determine current section
   const handleScroll = () => {
     const scrollPosition = window.scrollY + window.innerHeight / 3;
+    setHasScrolled(true);
     
-    // Check each section to determine the current one
     Object.entries(sectionsRef.current).forEach(([id, section]) => {
       if (section) {
         const { offsetTop, offsetHeight } = section;
         if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
           setCurrentSection(id);
           
-          // Toggle scroll buttons based on section
           if (id === "clients") {
             setShowScrollDown(false);
             setShowScrollUp(true);
@@ -394,9 +114,7 @@ function Homepage() {
     });
   };
   
-  // Initialize section refs after render
   useEffect(() => {
-    // Wait for elements to be rendered
     const timer = setTimeout(() => {
       sectionsRef.current = {
         hero: document.getElementById("hero"),
@@ -405,36 +123,31 @@ function Homepage() {
         clients: document.getElementById("clients")
       };
       
-      // Run initial scroll check to set correct section
       handleScroll();
     }, 100);
     
-    // Add scroll event listener
     window.addEventListener("scroll", handleScroll);
     
-    // Cleanup
     return () => {
       window.removeEventListener("scroll", handleScroll);
       clearTimeout(timer);
     };
   }, []);
   
-  // Handle slide navigation
   const handleNextSlide = (action, index) => {
     if (action === 'next') {
-      setActiveSlide(activeSlide === 0 ? 1 : 0);
+      setActiveSlide(1);
     } else if (action === 'prev') {
-      setActiveSlide(activeSlide === 0 ? 1 : 0);
+      setActiveSlide(0);
     } else if (action === 'goto' && index !== undefined) {
       setActiveSlide(index);
     }
   };
   
-  // Function to scroll to a section with offset for navbar
   const scrollToSection = (sectionId) => {
     const section = document.getElementById(sectionId);
     if (section) {
-      const navbarHeight = 123; // Adjust based on your navbar height
+      const navbarHeight = 123;
       const yOffset = -navbarHeight; 
       const y = section.getBoundingClientRect().top + window.pageYOffset + yOffset;
       
@@ -443,6 +156,137 @@ function Homepage() {
         behavior: 'smooth'
       });
     }
+  };
+  
+  // Improved scroll to next section function
+  const scrollToNextSection = () => {
+    const currentIndex = sectionOrderRef.current.indexOf(currentSection);
+    const nextSectionId = sectionOrderRef.current[currentIndex + 1];
+    
+    if (nextSectionId) {
+      scrollToSection(nextSectionId);
+    }
+  };
+  
+  // Scroll to top function
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
+  const ServicesSection = () => {
+    const services = [
+      {
+        title: "Konseling",
+        boldTitle: "Klinis",
+        thumbnailSrc: "/layanan-kami-1.png",
+        action: () => window.location.href = "/layanan/klinis"
+      },
+      {
+        title: "Konseling",
+        boldTitle: "Pendidikan",
+        thumbnailSrc: "/layanan-kami-2.png",
+        action: () => window.location.href = "/layanan/pendidikan"
+      },
+      {
+        title: "Konseling",
+        boldTitle: "Karir",
+        thumbnailSrc: "/layanan-kami-3.png",
+        action: () => window.location.href = "/layanan/karir"
+      }
+    ];
+  
+    return (
+      <section 
+        id="services" 
+        className="min-h-[810px] flex flex-col justify-center"
+        style={{ 
+          background: "linear-gradient(to bottom, #FFFFFF, #BFE9F3, #FFFFFF)",
+          backgroundSize: "100% 100%",
+          backgroundPosition: "center",
+          width: "100%",
+          height: "810px"
+        }}
+      >
+        <h2 className="mt-16 mb-16 text-center text-4xl md:text-5xl">
+          <span className="text-[#488BBE] font-normal">Layanan </span>
+          <span className="text-[#488BBE] font-extrabold">Kami</span>
+        </h2>
+        <div className="flex flex-wrap gap-10 justify-center mb-16 px-4">
+          {services.map((service, index) => (
+            <ServiceCard 
+              key={index}
+              title={service.title}
+              boldTitle={service.boldTitle}
+              thumbnailSrc={service.thumbnailSrc}
+              onClick={service.action}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  };
+
+  const TestimonialsSection = () => {
+    return (
+      <section id="testimonials" className="min-h-[810px] flex flex-col justify-center">
+        <h2 className="text-center mb-6 text-4xl md:text-5xl">
+          <span className="text-[#488BBE] font-extrabold">Kata mereka</span>{" "}
+          <span className="text-[#488BBE] font-normal">yang telah menjalaninya bersama Ruangdiri.id</span>
+        </h2>
+        <p className="text-center text-base text-zinc-500 max-w-[800px] mx-auto mb-16 px-4">
+          Kisah mereka yang sudah menggunakan layanan Ruangdiri.id Kamu juga bisa
+          seperti mereka, karena ceritamu layak didengar
+        </p>
+        
+        <div className="flex justify-center px-4">
+          <motion.img
+            src="/testimonials.svg"
+            alt="Testimonials"
+            className="object-contain max-w-full md:max-w-[1105px] w-full"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+      </section>
+    );
+  };
+
+  const ClientsSection = () => {
+    const clients = [
+      { name: "BRI", logo: "/logo/client/bri-logo.png" },
+      { name: "FIFGROUP", logo: "/logo/client/fifgroup-logo.png" },
+      { name: "NRA", logo: "/logo/client/nra-logo.png" },
+      { name: "Sosro", logo: "/logo/client/sosro-logo.png" },
+      { name: "BANK INDONESIA", logo: "/logo/client/bank-indonesia-logo.png" },
+      { name: "Asuransi Asei", logo: "/logo/client/asei-logo.png" },
+      { name: "Ford", logo: "/logo/client/ford-logo.png" }
+    ];
+  
+    return (
+      <section id="clients" className="bg-white">
+        <div className="pt-16 pb-16 max-w-[1440px] mx-auto">
+          <h2 className="text-center mb-16">
+            <span className="text-[#488BBE] font-normal text-4xl md:text-5xl">Klien </span>
+            <span className="text-[#488BBE] font-extrabold text-4xl md:text-5xl">Kami</span>
+          </h2>
+          <div className="flex flex-wrap gap-10 items-center justify-center px-4 mb-16">
+            {clients.map((client, index) => (
+              <img
+                key={index}
+                src={client.logo}
+                alt={`${client.name} Logo`}
+                className="object-contain h-12 md:h-16 hover:scale-110 transition-transform duration-300"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
   };
   
   return (
@@ -458,13 +302,9 @@ function Homepage() {
       
       <Navbar activeSection={currentSection} onSectionClick={scrollToSection} />
       
-      {/* Add spacing after navbar to fix the tight layout */}
-      <main ref={mainContentRef} className="pt-[20px]">
+      <main className="pt-[20px]">
         <section id="hero" ref={el => sectionsRef.current.hero = el}>
-          <HeroSection 
-            activeSlide={activeSlide}
-            handleNextSlide={handleNextSlide}
-          />
+          <HeroSection activeSlide={activeSlide} handleNextSlide={handleNextSlide} />
         </section>
         
         <section id="services" ref={el => sectionsRef.current.services = el}>
@@ -482,10 +322,9 @@ function Homepage() {
       
       <Footer />
       
-      {/* Scroll Buttons */}
       <AnimatePresence>
-        {showScrollDown && <ScrollButton direction="down" />}
-        {showScrollUp && <ScrollButton direction="up" />}
+        {showScrollDown && <ScrollButton direction="down" onScroll={scrollToNextSection} />}
+        {showScrollUp && <ScrollButton direction="up" onScroll={scrollToTop} />}
       </AnimatePresence>
     </div>
   );

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
 import clsx from "clsx";
 
 const Navbar = ({ activeSection, onSectionClick }) => {
@@ -10,9 +9,6 @@ const Navbar = ({ activeSection, onSectionClick }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const location = useLocation();
-  const navigate = useNavigate();
-  
-  // References to measure text width for dynamic indicator
   const navItemRefs = useRef({});
   
   // Track scroll position for navbar appearance
@@ -20,14 +16,12 @@ const Navbar = ({ activeSection, onSectionClick }) => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       
-      // Smooth transitions for navbar visibility
       if (currentScrollY > 20) {
         setScrolled(true);
       } else {
         setScrolled(false);
       }
       
-      // Only hide navbar when scrolling down rapidly
       if ((currentScrollY > lastScrollY + 50) && currentScrollY > 300) {
         setVisible(false);
       } else {
@@ -37,7 +31,6 @@ const Navbar = ({ activeSection, onSectionClick }) => {
       setLastScrollY(currentScrollY);
     };
     
-    // Use requestAnimationFrame for smoother performance
     let ticking = false;
     const onScroll = () => {
       if (!ticking) {
@@ -53,7 +46,6 @@ const Navbar = ({ activeSection, onSectionClick }) => {
     return () => window.removeEventListener("scroll", onScroll);
   }, [lastScrollY]);
 
-  // Close mobile menu when changing route
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location]);
@@ -68,9 +60,10 @@ const Navbar = ({ activeSection, onSectionClick }) => {
 
   const handleNavItemClick = (item) => {
     if (item.id === "hero" || item.id === "services") {
+      setVisible(true);
       onSectionClick(item.id);
     } else if (item.path) {
-      navigate(item.path);
+      window.location.href = item.path;
     }
     
     if (mobileMenuOpen) {
@@ -78,26 +71,10 @@ const Navbar = ({ activeSection, onSectionClick }) => {
     }
   };
 
-  const handleLogoClick = () => {
-    // Navigate to home page and scroll to top
-    navigate("/");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  // Only show indicator for hero and services sections
-  const showIndicator = activeSection === "hero" || activeSection === "services";
-  const indicatorPosition = activeSection === "services" ? 
-    { left: navItemRefs.current["services"]?.offsetLeft || 0 } : 
-    { left: navItemRefs.current["hero"]?.offsetLeft || 0 };
-  
-  const indicatorWidth = activeSection === "services" ? 
-    navItemRefs.current["services"]?.offsetWidth || 0 : 
-    navItemRefs.current["hero"]?.offsetWidth || 0;
-
   return (
     <header 
       className={clsx(
-        "w-full bg-white fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+        "w-full bg-white fixed top-0 left-0 right-0 z-50 transition-all duration-300",
         scrolled ? "shadow-md" : "shadow-xl",
         visible ? "translate-y-0" : "-translate-y-full"
       )}
@@ -105,21 +82,19 @@ const Navbar = ({ activeSection, onSectionClick }) => {
       <div className="max-w-[1440px] mx-auto">
         <nav className="flex justify-between items-center h-[123px] md:h-[100px] sm:h-[80px]">
           <div className="flex items-center">
-            {/* Logo with link to home */}
             <div className="pl-2 md:pl-4">
-              <div 
-                onClick={handleLogoClick}
-                className="cursor-pointer"
-              >
-                <img
-                  src="/logo/ruang-diri-logo.png"
-                  alt="Ruang Diri Logo"
-                  className="w-[100px] h-[89px] md:w-[80px] md:h-[70px] sm:w-[70px] sm:h-[60px]"
-                />
-              </div>
+              <Link to="/">
+                <div className="w-[100px] h-[89px] md:w-[80px] md:h-[70px] sm:w-[70px] sm:h-[60px] flex items-center justify-center">
+                  <img
+                    src="/logo/ruang-diri-logo.svg"
+                    alt="Ruang Diri Logo"
+                    className="max-w-full max-h-full object-contain"
+                    style={{ color: "#8CC3EE" }}
+                  />
+                </div>
+              </Link>
             </div>
 
-            {/* Navigation links with dynamic indicator */}
             <ul className="hidden md:flex ml-16 lg:ml-24 relative">
               {navItems.map((item) => (
                 <li key={item.id || item.name} className="relative mx-5 lg:mx-7">
@@ -127,56 +102,33 @@ const Navbar = ({ activeSection, onSectionClick }) => {
                     ref={el => navItemRefs.current[item.id] = el}
                     onClick={() => handleNavItemClick(item)}
                     className={clsx(
-                      "text-lg lg:text-xl text-[#488BBE] transition-all duration-200 hover:font-bold cursor-pointer whitespace-nowrap",
-                      activeSection === item.id ? "font-extrabold" : "hover:text-[#488BBE]"
+                      "text-[20px] text-[#488BBE] transition-all duration-200 hover:font-bold cursor-pointer whitespace-nowrap",
+                      activeSection === item.id ? "font-extrabold" : "font-normal hover:text-[#488BBE]"
                     )}
                   >
                     {item.name}
                   </div>
+                  
+                  {(activeSection === item.id && (item.id === "hero" || item.id === "services")) && (
+                    <div className="flex absolute left-0 gap-1 bottom-[-7px]">
+                      <div 
+                        className="bg-[#F59E0B] h-[5px] rounded-sm shadow-[0_0_5px_rgba(249,115,22,0.5)]"
+                        style={{ width: item.id === "services" ? "100px" : "58px" }}
+                      />
+                      <div 
+                        className="bg-[#F59E0B] h-[5px] rounded-sm shadow-[0_0_5px_rgba(249,115,22,0.5)]"
+                        style={{ width: item.id === "services" ? "33px" : "19px" }}
+                      />
+                    </div>
+                  )}
                 </li>
               ))}
-              
-              {/* Indicator with smooth animations */}
-              <AnimatePresence>
-                {showIndicator && (
-                  <motion.div 
-                    className="absolute bottom-[-7px] flex gap-1"
-                    initial={{ opacity: 0 }}
-                    animate={{ 
-                      opacity: 1,
-                      left: indicatorPosition.left,
-                      width: indicatorWidth
-                    }}
-                    exit={{ opacity: 0 }}
-                    transition={{ 
-                      type: "spring", 
-                      stiffness: 300, 
-                      damping: 30
-                    }}
-                  >
-                    <motion.div 
-                      className="h-[5px] bg-[#F59E0B] rounded-sm shadow-[0_0_5px_rgba(249,115,22,0.5)]"
-                      animate={{ 
-                        width: indicatorWidth * 0.75
-                      }}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                    <motion.div 
-                      className="h-[5px] bg-[#F59E0B] rounded-sm shadow-[0_0_5px_rgba(249,115,22,0.5)]"
-                      animate={{ 
-                        width: indicatorWidth * 0.25
-                      }}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </ul>
           </div>
 
-          <div className="hidden md:flex items-center pr-8 md:pr-12">
-            {/* Language selector with increased spacing */}
-            <div className="text-sm text-zinc-500 mr-10 lg:mr-12">
+          {/* Increased spacing for right-side elements */}
+          <div className="hidden md:flex items-center pr-8 md:pr-16 lg:pr-24">
+            <div className="text-sm text-zinc-500 mr-16 lg:mr-20">
               <span className="font-bold text-[#488BBE]">ID</span>
               <span className="mx-2">/</span>
               <span>EN</span>
@@ -209,16 +161,11 @@ const Navbar = ({ activeSection, onSectionClick }) => {
         </nav>
       </div>
 
-      {/* Mobile menu with animation */}
-      <motion.div 
-        className="fixed inset-0 bg-white z-40 pt-[80px] px-6"
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ 
-          opacity: mobileMenuOpen ? 1 : 0, 
-          y: mobileMenuOpen ? 0 : -50,
-          pointerEvents: mobileMenuOpen ? "auto" : "none"
-        }}
-        transition={{ duration: 0.3 }}
+      <div 
+        className={clsx(
+          "fixed inset-0 bg-white z-40 pt-[80px] px-6 transition-opacity duration-300",
+          mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
       >
         <ul className="flex flex-col gap-6 items-center">
           {navItems.map((item) => (
@@ -227,7 +174,7 @@ const Navbar = ({ activeSection, onSectionClick }) => {
                 onClick={() => handleNavItemClick(item)}
                 className={clsx(
                   "block text-xl py-4 text-center transition-all duration-200 border-b border-gray-100 cursor-pointer",
-                  activeSection === item.id
+                  activeSection === item.id 
                     ? "font-extrabold text-[#488BBE]" 
                     : "text-[#488BBE] hover:text-[#3399E9]"
                 )}
@@ -260,7 +207,7 @@ const Navbar = ({ activeSection, onSectionClick }) => {
             </Link>
           </li>
         </ul>
-      </motion.div>
+      </div>
     </header>
   );
 };
