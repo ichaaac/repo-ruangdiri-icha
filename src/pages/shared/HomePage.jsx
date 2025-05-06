@@ -83,8 +83,8 @@ const ServiceCard = ({ title, boldTitle, thumbnailSrc, onClick }) => {
         )}
       </div>
       <h3 className="z-10">
-        <span className="text-[#6AA2CC]">{title} </span>
-        <span className="text-[#6AA2CC] font-bold">{boldTitle}</span>
+        <span className="text-[#488BBE]">{title} </span>
+        <span className="text-[#488BBE] font-bold">{boldTitle}</span>
       </h3>
       <motion.button 
         className="z-10 w-[117px] h-[25px] mt-5 text-base font-bold text-white bg-[#488BBE] hover:bg-[#3399E9] rounded-[44px]"
@@ -101,20 +101,22 @@ const ServiceCard = ({ title, boldTitle, thumbnailSrc, onClick }) => {
 const HeroSection = ({ activeSlide, handleNextSlide }) => {
   const heroData = [
     {
-      title: "Kenali Diri Kamu",
-      subtitle: "Lebih Dekat",
+      title: "Kenali Diri",
+      subtitle: "kamu",
+      caption: "Lebih Dekat",
       description: "Jelajahi diri kamu bersama kami",
       buttonText: "Mulai Sekarang",
       buttonAction: () => window.location.href = "/login",
-      image: "/landing-hero-1.png"
+      image: "/landing-hero-1.svg"
     },
     {
-      title: "Kolaborasi",
-      subtitle: "/ Kemitraan",
+      title: "Kolaborasi / Kemitraan",
+      subtitle: "",
+      caption: "",
       description: "Berkembang bersama ahli terpercaya kami.",
       buttonText: "Kontak Kami",
       buttonAction: () => window.location.href = "/kontak",
-      image: "/landing-hero-2.png"
+      image: "/landing-hero-2.svg"
     }
   ];
 
@@ -150,16 +152,23 @@ const HeroSection = ({ activeSlide, handleNextSlide }) => {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
               >
-                <h1 className="text-4xl md:text-5xl text-[#8CC3EE] leading-tight md:leading-[56px]">
-                  <span className="font-bold block">{currentHero.title}</span>
-                  <span className="font-light">{currentHero.subtitle}</span>
-                </h1>
-                <p className="mt-7 text-base leading-8 text-zinc-500">
+                {activeSlide === 0 ? (
+                  <h1 className="text-4xl md:text-5xl text-[#488BBE] leading-tight md:leading-[56px]">
+                    <span className="font-bold">Kenali Diri</span>{" "}
+                    <span className="font-normal">kamu</span><br />
+                    <span className="font-light">Lebih Dekat</span>
+                  </h1>
+                ) : (
+                  <h1 className="text-4xl md:text-5xl text-[#488BBE] leading-tight md:leading-[56px]">
+                    <span className="font-light whitespace-nowrap">Kolaborasi / Kemitraan</span>
+                  </h1>
+                )}
+                <p className="mt-7 text-base leading-8 text-[#8B8B8B]">
                   {currentHero.description}
                 </p>
                 {activeSlide === 0 ? (
                   <motion.button 
-                    className="mt-7 px-8 h-[43px] rounded-full text-base font-bold text-[#8CC3EE] border border-[#8CC3EE] hover:bg-[#E2F9FF]"
+                    className="mt-7 px-8 h-[43px] rounded-full text-base font-bold text-[#488BBE] border border-[#488BBE] hover:bg-[#E2F9FF]"
                     onClick={currentHero.buttonAction}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -169,7 +178,7 @@ const HeroSection = ({ activeSlide, handleNextSlide }) => {
                   </motion.button>
                 ) : (
                   <motion.button 
-                    className="mt-7 w-[161px] h-[43px] text-base rounded-full font-bold text-[#8CC3EE] border border-[#8CC3EE] hover:bg-[#E2F9FF]"
+                    className="mt-7 w-[161px] h-[43px] text-base rounded-full font-bold text-[#488BBE] border border-[#488BBE] hover:bg-[#E2F9FF]"
                     onClick={currentHero.buttonAction}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -183,33 +192,43 @@ const HeroSection = ({ activeSlide, handleNextSlide }) => {
           </div>
         </div>
 
-        {/* Fixed position navigation arrows */}
-        <button 
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white/70 hover:bg-white/90 rounded-full p-2 w-12 h-12 flex items-center justify-center shadow-md"
-          onClick={() => handleNextSlide('prev')}
-          aria-label="Previous slide"
-        >
-          <span className="material-icons text-3xl text-[#8CC3EE]">arrow_back_ios</span>
-        </button>
-        
-        <button 
-          className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white/70 hover:bg-white/90 rounded-full p-2 w-12 h-12 flex items-center justify-center shadow-md"
-          onClick={() => handleNextSlide('next')}
-          aria-label="Next slide"
-        >
-          <span className="material-icons text-3xl text-[#8CC3EE]">arrow_forward_ios</span>
-        </button>
+        {/* Slide navigation arrows - positioned relative to the hero section */}
+        <div className="relative w-full h-0">
+          {activeSlide > 0 && (
+            <div 
+              className="absolute top-[-250px] left-4 cursor-pointer z-10 md:left-8"
+              onClick={() => handleNextSlide('prev')}
+              aria-label="Previous slide"
+            >
+              <svg width="38" height="23" viewBox="0 0 38 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 2L19 20L36 2" stroke="#8CC3EE" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-90 19 11.5)"/>
+              </svg>
+            </div>
+          )}
+          
+          {activeSlide < heroData.length - 1 && (
+            <div 
+              className="absolute top-[-250px] right-4 cursor-pointer z-10 md:right-8"
+              onClick={() => handleNextSlide('next')}
+              aria-label="Next slide"
+            >
+              <svg width="38" height="23" viewBox="0 0 38 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 2L19 20L36 2" stroke="#8CC3EE" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" transform="rotate(90 19 11.5)"/>
+              </svg>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Slide Indicators */}
       <div className="flex justify-center mt-10 gap-3.5">
         <button
-          className={`rounded-full h-[11px] w-[11px] ${activeSlide === 0 ? "bg-[#8CC3EE]" : "border border-[#8CC3EE]"}`}
+          className={`rounded-full h-[11px] w-[11px] ${activeSlide === 0 ? "bg-[#488BBE]" : "border border-[#488BBE]"}`}
           onClick={() => handleNextSlide('goto', 0)}
           aria-label="Slide 1"
         />
         <button
-          className={`rounded-full h-[11px] w-[11px] ${activeSlide === 1 ? "bg-[#8CC3EE]" : "border border-[#8CC3EE]"}`}
+          className={`rounded-full h-[11px] w-[11px] ${activeSlide === 1 ? "bg-[#488BBE]" : "border border-[#488BBE]"}`}
           onClick={() => handleNextSlide('goto', 1)}
           aria-label="Slide 2"
         />
@@ -255,7 +274,7 @@ const ServicesSection = () => {
     >
       <h2 className="mt-16 mb-16 text-center text-4xl md:text-5xl">
         <span className="text-[#488BBE] font-normal">Layanan </span>
-        <span className="text-[#8CC3EE] font-extrabold">Kami</span>
+        <span className="text-[#488BBE] font-extrabold">Kami</span>
       </h2>
       <div className="flex flex-wrap gap-10 justify-center mb-16 px-4">
         {services.map((service, index) => (
@@ -276,7 +295,7 @@ const TestimonialsSection = () => {
   return (
     <section id="testimonials" className="min-h-[810px] flex flex-col justify-center">
       <h2 className="text-center mb-6 text-4xl md:text-5xl">
-        <span className="text-[#8CC3EE] font-extrabold">Kata mereka</span>{" "}
+        <span className="text-[#488BBE] font-extrabold">Kata mereka</span>{" "}
         <span className="text-[#488BBE] font-normal">yang telah menjalaninya bersama Ruangdiri.id</span>
       </h2>
       <p className="text-center text-base text-zinc-500 max-w-[800px] mx-auto mb-16 px-4">
@@ -315,7 +334,7 @@ const ClientsSection = () => {
       <div className="pt-16 pb-16 max-w-[1440px] mx-auto">
         <h2 className="text-center mb-16">
           <span className="text-[#488BBE] font-normal text-4xl md:text-5xl">Klien </span>
-          <span className="text-[#8CC3EE] font-extrabold text-4xl md:text-5xl">Kami</span>
+          <span className="text-[#488BBE] font-extrabold text-4xl md:text-5xl">Kami</span>
         </h2>
         <motion.div 
           className="flex flex-wrap gap-10 items-center justify-center px-4 mb-16"
@@ -344,18 +363,16 @@ const ClientsSection = () => {
 };
 
 function Homepage() {
-  const [activeTab, setActiveTab] = useState("Beranda");
   const [activeSlide, setActiveSlide] = useState(0);
   const [currentSection, setCurrentSection] = useState("hero");
   const [showScrollDown, setShowScrollDown] = useState(true);
   const [showScrollUp, setShowScrollUp] = useState(false);
   const sectionsRef = useRef({});
   const mainContentRef = useRef(null);
-  const isInitialMount = useRef(true);
   
   // Handle scroll event to determine current section
   const handleScroll = () => {
-    const scrollPosition = window.scrollY + window.innerHeight / 2;
+    const scrollPosition = window.scrollY + window.innerHeight / 3;
     
     // Check each section to determine the current one
     Object.entries(sectionsRef.current).forEach(([id, section]) => {
@@ -413,6 +430,21 @@ function Homepage() {
     }
   };
   
+  // Function to scroll to a section with offset for navbar
+  const scrollToSection = (sectionId) => {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      const navbarHeight = 123; // Adjust based on your navbar height
+      const yOffset = -navbarHeight; 
+      const y = section.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      
+      window.scrollTo({
+        top: y,
+        behavior: 'smooth'
+      });
+    }
+  };
+  
   return (
     <div className="bg-white overflow-x-hidden">
       <link
@@ -424,7 +456,7 @@ function Homepage() {
         href="https://fonts.googleapis.com/icon?family=Material+Icons"
       />
       
-      <Navbar activeTab={activeTab} />
+      <Navbar activeSection={currentSection} onSectionClick={scrollToSection} />
       
       {/* Add spacing after navbar to fix the tight layout */}
       <main ref={mainContentRef} className="pt-[20px]">
