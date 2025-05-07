@@ -213,7 +213,7 @@ function Header() {
       <div className="flex flex-col justify-center self-start p-2.5">
         <div className="overflow-hidden w-full">
           <img
-            src="/logo/ruang-diri-logo.png"
+            src="/logo/ruang-diri-logo.svg"
             alt="Ruang Diri Logo"
             className="object-contain aspect-[1.12] w-[100px]"
           />
