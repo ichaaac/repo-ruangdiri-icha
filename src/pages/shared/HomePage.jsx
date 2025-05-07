@@ -181,19 +181,19 @@ function Homepage() {
       {
         title: "Konseling",
         boldTitle: "Klinis",
-        thumbnailSrc: "/layanan-kami-1.png",
+        thumbnailSrc: "/layanan-kami-1.svg",
         action: () => window.location.href = "/layanan/klinis"
       },
       {
         title: "Konseling",
         boldTitle: "Pendidikan",
-        thumbnailSrc: "/layanan-kami-2.png",
+        thumbnailSrc: "/layanan-kami-2.svg",
         action: () => window.location.href = "/layanan/pendidikan"
       },
       {
         title: "Konseling",
         boldTitle: "Karir",
-        thumbnailSrc: "/layanan-kami-3.png",
+        thumbnailSrc: "/layanan-kami-3.svg",
         action: () => window.location.href = "/layanan/karir"
       }
     ];
