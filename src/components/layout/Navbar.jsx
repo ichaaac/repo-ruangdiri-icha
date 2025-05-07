@@ -18,59 +18,61 @@ const Navbar = ({ activeSection, onSectionClick }) => {
   }, []);
   
   // Simplified scroll behavior - only hide after passing Layanan Kami section
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      
-      // Get services section dimensions
-      const servicesSection = document.getElementById("services");
-      const servicesSectionTop = servicesSection?.offsetTop || 0;
-      const servicesSectionBottom = servicesSectionTop + (servicesSection?.offsetHeight || 0);
-      
-      // Apply shadow when scrolled down
-      if (currentScrollY > 20) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-      
-      // Only hide navbar when scrolled PAST the services section
-      if (currentScrollY > servicesSectionBottom) {
-        setVisible(false);
-      } else {
+// Modified scroll behavior in the Navbar component
+useEffect(() => {
+  const handleScroll = () => {
+    const currentScrollY = window.scrollY;
+    
+    // Apply shadow when scrolled down
+    if (currentScrollY > 20) {
+      setScrolled(true);
+    } else {
+      setScrolled(false);
+    }
+    
+    // Hide navbar quickly after a small scroll down (50px)
+    if (currentScrollY > lastScrollY && currentScrollY > 50) {
+      setVisible(false);
+    }
+    
+    // Show navbar immediately when scrolling up, except at the hero section
+    if (currentScrollY < lastScrollY) {
+      // Only show if we've scrolled down some amount (not at hero)
+      if (currentScrollY > 100) {
         setVisible(true);
       }
-      
-      // Always show navbar when scrolling up
-      if (currentScrollY < lastScrollY) {
-        setVisible(true);
-      }
-      
-      setLastScrollY(currentScrollY);
-    };
+    }
     
-    // Throttle scroll event for better performance
-    let ticking = false;
-    const onScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          handleScroll();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
+    // Always visible at the very top
+    if (currentScrollY <= 50) {
+      setVisible(true);
+    }
     
-    window.addEventListener("scroll", onScroll, { passive: true });
-    
-    // Initial check
-    handleScroll();
-    
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.history.scrollRestoration = "auto";
-    };
-  }, [lastScrollY]);
+    setLastScrollY(currentScrollY);
+  };
+  
+  // Throttle scroll event for better performance
+  let ticking = false;
+  const onScroll = () => {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        handleScroll();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  };
+  
+  window.addEventListener("scroll", onScroll, { passive: true });
+  
+  // Initial check
+  handleScroll();
+  
+  return () => {
+    window.removeEventListener("scroll", onScroll);
+    window.history.scrollRestoration = "auto";
+  };
+}, [lastScrollY]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
