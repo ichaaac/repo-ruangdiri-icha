@@ -1,8 +1,9 @@
 // src/pages/shared/auth/Login.jsx
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { apiClient } from "../../../lib/api";
+
 const Login = () => {
 	const navigate = useNavigate();
 	const [email, setEmail] = useState("");
@@ -12,7 +13,12 @@ const Login = () => {
 
 	const [errorMessage, setErrorMessage] = useState("");
 	const [emailError, setEmailError] = useState(false);
+	const [emailErrorMessage, setEmailErrorMessage] = useState("");
 	const [passwordError, setPasswordError] = useState(false);
+	const [passwordErrorMessage, setPasswordErrorMessage] = useState("");
+
+	const emailRef = useRef(null);
+	const passwordRef = useRef(null);
 
 	const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -117,6 +123,7 @@ const Login = () => {
 				// Handle various error responses
 				if (error.response.status === 401) {
 					setErrorMessage("Email atau password tidak valid.");
+					setEmailError(true);
 					setPasswordError(true);
 				} else if (error.response.status === 400) {
 					setErrorMessage(
@@ -135,6 +142,8 @@ const Login = () => {
 						(error.response.data.data && error.response.data.data.message) ||
 						"Terjadi kesalahan. Silakan coba lagi nanti.";
 					setErrorMessage(message);
+					setEmailError(true);
+					setPasswordError(true);
 				} else {
 					setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
 				}
@@ -176,6 +185,43 @@ const Login = () => {
 		}
 	};
 
+	const validateEmail = () => {
+		if (!email.trim()) {
+			setEmailError(true);
+			setEmailErrorMessage("Email harus diisi");
+			return false;
+		}
+
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			setEmailError(true);
+			setEmailErrorMessage("Format email tidak valid");
+			return false;
+		}
+
+		if (email.length > 50) {
+			setEmailError(true);
+			setEmailErrorMessage("Email maksimal 50 karakter");
+			return false;
+		}
+
+		setEmailError(false);
+		setEmailErrorMessage("");
+		return true;
+	};
+
+	const validatePassword = () => {
+		if (!password) {
+			setPasswordError(true);
+			setPasswordErrorMessage("Password harus diisi");
+			return false;
+		}
+
+		setPasswordError(false);
+		setPasswordErrorMessage("");
+		return true;
+	};
+
 	const handleSubmit = (e) => {
 		// Always ensure prevention of default behavior
 		if (e && e.preventDefault) {
@@ -183,28 +229,23 @@ const Login = () => {
 		}
 
 		setErrorMessage("");
-		setEmailError(false);
-		setPasswordError(false);
+		
+		// Validate both fields
+		const isEmailValid = validateEmail();
+		const isPasswordValid = validatePassword();
 
-		if (!email.trim()) {
-			setErrorMessage("Email tidak boleh kosong");
-			setEmailError(true);
+		// If any validation fails, focus on the first invalid field
+		if (!isEmailValid) {
+			emailRef.current?.focus();
+			return;
+		}
+		
+		if (!isPasswordValid) {
+			passwordRef.current?.focus();
 			return;
 		}
 
-		if (!password) {
-			setErrorMessage("Password tidak boleh kosong");
-			setPasswordError(true);
-			return;
-		}
-
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(email)) {
-			setErrorMessage("Format email tidak valid");
-			setEmailError(true);
-			return;
-		}
-
+		// If all validations pass, proceed with login
 		loginMutation.mutate({ email, password, rememberMe });
 	};
 
@@ -241,73 +282,104 @@ const Login = () => {
 
 					<form onSubmit={handleSubmit} className="w-full" id="loginForm">
 						{/* Email input */}
-						<div
-							className={`flex gap-2.5 items-center px-6 py-3 mb-6 bg-white border-solid border ${emailError ? "border-rose-500" : "border-zinc-500"} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}
-						>
-							<span
-								className={`material-icons ${emailError ? "text-rose-500" : "text-[#8B8B8B]"}`}
+						<div className="mb-6 relative">
+							<div
+								className={`flex gap-2.5 items-center px-6 py-3 bg-white border-solid border ${emailError ? "border-rose-500" : "border-zinc-500"} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}
 							>
-								mail
-							</span>
-							<input
-								type="email"
-								name="email"
-								placeholder="Email / ID"
-								className={`w-full text-base border-none outline-none ${emailError ? "text-rose-500" : "text-zinc-500"}`}
-								value={email}
-								onChange={(e) => {
-									setEmail(e.target.value);
-									if (emailError) {
-										setEmailError(false);
-										setErrorMessage("");
-									}
-								}}
-								disabled={loginMutation.isPending}
-								required
-								autoComplete="username"
-							/>
+								<span
+									className={`material-icons ${emailError ? "text-rose-500" : "text-[#8B8B8B]"}`}
+								>
+									mail
+								</span>
+								<input
+									type="email"
+									name="email"
+									placeholder="Email / ID"
+									className={`w-full text-base border-none outline-none ${emailError ? "text-rose-500" : "text-zinc-500"}`}
+									value={email}
+									onChange={(e) => {
+										// Limit to 50 characters
+										if (e.target.value.length <= 50) {
+											setEmail(e.target.value);
+										}
+										
+										if (emailError) {
+											setEmailError(false);
+											setEmailErrorMessage("");
+										}
+										
+										if (errorMessage) {
+											setErrorMessage("");
+										}
+									}}
+									onBlur={validateEmail}
+									disabled={loginMutation.isPending}
+									required
+									maxLength={50}
+									ref={emailRef}
+									autoComplete="username"
+								/>
+							</div>
+							{emailError && emailErrorMessage && (
+								<div className="absolute -bottom-5 left-7 text-xs text-rose-500">
+									{emailErrorMessage}
+								</div>
+							)}
 						</div>
 
 						{/* Password input */}
-						<div
-							className={`flex gap-2.5 items-center px-6 py-3 mb-6 bg-white border-solid border ${passwordError ? "border-rose-500" : "border-zinc-500"} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}
-						>
-							<span
-								className={`material-icons ${passwordError ? "text-rose-500" : "text-[#8B8B8B]"}`}
+						<div className="mb-6 relative">
+							<div
+								className={`flex gap-2.5 items-center px-6 py-3 bg-white border-solid border ${passwordError ? "border-rose-500" : "border-zinc-500"} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}
 							>
-								lock
-							</span>
-							<input
-								type={showPassword ? "text" : "password"}
-								name="password"
-								placeholder="Password"
-								className={`flex-1 text-base border-none outline-none ${passwordError ? "text-rose-500" : "text-zinc-500"}`}
-								value={password}
-								onChange={(e) => {
-									setPassword(e.target.value);
-									if (passwordError) {
-										setPasswordError(false);
-										setErrorMessage("");
+								<span
+									className={`material-icons ${passwordError ? "text-rose-500" : "text-[#8B8B8B]"}`}
+								>
+									lock
+								</span>
+								<input
+									type={showPassword ? "text" : "password"}
+									name="password"
+									placeholder="Password"
+									className={`flex-1 text-base border-none outline-none ${passwordError ? "text-rose-500" : "text-zinc-500"}`}
+									value={password}
+									onChange={(e) => {
+										setPassword(e.target.value);
+										if (passwordError) {
+											setPasswordError(false);
+											setPasswordErrorMessage("");
+										}
+										
+										if (errorMessage) {
+											setErrorMessage("");
+										}
+									}}
+									onBlur={validatePassword}
+									disabled={loginMutation.isPending}
+									required
+									ref={passwordRef}
+									autoComplete="current-password"
+								/>
+								<span
+									className={`material-icons cursor-pointer hover:scale-110 transition-transform ${passwordError ? "text-rose-500" : "text-[#8B8B8B]"}`}
+									onClick={
+										!loginMutation.isPending
+											? togglePasswordVisibility
+											: undefined
 									}
-								}}
-								disabled={loginMutation.isPending}
-								required
-								autoComplete="current-password"
-							/>
-							<span
-								className={`material-icons cursor-pointer hover:scale-110 transition-transform ${passwordError ? "text-rose-500" : "text-[#8B8B8B]"}`}
-								onClick={
-									!loginMutation.isPending
-										? togglePasswordVisibility
-										: undefined
-								}
-							>
-								{showPassword ? "visibility" : "visibility_off"}
-							</span>
+								>
+									{showPassword ? "visibility" : "visibility_off"}
+								</span>
+							</div>
+							{passwordError && passwordErrorMessage && (
+								<div className="absolute -bottom-5 left-7 text-xs text-rose-500">
+									{passwordErrorMessage}
+								</div>
+							)}
 						</div>
 
 						{/* Remember me and forgot password */}
-						<div className="flex justify-between items-center mb-5">
+						<div className="flex justify-between items-center mb-5 mt-8">
 							<label className="flex gap-2 items-center text-xs text-zinc-500 cursor-pointer hover:scale-[1.02] transition-transform">
 								<div className="relative">
 									<input
