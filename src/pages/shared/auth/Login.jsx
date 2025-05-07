@@ -120,8 +120,28 @@ const Login = () => {
 					headers: error.response.headers,
 				});
 
-				// Handle various error responses
-				if (error.response.status === 401) {
+				// Handle backend validation format
+				if (error.response.data && error.response.data.status === "fail") {
+					// Process validation errors
+					if (error.response.data.errors && error.response.data.errors.length > 0) {
+						// Handle specific field errors
+						error.response.data.errors.forEach(err => {
+							if (err.field === "email") {
+								setEmailError(true);
+								setEmailErrorMessage(err.message);
+							} else if (err.field === "password") {
+								setPasswordError(true);
+								setPasswordErrorMessage(err.message);
+							}
+						});
+						
+						// Set the main error message
+						setErrorMessage(error.response.data.message || "Validation failed");
+					} else {
+						// General error message
+						setErrorMessage(error.response.data.message || "Validation failed");
+					}
+				} else if (error.response.status === 401) {
 					setErrorMessage("Email atau password tidak valid.");
 					setEmailError(true);
 					setPasswordError(true);
@@ -234,7 +254,6 @@ const Login = () => {
 		const isEmailValid = validateEmail();
 		const isPasswordValid = validatePassword();
 
-		// If any validation fails, focus on the first invalid field
 		if (!isEmailValid) {
 			emailRef.current?.focus();
 			return;
@@ -268,17 +287,17 @@ const Login = () => {
 			{/* Right section with form */}
 			<section className="flex flex-1 justify-center items-center w-full md:w-1/2 py-8 px-4 bg-white overflow-auto">
 				<div className="w-[90%] max-w-[454px] max-md:p-0 max-md:mt-5">
-					<h1 className="mb-8 md:mb-10 text-3xl font-bold text-primary max-sm:text-2xl max-sm:text-center">
-						Masuk ke Akun
-					</h1>
-
-					{/* Error message alert */}
+					{/* Error message alert - moved above the heading */}
 					{errorMessage && (
-						<div className="flex items-center px-4 py-3 mb-4 text-xs leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px]">
+						<div className="flex items-center px-4 py-3 mb-4 text-xs leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] inline-block w-auto">
 							<span className="material-icons mr-2 text-sm">error</span>
 							{errorMessage}
 						</div>
 					)}
+					
+					<h1 className="mb-8 md:mb-10 text-3xl font-bold text-primary max-sm:text-2xl max-sm:text-center">
+						Masuk ke Akun
+					</h1>
 
 					<form onSubmit={handleSubmit} className="w-full" id="loginForm">
 						{/* Email input */}
