@@ -117,7 +117,7 @@ useEffect(() => {
                     src="/logo/ruang-diri-logo.svg"
                     alt="Ruang Diri Logo"
                     className="max-w-full max-h-full object-contain"
-                    style={{ color: "#8CC3EE" }}
+                    style={{ color: "#488BBE" }}
                   />
                 </div>
               </Link>
