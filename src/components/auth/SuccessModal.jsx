@@ -1,8 +1,24 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const SuccessModal = ({ email, onClose, onResend, isResending }) => {
+  const [countdown, setCountdown] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+
+  // Handle countdown for resend button
+  useEffect(() => {
+    let timer;
+    if (countdown > 0 && !canResend) {
+      timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    } else if (countdown === 0 && !canResend) {
+      setCanResend(true);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown, canResend]);
+
   const maskEmail = (email) => {
     if (!email) return "";
     const [username, domain] = email.split("@");
@@ -16,11 +32,19 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
 
   const maskedEmail = maskEmail(email);
 
+  const handleResend = () => {
+    if (canResend && !isResending) {
+      onResend();
+      setCanResend(false);
+      setCountdown(60);
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div 
         className="fixed inset-0 flex items-center justify-center z-50 px-4"
-        style={{ backgroundColor: "#8DD0DEB2" }}
+        style={{ backgroundColor: "#55555580" }} // Changed overlay color
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -86,7 +110,7 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
               transition={{ delay: 0.5 }}
             />
 
-            {/* Resend option */}
+            {/* Resend option with countdown */}
             <motion.p 
               className="text-xs text-center text-zinc-500"
               initial={{ opacity: 0 }}
@@ -95,13 +119,17 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
             >
               <span>Jika kamu belum menerima pesan. </span>
               <motion.button
-                onClick={onResend}
-                disabled={isResending}
-                className="font-bold text-primary hover:text-primary-variant1 transition-colors cursor-pointer"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                onClick={handleResend}
+                disabled={!canResend || isResending}
+                className={`font-bold transition-colors cursor-pointer ${canResend ? 'text-primary hover:text-primary-variant1' : 'text-zinc-400 cursor-not-allowed'}`}
+                whileHover={canResend ? { scale: 1.05 } : {}}
+                whileTap={canResend ? { scale: 0.95 } : {}}
               >
-                {isResending ? "Mengirim..." : "Kirim ulang pesan"}
+                {isResending 
+                  ? "Mengirim..." 
+                  : canResend 
+                    ? "Kirim ulang pesan" 
+                    : `Kirim ulang pesan (${countdown}s)`}
               </motion.button>
             </motion.p>
           </div>

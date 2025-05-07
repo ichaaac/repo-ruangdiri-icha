@@ -5,7 +5,7 @@ import SuccessModal from "../../../components/auth/SuccessModal";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [tooltipMessage, setTooltipMessage] = useState("");
   const [emailError, setEmailError] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -24,12 +24,12 @@ const ForgotPassword = () => {
       console.error("Forgot password error:", error);
       if (error.response && error.response.data) {
         if (error.response.data.message) {
-          setErrorMessage(error.response.data.message);
+          setTooltipMessage(error.response.data.message);
         } else {
-          setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+          setTooltipMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
         }
       } else {
-        setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+        setTooltipMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
       }
       setEmailError(true);
     }
@@ -46,7 +46,7 @@ const ForgotPassword = () => {
     },
     onError: (error) => {
       console.error("Resend email error:", error);
-      setErrorMessage("Gagal mengirim ulang email. Silakan coba lagi nanti.");
+      setTooltipMessage("Gagal mengirim ulang email. Silakan coba lagi nanti.");
       setShowModal(false);
     }
   });
@@ -55,13 +55,13 @@ const ForgotPassword = () => {
     e.preventDefault();
     
     // Reset messages
-    setErrorMessage("");
+    setTooltipMessage("");
     setSuccessMessage("");
     setEmailError(false);
     
     // Validate email
     if (!email.trim()) {
-      setErrorMessage("Email tidak boleh kosong");
+      setTooltipMessage("Email harus diisi");
       setEmailError(true);
       return;
     }
@@ -69,7 +69,7 @@ const ForgotPassword = () => {
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setErrorMessage("Format email tidak valid");
+      setTooltipMessage("Format email tidak valid");
       setEmailError(true);
       return;
     }
@@ -109,25 +109,25 @@ const ForgotPassword = () => {
         <div className="flex flex-col items-start mx-auto max-w-[480px] 
                       max-md:px-0 max-sm:px-0 max-sm:py-0">
           
-          {/* Error message */}
-          {errorMessage && (
-            <div className="flex items-center gap-2 self-stretch px-4 py-3 mb-5 text-xs leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px]">
+          <h1 className="mb-3.5 text-3xl font-bold text-primary max-sm:text-2xl">
+            Ubah Password
+          </h1>
+
+          {/* Tooltip for validation errors - now appears above the form content */}
+          {tooltipMessage && (
+            <div className="inline-flex items-center gap-2 px-4 py-3 mb-5 text-xs leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px]">
               <span className="material-icons text-sm">error</span>
-              {errorMessage}
+              {tooltipMessage}
             </div>
           )}
           
           {/* Success message - Only show if modal is not shown */}
           {successMessage && !showModal && (
-            <div className="flex items-center gap-2 self-stretch px-4 py-3 mb-5 text-xs leading-4 text-green-700 bg-green-100 border border-green-500 border-solid rounded-[200px]">
+            <div className="inline-flex items-center gap-2 px-4 py-3 mb-5 text-xs leading-4 text-green-700 bg-green-100 border border-green-500 border-solid rounded-[200px]">
               <span className="material-icons text-sm">check_circle</span>
               {successMessage}
             </div>
           )}
-
-          <h1 className="mb-3.5 text-3xl font-bold text-primary max-sm:text-2xl">
-            Ubah Password
-          </h1>
 
           <p className="mb-9 text-base leading-6 max-w-[480px] text-zinc-500 max-sm:text-sm max-sm:mb-6">
             Masukkan email kamu, kami akan mengirimkan tautan untuk mengubah
@@ -150,7 +150,7 @@ const ForgotPassword = () => {
                       setEmail(e.target.value);
                       if (emailError) {
                         setEmailError(false);
-                        setErrorMessage("");
+                        setTooltipMessage("");
                       }
                       if (successMessage) {
                         setSuccessMessage("");
@@ -158,6 +158,7 @@ const ForgotPassword = () => {
                     }}
                     className={`flex-1 outline-none text-base ${emailError ? 'text-rose-500' : 'text-[#8B8B8B]'}`}
                     disabled={forgotPasswordMutation.isPending}
+                    maxLength={50}
                   />
                 </div>
               </div>
