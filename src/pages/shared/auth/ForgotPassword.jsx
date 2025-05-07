@@ -105,9 +105,9 @@ const ForgotPassword = () => {
       </div>
 
       {/* Right section with form */}
-      <div className="flex-1 p-6 md:p-10 max-md:p-5 max-sm:w-full bg-white overflow-auto">
-        <div className="flex flex-col items-start mx-auto mt-10 sm:mt-16 md:mt-28 lg:mt-20 max-w-[480px] 
-                      max-md:px-0 max-md:mt-10 max-sm:px-0 max-sm:py-0 max-sm:mt-8">
+      <div className="flex-1 p-6 md:p-10 max-md:p-5 max-sm:w-full bg-white overflow-auto flex items-center justify-center">
+        <div className="flex flex-col items-start mx-auto max-w-[480px] 
+                      max-md:px-0 max-sm:px-0 max-sm:py-0">
           
           {/* Error message */}
           {errorMessage && (
