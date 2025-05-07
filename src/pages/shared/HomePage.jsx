@@ -35,7 +35,7 @@ const ScrollButton = ({ direction = "down", onScroll }) => {
 const ServiceCard = ({ title, boldTitle, thumbnailSrc, onClick }) => {
   return (
     <motion.article 
-      className="relative w-[314px] h-[314px] flex flex-col justify-center items-center bg-white rounded-full group"
+      className="relative w-[323px] h-[323px] flex flex-col justify-center items-center bg-white rounded-full group"
       whileHover={{ boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)" }}
       transition={{ duration: 0.3, ease: "easeOut" }}
     >
