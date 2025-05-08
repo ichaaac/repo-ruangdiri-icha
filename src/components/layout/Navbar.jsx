@@ -7,9 +7,11 @@ const Navbar = ({ activeSection, onSectionClick }) => {
   const [visible, setVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [programmaticScroll, setProgrammaticScroll] = useState(false);
   
   const location = useLocation();
   const navItemRefs = useRef({});
+  const programmaticScrollTimer = useRef(null);
   
   // Ensure page starts from top on refresh
   useEffect(() => {
@@ -17,66 +19,77 @@ const Navbar = ({ activeSection, onSectionClick }) => {
     window.scrollTo(0, 0);
   }, []);
   
-  // Simplified scroll behavior - only hide after passing Layanan Kami section
-// Modified scroll behavior in the Navbar component
-useEffect(() => {
-  const handleScroll = () => {
-    const currentScrollY = window.scrollY;
-    
-    // Apply shadow when scrolled down
-    if (currentScrollY > 20) {
-      setScrolled(true);
-    } else {
-      setScrolled(false);
-    }
-    
-    // Hide navbar quickly after a small scroll down (50px)
-    if (currentScrollY > lastScrollY && currentScrollY > 50) {
-      setVisible(false);
-    }
-    
-    // Show navbar immediately when scrolling up, except at the hero section
-    if (currentScrollY < lastScrollY) {
-      // Only show if we've scrolled down some amount (not at hero)
-      if (currentScrollY > 100) {
+  // Modified scroll behavior in the Navbar component
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Apply shadow when scrolled down
+      if (currentScrollY > 20) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+      
+      // Don't hide navbar during programmatic scroll
+      if (!programmaticScroll) {
+        // Hide navbar quickly after a small scroll down (50px)
+        if (currentScrollY > lastScrollY && currentScrollY > 50) {
+          setVisible(false);
+        }
+        
+        // Show navbar immediately when scrolling up, except at the hero section
+        if (currentScrollY < lastScrollY) {
+          // Only show if we've scrolled down some amount (not at hero)
+          if (currentScrollY > 100) {
+            setVisible(true);
+          }
+        }
+      }
+      
+      // Always visible at the very top
+      if (currentScrollY <= 50) {
         setVisible(true);
       }
-    }
+      
+      setLastScrollY(currentScrollY);
+    };
     
-    // Always visible at the very top
-    if (currentScrollY <= 50) {
-      setVisible(true);
-    }
+    // Throttle scroll event for better performance
+    let ticking = false;
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
     
-    setLastScrollY(currentScrollY);
-  };
-  
-  // Throttle scroll event for better performance
-  let ticking = false;
-  const onScroll = () => {
-    if (!ticking) {
-      window.requestAnimationFrame(() => {
-        handleScroll();
-        ticking = false;
-      });
-      ticking = true;
-    }
-  };
-  
-  window.addEventListener("scroll", onScroll, { passive: true });
-  
-  // Initial check
-  handleScroll();
-  
-  return () => {
-    window.removeEventListener("scroll", onScroll);
-    window.history.scrollRestoration = "auto";
-  };
-}, [lastScrollY]);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    
+    // Initial check
+    handleScroll();
+    
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.history.scrollRestoration = "auto";
+    };
+  }, [lastScrollY, programmaticScroll]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (programmaticScrollTimer.current) {
+        clearTimeout(programmaticScrollTimer.current);
+      }
+    };
+  }, []);
 
   const navItems = [
     { id: "hero", name: "Beranda", path: "/" },
@@ -88,8 +101,23 @@ useEffect(() => {
 
   const handleNavItemClick = (item) => {
     if (item.id === "hero" || item.id === "services") {
+      // Set navbar to visible
       setVisible(true);
+      
+      // Set programmatic scroll flag to prevent navbar hiding
+      setProgrammaticScroll(true);
+      
+      // Call the section click handler
       onSectionClick(item.id);
+      
+      // Reset the programmatic scroll flag after animation completes
+      if (programmaticScrollTimer.current) {
+        clearTimeout(programmaticScrollTimer.current);
+      }
+      
+      programmaticScrollTimer.current = setTimeout(() => {
+        setProgrammaticScroll(false);
+      }, 1000); // Adjust timing to match your scroll animation duration
     } else if (item.path) {
       window.location.href = item.path;
     }
@@ -107,6 +135,7 @@ useEffect(() => {
         visible ? "translate-y-0" : "-translate-y-full"
       )}
     >
+      {/* Rest of your Navbar JSX remains unchanged */}
       <div className="max-w-[1440px] mx-auto">
         <nav className="flex justify-between items-center h-[123px] md:h-[100px] sm:h-[80px]">
           <div className="flex items-center">
