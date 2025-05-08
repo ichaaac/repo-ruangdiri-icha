@@ -4,6 +4,65 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import api from "../../../lib/api";
 
+// Define the SuccessModal component with animations
+const SuccessModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 transition-opacity duration-300"
+      style={{ animation: "fadeIn 0.3s ease-out" }}
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-xl w-[90%] max-w-[454px] py-8 md:py-10 flex flex-col items-center justify-center relative shadow-lg"
+        style={{ animation: "scaleIn 0.4s ease-out" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <style jsx>{`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          
+          @keyframes scaleIn {
+            0% { 
+              opacity: 0;
+              transform: scale(0.9) translateY(20px); 
+            }
+            100% { 
+              opacity: 1;
+              transform: scale(1) translateY(0); 
+            }
+          }
+        `}</style>
+        
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+        >
+          <span className="material-icons">close</span>
+        </button>
+
+        <span className="material-icons text-[60px] md:text-[80px] text-[#488BBE]">
+          check_circle
+        </span>
+
+        <p className="text-lg md:text-xl mt-4 text-[#488BBE] font-bold text-center px-4" style={{ width: "299px", height: "14px" }}>
+          Password berhasil diubah!
+        </p>
+
+        <div className="w-[80%] h-px bg-gray-200 my-6"></div>
+
+        <div className="flex items-center gap-2 text-zinc-500">
+          <span>Kamu akan dialihkan ke halaman Masuk</span>
+          <span className="material-icons animate-spin">rotate_left</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PasswordRequirement = ({ isValid, text }) => {
   return (
     <div className="flex gap-1.5 items-center text-xs">
@@ -37,6 +96,9 @@ const ResetPassword = () => {
   // Success message state
   const [successMessage, setSuccessMessage] = useState("");
   
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  
   // Password validation state
   const [validations, setValidations] = useState({
     minLength: false,
@@ -56,6 +118,12 @@ const ResetPassword = () => {
     }
   }, [token]);
 
+  // Handle success modal close
+  const handleCloseSuccessModal = () => {
+    setShowSuccessModal(false);
+    navigate('/login');
+  };
+
   // Reset password mutation
   const resetPasswordMutation = useMutation({
     mutationFn: ({ token, newPassword }) => api.auth.resetPassword(token, newPassword),
@@ -64,10 +132,14 @@ const ResetPassword = () => {
       const message = response.message || "Password berhasil diubah. Anda akan diarahkan ke halaman Login.";
       setSuccessMessage(message);
       
-      // Redirect to login page after 2 seconds
+      // Show success modal
+      setShowSuccessModal(true);
+      
+      // Redirect to login page after exactly 3 seconds
       setTimeout(() => {
+        setShowSuccessModal(false);
         navigate('/login');
-      }, 2000);
+      }, 3000);
     },
     onError: (error) => {
       console.error("Reset password error:", error);
@@ -132,6 +204,12 @@ const ResetPassword = () => {
 
   return (
     <div className="flex flex-col md:flex-row relative w-full min-h-screen font-sans overflow-hidden">
+      {/* Success Modal */}
+      <SuccessModal 
+        isOpen={showSuccessModal} 
+        onClose={handleCloseSuccessModal} 
+      />
+      
       {/* Left section with gradient background and illustration */}
       <section className="w-full md:w-1/2 h-[40vh] md:h-screen relative max-sm:h-[30vh]" 
            style={{ background: 'linear-gradient(to bottom, #91D9E1, #5E6EC3)' }}>
@@ -187,7 +265,7 @@ const ResetPassword = () => {
           {token && (
             <>
               {/* Success message */}
-              {successMessage && (
+              {successMessage && !showSuccessModal && (
                 <div className="flex items-center gap-2 self-stretch px-4 py-3 mb-5 text-xs leading-4 text-green-700 bg-green-100 border border-green-500 border-solid rounded-[200px]">
                   <span className="material-icons text-sm">check_circle</span>
                   {successMessage}
