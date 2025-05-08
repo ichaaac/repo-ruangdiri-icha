@@ -1,4 +1,3 @@
-"use client";
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -6,7 +5,6 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
-  // Handle countdown for resend button
   useEffect(() => {
     let timer;
     if (countdown > 0 && !canResend) {
@@ -18,6 +16,13 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
     }
     return () => clearTimeout(timer);
   }, [countdown, canResend]);
+
+  // Format the countdown as MM:SS
+  const formatCountdown = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const maskEmail = (email) => {
     if (!email) return "";
@@ -44,7 +49,7 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
     <AnimatePresence>
       <motion.div 
         className="fixed inset-0 flex items-center justify-center z-50 px-4"
-        style={{ backgroundColor: "#55555580" }} // Changed overlay color
+        style={{ backgroundColor: "#55555580" }} 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -87,7 +92,6 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              Berhasil!
             </motion.h2>
 
             {/* Email sent confirmation */}
@@ -117,7 +121,6 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
             >
-              <span>Jika kamu belum menerima pesan. </span>
               <motion.button
                 onClick={handleResend}
                 disabled={!canResend || isResending}
@@ -129,7 +132,7 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
                   ? "Mengirim..." 
                   : canResend 
                     ? "Kirim ulang pesan" 
-                    : `Kirim ulang pesan (${countdown}s)`}
+                    : `Kirim ulang pesan (${formatCountdown(countdown)})`}
               </motion.button>
             </motion.p>
           </div>

@@ -1,5 +1,5 @@
 // src/pages/shared/auth/Login.jsx
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api, { apiClient } from "../../../lib/api";
@@ -13,15 +13,23 @@ const Login = () => {
 
 	const [errorMessage, setErrorMessage] = useState("");
 	const [emailError, setEmailError] = useState(false);
-	const [emailErrorMessage, setEmailErrorMessage] = useState("");
 	const [passwordError, setPasswordError] = useState(false);
-	const [passwordErrorMessage, setPasswordErrorMessage] = useState("");
 
 	const emailRef = useRef(null);
 	const passwordRef = useRef(null);
 
 	const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+	
+	// Fix the remember me functionality with useEffect
+	useEffect(() => {
+		// Check if email is saved in localStorage when component mounts
+		const savedEmail = localStorage.getItem('rememberedEmail');
+		if (savedEmail) {
+			setEmail(savedEmail);
+			setRememberMe(true);
+		}
+	}, []);
 
 	const loginMutation = useMutation({
 		mutationFn: async (credentials) => {
@@ -126,12 +134,12 @@ const Login = () => {
 					if (error.response.data.errors && error.response.data.errors.length > 0) {
 						// Handle specific field errors
 						error.response.data.errors.forEach(err => {
-							if (err.field === "email") {
+															if (err.field === "email") {
 								setEmailError(true);
-								setEmailErrorMessage(err.message);
+								setErrorMessage(err.message);
 							} else if (err.field === "password") {
 								setPasswordError(true);
-								setPasswordErrorMessage(err.message);
+								setErrorMessage(err.message);
 							}
 						});
 						
@@ -142,13 +150,11 @@ const Login = () => {
 						setErrorMessage(error.response.data.message || "Validation failed");
 					}
 				} else if (error.response.status === 401) {
-					setErrorMessage("Email atau password tidak valid.");
+					setErrorMessage("Invalid credentials");
 					setEmailError(true);
 					setPasswordError(true);
 				} else if (error.response.status === 400) {
-					setErrorMessage(
-						"Permintaan tidak valid. Periksa data yang Anda masukkan."
-					);
+					setErrorMessage("Invalid request");
 					setEmailError(true);
 					setPasswordError(true);
 				} else if (
@@ -160,25 +166,21 @@ const Login = () => {
 						error.response.data.message ||
 						error.response.data.error ||
 						(error.response.data.data && error.response.data.data.message) ||
-						"Terjadi kesalahan. Silakan coba lagi nanti.";
+						"Error occurred";
 					setErrorMessage(message);
 					setEmailError(true);
 					setPasswordError(true);
 				} else {
-					setErrorMessage("Terjadi kesalahan. Silakan coba lagi nanti.");
+					setErrorMessage("Error occurred");
 				}
 			} else if (error.request) {
 				// The request was made but no response was received
 				console.log("Error request:", error.request);
-				setErrorMessage(
-					"Tidak ada respons dari server. Periksa koneksi internet Anda."
-				);
+				setErrorMessage("No server response");
 			} else {
 				// Something happened in setting up the request
 				console.log("Error message:", error.message);
-				setErrorMessage(
-					error.message || "Terjadi kesalahan saat mengirim permintaan."
-				);
+				setErrorMessage(error.message || "Request error");
 			}
 		},
 	});
@@ -197,9 +199,7 @@ const Login = () => {
 			// In a real implementation, this would redirect to Google Auth
 		} catch (error) {
 			console.error("Google Sign-in error:", error);
-			setErrorMessage(
-				"Terjadi kesalahan saat masuk dengan Google. Silakan coba lagi."
-			);
+			setErrorMessage("Google sign-in error");
 		} finally {
 			setIsGoogleSubmitting(false);
 		}
@@ -208,37 +208,35 @@ const Login = () => {
 	const validateEmail = () => {
 		if (!email.trim()) {
 			setEmailError(true);
-			setEmailErrorMessage("Email harus diisi");
+			setErrorMessage("Email harus diisi");
 			return false;
 		}
 
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		if (!emailRegex.test(email)) {
 			setEmailError(true);
-			setEmailErrorMessage("Format email tidak valid");
+			setErrorMessage("Format email tidak valid");
 			return false;
 		}
 
 		if (email.length > 50) {
 			setEmailError(true);
-			setEmailErrorMessage("Email maksimal 50 karakter");
+			setErrorMessage("Email maksimal 50 karakter");
 			return false;
 		}
 
 		setEmailError(false);
-		setEmailErrorMessage("");
 		return true;
 	};
 
 	const validatePassword = () => {
 		if (!password) {
 			setPasswordError(true);
-			setPasswordErrorMessage("Password harus diisi");
+			setErrorMessage("Password harus diisi");
 			return false;
 		}
 
 		setPasswordError(false);
-		setPasswordErrorMessage("");
 		return true;
 	};
 
@@ -250,18 +248,47 @@ const Login = () => {
 
 		setErrorMessage("");
 		
-		// Validate both fields
-		const isEmailValid = validateEmail();
-		const isPasswordValid = validatePassword();
-
-		if (!isEmailValid) {
+		// Validate email and password
+		let isValid = true;
+		
+		// Check if both fields are empty
+		if (!email.trim() && !password) {
+			setErrorMessage("Email dan password harus diisi");
+			setEmailError(true);
+			setPasswordError(true);
+			return;
+		}
+		
+		// Validate email if empty
+		if (!email.trim()) {
+			setEmailError(true);
+			setErrorMessage("Email harus diisi");
 			emailRef.current?.focus();
 			return;
 		}
 		
-		if (!isPasswordValid) {
+		// Validate email format
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			setEmailError(true);
+			setErrorMessage("Format email tidak valid");
+			emailRef.current?.focus();
+			return;
+		}
+		
+		// Validate password if empty
+		if (!password) {
+			setPasswordError(true);
+			setErrorMessage("Password harus diisi");
 			passwordRef.current?.focus();
 			return;
+		}
+
+		// Handle remember me functionality
+		if (rememberMe) {
+			localStorage.setItem('rememberedEmail', email);
+		} else {
+			localStorage.removeItem('rememberedEmail');
 		}
 
 		// If all validations pass, proceed with login
@@ -287,11 +314,11 @@ const Login = () => {
 			{/* Right section with form */}
 			<section className="flex flex-1 justify-center items-center w-full md:w-1/2 py-8 px-4 bg-white overflow-auto">
 				<div className="w-[90%] max-w-[454px] max-md:p-0 max-md:mt-5">
-					{/* Error message alert - moved above the heading */}
+					{/* Error message tooltip */}
 					{errorMessage && (
-						<div className="flex items-center px-4 py-3 mb-4 text-xs leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] inline-block w-auto">
-							<span className="material-icons mr-2 text-sm">error</span>
-							{errorMessage}
+						<div className="flex items-center px-[15px] py-3 mb-4 text-[14px] leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] inline-flex h-[44px]">
+							<span className="material-icons mr-[9px]" style={{ fontSize: '26px' }}>error</span>
+							<span className="whitespace-nowrap">{errorMessage}</span>
 						</div>
 					)}
 					
@@ -302,6 +329,7 @@ const Login = () => {
 					<form onSubmit={handleSubmit} className="w-full" id="loginForm">
 						{/* Email input */}
 						<div className="mb-6 relative">
+							{/* Email input field */}
 							<div
 								className={`flex gap-2.5 items-center px-6 py-3 bg-white border-solid border ${emailError ? "border-rose-500" : "border-zinc-500"} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}
 							>
@@ -324,14 +352,13 @@ const Login = () => {
 										
 										if (emailError) {
 											setEmailError(false);
-											setEmailErrorMessage("");
 										}
 										
 										if (errorMessage) {
 											setErrorMessage("");
 										}
 									}}
-									onBlur={validateEmail}
+									onBlur={() => {}}
 									disabled={loginMutation.isPending}
 									required
 									maxLength={50}
@@ -339,11 +366,7 @@ const Login = () => {
 									autoComplete="username"
 								/>
 							</div>
-							{emailError && emailErrorMessage && (
-								<div className="absolute -bottom-5 left-7 text-xs text-rose-500">
-									{emailErrorMessage}
-								</div>
-							)}
+							
 						</div>
 
 						{/* Password input */}
@@ -366,14 +389,13 @@ const Login = () => {
 										setPassword(e.target.value);
 										if (passwordError) {
 											setPasswordError(false);
-											setPasswordErrorMessage("");
 										}
 										
 										if (errorMessage) {
 											setErrorMessage("");
 										}
 									}}
-									onBlur={validatePassword}
+									onBlur={() => {}}
 									disabled={loginMutation.isPending}
 									required
 									ref={passwordRef}
@@ -390,11 +412,7 @@ const Login = () => {
 									{showPassword ? "visibility" : "visibility_off"}
 								</span>
 							</div>
-							{passwordError && passwordErrorMessage && (
-								<div className="absolute -bottom-5 left-7 text-xs text-rose-500">
-									{passwordErrorMessage}
-								</div>
-							)}
+							
 						</div>
 
 						{/* Remember me and forgot password */}

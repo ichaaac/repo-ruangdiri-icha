@@ -143,10 +143,9 @@ const Navbar = ({ activeSection, onSectionClick }) => {
               <Link to="/">
                 <div className="w-[100px] h-[89px] md:w-[80px] md:h-[70px] sm:w-[70px] sm:h-[60px] flex items-center justify-center">
                   <img
-                    src="/logo/ruang-diri-logo.svg"
+                    src="/logo/ruang-diri-logo.webp"
                     alt="Ruang Diri Logo"
                     className="max-w-full max-h-full object-contain"
-                    style={{ color: "#488BBE" }}
                   />
                 </div>
               </Link>
