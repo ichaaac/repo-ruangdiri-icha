@@ -20,8 +20,7 @@ const Login = () => {
 
 	const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-	
-	// Fix the remember me functionality with useEffect
+
 	useEffect(() => {
 		// Check if email is saved in localStorage when component mounts
 		const savedEmail = localStorage.getItem('rememberedEmail');
@@ -134,7 +133,7 @@ const Login = () => {
 					if (error.response.data.errors && error.response.data.errors.length > 0) {
 						// Handle specific field errors
 						error.response.data.errors.forEach(err => {
-															if (err.field === "email") {
+							if (err.field === "email") {
 								setEmailError(true);
 								setErrorMessage(err.message);
 							} else if (err.field === "password") {
@@ -142,9 +141,6 @@ const Login = () => {
 								setErrorMessage(err.message);
 							}
 						});
-						
-						// Set the main error message
-						setErrorMessage(error.response.data.message || "Validation failed");
 					} else {
 						// General error message
 						setErrorMessage(error.response.data.message || "Validation failed");
@@ -226,6 +222,7 @@ const Login = () => {
 		}
 
 		setEmailError(false);
+		setErrorMessage("");
 		return true;
 	};
 
@@ -237,6 +234,7 @@ const Login = () => {
 		}
 
 		setPasswordError(false);
+		setErrorMessage("");
 		return true;
 	};
 
@@ -314,7 +312,7 @@ const Login = () => {
 			{/* Right section with form */}
 			<section className="flex flex-1 justify-center items-center w-full md:w-1/2 py-8 px-4 bg-white overflow-auto">
 				<div className="w-[90%] max-w-[454px] max-md:p-0 max-md:mt-5">
-					{/* Error message tooltip */}
+					{/* General error message tooltip */}
 					{errorMessage && (
 						<div className="flex items-center px-[15px] py-3 mb-4 text-[14px] leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] inline-flex h-[44px]">
 							<span className="material-icons mr-[9px]" style={{ fontSize: '26px' }}>error</span>
@@ -345,7 +343,6 @@ const Login = () => {
 									className={`w-full text-base border-none outline-none ${emailError ? "text-rose-500" : "text-zinc-500"}`}
 									value={email}
 									onChange={(e) => {
-										// Limit to 50 characters
 										if (e.target.value.length <= 50) {
 											setEmail(e.target.value);
 										}
@@ -358,7 +355,7 @@ const Login = () => {
 											setErrorMessage("");
 										}
 									}}
-									onBlur={() => {}}
+									onBlur={validateEmail}
 									disabled={loginMutation.isPending}
 									required
 									maxLength={50}
@@ -366,7 +363,7 @@ const Login = () => {
 									autoComplete="username"
 								/>
 							</div>
-							
+
 						</div>
 
 						{/* Password input */}
@@ -395,7 +392,7 @@ const Login = () => {
 											setErrorMessage("");
 										}
 									}}
-									onBlur={() => {}}
+									onBlur={validatePassword}
 									disabled={loginMutation.isPending}
 									required
 									ref={passwordRef}
@@ -412,7 +409,7 @@ const Login = () => {
 									{showPassword ? "visibility" : "visibility_off"}
 								</span>
 							</div>
-							
+
 						</div>
 
 						{/* Remember me and forgot password */}
