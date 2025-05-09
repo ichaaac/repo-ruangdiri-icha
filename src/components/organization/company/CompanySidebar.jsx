@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../../hooks/useAuth";
+import { useQuery } from "@tanstack/react-query"; // Add this import
+import { getMe } from "../../../lib/api"; // Add this import
 
 /**
  * Company Sidebar Component
@@ -13,10 +15,9 @@ import { useAuth } from "../../../hooks/useAuth";
  * @param {boolean} props.expanded - Whether the sidebar is expanded
  * @param {Function} props.setExpanded - Function to toggle expanded state
  * @param {Function} props.onHoverChange - Function to notify parent of hover state change
- * @param {Object} props.userData - User profile data
  * @returns {JSX.Element}
  */
-const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
+const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -28,6 +29,18 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
   const sidebarRef = useRef(null);
   const dropdownRef = useRef(null);
   const navSectionRef = useRef(null);
+
+  // Add direct query to fetch user data
+  const { data: userData } = useQuery({
+    queryKey: ["company-profile"],
+    queryFn: async () => {
+      const response = await getMe();
+      if (response.data && response.data.status === "success") {
+        return response.data.data;
+      }
+      throw new Error(response.data?.message || "Failed to fetch user data");
+    }
+  });
 
   // Constants for sidebar widths
   const expandedWidth = 237;
