@@ -1,3 +1,4 @@
+// src/pages/organization/company/CompanyProfilePage.jsx 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -264,13 +265,13 @@ const CompanyProfilePage = () => {
 										Nama Perusahaan
 									</span>
 									<span className="block text-base text-neutral-600 mt-1 pl-0">
-										{userData?.fullName || "Belum diisi"}
+										{userData?.fullName || "-"}
 									</span>
 								</div>
 								<div className="w-full md:w-[369px] mb-4 md:mb-0">
 									<span className="block text-xs text-zinc-500">Alamat</span>
 									<span className="block text-base text-neutral-600 mt-1 pl-0">
-										{userData?.organization?.address || "Belum diisi"}
+										{userData?.organization?.address || "-"}
 									</span>
 								</div>
 								<div className="w-full md:w-auto">
@@ -278,7 +279,7 @@ const CompanyProfilePage = () => {
 										Nomor Telepon
 									</span>
 									<span className="block text-base text-neutral-600 mt-1 pl-0">
-										{userData?.organization?.phone || "Belum diisi"}
+										{userData?.organization?.phone || "-"}
 									</span>
 								</div>
 							</div>

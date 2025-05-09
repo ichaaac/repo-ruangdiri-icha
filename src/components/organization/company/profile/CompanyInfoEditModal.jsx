@@ -6,13 +6,13 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
-import { PhoneInput } from 'react-international-phone';
+import { PhoneInput, } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 
 // Format phone number with proper hyphens for Indonesia
 const formatIndonesianPhoneNumber = (value) => {
-  if (!value) return '';
+  if (!value || value === '' || value === '+' || value === '+62') return '';
   
   try {
     // Ensure the value starts with a country code
@@ -42,8 +42,9 @@ const companyInfoSchema = z.object({
   fullName: z.string().min(1, "Nama perusahaan wajib diisi"),
   address: z.string().min(1, "Alamat perusahaan wajib diisi"),
   phone: z.string()
-    .min(1, "Nomor telepon wajib diisi")
+    .optional() // Change this to optional to allow empty values
     .refine((value) => {
+      if (!value || value === '') return true; // Allow empty values
       try {
         if (value.length < 8) return true;
         return isValidPhoneNumber(value, 'ID');
@@ -99,7 +100,7 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
     defaultValues: {
       fullName: userData?.fullName || "",
       address: userData?.organization?.address || "",
-      phone: userData?.organization?.phone || "+62", // Ensure we have at least the country code
+      phone: userData?.organization?.phone || "", // Change this to empty string as default
     },
     mode: "onChange",
   });
@@ -144,6 +145,10 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
   });
 
   const onSubmit = (data) => {
+    // If phone is empty or just contains country code, ensure it's an empty string
+    if (!data.phone || data.phone === '+' || data.phone === '+62') {
+      data.phone = '';
+    }
     updateProfileMutation.mutate(data);
   };
 
@@ -214,7 +219,6 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
                     "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
                     errors.address ? "border-red-500" : "border-gray-300"
                   )}
-                  placeholder="Jalan Lorem Ipsum dolor sit amet"
                 />
                 {errors.address && (
                   <span className="text-xs text-red-500 mt-1">
@@ -223,21 +227,26 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-500 mb-1" htmlFor="phone">
-                  Nomor Telepon
-                </label>
-                <Controller
-                  name="phone"
-                  control={control}
-                  render={({ field }) => (
+              <div className="relative">
+              <label className="block text-sm text-gray-500 mb-1" htmlFor="phone">
+                Nomor Telepon
+              </label>
+              <Controller
+                name="phone"
+                control={control}
+                render={({ field }) => (
+                  <>
                     <PhoneInput
                       defaultCountry="id"
                       value={field.value}
                       onChange={(value) => {
-                        // Apply custom formatting and update the field
-                        const formattedValue = formatIndonesianPhoneNumber(value);
-                        field.onChange(formattedValue);
+                        // Enhanced empty value handling
+                        if (!value || value === '+' || value === '+62') {
+                          field.onChange('');
+                        } else {
+                          const formattedValue = formatIndonesianPhoneNumber(value);
+                          field.onChange(formattedValue);
+                        }
                       }}
                       onBlur={field.onBlur}
                       inputClassName={clsx(
@@ -245,11 +254,11 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
                         errors.phone ? "border-red-500" : "border-gray-300"
                       )}
                       containerClassName={clsx(
-                        "rounded-md overflow-hidden", 
+                        "rounded-md overflow-hidden",
                         errors.phone ? "border-red-500" : "border-gray-300"
                       )}
                       buttonClassName="h-12 px-3 flex items-center justify-center border-r border-gray-300"
-                      placeholder="Masukkan nomor telepon"
+                      placeholder="Masukkan nomor telepon (opsional)"
                       inputProps={{
                         id: "phone",
                         name: "phone",
@@ -259,14 +268,26 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
                       disableDialCodeAndPrefix={false}
                       forceDialCode={true}
                     />
-                  )}
-                />
-                {errors.phone && (
-                  <span className="text-xs text-red-500 mt-1">
-                    {errors.phone.message}
-                  </span>
+
+                    {/* Clear Button - Show for any non-empty value */}
+                    {field.value && (
+                      <button
+                        type="button"
+                        onClick={() => field.onChange('')}
+                        className="absolute right-3 top-[43px] -translate-y-1/2 text-red-500 text-sm"
+                      >
+                        <span className="material-icons text-base">close</span>
+                      </button>
+                    )}
+                  </>
                 )}
-              </div>
+              />
+              {errors.phone && (
+                <span className="text-xs text-red-500 mt-1">
+                  {errors.phone.message}
+                </span>
+              )}
+            </div>
 
               <div className="flex justify-end pt-2">
                 <button
