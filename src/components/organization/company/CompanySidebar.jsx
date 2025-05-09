@@ -181,18 +181,18 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
         >
           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
             {userData && userData.organization && userData.organization.profilePicture ? (
-              <img
-                src={userData.organization.profilePicture}
-                alt="Organization"
-                className="w-full h-full object-cover"
-              />
+             <img
+             src={`${userData.organization.profilePicture}?t=${new Date().getTime()}`}
+             alt="Organization"
+             className="w-full h-full object-cover"
+           />
+           
             ) : (
               <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
-                {userData && userData.fullName ? userData.fullName.charAt(0).toUpperCase() : 'C'}
-              </div>
-            )}
-          </div>
-          
+              {userData?.fullName?.charAt(0).toUpperCase() || 'C'}
+            </div>
+          )}
+        </div>
           <motion.div
             className="ml-3 overflow-hidden"
             animate={{
