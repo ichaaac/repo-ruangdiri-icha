@@ -202,11 +202,11 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             <div className="text-sm font-medium text-[#488BBE]">
-              {userData && userData.fullName ? userData.fullName.split(' ')[0] : 'Company'}
+              Admin
             </div>
-            <div className="text-xs text-[#488BBE] flex items-center">
-              {userData && userData.organization && userData.organization.type ? userData.organization.type : 'Company'}
-              <span className="material-icons text-sm ml-1 text-[#488BBE]">expand_more</span>
+            <div className="text-sm font-medium text-[#488BBE]">
+            {userData?.fullName || "Nama Perusahaan"}
+            <span className="material-icons text-sm ml-1 text-[#488BBE]">expand_more</span>
             </div>
           </motion.div>
         </div>
@@ -219,13 +219,13 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
             >
               <div className="py-2">
                 <Link
                   to="/organization/company/profile"
                   className="block py-2 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
-                  onClick={() => setShowProfileDropdown(false)}
+                  onClick={() => setShowProfileDropdown(true)}
                 >
                   Profil
                 </Link>
@@ -243,9 +243,9 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
       </div>
 
       {/* Divider */}
-      <div className="mt-6 px-4">
+      <div className="mt-6 px-2">
         <motion.div
-          className="h-[1px] bg-[#D8EEFF] mx-auto"
+          className="h-[1px] bg-[#D9D9D9] mx-auto"
           animate={{
             width: "100%"
           }}
@@ -255,7 +255,7 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
 
       {/* Navigation Menu - with hover behavior only for this section */}
       <div 
-        className="flex flex-col mt-6 flex-1 overflow-y-auto"
+        className="flex flex-col mt-6 flex-1 overflow-y-auto gap-y- [21px]"
         ref={navSectionRef}
         onMouseEnter={handleNavSectionMouseEnter}
         onMouseLeave={handleNavSectionMouseLeave}
@@ -264,14 +264,14 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
             <Link
               key={index}
               to={item.path}
-              className={`flex items-center w-full h-[47px] px-4 transition-colors ${
+              className={`flex items-center w-full h-[47px] px-5 transition-colors ${
                 isActive(item.path)
                   ? "bg-[#488BBE] text-white"
                   : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
               }`}
             >
             <span className="material-icons text-[22px]">{item.icon}</span>
-            <motion.span
+            <motion.spa
               animate={{
                 width: expanded || hovered ? "auto" : 0,
                 opacity: expanded || hovered ? 1 : 0,
@@ -281,7 +281,7 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
               className="whitespace-nowrap overflow-hidden"
             >
               {item.label}
-            </motion.span>
+            </motion.spa>
           </Link>
         ))}
       </div>

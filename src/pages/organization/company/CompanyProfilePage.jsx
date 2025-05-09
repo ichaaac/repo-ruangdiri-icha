@@ -182,7 +182,7 @@ const CompanyProfilePage = () => {
 					Profil
 				</h1>
 				<div
-					className="absolute h-[0.5px] bg-[#8B8B8B]"
+					className="absolute h-[0.5px] bg-[#D9D9D9]"
 					style={{ top: "99px", left: "76px", right: "20px" }}
 				></div>
 			</div>
@@ -227,10 +227,6 @@ const CompanyProfilePage = () => {
 								</h2>
 								<p className="text-xs text-neutral-600">Admin</p>
 								<p className="text-xs text-neutral-600">
-									{userData?.organization?.address
-										? userData.organization.address.split(",")[0]
-										: "Alamat"}
-									, Indonesia
 								</p>
 							</div>
 						</div>
