@@ -30,8 +30,8 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
   const navSectionRef = useRef(null);
 
   // Constants for sidebar widths
-  const expandedWidth = 240;
-  const collapsedWidth = 64;
+  const expandedWidth = 237;
+  const collapsedWidth = 59;
 
   // Handle mouse enter for navigation section only
   const handleNavSectionMouseEnter = () => {
@@ -98,7 +98,6 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
     };
   }, [dropdownRef]);
 
-  // Menu items for company - Updated based on current app structure and requirements
   const menuItems = [
     {
       icon: "bar_chart",
@@ -106,7 +105,7 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
       path: "/organization/company/dashboard",
     },
     {
-      icon: "people",
+      icon: "table_chart",
       label: "Karyawan",
       path: "/organization/company/employee-list",
     },
@@ -122,16 +121,13 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
     },
   ];
 
-  // Check if a menu item is active
   const isActive = (path) => {
-    // Handle special case for "Pengaturan" which maps to profile
     if (path === "/organization/company/profile" && location.pathname === "/organization/company/settings") {
       return true;
     }
     return location.pathname === path;
   };
 
-  // Calculate sidebar width based on state
   const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth;
 
   return (
@@ -142,38 +138,40 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
-      {/* Logo Section with Toggle Button */}
       <div className="p-4 flex justify-center items-center relative">
         <motion.img
-          src="/logo/ruang-diri-logo.png"
+          src="/logo/ruang-diri-logo.svg"
           alt="Ruang Diri Logo"
           animate={{
-            width: expanded || hovered ? "140px" : "32px",
-            opacity: 1
+            width: expanded || hovered ? "100px" : "32px",
+            height: expanded || hovered ? "89px" : "32px",
+            opacity: 1,
           }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="h-8 object-contain"
+          className="object-contain"
         />
-        
-        {/* Toggle Button - Positioned INSIDE the sidebar */}
+
         <div
-          className={`absolute right-1 top-4`}
+          className={`absolute right-0 top-4`}
           onMouseEnter={() => setToggleHovered(true)}
           onMouseLeave={() => setToggleHovered(false)}
         >
           <button
             onClick={toggleSidebar}
-            className={`flex items-center justify-center w-5 h-8 rounded-md shadow-sm transition-colors ${
-              toggleHovered ? 'bg-[#488BBE] text-white' : 'bg-[#D8EEFF] text-[#488BBE]'
+            className={`w-3 h-10 rounded-bl-md rounded-tl-md shadow-sm transition-colors ${
+              toggleHovered
+                ? 'bg-[#488BBE] text-white'
+                : 'bg-[#D8EEFF] text-[#488BBE]'
             }`}
-            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
           >
-            <span className="material-icons" style={{ fontSize: "12px" }}>
-              {expanded ? "chevron_left" : "chevron_right"}
+            <span className="material-icons" style={{ fontSize: '12px' }}>
+              {expanded ? 'chevron_left' : 'chevron_right'}
             </span>
           </button>
         </div>
       </div>
+
       
       {/* Profile Section */}
       <div className="mt-6 px-4" ref={dropdownRef}>
@@ -262,16 +260,16 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
         onMouseEnter={handleNavSectionMouseEnter}
         onMouseLeave={handleNavSectionMouseLeave}
       >
-        {menuItems.map((item, index) => (
-          <Link
-            key={index}
-            to={item.path}
-            className={`flex items-center mx-3 my-1 px-3 py-2 rounded-md transition-colors ${
-              isActive(item.path) 
-                ? "bg-[#488BBE] text-white" 
-                : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
-            }`}
-          >
+          {menuItems.map((item, index) => (
+            <Link
+              key={index}
+              to={item.path}
+              className={`flex items-center w-full h-[47px] px-4 transition-colors ${
+                isActive(item.path)
+                  ? "bg-[#488BBE] text-white"
+                  : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
+              }`}
+            >
             <span className="material-icons text-[22px]">{item.icon}</span>
             <motion.span
               animate={{

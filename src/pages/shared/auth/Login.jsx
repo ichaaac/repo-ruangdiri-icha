@@ -133,9 +133,8 @@ const Login = () => {
 					headers: error.response.headers,
 				});
 
-				// Handle backend validation format
 				if (error.response.data && error.response.data.status === "fail") {
-					// Process validation errors
+					// TODO : VALIDATION ERROR BUG
 					if (error.response.data.errors && error.response.data.errors.length > 0) {
 						// Handle specific field errors
 						error.response.data.errors.forEach(err => {
@@ -152,7 +151,7 @@ const Login = () => {
 						setErrorMessage(error.response.data.message || "Validation failed");
 					}
 				} else if (error.response.status === 401) {
-					setErrorMessage("Invalid credentials");
+					setErrorMessage("Email atau password tidak sesuai");
 					setEmailError(true);
 					setPasswordError(true);
 				} else if (error.response.status === 400) {
@@ -227,7 +226,6 @@ const Login = () => {
 			return { valid: false, message: "Email dan password harus diisi", field: "both" };
 		}
 		
-		// Jika email tidak kosong, validasi format email
 		if ((field === "email" || field === null) && formData.email && formData.email.trim()) {
 			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 			if (!emailRegex.test(formData.email)) {
