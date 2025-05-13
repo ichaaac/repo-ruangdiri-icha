@@ -162,7 +162,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       
       {/* Error message display */}
       {uploadError && (
-        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs whitespace-nowrap">
+        <div className="absolute -bottom-14 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs whitespace-nowrap z-50">
           {uploadError}
         </div>
       )}
