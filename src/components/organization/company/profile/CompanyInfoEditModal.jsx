@@ -8,7 +8,7 @@ import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { PhoneInput, } from 'react-international-phone';
 import 'react-international-phone/style.css';
-import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
+import { isValidPhoneNumber } from 'libphonenumber-js';
 
 // Format phone number with proper hyphens for Indonesia
 const formatIndonesianPhoneNumber = (value) => {
@@ -40,9 +40,9 @@ const formatIndonesianPhoneNumber = (value) => {
 
 const companyInfoSchema = z.object({
   fullName: z.string().min(1, "Nama perusahaan wajib diisi"),
-  address: z.string().min(1, "Alamat perusahaan wajib diisi"),
+  address: z.string().optional(), // Changed to optional to allow empty values
   phone: z.string()
-    .optional() // Change this to optional to allow empty values
+    .optional()
     .refine((value) => {
       if (!value || value === '') return true; // Allow empty values
       try {
@@ -100,7 +100,7 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
     defaultValues: {
       fullName: userData?.fullName || "",
       address: userData?.organization?.address || "",
-      phone: userData?.organization?.phone || "", // Change this to empty string as default
+      phone: userData?.organization?.phone || "",
     },
     mode: "onChange",
   });
@@ -115,6 +115,10 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
       
       // Clear previous error messages
       setErrorMessage("");
+      
+      // Ensure empty strings for empty fields
+      if (!data.address) data.address = '';
+      if (!data.phone || data.phone === '+' || data.phone === '+62') data.phone = '';
       
       console.log("Updating organization profile with data:", data);
       
@@ -145,10 +149,10 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
   });
 
   const onSubmit = (data) => {
-    // If phone is empty or just contains country code, ensure it's an empty string
-    if (!data.phone || data.phone === '+' || data.phone === '+62') {
-      data.phone = '';
-    }
+    // Clean up empty values
+    if (!data.address) data.address = '';
+    if (!data.phone || data.phone === '+' || data.phone === '+62') data.phone = '';
+    
     updateProfileMutation.mutate(data);
   };
 
@@ -265,20 +269,9 @@ const CompanyInfoEditModal = ({ onClose, userData }) => {
                       }}
                       international={true}
                       withCountryCallingCode={true}
-                      disableDialCodeAndPrefix={false}
+                   disableDialCodeAndPrefix={false}
                       forceDialCode={true}
                     />
-
-                    {/* Clear Button - Show for any non-empty value */}
-                    {field.value && (
-                      <button
-                        type="button"
-                        onClick={() => field.onChange('')}
-                        className="absolute right-3 top-[43px] -translate-y-1/2 text-red-500 text-sm"
-                      >
-                        <span className="material-icons text-base">close</span>
-                      </button>
-                    )}
                   </>
                 )}
               />

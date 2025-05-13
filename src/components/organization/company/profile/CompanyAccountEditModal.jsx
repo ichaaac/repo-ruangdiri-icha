@@ -224,39 +224,49 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
-                  Password Lama
-                </label>
-                <div className="relative">
-                  <input
-                    type={showOldPassword ? "text" : "password"}
-                    {...register("oldPassword")}
-                    className={clsx(
-                      "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
-                      errors.oldPassword ? "border-red-500" : "border-gray-300"
-                    )}
-                    placeholder="Masukkan password lama"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                    onMouseDown={() => setShowOldPassword(true)}
-                    onMouseUp={() => setShowOldPassword(false)}
-                    onMouseLeave={() => setShowOldPassword(false)}
-                  >
-                    <span className="material-icons">
-                      {showOldPassword ? "visibility_off" : "visibility"}
-                    </span>
-                  </button>
-                </div>
-                {errors.oldPassword && (
-                  <span className="text-xs text-red-500 mt-1">
-                    {errors.oldPassword.message}
-                  </span>
+            <label className="block text-sm text-gray-500 mb-1">
+              Password Lama
+            </label>
+            <div className="relative">
+              <input
+                type={showOldPassword ? "text" : "password"}
+                {...register("oldPassword")}
+                className={clsx(
+                  "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
+                  errors.oldPassword ? "border-red-500" : "border-gray-300"
                 )}
-              </div>
+                placeholder="Masukkan password lama"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+                onMouseDown={() => setShowOldPassword(true)}
+                onMouseUp={() => setShowOldPassword(false)}
+                onMouseLeave={() => setShowOldPassword(false)}
+              >
+                <span className="material-icons">
+                  {showOldPassword ? "visibility_off" : "visibility"}
+                </span>
+              </button>
+            </div>
 
+            {errors.oldPassword && (
+              <span className="text-xs text-red-500 mt-1">
+                {errors.oldPassword.message}
+              </span>
+            )}
+
+            <div className="mt-2 text-right">
+              <button
+                type="button"
+                onClick={() => console.log("handle forgot password logic here")}
+                className=" p-0.5 text-sm text-ellipsis hover:underline"
+              >
+                Lupa Password?
+              </button>
+            </div>
+          </div>
               <div>
                 <label className="block text-sm text-gray-500 mb-1">
                   Password Baru
