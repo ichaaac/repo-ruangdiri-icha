@@ -229,7 +229,7 @@ const EmployeeTable = ({
           <thead className="bg-primary-light">
             <tr>
               <th 
-                className="px-6 py-3 text-left text-xs font-bold text-primary-variant1 uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("fullName")}
               >
                 <div className="flex items-center gap-1">
@@ -237,11 +237,11 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-primary-variant1 uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-primary-variant1 uppercase tracking-wider whitespace-nowrap">JABATAN</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-primary-variant1 uppercase tracking-wider whitespace-nowrap">GENDER</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">JABATAN</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">GENDER</th>
               <th 
-                className="px-6 py-3 text-center text-xs font-bold text-primary-variant1 uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("age")}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -250,7 +250,7 @@ const EmployeeTable = ({
                 </div>
               </th>
               <th 
-                className="px-6 py-3 text-center text-xs font-bold text-primary-variant1 uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("yearsOfService")}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -258,7 +258,7 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
                 </div>
               </th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-primary-variant1 uppercase tracking-wider whitespace-nowrap">
+              <th className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center">
                   SKRINING
                   <span 
@@ -301,7 +301,7 @@ const EmployeeTable = ({
                   </AnimatePresence>
                 </div>
               </th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-primary-variant1 uppercase tracking-wider whitespace-nowrap">KONSELING</th>
+              <th className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">KONSELING</th>
               <th className="px-6 py-3 text-center whitespace-nowrap"></th>
             </tr>
           </thead>

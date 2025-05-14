@@ -9,8 +9,8 @@ export default {
       colors: {
         // Primary colors
         primary: {
-          DEFAULT: "#8CC3EE",
-          variant1: "#488BBE",
+          DEFAULT: "#488BBE",
+          variant1: "#8CC3EE",
           variant2: "#3399E9",
           light: "#E2F9FF",
         },
