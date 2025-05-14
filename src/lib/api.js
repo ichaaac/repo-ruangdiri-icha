@@ -320,29 +320,27 @@ const api = {
       },
 
       /**
-       * Get departments and positions
-       * Note: This is a fallback method for development in case the API endpoint isn't implemented
-       * In production, this would be replaced with a real API call
+       * Get departments - menggunakan endpoint yang benar
        * @returns {Promise} API response with departments data
        */
       getDepartments: async () => {
         try {
-          // Try to get from API first
-          const response = await apiClient.get("/organizations/departments");
+          // Gunakan endpoint yang benar
+          const response = await apiClient.get("/employees/departments");
           return response.data;
         } catch (error) {
-          // Fallback data for development/demo
-          console.log("Using fallback departments data");
+          console.error("Error fetching departments:", error);
+          // Return fallback structure
           return {
             status: "success",
             data: [
-              { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter"] },
-              { department: "Finance", positions: ["Head", "Manager", "Accountant", "Analyst"] },
-              { department: "Marketing", positions: ["Head", "Manager", "Specialist", "Coordinator"] },
-              { department: "Operations", positions: ["Head", "Lead", "Manager", "Staff"] },
-              { department: "Information Technology", positions: ["Head", "Lead", "Developer", "Designer", "Support"] },
-              { department: "Product Development", positions: ["Head", "Lead", "Manager", "Engineer"] },
-              { department: "Legal", positions: ["Head", "Counsel", "Specialist"] }
+              { department: "Human Resources" },
+              { department: "Finance" },
+              { department: "Marketing" },
+              { department: "Operations" },
+              { department: "Information Technology" },
+              { department: "Engineering" },
+              { department: "Sales" }
             ]
           };
         }

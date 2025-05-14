@@ -1,52 +1,36 @@
 // src/hooks/useEmployeeData.js
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiClient } from "../lib/api"; // Only import apiClient
+import { apiClient } from "../lib/api";
 
 export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   const queryClient = useQueryClient();
   
   const buildFilterParams = () => {
-    const params = {
-      page: 1,
-      limit: 10
+    const params = { 
+      page: 1, 
+      limit: 10 // Ensure we're requesting only 10 items per page
     };
-
-    if (searchTerm) {
-      params.search = searchTerm;
-    }
-
-    // Map frontend key to backend expected key
+  
+    if (searchTerm) params.search = searchTerm;
+  
+    // Fix field mapping for sorting
     if (sortConfig.key && sortConfig.direction) {
       const sortKeyMap = {
-        'fullName': 'name', // Backend expects 'name' not 'fullName'
+        'fullName': 'name',
         'age': 'age',
-        'yearsOfService': 'years_of_service' // or whatever backend expects
+        'yearsOfService': 'yearsOfService' // Use the correct field name
       };
       
       params.sortBy = sortKeyMap[sortConfig.key] || sortConfig.key;
       params.sortOrder = sortConfig.direction === 'ascending' ? 'asc' : 'desc';
     }
-
-    // Add filter parameters
-    if (filters.department) {
-      params.department = filters.department;
-    }
-
-    if (filters.position) {
-      params.position = filters.position;
-    }
-
-    if (filters.gender) {
-      params.gender = filters.gender === 'L' ? 'male' : 'female';
-    }
-
-    if (filters.screeningStatus) {
-      params.screening = filters.screeningStatus;
-    }
-
-    if (filters.counselingStatus !== null) {
-      params.hasCounseled = filters.counselingStatus ? '1' : '0';
-    }
+    
+    // Filters
+    if (filters.department) params.department = filters.department;
+    if (filters.position) params.position = filters.position;
+    if (filters.gender) params.gender = filters.gender === 'L' ? 'male' : 'female';
+    if (filters.screeningStatus) params.screening = filters.screeningStatus;
+    if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? '1' : '0';
 
     return params;
   };
@@ -54,12 +38,15 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   const infiniteQuery = useInfiniteQuery({
     queryKey: ['infiniteEmployees', searchTerm, sortConfig, filters],
     queryFn: async ({ pageParam = 1 }) => {
-      const params = { ...buildFilterParams(), page: pageParam };
-
+      const params = { 
+        ...buildFilterParams(), 
+        page: pageParam 
+      };
+      
       try {
         const response = await apiClient.get("/organizations/employees", { params });
         
-        const employeesData = response.data?.data?.employees || [];
+        const data = response.data?.data?.employees || [];
         const metadata = response.data?.metadata || {
           totalPage: 1,
           totalData: 0,
@@ -69,48 +56,43 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
           byGender: { male: 0, female: 0 }
         };
         
-        return {
-          data: employeesData,
-          metadata: metadata,
-          pageParam
+        return { 
+          data, 
+          metadata, 
+          pageParam 
         };
       } catch (error) {
-        console.error('Employees API error:', error);
+        console.error("Error fetching employees:", error);
         throw error;
       }
     },
     getNextPageParam: (lastPage) => {
-      const currentPage = lastPage.metadata.page;
-      const totalPages = lastPage.metadata.totalPage;
-      return currentPage < totalPages ? currentPage + 1 : undefined;
+      const { page, totalPage } = lastPage.metadata;
+      // Return next page number if there are more pages
+      return page < totalPage ? page + 1 : undefined;
     },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
   // Update employee mutation
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const { employeeId, ...dataToSend } = data;
-      return apiClient.patch(`/organizations/employees/${id}`, dataToSend);
+      return apiClient.patch(`/organizations/employees/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['infiniteEmployees'] });
+      queryClient.invalidateQueries(['infiniteEmployees']);
     }
   });
   
-  // Process all loaded pages into flat array
-  const allEmployees = infiniteQuery.data
-    ? infiniteQuery.data.pages.flatMap(page => page.data)
-    : [];
-
-  // Get metadata from the most recent page
-  const latestMetadata = infiniteQuery.data?.pages[0]?.metadata;
-  const totalDataFromQuery = latestMetadata?.totalData || 0;
-  const genderCounts = latestMetadata?.byGender || { male: 0, female: 0 };
+  // Flatten all pages into single array
+  const allEmployees = infiniteQuery.data?.pages.flatMap(page => page.data) || [];
+  const metadata = infiniteQuery.data?.pages[0]?.metadata;
 
   return {
     employees: allEmployees,
-    totalData: totalDataFromQuery,
-    genderCounts: genderCounts,
+    totalData: metadata?.totalData || 0,
+    genderCounts: metadata?.byGender || { male: 0, female: 0 },
     isLoading: infiniteQuery.isLoading,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
     hasNextPage: infiniteQuery.hasNextPage,
@@ -122,44 +104,63 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   };
 };
 
-// User profile data hook
-export const useUserProfile = () => {
-  return useQuery({
-    queryKey: ['userProfile'],
-    queryFn: async () => {
-      try {
-        const response = await apiClient.get("/users/me");
-        const userData = response?.data?.data;
-        return userData || { fullName: "Pengguna" };
-      } catch (error) {
-        console.error('User profile API error:', error);
-        return { fullName: "Pengguna" };
-      }
-    },
-  });
-};
-
-// Departments data hook - using apiClient directly
+// Hook for departments - fix endpoint
 export const useDepartments = () => {
   return useQuery({
     queryKey: ['departments'],
     queryFn: async () => {
       try {
-        const response = await apiClient.get("/organizations/departments");
-        return response?.data?.data || [];
+        // Use the correct endpoint
+        const response = await apiClient.get("/employees/departments");
+        
+        // Process data to get unique departments and positions
+        const rawData = response?.data?.data || [];
+        const departmentMap = {};
+        
+        rawData.forEach(item => {
+          if (item.department) {
+            if (!departmentMap[item.department]) {
+              departmentMap[item.department] = new Set();
+            }
+            // Add position if available
+            if (item.position) {
+              departmentMap[item.department].add(item.position);
+            }
+          }
+        });
+        
+        // Convert to array format
+        const departments = Object.entries(departmentMap).map(([dept, positions]) => ({
+          department: dept,
+          positions: positions.size > 0 ? Array.from(positions) : 
+            ["Head", "Manager", "Staff", "Specialist"] // Default positions
+        }));
+        
+        return departments;
       } catch (error) {
-        console.error('Departments API error:', error);
+        console.error("Error fetching departments:", error);
         // Fallback data
         return [
-          { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter"] },
-          { department: "Finance", positions: ["Head", "Manager", "Accountant", "Analyst"] },
-          { department: "Marketing", positions: ["Head", "Manager", "Specialist", "Coordinator"] },
-          { department: "Operations", positions: ["Head", "Lead", "Manager", "Staff"] },
-          { department: "Information Technology", positions: ["Head", "Lead", "Developer", "Designer", "Support"] },
-          { department: "Product Development", positions: ["Head", "Lead", "Manager", "Engineer"] },
-          { department: "Legal", positions: ["Head", "Counsel", "Specialist"] }
+          { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter", "Specialist"] },
+          { department: "Finance", positions: ["Head", "Accountant", "Analyst", "Manager"] },
+          { department: "Marketing", positions: ["Head", "Specialist", "Manager", "Coordinator", "Assistant"] },
+          { department: "IT", positions: ["Lead", "Developer", "Designer", "Support"] },
+          { department: "Engineering", positions: ["Head", "Engineer", "Specialist", "Lead"] },
+          { department: "Operations", positions: ["Head", "Manager", "Specialist", "Lead", "Staff"] },
+          { department: "Sales", positions: ["Head", "Manager", "Staff"] }
         ];
       }
+    },
+    staleTime: 1000 * 60 * 60, // 1 hour
+  });
+};
+
+export const useUserProfile = () => {
+  return useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => {
+      const response = await apiClient.get("/users/me");
+      return response?.data?.data || { fullName: "Pengguna" };
     },
   });
 };

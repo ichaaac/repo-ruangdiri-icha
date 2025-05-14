@@ -1,8 +1,9 @@
-// src/hooks/useEmployeeFilters.js
+// src/hooks/useEmployeeFilter.js
 import { useState } from 'react';
 
 export const useEmployeeFilters = () => {
   const [searchInput, setSearchInput] = useState("");
+  // Start with no sort applied
   const [sortConfigInput, setSortConfigInput] = useState({ key: null, direction: null });
   const [appliedSortConfig, setAppliedSortConfig] = useState({ key: null, direction: null });
   const [filtersInput, setFiltersInput] = useState({
@@ -12,51 +13,49 @@ export const useEmployeeFilters = () => {
     screeningStatus: null,
     counselingStatus: null
   });
-  const [appliedFilters, setAppliedFilters] = useState({
-    department: null,
-    position: null,
-    gender: null,
-    screeningStatus: null,
-    counselingStatus: null
-  });
+  const [appliedFilters, setAppliedFilters] = useState(filtersInput);
 
-  // Sorting logic with 3 states: default (null), ascending, descending
   const requestSort = (key) => {
-    let direction = null;
-
-    if (sortConfigInput.key === key) {
-      // Cycle through states: null -> ascending -> descending -> null
-      if (sortConfigInput.direction === null) {
-        direction = "ascending";
-      } else if (sortConfigInput.direction === "ascending") {
-        direction = "descending";
+    let newConfig = { key: null, direction: null };
+    
+    if (appliedSortConfig.key === key) {
+      // Same column: cycle through states
+      if (!appliedSortConfig.direction) {
+        // Currently no sort -> go to ascending
+        newConfig = { key, direction: "ascending" };
+      } else if (appliedSortConfig.direction === "ascending") {
+        // Currently ascending -> go to descending
+        newConfig = { key, direction: "descending" };
       } else {
-        direction = null;
-        key = null; // Reset key when going back to default
+        // Currently descending -> go back to no sort
+        newConfig = { key: null, direction: null };
       }
     } else {
-      // Starting fresh with this column
-      direction = "ascending";
+      // Different column: start with ascending
+      newConfig = { key, direction: "ascending" };
     }
-
-    setSortConfigInput({ key, direction });
-    setAppliedSortConfig({ key, direction });
+    
+    setSortConfigInput(newConfig);
+    setAppliedSortConfig(newConfig);
   };
 
   const getSortIcon = (key) => {
-    if (sortConfigInput.key !== key || sortConfigInput.direction === null) {
+    if (appliedSortConfig.key !== key) {
+      return "sort"; // Default icon when not sorted
+    }
+    
+    if (!appliedSortConfig.direction) {
       return "sort"; // Default icon
     }
-    return sortConfigInput.direction === "ascending" ? "arrow_upward" : "arrow_downward";
+    
+    return appliedSortConfig.direction === "ascending" ? "arrow_upward" : "arrow_downward";
   };
 
-  // Filter functions
   const handleFilterSelect = (filterType, value) => {
-    if (filtersInput[filterType] === value) {
-      setFiltersInput(prev => ({ ...prev, [filterType]: null }));
-    } else {
-      setFiltersInput(prev => ({ ...prev, [filterType]: value }));
-    }
+    setFiltersInput(prev => ({
+      ...prev,
+      [filterType]: prev[filterType] === value ? null : value
+    }));
   };
 
   const applyFilters = () => {
@@ -64,21 +63,18 @@ export const useEmployeeFilters = () => {
   };
 
   const clearFilters = () => {
-    const resetFilters = {
+    const empty = {
       department: null,
       position: null,
       gender: null,
       screeningStatus: null,
       counselingStatus: null
     };
-    
-    setFiltersInput(resetFilters);
-    setAppliedFilters(resetFilters);
+    setFiltersInput(empty);
+    setAppliedFilters(empty);
   };
 
-  const hasActiveFilters = appliedFilters.department || appliedFilters.position || 
-                         appliedFilters.gender || appliedFilters.screeningStatus !== null || 
-                         appliedFilters.counselingStatus !== null;
+  const hasActiveFilters = Object.values(appliedFilters).some(v => v !== null);
 
   return {
     searchInput,

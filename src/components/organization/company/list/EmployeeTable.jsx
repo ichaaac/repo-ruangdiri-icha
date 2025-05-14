@@ -1,4 +1,4 @@
-// src/components/organization/company/EmployeeTable.jsx
+// src/components/organization/company/EmployeeTable.jsx - Complete Fixed Version
 import React, { useState, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -23,7 +23,7 @@ const EmployeeTable = ({
   const [hoveredRow, setHoveredRow] = useState(null);
   const [hoveredName, setHoveredName] = useState(null);
 
-  // Infinite scroll observer
+  // Setup infinite scroll observer
   const lastEmployeeElementRef = useCallback(node => {
     if (observerRef.current) {
       observerRef.current.disconnect();
@@ -71,6 +71,12 @@ const EmployeeTable = ({
   };
 
   const saveEditing = (id) => {
+    // Validate required fields
+    if (!editData.fullName || editData.fullName.trim().length === 0) {
+      alert("Nama tidak boleh kosong!");
+      return;
+    }
+    
     if (!hasChanges) return;
     
     // Only send changed fields
@@ -113,7 +119,10 @@ const EmployeeTable = ({
     }
     
     setEditData((prev) => ({ ...prev, [name]: processedValue }));
-    setHasChanges(true);
+    
+    // Check if there are changes AND if required fields are filled
+    const isFullNameValid = name === 'fullName' ? value.trim().length > 0 : editData.fullName?.trim().length > 0;
+    setHasChanges(isFullNameValid);
   };
 
   // Helpers
@@ -153,294 +162,301 @@ const EmployeeTable = ({
     );
   };
 
-  // Truncate text to max 70 characters
-  const truncateText = (text) => {
-    if (!text) return '';
-    return text.length > 70 ? text.substring(0, 70) + '...' : text;
-  };
-
   return (
-      <div className="overflow-x-auto scrollbar-custom">
-        <table className="w-full">
-          <thead className="bg-[#E8F5FF]">
-            <tr>
-              <th 
-                className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                onClick={() => requestSort("fullName")}
-              >
-                <div className="flex items-center gap-2">
-                  NAMA
-                  <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
-                </div>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider whitespace-nowrap">
-                DEPARTEMEN
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider whitespace-nowrap">
-                JABATAN
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider whitespace-nowrap">
-                JENIS KELAMIN
-              </th>
-              <th 
-                className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                onClick={() => requestSort("age")}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  USIA
-                  <span className="material-icons text-sm">{getSortIcon("age")}</span>
-                </div>
-              </th>
-              <th 
-                className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                onClick={() => requestSort("yearsOfService")}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  LAMA BEKERJA
-                  <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
-                </div>
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider relative whitespace-nowrap">
-                <div className="flex items-center justify-center">
-                  SKRINING
-                  <span 
-                    className="material-icons text-sm ml-1 text-gray-400 cursor-help" 
-                    ref={helpIconRef}
-                    onMouseEnter={() => setShowHelpTooltip(true)}
-                    onMouseLeave={() => setTimeout(() => setShowHelpTooltip(false), 300)}
-                  >
-                    help_outline
-                  </span>
-                  
-                  <AnimatePresence>
-                    {showHelpTooltip && (
-                      <motion.div 
-                        className="fixed bg-[#00000099] text-white text-xs rounded-md p-2.5 shadow-lg z-[1000]"
-                        style={{ 
-                          width: "150px",
-                          top: helpIconRef.current ? helpIconRef.current.getBoundingClientRect().top - 80 : 0,
-                          left: helpIconRef.current ? helpIconRef.current.getBoundingClientRect().left + 20 : 0,
-                        }}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        transition={{ duration: 0.2 }}
+    <div className="overflow-x-auto scrollbar-custom">
+      <table className="w-full table-fixed">
+        <thead className="bg-[#E8F5FF]">
+          <tr>
+            <th 
+              className="w-[200px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+              onClick={() => requestSort("fullName")}
+            >
+              <div className="flex items-center gap-2">
+                NAMA
+                <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
+              </div>
+            </th>
+            <th className="w-[150px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+              DEPARTEMEN
+            </th>
+            <th className="w-[150px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+              JABATAN
+            </th>
+            <th className="w-[100px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+              JENIS KELAMIN
+            </th>
+            <th 
+              className="w-[80px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+              onClick={() => requestSort("age")}
+            >
+              <div className="flex items-center justify-center gap-2">
+                USIA
+                <span className="material-icons text-sm">{getSortIcon("age")}</span>
+              </div>
+            </th>
+            <th 
+              className="w-[120px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+              onClick={() => requestSort("yearsOfService")}
+            >
+              <div className="flex items-center justify-center gap-2">
+                LAMA BEKERJA
+                <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
+              </div>
+            </th>
+            <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider relative">
+              <div className="flex items-center justify-center">
+                SKRINING
+                <span 
+                  className="material-icons text-sm ml-1 text-gray-400 cursor-help" 
+                  ref={helpIconRef}
+                  onMouseEnter={() => setShowHelpTooltip(true)}
+                  onMouseLeave={() => setTimeout(() => setShowHelpTooltip(false), 300)}
+                >
+                  help_outline
+                </span>
+                
+                <AnimatePresence>
+                  {showHelpTooltip && (
+                    <motion.div 
+                      className="absolute bg-[#00000099] text-white text-xs rounded-md p-2.5 shadow-lg"
+                      style={{ 
+                        width: "150px",
+                        top: "-80px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        zIndex: 9999
+                      }}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="flex flex-col gap-2.5">
+                        <div className="flex items-center">
+                          <span className="material-icons text-red-500 text-sm mr-1.5">warning</span>
+                          <span>Berisiko</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="material-icons text-yellow-500 text-sm mr-1.5">error</span>
+                          <span>Pengawasan</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="material-icons text-green-500 text-sm mr-1.5">check_circle</span>
+                          <span>Stabil</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="material-icons text-gray-400 text-sm mr-1.5">remove</span>
+                          <span>Belum Skrining</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </th>
+            <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+              KONSELING
+            </th>
+            <th className="w-[80px] px-6 py-3 text-center">
+              {/* Actions column */}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees.map((employee, index) => {
+            const screeningStatus = employee.screeningStatus || employee.screening || 'stable';
+            const screeningUI = getScreeningStatusUI(screeningStatus);
+            const counselingStatus = employee.counselingStatus !== undefined ? employee.counselingStatus : employee.isDoneCounseling;
+            const isLastElement = index === employees.length - 1;
+            
+            return (
+              <React.Fragment key={employee.id}>
+                <tr 
+                  className={`transition-all duration-300 ${
+                    hoveredRow === employee.id 
+                      ? 'bg-gradient-to-r from-white via-[#F0F9FF] to-white' 
+                      : 'bg-white'
+                  }`}
+                  ref={isLastElement ? lastEmployeeElementRef : null}
+                  onMouseEnter={() => setHoveredRow(employee.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                >
+                  <td className="px-6 py-4 truncate">
+                    {editingId === employee.id ? (
+                      <input
+                        type="text"
+                        name="fullName"
+                        value={editData.fullName}
+                        onChange={handleEditChange}
+                        className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
+                        maxLength={70}
+                        required
+                      />
+                    ) : (
+                      <div 
+                        className={`text-sm font-medium text-gray-900 cursor-pointer truncate ${
+                          hoveredName === employee.id ? 'text-[#488bbe] underline' : ''
+                        }`}
+                        onMouseEnter={() => setHoveredName(employee.id)}
+                        onMouseLeave={() => setHoveredName(null)}
+                        title={employee.fullName}
                       >
-                        <div className="flex flex-col gap-2.5">
-                          <div className="flex items-center">
-                            <span className="material-icons text-red-500 text-sm mr-1.5">warning</span>
-                            <span>Berisiko</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="material-icons text-yellow-500 text-sm mr-1.5">error</span>
-                            <span>Pengawasan</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="material-icons text-green-500 text-sm mr-1.5">check_circle</span>
-                            <span>Stabil</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="material-icons text-gray-400 text-sm mr-1.5">remove</span>
-                            <span>Belum Skrining</span>
-                          </div>
-                        </div>
-                      </motion.div>
+                        {highlightText(employee.fullName)}
+                      </div>
                     )}
-                  </AnimatePresence>
-                </div>
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider whitespace-nowrap">
-                KONSELING
-              </th>
-              <th className="px-6 py-3 text-center">
-                {/* Actions column */}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.map((employee, index) => {
-              const screeningStatus = employee.screeningStatus || employee.screening || 'stable';
-              const screeningUI = getScreeningStatusUI(screeningStatus);
-              const counselingStatus = employee.counselingStatus !== undefined ? employee.counselingStatus : employee.isDoneCounseling;
-              const isLastElement = index === employees.length - 1;
-              
-              return (
-                <React.Fragment key={employee.id}>
-                  <tr 
-                    className={`transition-all duration-300 ${
-                      hoveredRow === employee.id 
-                        ? 'bg-gradient-to-r from-white via-[#F0F9FF] to-white' 
-                        : ''
-                    }`}
-                    ref={isLastElement ? lastEmployeeElementRef : null}
-                    onMouseEnter={() => setHoveredRow(employee.id)}
-                    onMouseLeave={() => setHoveredRow(null)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingId === employee.id ? (
-                        <input
-                          type="text"
-                          name="fullName"
-                          value={editData.fullName}
-                          onChange={handleEditChange}
-                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 min-w-[150px]"
-                          maxLength={70}
-                        />
-                      ) : (
-                        <div 
-                          className={`text-sm font-medium text-gray-900 cursor-pointer ${
-                            hoveredName === employee.id ? 'text-[#488bbe] underline' : ''
-                          }`}
-                          onMouseEnter={() => setHoveredName(employee.id)}
-                          onMouseLeave={() => setHoveredName(null)}
-                        >
-                          {highlightText(truncateText(employee.fullName))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingId === employee.id ? (
-                        <select
-                          name="department"
-                          value={editData.department}
-                          onChange={handleEditChange}
-                          className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 min-w-[150px]"
-                        >
-                          {departmentOptions.map((dept) => (
-                            <option key={dept} value={dept}>{truncateText(dept)}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="text-sm text-gray-500">{truncateText(employee.department)}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingId === employee.id ? (
-                        <select
-                          name="position"
-                          value={editData.position}
-                          onChange={handleEditChange}
-                          className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 min-w-[120px]"
-                        >
-                          {positionOptions.map((pos) => (
-                            <option key={pos} value={pos}>{truncateText(pos)}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="text-sm text-gray-500">{truncateText(employee.position)}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingId === employee.id ? (
-                        <select
-                          name="gender"
-                          value={editData.gender}
-                          onChange={handleEditChange}
-                          className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1"
-                        >
-                          <option value="male">L</option>
-                          <option value="female">P</option>
-                        </select>
-                      ) : (
-                        <div className="text-sm text-gray-500">
-                          {employee.gender === 'male' || employee.gender === 'm' ? 'L' : 'P'}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {editingId === employee.id ? (
+                  </td>
+                  <td className="px-6 py-4 truncate">
+                    {editingId === employee.id ? (
+                      <select
+                        name="department"
+                        value={editData.department}
+                        onChange={handleEditChange}
+                        className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                      >
+                        {departmentOptions.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="text-sm text-gray-500 truncate" title={employee.department}>
+                        {employee.department}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 truncate">
+                    {editingId === employee.id ? (
+                      <select
+                        name="position"
+                        value={editData.position}
+                        onChange={handleEditChange}
+                        className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                      >
+                        {positionOptions.map((pos) => (
+                          <option key={pos} value={pos}>{pos}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="text-sm text-gray-500 truncate" title={employee.position}>
+                        {employee.position}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingId === employee.id ? (
+                      <select
+                        name="gender"
+                        value={editData.gender}
+                        onChange={handleEditChange}
+                        className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-full"
+                      >
+                        <option value="male">L</option>
+                        <option value="female">P</option>
+                      </select>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        {employee.gender === 'male' || employee.gender === 'm' ? 'L' : 'P'}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {editingId === employee.id ? (
+                      <input
+                        type="number"
+                        name="age"
+                        value={editData.age}
+                        onChange={handleEditChange}
+                        className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-16 mx-auto"
+                        max="99"
+                        min="1"
+                      />
+                    ) : (
+                      <div className="text-sm text-gray-500">{employee.age || "36"}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {editingId === employee.id ? (
+                      <div className="flex items-center justify-center gap-1">
                         <input
                           type="number"
-                          name="age"
-                          value={editData.age}
+                          name="workDuration"
+                          value={editData.workDuration}
                           onChange={handleEditChange}
-                          className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-16 mx-auto"
+                          className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-16"
+                          max="99"
+                          min="0"
                         />
-                      ) : (
-                        <div className="text-sm text-gray-500">{employee.age || "36"}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {editingId === employee.id ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <input
-                            type="number"
-                            name="workDuration"
-                            value={editData.workDuration}
-                            onChange={handleEditChange}
-                            className="text-sm text-gray-500 border border-gray-300 rounded px-2 py-1 w-16"
-                          />
-                          <span className="text-sm text-gray-500">Tahun</span>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">
-                          {employee.yearsOfService || employee.workDuration || "2"} Tahun
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span
-                        className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${screeningUI.bgColor}`}
-                      >
-                        {screeningUI.icon}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
-                        {counselingStatus ? "Sudah" : "Belum"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {editingId === employee.id ? (
-                        <div className="flex space-x-2 justify-center">
-                          <button
-                            className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges || updateEmployee.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
-                            onClick={() => hasChanges && saveEditing(employee.id)}
-                            disabled={!hasChanges || updateEmployee.isPending}
-                            aria-label="Save"
-                          >
-                            <span className="material-icons">
-                              {updateEmployee.isPending ? "hourglass_empty" : "check_circle"}
-                            </span>
-                          </button>
-                          <button 
-                            className="text-[#EE4266] hover:text-red-700" 
-                            onClick={cancelEditing} 
-                            disabled={updateEmployee.isPending}
-                            aria-label="Cancel"
-                          >
-                            <span className="material-icons">cancel</span>
-                          </button>
-                        </div>
-                      ) : (
+                        <span className="text-sm text-gray-500">Tahun</span>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        {employee.yearsOfService || employee.workDuration || "2"} Tahun
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${screeningUI.bgColor}`}
+                    >
+                      {screeningUI.icon}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={`${counselingStatus ? "text-green-500" : "text-red-500"}`}>
+                      {counselingStatus ? "Sudah" : "Belum"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    {editingId === employee.id ? (
+                      <div className="flex space-x-2 justify-center">
                         <button
-                          className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
-                          onClick={() => editingId === null && startEditing(employee.id)}
-                          disabled={editingId !== null}
-                          aria-label="Edit employee"
+                          className={`text-[#9BCA61] hover:text-green-700 ${!hasChanges || updateEmployee.isPending || !editData.fullName?.trim() ? "opacity-50 cursor-not-allowed" : ""}`}
+                          onClick={() => hasChanges && editData.fullName?.trim() && saveEditing(employee.id)}
+                          disabled={!hasChanges || updateEmployee.isPending || !editData.fullName?.trim()}
+                          aria-label="Save"
+                          title={!editData.fullName?.trim() ? "Nama tidak boleh kosong" : "Simpan perubahan"}
                         >
-                          <span className="material-icons">edit</span>
+                          <span className="material-icons">
+                            {updateEmployee.isPending ? "hourglass_empty" : "check_circle"}
+                          </span>
                         </button>
-                      )}
+                        <button 
+                          className="text-[#EE4266] hover:text-red-700" 
+                          onClick={cancelEditing} 
+                          disabled={updateEmployee.isPending}
+                          aria-label="Cancel"
+                        >
+                          <span className="material-icons">cancel</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className={`text-[#8b8b8b] hover:text-[#488bbe] ${editingId !== null ? "opacity-50 cursor-not-allowed" : ""}`}
+                        onClick={() => editingId === null && startEditing(employee.id)}
+                        disabled={editingId !== null}
+                        aria-label="Edit employee"
+                      >
+                        <span className="material-icons">edit</span>
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {!isLastElement && (
+                  <tr className="h-[1px]">
+                    <td colSpan={9} className="p-0">
+                      <div 
+                        className="h-[1px] w-full"
+                        style={{ 
+                          background: 'linear-gradient(to right, #FFFFFF, #488BBE, #FFFFFF)'
+                        }}
+                      ></div>
                     </td>
                   </tr>
-                  {!isLastElement && (
-                    <tr className="h-[1px]">
-                      <td colSpan={9} className="p-0">
-                        <div 
-                          className="h-[1px] w-full"
-                          style={{ 
-                            background: 'linear-gradient(to right, #FFFFFF, #488BBE, #FFFFFF)'
-                          }}
-                        ></div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
 
       {/* Infinite Scroll Loading Indicator */}
       {isFetchingNextPage && (
@@ -449,6 +465,13 @@ const EmployeeTable = ({
             <span className="material-icons animate-spin text-[#488bbe] text-xl">refresh</span>
             <span className="text-[#488bbe] text-sm">Memuat data tambahan...</span>
           </div>
+        </div>
+      )}
+      
+      {/* No More Data */}
+      {!hasNextPage && employees.length > 0 && (
+        <div className="py-4 text-center text-gray-500 text-sm">
+          Semua data karyawan telah dimuat
         </div>
       )}
       
