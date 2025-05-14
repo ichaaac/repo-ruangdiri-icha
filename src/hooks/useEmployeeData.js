@@ -5,7 +5,6 @@ import { apiClient } from "../lib/api";
 export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   const queryClient = useQueryClient();
   
-  // Build filter params
   const buildFilterParams = () => {
     const params = {
       page: 1,
@@ -62,7 +61,7 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
         };
       } catch (error) {
         console.error('Employee total count error:', error);
-        return { totalCount: 0 };
+        return { totalData: 0 };
       }
     },
   });
@@ -111,9 +110,10 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['infiniteEmployees'] });
-      queryClient.invalidateQueries({ queryKey: ['employeeTotalCount'] });
+      queryClient.invalidateQueries({ queryKey: ['employeeTotalData'] });
     }
   });
+  
   // Process all loaded pages into flat array
   const allEmployees = infiniteQuery.data
     ? infiniteQuery.data.pages.flatMap(page => page.data)
@@ -124,7 +124,7 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
 
   return {
     employees: allEmployees,
-    totalData: totalCountData?.totalCount || 0,
+    totalData: totalData?.totalData || 0,  // Fixed: changed from totalCountData?.totalCount
     genderCounts: genderCounts,
     isLoading: infiniteQuery.isLoading,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
