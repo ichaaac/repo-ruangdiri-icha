@@ -1,5 +1,5 @@
-// src/components/organization/company/EmployeeFilters.jsx
-import React from "react";
+// src/components/organization/company/list/EmployeeFilters.jsx
+import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 
 const EmployeeFilters = ({ 
@@ -12,6 +12,53 @@ const EmployeeFilters = ({
   positionOptions
 }) => {
   if (!showModal) return null;
+
+  // Get positions based on selected department
+  const availablePositions = useMemo(() => {
+    if (!filtersInput.department || !departmentOptions) {
+      // If no department selected, return default positions
+      return ["Head", "Manager", "Staff", "Lead", "Specialist"];
+    }
+
+    // Find the department data
+    const departmentData = departmentOptions.find(
+      dept => typeof dept === 'object' ? dept.department === filtersInput.department : dept === filtersInput.department
+    );
+
+    if (departmentData && typeof departmentData === 'object' && departmentData.positions) {
+      return departmentData.positions;
+    }
+
+    // Fallback positions based on department name
+    const departmentPositions = {
+      "Human Resources": ["Head", "Manager", "Staff", "Recruiter", "Specialist"],
+      "Finance": ["Head", "Manager", "Accountant", "Analyst"],
+      "Marketing": ["Head", "Manager", "Specialist", "Coordinator", "Assistant"],
+      "Operations": ["Head", "Lead", "Manager", "Staff"],
+      "Information Technology": ["Head", "Lead", "Developer", "Designer", "Support"],
+      "IT": ["Head", "Lead", "Developer", "Designer", "Support"],
+      "Product Development": ["Head", "Lead", "Manager", "Engineer"],
+      "Legal": ["Head", "Counsel", "Specialist"],
+      "Sales": ["Head", "Manager", "Staff", "Analyst"],
+      "Engineering": ["Head", "Engineer", "Specialist", "Lead"]
+    };
+
+    return departmentPositions[filtersInput.department] || ["Head", "Manager", "Staff", "Lead"];
+  }, [filtersInput.department, departmentOptions]);
+
+  // Extract department names for display
+  const departmentNames = useMemo(() => {
+    return departmentOptions.map(dept => 
+      typeof dept === 'object' ? dept.department : dept
+    );
+  }, [departmentOptions]);
+
+  // Reset position when department changes (optional)
+  React.useEffect(() => {
+    if (filtersInput.position && !availablePositions.includes(filtersInput.position)) {
+      handleFilterSelect('position', null);
+    }
+  }, [filtersInput.department, filtersInput.position, availablePositions, handleFilterSelect]);
 
   return (
     <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
@@ -39,7 +86,7 @@ const EmployeeFilters = ({
               <div className="w-full flex flex-col justify-start items-start gap-3">
                 <div className="text-[#488bbe] text-sm font-normal">Departemen</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {departmentOptions.map((dept) => (
+                  {departmentNames.map((dept) => (
                     <button
                       key={dept}
                       className={`h-7 px-2.5 py-1 ${filtersInput.department === dept ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
@@ -51,11 +98,18 @@ const EmployeeFilters = ({
                 </div>
               </div>
               
-              {/* Position Selection */}
+              {/* Position Selection - Now Dynamic */}
               <div className="w-full flex flex-col justify-start items-start gap-3">
-                <div className="text-[#488bbe] text-sm font-normal">Jabatan</div>
+                <div className="text-[#488bbe] text-sm font-normal">
+                  Jabatan 
+                  {filtersInput.department && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      ({filtersInput.department})
+                    </span>
+                  )}
+                </div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {positionOptions.map((pos) => (
+                  {availablePositions.map((pos) => (
                     <button
                       key={pos}
                       className={`h-7 px-2.5 py-1 ${filtersInput.position === pos ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
@@ -65,6 +119,11 @@ const EmployeeFilters = ({
                     </button>
                   ))}
                 </div>
+                {!filtersInput.department && (
+                  <p className="text-xs text-gray-500 italic">
+                    Pilih departemen untuk melihat jabatan spesifik
+                  </p>
+                )}
               </div>
               
               {/* Gender, Screening and Counseling */}
