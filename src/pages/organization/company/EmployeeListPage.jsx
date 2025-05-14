@@ -10,10 +10,8 @@ import EmployeeFilters from "../../../components/organization/company/list/Emplo
 const EmployeeListPage = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   
-  // User profile
   const { data: userData } = useUserProfile();
   
-  // Filters and sorting
   const {
     searchInput,
     setSearchInput,
@@ -29,38 +27,10 @@ const EmployeeListPage = () => {
     hasActiveFilters
   } = useEmployeeFilters();
   
-  // Debounced search
-  const debouncedSearchTerm = useDebounce(searchInput, 500);
+  // Increase debounce to 600ms for better UX
+  const debouncedSearchTerm = useDebounce(searchInput, 600);
   
-  // Departments data
-  const { data: departmentsData } = useDepartments();
-  
-  // Process department data
-  const { departments, positions } = useMemo(() => {
-    if (!departmentsData || departmentsData.length === 0) {
-      return {
-        departments: ["Human Resources", "Finance", "Marketing"],
-        positions: ["Head", "Lead", "Manager", "Staff"]
-      };
-    }
-
-    const uniqueDepartments = new Set();
-    const uniquePositions = new Set();
-
-    departmentsData.forEach(item => {
-      if (item.department) uniqueDepartments.add(item.department);
-      if (item.positions && Array.isArray(item.positions)) {
-        item.positions.forEach(position => uniquePositions.add(position));
-      }
-    });
-
-    return {
-      departments: Array.from(uniqueDepartments),
-      positions: Array.from(uniquePositions)
-    };
-  }, [departmentsData]);
-  
-  // Employee data
+  // Use debounced search term for filtering
   const {
     employees,
     totalData,
@@ -74,8 +44,35 @@ const EmployeeListPage = () => {
     refetch,
     updateEmployee
   } = useEmployeeData(debouncedSearchTerm, appliedSortConfig, appliedFilters);
+  
+  const { data: departmentsData } = useDepartments();
+  
+  // Process departments and extract positions
+  const { departments, positions } = useMemo(() => {
+    const uniqueDepts = new Set();
+    const allPositions = new Set();
+    
+    // Extract departments from departments API
+    if (departmentsData && departmentsData.length > 0) {
+      departmentsData.forEach(item => {
+        if (item.department) uniqueDepts.add(item.department);
+      });
+    }
+    
+    // Also extract departments and positions from employees data
+    if (employees && employees.length > 0) {
+      employees.forEach(emp => {
+        if (emp.department) uniqueDepts.add(emp.department);
+        if (emp.position) allPositions.add(emp.position);
+      });
+    }
+    
+    return {
+      departments: Array.from(uniqueDepts).sort(),
+      positions: Array.from(allPositions).sort()
+    };
+  }, [departmentsData, employees]);
 
-  // Only show error state, no loading spinner
   if (isError) {
     return (
       <div className="flex justify-center items-center h-full min-h-[80vh]">
@@ -96,7 +93,6 @@ const EmployeeListPage = () => {
 
   return (
     <>
-      {/* Header with ID/EN switch */}
       <div className="flex items-center justify-end px-6 pt-8">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -108,18 +104,14 @@ const EmployeeListPage = () => {
         </div>
       </div>
 
-      {/* Aligned greeting and population boxes */}
       <div className="flex items-start justify-between px-6 mt-[44px]">
-        {/* User greeting - aligned with population boxes */}
         <div className="mt-2">
           <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
             Halo, {userData?.fullName || 'Pengguna'}
           </h1>
         </div>
 
-        {/* Population boxes */}
         <div className="flex flex-wrap gap-3">
-          {/* Total Employees */}
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
             <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
@@ -132,7 +124,6 @@ const EmployeeListPage = () => {
             </div>
           </div>
 
-          {/* Female Employees */}
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
             <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
@@ -145,7 +136,6 @@ const EmployeeListPage = () => {
             </div>
           </div>
 
-          {/* Male Employees */}
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
             <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
@@ -160,9 +150,7 @@ const EmployeeListPage = () => {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="px-4 md:px-8 pb-8 mt-8">
-        {/* Search and Filter Row */}
         <div className="flex flex-wrap items-center gap-4 mb-[21px]">
           <div className="relative w-full max-w-md">
             <span className="absolute inset-y-0 left-3 flex items-center">
@@ -198,7 +186,6 @@ const EmployeeListPage = () => {
           </div>
         </div>
 
-        {/* Employee Table */}
         <EmployeeTable
           employees={employees || []}
           searchInput={searchInput}
@@ -213,7 +200,6 @@ const EmployeeListPage = () => {
         />
       </div>
 
-      {/* Filter Modal */}
       <AnimatePresence>
         {showFilterModal && (
           <EmployeeFilters
@@ -222,8 +208,9 @@ const EmployeeListPage = () => {
             filtersInput={filtersInput}
             handleFilterSelect={handleFilterSelect}
             applyFilters={applyFilters}
-            departmentOptions={departments}
-            positionOptions={positions}
+            departments={departments}
+            positions={positions}
+            employees={employees}
           />
         )}
       </AnimatePresence>
