@@ -3,12 +3,13 @@ import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
-// Zod schema for form validation
+// Validation schema
 const passwordSchema = z.object({
   email: z.string().email("Email tidak valid"),
   oldPassword: z.string().min(1, "Password lama wajib diisi"),
@@ -17,16 +18,14 @@ const passwordSchema = z.object({
     .min(8, "Password minimal 8 karakter")
     .regex(/\d/, "Password harus memiliki minimal 1 angka")
     .regex(/[A-Z]/, "Password harus memiliki minimal 1 huruf kapital")
-    .regex(
-      /[!@#$%^&*(),.?":{}|<>]/,
-      "Password harus memiliki minimal 1 karakter khusus"
-    ),
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password harus memiliki minimal 1 karakter khusus"),
   confirmPassword: z.string().min(1, "Konfirmasi password wajib diisi"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Konfirmasi password tidak cocok",
   path: ["confirmPassword"],
 });
 
+// Password validation indicator component
 const PasswordValidationItem = ({ isValid, text }) => (
   <div className="flex items-center gap-2">
     <motion.span 
@@ -43,7 +42,44 @@ const PasswordValidationItem = ({ isValid, text }) => (
   </div>
 );
 
-// Confirmation modal component
+// Password input field component
+const PasswordField = ({ label, name, register, error, placeholder }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  
+  return (
+    <div>
+      <label className="block text-sm text-gray-500 mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type={showPassword ? "text" : "password"}
+          {...register(name)}
+          className={clsx(
+            "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
+            error ? "border-red-500" : "border-gray-300"
+          )}
+          placeholder={placeholder}
+          autoComplete={name.includes("new") ? "new-password" : "current-password"}
+        />
+        <button
+          type="button"
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+          onClick={() => setShowPassword(!showPassword)}
+        >
+          <span className="material-icons">
+            {showPassword ? "visibility_off" : "visibility"}
+          </span>
+        </button>
+      </div>
+      {error && (
+        <span className="text-xs text-red-500 mt-1 block">
+          {error.message}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Confirmation modal
 const ConfirmationModal = ({ onCancel, onConfirm }) => (
   <div className="fixed inset-0 z-[60] flex items-center justify-center">
     <div className="fixed inset-0 bg-black bg-opacity-30"></div>
@@ -80,13 +116,8 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
     hasUpperCase: false,
     hasSpecialChar: false,
   });
-  const [showOldPassword, setShowOldPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  
-  const queryClient = useQueryClient();
 
   const {
     register,
@@ -104,84 +135,51 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
     },
   });
 
-  // Watch for password changes to update validation indicators
   const newPassword = watch("newPassword");
 
+  // Update email when userData changes
   useEffect(() => {
     if (userData) {
       setValue("email", userData.email || "");
     }
   }, [userData, setValue]);
 
+  // Validate password in real-time
   useEffect(() => {
-    validatePassword(newPassword);
-  }, [newPassword]);
-
-  const validatePassword = (password) => {
     setValidations({
-      minLength: password.length >= 8,
-      hasNumber: /\d/.test(password),
-      hasUpperCase: /[A-Z]/.test(password),
-      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+      minLength: newPassword?.length >= 8,
+      hasNumber: /\d/.test(newPassword),
+      hasUpperCase: /[A-Z]/.test(newPassword),
+      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
     });
-  };
+  }, [newPassword]);
 
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: async (data) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
-      // Reset any previous error message
       setErrorMessage("");
-      
-      return apiClient.patch(
-        `/users/change-password`,
-        {
-          oldPassword: data.oldPassword,
-          newPassword: data.newPassword,
-        },
-        {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        }
-      );
+      return apiClient.patch('/users/change-password', {
+        oldPassword: data.oldPassword,
+        newPassword: data.newPassword,
+      });
     },
-    onSuccess: () => {
-      // No need to invalidate queries as the password change doesn't affect profile data
-      if (onClose) onClose(true); // Pass true to indicate success
-    },
+    onSuccess: () => onClose(true),
     onError: (error) => {
-      console.error("Error changing password:", error);
-      
-      // Handle specific error messages
-      if (error.response?.data?.message) {
-        setErrorMessage(error.response.data.message);
-      } else if (error.response?.status === 401) {
-        setErrorMessage("Password lama tidak valid");
-      } else {
-        setErrorMessage("Terjadi kesalahan saat mengubah password");
-      }
+      setErrorMessage(
+        error.response?.data?.message || 
+        error.response?.status === 401 ? "Password lama tidak valid" : 
+        "Terjadi kesalahan saat mengubah password"
+      );
     },
   });
 
   const onSubmit = (data) => {
-    // Clear any previous error
     setErrorMessage("");
-    
-    // Submit the password change
     changePasswordMutation.mutate(data);
   };
 
   const handleCloseClick = () => {
-    if (isDirty) {
-      setShowConfirmationModal(true);
-    } else {
-      onClose(false);
-    }
+    isDirty ? setShowConfirmationModal(true) : onClose(false);
   };
 
   return (
@@ -211,9 +209,7 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-5">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
-                  Email
-                </label>
+                <label className="block text-sm text-gray-500 mb-1">Email</label>
                 <input
                   type="email"
                   {...register("email")}
@@ -224,82 +220,32 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
               </div>
 
               <div>
-            <label className="block text-sm text-gray-500 mb-1">
-              Password Lama
-            </label>
-            <div className="relative">
-              <input
-                type={showOldPassword ? "text" : "password"}
-                {...register("oldPassword")}
-                className={clsx(
-                  "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
-                  errors.oldPassword ? "border-red-500" : "border-gray-300"
-                )}
-                placeholder="Masukkan password lama"
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                onMouseDown={() => setShowOldPassword(true)}
-                onMouseUp={() => setShowOldPassword(false)}
-                onMouseLeave={() => setShowOldPassword(false)}
-              >
-                <span className="material-icons">
-                  {showOldPassword ? "visibility_off" : "visibility"}
-                </span>
-              </button>
-            </div>
-
-            {errors.oldPassword && (
-              <span className="text-xs text-red-500 mt-1">
-                {errors.oldPassword.message}
-              </span>
-            )}
-
-            <div className="mt-2 text-right">
-              <button
-                type="button"
-                onClick={() => console.log("handle forgot password logic here")}
-                className=" p-0.5 text-sm text-ellipsis hover:underline"
-              >
-                Lupa Password?
-              </button>
-            </div>
-          </div>
-              <div>
-                <label className="block text-sm text-gray-500 mb-1">
-                  Password Baru
-                </label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? "text" : "password"}
-                    {...register("newPassword")}
-                    className={clsx(
-                      "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
-                      errors.newPassword ? "border-red-500" : "border-gray-300"
-                    )}
-                    placeholder="Masukkan password baru"
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                    onMouseDown={() => setShowNewPassword(true)}
-                    onMouseUp={() => setShowNewPassword(false)}
-                    onMouseLeave={() => setShowNewPassword(false)}
+                <PasswordField
+                  label="Password Lama"
+                  name="oldPassword"
+                  register={register}
+                  error={errors.oldPassword}
+                  placeholder="Masukkan password lama"
+                />
+                <div className="mt-2 text-right">
+                  <Link
+                    to="/forgot-password"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-[#488BBE] hover:underline transition-all"
                   >
-                    <span className="material-icons">
-                      {showNewPassword ? "visibility_off" : "visibility"}
-                    </span>
-                  </button>
+                    Lupa Password?
+                  </Link>
                 </div>
-                {errors.newPassword && (
-                  <span className="text-xs text-red-500 mt-1">
-                    {errors.newPassword.message}
-                  </span>
-                )}
               </div>
+
+              <PasswordField
+                label="Password Baru"
+                name="newPassword"
+                register={register}
+                error={errors.newPassword}
+                placeholder="Masukkan password baru"
+              />
 
               <div>
                 <span className="block text-xs text-gray-500 mb-3">
@@ -325,39 +271,13 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-500 mb-1">
-                  Konfirmasi Password Baru
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    {...register("confirmPassword")}
-                    className={clsx(
-                      "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
-                      errors.confirmPassword ? "border-red-500" : "border-gray-300"
-                    )}
-                    placeholder="Konfirmasi password baru"
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                    onMouseDown={() => setShowConfirmPassword(true)}
-                    onMouseUp={() => setShowConfirmPassword(false)}
-                    onMouseLeave={() => setShowConfirmPassword(false)}
-                  >
-                    <span className="material-icons">
-                      {showConfirmPassword ? "visibility_off" : "visibility"}
-                    </span>
-                  </button>
-                </div>
-                {errors.confirmPassword && (
-                  <span className="text-xs text-red-500 mt-1">
-                    {errors.confirmPassword.message}
-                  </span>
-                )}
-              </div>
+              <PasswordField
+                label="Konfirmasi Password Baru"
+                name="confirmPassword"
+                register={register}
+                error={errors.confirmPassword}
+                placeholder="Konfirmasi password baru"
+              />
 
               <div className="flex justify-end pt-2">
                 <button
@@ -372,8 +292,8 @@ const CompanyAccountEditModal = ({ onClose, userData }) => {
                 >
                   {isSubmitting || changePasswordMutation.isPending ? (
                     <span className="flex items-center">
-                      <span className="material-icons animate-spin text-sm inline-block mr-1">refresh</span>
-                      <span>Menyimpan...</span>
+                      <span className="material-icons animate-spin text-sm mr-1">refresh</span>
+                      Menyimpan...
                     </span>
                   ) : (
                     "Simpan"

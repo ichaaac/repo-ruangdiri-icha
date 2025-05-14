@@ -6,6 +6,70 @@ import CompanyInfoEditModal from "../../../components/organization/company/profi
 import CompanyAccountEditModal from "../../../components/organization/company/profile/CompanyAccountEditModal";
 import ProfilePictureUpload from "../../../components/organization/company/profile/ProfilePictureUpload";
 import { apiClient, getMe } from "../../../lib/api";
+import { parsePhoneNumber } from 'libphonenumber-js';
+
+// Helper function to format phone number with clear country code separation
+const formatPhoneDisplay = (phoneNumber) => {
+	if (!phoneNumber || phoneNumber === '') return '-';
+	
+	try {
+		// Parse the phone number
+		const parsed = parsePhoneNumber(phoneNumber);
+		
+		if (parsed && parsed.isValid()) {
+			// Get country calling code and national number
+			const countryCode = `+${parsed.countryCallingCode}`;
+			const nationalNumber = parsed.nationalNumber;
+			
+			// Format national number based on country
+			let formattedNational = nationalNumber;
+			
+			// Special formatting for Indonesia (+62)
+			if (parsed.country === 'ID' && nationalNumber.length >= 10) {
+				// Format: 8XX-XXXX-XXXX
+				formattedNational = `${nationalNumber.slice(0, 3)}-${nationalNumber.slice(3, 7)}-${nationalNumber.slice(7)}`;
+			} else if (parsed.country === 'US' && nationalNumber.length === 10) {
+				// Format: (XXX) XXX-XXXX
+				formattedNational = `(${nationalNumber.slice(0, 3)}) ${nationalNumber.slice(3, 6)}-${nationalNumber.slice(6)}`;
+			} else if (nationalNumber.length > 7) {
+				// Generic format for other countries
+				formattedNational = `${nationalNumber.slice(0, 3)}-${nationalNumber.slice(3, 7)}-${nationalNumber.slice(7)}`;
+			}
+			
+			// Return with clear separation: +XX | XXX-XXXX-XXXX
+			return `${countryCode} | ${formattedNational}`;
+		}
+		
+		// If parsing fails, return original with attempt to separate
+		if (phoneNumber.startsWith('+')) {
+			// Try to guess country code length (most are 1-3 digits, some are 4)
+			const withoutPlus = phoneNumber.substring(1);
+			let countryCodeLength = 1;
+			
+			// Check common country code patterns
+			if (withoutPlus.startsWith('1')) countryCodeLength = 1; // US, Canada
+			else if (withoutPlus.startsWith('7')) countryCodeLength = 1; // Russia
+			else if (withoutPlus.startsWith('44')) countryCodeLength = 2; // UK
+			else if (withoutPlus.startsWith('62')) countryCodeLength = 2; // Indonesia
+			else if (withoutPlus.startsWith('86')) countryCodeLength = 2; // China
+			else if (withoutPlus.startsWith('358')) countryCodeLength = 3; // Finland
+			else if (withoutPlus.startsWith('971')) countryCodeLength = 3; // UAE
+			else if (withoutPlus.length > 3) countryCodeLength = 2; // Default guess
+			
+			const countryCode = `+${withoutPlus.substring(0, countryCodeLength)}`;
+			const number = withoutPlus.substring(countryCodeLength);
+			
+			if (number) {
+				return `${countryCode} | ${number}`;
+			}
+		}
+		
+		return phoneNumber;
+	} catch (error) {
+		console.error("Error formatting phone:", error);
+		return phoneNumber;
+	}
+};
 
 const Modal = ({ isOpen, onClose, children }) => {
 	if (!isOpen) return null;
@@ -279,7 +343,7 @@ const CompanyProfilePage = () => {
 										Nomor Telepon
 									</span>
 									<span className="block text-base text-neutral-600 mt-1 pl-0">
-										{userData?.organization?.phone || "-"}
+										{formatPhoneDisplay(userData?.organization?.phone)}
 									</span>
 								</div>
 							</div>
