@@ -66,7 +66,7 @@ const PasswordField = ({ label, name, register, error, placeholder }) => {
           onClick={() => setShowPassword(!showPassword)}
         >
           <span className="material-icons">
-            {showPassword ? "visibility_off" : "visibility"}
+            {showPassword ? "visibility" : "visibility_off"}
           </span>
         </button>
       </div>
