@@ -1,6 +1,185 @@
 // src/components/organization/company/list/EmployeeTable.jsx
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Menu, Transition } from '@headlessui/react';
+import clsx from 'clsx';
+
+// Custom Dropdown Component using HeadlessUI
+const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
+  const currentOption = options.find(opt => 
+    (opt.value !== undefined ? opt.value : opt) === value
+  );
+  const displayValue = currentOption?.label || currentOption || value;
+
+  const handleSelect = (optionValue) => {
+    onChange({ target: { name, value: optionValue } });
+  };
+
+  return (
+    <Menu as="div" className="relative">
+      <Menu.Button
+        disabled={disabled}
+        className={clsx(
+          "w-full text-left px-3 py-1.5 text-sm border rounded-md transition-all",
+          "flex items-center justify-between gap-2",
+          disabled 
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" 
+            : "bg-white hover:border-[#488BBE] border-gray-300 focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]",
+          className
+        )}
+      >
+        <span className="truncate">{displayValue}</span>
+        <span className="material-icons text-gray-400 text-sm">
+          expand_more
+        </span>
+      </Menu.Button>
+
+      <Transition
+        as={React.Fragment}
+        enter="transition ease-out duration-100"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-75"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="absolute z-50 mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto">
+          {options.map((option) => {
+            const optionValue = option.value !== undefined ? option.value : option;
+            const optionLabel = option.label || option;
+            const isSelected = optionValue === value;
+
+            return (
+              <Menu.Item key={optionValue}>
+                {({ active }) => (
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(optionValue)}
+                    className={clsx(
+                      "w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between",
+                      active && "bg-[#E2F9FF]",
+                      isSelected && "bg-[#E2F9FF] text-[#488BBE] font-medium"
+                    )}
+                  >
+                    <span>{optionLabel}</span>
+                    {isSelected && (
+                      <span className="material-icons text-[#488BBE] text-sm">check</span>
+                    )}
+                  </button>
+                )}
+              </Menu.Item>
+            );
+          })}
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+};
+
+// Custom Scrollbar Component
+const CustomScrollbar = ({ contentRef, className = "" }) => {
+  const scrollbarRef = useRef(null);
+  const thumbRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [scrollRatio, setScrollRatio] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Update scrollbar on content scroll
+  const updateScrollbar = useCallback(() => {
+    if (!contentRef.current) return;
+    
+    const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
+    const maxScroll = scrollWidth - clientWidth;
+    
+    if (maxScroll > 0) {
+      setScrollRatio(scrollLeft / maxScroll);
+      setIsVisible(true);
+    } else {
+      setIsVisible(false);
+    }
+  }, [contentRef]);
+
+  // Handle scrollbar click
+  const handleScrollbarClick = useCallback((e) => {
+    if (!contentRef.current || !scrollbarRef.current || e.target === thumbRef.current) return;
+    
+    const rect = scrollbarRef.current.getBoundingClientRect();
+    const percentage = (e.clientX - rect.left) / rect.width;
+    const maxScroll = contentRef.current.scrollWidth - contentRef.current.clientWidth;
+    
+    contentRef.current.scrollLeft = percentage * maxScroll;
+  }, [contentRef]);
+
+  // Handle thumb drag
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    
+    const startX = e.clientX;
+    const startScrollLeft = contentRef.current.scrollLeft;
+    const scrollbarWidth = scrollbarRef.current.offsetWidth;
+    const maxScroll = contentRef.current.scrollWidth - contentRef.current.clientWidth;
+    
+    const handleMouseMove = (e) => {
+      const deltaX = e.clientX - startX;
+      const percentage = deltaX / scrollbarWidth;
+      contentRef.current.scrollLeft = startScrollLeft + (percentage * maxScroll);
+    };
+    
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [contentRef]);
+
+  // Setup scroll listener
+  React.useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    
+    content.addEventListener('scroll', updateScrollbar);
+    updateScrollbar();
+    
+    // Handle resize
+    const resizeObserver = new ResizeObserver(updateScrollbar);
+    resizeObserver.observe(content);
+    
+    return () => {
+      content.removeEventListener('scroll', updateScrollbar);
+      resizeObserver.disconnect();
+    };
+  }, [contentRef, updateScrollbar]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div className={clsx("relative w-full h-3 px-4 mb-2", className)}>
+      <div 
+        ref={scrollbarRef}
+        className="relative h-1 bg-gray-200 rounded-full cursor-pointer"
+        onClick={handleScrollbarClick}
+      >
+        <div 
+          ref={thumbRef}
+          className={clsx(
+            "absolute h-full bg-[#488BBE] rounded-full transition-opacity",
+            isDragging ? "opacity-100" : "opacity-80 hover:opacity-100"
+          )}
+          style={{ 
+            width: '20%',
+            left: `${scrollRatio * 80}%`,
+            cursor: isDragging ? 'grabbing' : 'grab'
+          }}
+          onMouseDown={handleMouseDown}
+        />
+      </div>
+    </div>
+  );
+};
 
 const EmployeeTable = ({ 
   employees, 
@@ -21,44 +200,7 @@ const EmployeeTable = ({
   const [showEditTooltip, setShowEditTooltip] = useState(null);
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
-  const scrollRef = useRef(null);
   const contentRef = useRef(null);
-  const [showScrollBar, setShowScrollBar] = useState(false);
-  const [scrollPercentage, setScrollPercentage] = useState(0);
-
-  // Setup horizontal scroll
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!contentRef.current) return;
-      const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
-      const percentage = (scrollLeft / (scrollWidth - clientWidth)) * 100;
-      setScrollPercentage(percentage);
-      setShowScrollBar(scrollWidth > clientWidth);
-    };
-
-    const container = contentRef.current;
-    if (!container) return;
-
-    container.addEventListener('scroll', handleScroll);
-    const resizeObserver = new ResizeObserver(handleScroll);
-    resizeObserver.observe(container);
-    handleScroll();
-    
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  // Simplified scroll bar click handler
-  const handleScrollClick = (e) => {
-    if (!contentRef.current || !scrollRef.current) return;
-    
-    const rect = scrollRef.current.getBoundingClientRect();
-    const percentage = ((e.clientX - rect.left) / rect.width) * 100;
-    const scrollPosition = (percentage / 100) * (contentRef.current.scrollWidth - contentRef.current.clientWidth);
-    contentRef.current.scrollLeft = scrollPosition;
-  };
 
   // Infinite scroll observer
   const lastEmployeeElementRef = useCallback(node => {
@@ -72,24 +214,14 @@ const EmployeeTable = ({
     if (node) observerRef.current.observe(node);
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  // Get positions for department
+  // Get positions for department - using only backend data
   const getPositionsForDepartment = (department) => {
+    // Get unique positions from employees in the same department
     const deptEmployees = employees.filter(emp => emp.department === department);
-    const uniquePositions = [...new Set(deptEmployees.map(emp => emp.position))];
+    const uniquePositions = [...new Set(deptEmployees.map(emp => emp.position))].filter(Boolean);
     
-    if (uniquePositions.length) return uniquePositions;
-    
-    const defaults = {
-      "Finance": ["Head", "Manager", "Accountant", "Analyst", "Assistant", "Coordinator"],
-      "Human Resources": ["Head", "Manager", "Staff", "Recruiter", "Specialist"],
-      "Marketing": ["Head", "Manager", "Specialist", "Coordinator", "Assistant"],
-      "Operations": ["Head", "Lead", "Manager", "Staff", "Coordinator"],
-      "IT": ["Head", "Lead", "Developer", "Designer", "Support"],
-      "Engineering": ["Head", "Lead", "Engineer", "Specialist"],
-      "Sales": ["Head", "Manager", "Staff", "Representative"]
-    };
-    
-    return defaults[department] || ["Head", "Manager", "Staff", "Lead"];
+    // Return positions from current employees, or use global positions if none found
+    return uniquePositions.length > 0 ? uniquePositions : positionOptions;
   };
 
   // Edit handlers
@@ -174,62 +306,19 @@ const EmployeeTable = ({
       return editData[key] !== original[key];
     });
 
-  // Responsive Custom Select Component
-  const CustomSelect = ({ name, value, onChange, options, className }) => (
-    <div className="relative">
-      <select
-        name={name}
-        value={value}
-        onChange={onChange}
-        className={`appearance-none text-xs md:text-sm text-gray-600 border border-gray-300 rounded px-2 md:px-3 py-1 md:py-1.5 pr-6 md:pr-8 bg-white hover:border-primary-variant1 focus:outline-none focus:border-primary-variant1 focus:ring-1 focus:ring-primary-variant1 transition-all ${className}`}
-      >
-        {options.map(opt => (
-          <option key={opt.value || opt} value={opt.value || opt}>
-            {opt.label || opt}
-          </option>
-        ))}
-      </select>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 md:px-2">
-        <span className="material-icons text-gray-400 text-sm md:text-base">expand_more</span>
-      </div>
-    </div>
-  );
-
   return (
     <div className="relative">
-      {/* Simple Horizontal Scroll Bar */}
-      {showScrollBar && (
-        <div className="absolute top-0 left-0 right-0 z-10 h-3 px-4">
-          <div 
-            ref={scrollRef}
-            className="relative h-1 bg-gray-200 rounded-full cursor-pointer overflow-hidden"
-            onClick={handleScrollClick}
-          >
-            <div 
-              className="absolute h-full bg-primary rounded-full transition-all duration-150"
-              style={{ 
-                width: '20%', 
-                left: `${scrollPercentage * 0.8}%`
-              }}
-            />
-          </div>
-        </div>
-      )}
+      <CustomScrollbar contentRef={contentRef} className="mb-2" />
       
       <div 
         ref={contentRef} 
-        className="overflow-x-auto mt-5"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="overflow-x-auto scrollbar-hide"
       >
-        <style dangerouslySetInnerHTML={{ __html: `
-          [data-scrollbar]::-webkit-scrollbar { display: none; }
-        `}} />
-        
         <table className="w-full" style={{ minWidth: '1200px' }}>
-          <thead className="bg-primary-light">
+          <thead className="bg-[#E2F9FF]">
             <tr>
               <th 
-                className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("fullName")}
               >
                 <div className="flex items-center gap-1">
@@ -237,11 +326,11 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">JABATAN</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JABATAN</th>
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
               <th 
-                className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("age")}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -250,7 +339,7 @@ const EmployeeTable = ({
                 </div>
               </th>
               <th 
-                className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("yearsOfService")}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -258,7 +347,7 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
                 </div>
               </th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center">
                   SKRINING
                   <span 
@@ -301,8 +390,8 @@ const EmployeeTable = ({
                   </AnimatePresence>
                 </div>
               </th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-primary uppercase tracking-wider whitespace-nowrap">KONSELING</th>
-              <th className="px-6 py-3 text-center whitespace-nowrap"></th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KONSELING</th>
+              <th className="px-4 py-3 text-center whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody>
@@ -315,53 +404,53 @@ const EmployeeTable = ({
               return (
                 <React.Fragment key={employee.id}>
                   <tr 
-                    className="bg-white hover:bg-gray-50"
+                    className="bg-white hover:bg-gray-50 transition-colors"
                     ref={isLastElement ? lastEmployeeElementRef : null}
                   >
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="text"
                           name="fullName"
                           value={editData.fullName}
                           onChange={handleEditChange}
-                          className="text-xs md:text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 md:px-3 py-1 md:py-1.5 w-full min-w-[150px] md:min-w-[200px] hover:border-primary-variant1 focus:outline-none focus:border-primary-variant1 focus:ring-1 focus:ring-primary-variant1 transition-all"
+                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-all"
                         />
                       ) : (
-                        <div className="text-xs md:text-sm font-medium text-gray-900 pr-4" title={employee.fullName}>
+                        <div className="text-sm font-medium text-gray-900" title={employee.fullName}>
                           {highlightText(employee.fullName)}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <CustomSelect
+                        <CustomDropdown
                           name="department"
                           value={editData.department}
                           onChange={handleEditChange}
                           options={departmentOptions}
-                          className="w-full min-w-[120px] md:min-w-[150px]"
+                          className="min-w-[150px]"
                         />
                       ) : (
-                        <div className="text-xs md:text-sm text-gray-500">{employee.department}</div>
+                        <div className="text-sm text-gray-600">{employee.department}</div>
                       )}
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <CustomSelect
+                        <CustomDropdown
                           name="position"
                           value={editData.position}
                           onChange={handleEditChange}
                           options={positions}
-                          className="w-full min-w-[100px] md:min-w-[120px]"
+                          className="min-w-[120px]"
                         />
                       ) : (
-                        <div className="text-xs md:text-sm text-gray-500">{employee.position}</div>
+                        <div className="text-sm text-gray-600">{employee.position}</div>
                       )}
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <CustomSelect
+                        <CustomDropdown
                           name="gender"
                           value={editData.gender}
                           onChange={handleEditChange}
@@ -369,15 +458,15 @@ const EmployeeTable = ({
                             { value: 'male', label: 'L' },
                             { value: 'female', label: 'P' }
                           ]}
-                          className="w-14 md:w-16"
+                          className="w-16"
                         />
                       ) : (
-                        <div className="text-xs md:text-sm text-gray-500">
+                        <div className="text-sm text-gray-600">
                           {employee.gender === 'male' ? 'L' : 'P'}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-center whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex items-center justify-center gap-1">
                           <input
@@ -385,20 +474,19 @@ const EmployeeTable = ({
                             name="age"
                             value={editData.age}
                             onChange={handleEditChange}
-                            className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-1.5 md:px-2 py-1 w-10 md:w-12 text-center hover:border-primary-variant1 focus:outline-none focus:border-primary-variant1 focus:ring-1 focus:ring-primary-variant1 transition-all"
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-all"
                             maxLength="2"
                             inputMode="numeric"
                           />
-                          <span className="text-xs md:text-sm text-gray-500">Tahun</span>
+                          <span className="text-sm text-gray-600">Tahun</span>
                         </div>
                       ) : (
-                        <div className="text-xs md:text-sm text-gray-500">
-                          <span>{employee.age}</span>
-                          <span className="ml-1">Tahun</span>
+                        <div className="text-sm text-gray-600">
+                          {employee.age} Tahun
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-center whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex items-center justify-center gap-1">
                           <input
@@ -406,22 +494,24 @@ const EmployeeTable = ({
                             name="yearsOfService"
                             value={editData.yearsOfService}
                             onChange={handleEditChange}
-                            className="text-xs md:text-sm text-gray-500 border border-gray-300 rounded px-1.5 md:px-2 py-1 w-10 md:w-12 text-center hover:border-primary-variant1 focus:outline-none focus:border-primary-variant1 focus:ring-1 focus:ring-primary-variant1 transition-all"
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-all"
                             maxLength="2"
                             inputMode="numeric"
                           />
-                          <span className="text-xs md:text-sm text-gray-500">Tahun</span>
+                          <span className="text-sm text-gray-600">Tahun</span>
                         </div>
                       ) : (
-                        <div className="text-xs md:text-sm text-gray-500">
-                          <span>{employee.yearsOfService}</span>
-                          <span className="ml-1">Tahun</span>
+                        <div className="text-sm text-gray-600">
+                          {employee.yearsOfService} Tahun
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-3 text-center whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${statusUI.bg} cursor-pointer`}
+                        className={clsx(
+                          "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
+                          statusUI.bg
+                        )}
                         onMouseEnter={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           setHoveredStatus({
@@ -432,26 +522,29 @@ const EmployeeTable = ({
                         }}
                         onMouseLeave={() => setHoveredStatus(null)}
                       >
-                        <span className={`material-icons ${statusUI.color}`}>{statusUI.icon}</span>
+                        <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-center whitespace-nowrap">
-                      <span className={employee.counselingStatus ? "text-green-500" : "text-red-500"}>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span className={clsx("text-sm", employee.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
                         {employee.counselingStatus ? "Sudah" : "Belum"}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-center relative whitespace-nowrap">
+                    <td className="px-4 py-3 text-center relative whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex space-x-2 justify-center">
                           <button
-                            className={`text-accent hover:text-accent-variant1 transition-colors ${!hasChanges || updateEmployee.isPending ? "opacity-50 cursor-not-allowed" : ""}`}
+                            className={clsx(
+                              "text-[#87C054] hover:text-[#6DAF31] transition-colors",
+                              (!hasChanges || updateEmployee.isPending) && "opacity-50 cursor-not-allowed"
+                            )}
                             onClick={() => hasChanges && saveEditing(employee.id)}
                             disabled={!hasChanges || updateEmployee.isPending}
                           >
                             <span className="material-icons">check_circle</span>
                           </button>
                           <button 
-                            className="text-red-500 hover:text-red-700 transition-colors" 
+                            className="text-[#EE4266] hover:text-red-700 transition-colors" 
                             onClick={cancelEditing}
                           >
                             <span className="material-icons">cancel</span>
@@ -459,7 +552,7 @@ const EmployeeTable = ({
                         </div>
                       ) : (
                         <button
-                          className="text-gray-400 hover:text-primary-variant1 transition-colors relative"
+                          className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
                           onClick={() => startEditing(employee.id)}
                           disabled={editingId !== null}
                           onMouseEnter={() => setShowEditTooltip(employee.id)}
@@ -493,12 +586,10 @@ const EmployeeTable = ({
       <AnimatePresence>
         {hoveredStatus && (
           <motion.div
-            className="fixed bg-gray-800 text-white text-xs rounded px-2 h-[19px] flex items-center whitespace-nowrap z-50 shadow-lg"
+            className="fixed bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50 shadow-lg"
             style={{ 
               left: hoveredStatus.x,
-              top: hoveredStatus.y - 9.5,
-              width: getScreeningStatusUI(hoveredStatus.status).text === 'Berisiko' ? '61px' : 
-                     getScreeningStatusUI(hoveredStatus.status).text === 'Pengawasan' ? '73px' : '44px'
+              top: hoveredStatus.y - 10
             }}
             initial={{ opacity: 0, x: -5 }}
             animate={{ opacity: 1, x: 0 }}
@@ -512,7 +603,16 @@ const EmployeeTable = ({
       {/* Loading indicator */}
       {isFetchingNextPage && (
         <div className="py-4 text-center">
-          <span className="material-icons animate-spin text-primary">refresh</span>
+          <span className="material-icons animate-spin text-[#488BBE]">refresh</span>
+          <span className="text-[#488BBE] text-sm ml-2">Loading...</span>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {employees.length === 0 && !isFetchingNextPage && (
+        <div className="text-center py-8">
+          <span className="material-icons text-gray-400 text-5xl">business_center</span>
+          <p className="text-gray-500 mt-2">Tidak ada data karyawan.</p>
         </div>
       )}
     </div>
