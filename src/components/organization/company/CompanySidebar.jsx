@@ -119,7 +119,7 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
     },
     {
       icon: "table_chart",
-      label: "Karyawan",
+      label: "Daftar Karyawan",
       path: "/organization/company/employee-list",
     },
     {

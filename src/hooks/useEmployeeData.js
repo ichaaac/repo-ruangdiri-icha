@@ -13,17 +13,8 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   
     if (searchTerm) params.search = searchTerm;
   
-    // Fix field mapping for sorting
-    if (sortConfig.key && sortConfig.direction) {
-      const sortKeyMap = {
-        'fullName': 'name',
-        'age': 'age',
-        'yearsOfService': 'yearsOfService' // Use the correct field name
-      };
-      
-      params.sortBy = sortKeyMap[sortConfig.key] || sortConfig.key;
-      params.sortOrder = sortConfig.direction === 'ascending' ? 'asc' : 'desc';
-    }
+    // Don't send sort parameters since backend returns 400
+    // We'll sort on frontend instead
     
     // Filters
     if (filters.department) params.department = filters.department;
@@ -35,8 +26,50 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     return params;
   };
 
+  // Helper function to sort data on frontend
+  const sortData = (data, config) => {
+    if (!config.key || !config.direction) return data;
+    
+    const sorted = [...data].sort((a, b) => {
+      let aValue = a[config.key];
+      let bValue = b[config.key];
+      
+      // Handle null/undefined values
+      if (aValue === null || aValue === undefined) aValue = '';
+      if (bValue === null || bValue === undefined) bValue = '';
+      
+      // Convert to string for name comparison with natural sort
+      if (config.key === 'fullName') {
+        aValue = String(aValue).toLowerCase();
+        bValue = String(bValue).toLowerCase();
+        
+        // Natural sort for alphanumeric strings
+        return aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      
+      // Numeric comparison for age and yearsOfService
+      if (config.key === 'age' || config.key === 'yearsOfService') {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+        return aValue - bValue;
+      }
+      
+      // Default string comparison
+      if (aValue < bValue) return -1;
+      if (aValue > bValue) return 1;
+      return 0;
+    });
+    
+    // Reverse for descending
+    if (config.direction === 'descending') {
+      sorted.reverse();
+    }
+    
+    return sorted;
+  };
+
   const infiniteQuery = useInfiniteQuery({
-    queryKey: ['infiniteEmployees', searchTerm, sortConfig, filters],
+    queryKey: ['infiniteEmployees', searchTerm, filters], // Remove sortConfig from key
     queryFn: async ({ pageParam = 1 }) => {
       const params = { 
         ...buildFilterParams(), 
@@ -85,12 +118,13 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     }
   });
   
-  // Flatten all pages into single array
+  // Flatten all pages into single array and sort on frontend
   const allEmployees = infiniteQuery.data?.pages.flatMap(page => page.data) || [];
+  const sortedEmployees = sortData(allEmployees, sortConfig);
   const metadata = infiniteQuery.data?.pages[0]?.metadata;
 
   return {
-    employees: allEmployees,
+    employees: sortedEmployees,
     totalData: metadata?.totalData || 0,
     genderCounts: metadata?.byGender || { male: 0, female: 0 },
     isLoading: infiniteQuery.isLoading,

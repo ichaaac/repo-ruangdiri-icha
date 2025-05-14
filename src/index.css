@@ -399,9 +399,36 @@ header {
   }
 }
 
+/* Custom scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: #e5e7eb;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #9ca3af;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #9ca3af #e5e7eb;
+}
+
 @layer utilities {
   .scrollbar-custom::-webkit-scrollbar {
     width: 8px;
+    height: 8px;
   }
   .scrollbar-custom::-webkit-scrollbar-track {
     background-color: #e5e7eb;
@@ -413,6 +440,16 @@ header {
   }
   .scrollbar-custom::-webkit-scrollbar-thumb:hover {
     background-color: #6b7280;
+  }
+
+  /* Make scrollbar always visible on hover */
+  .scrollbar-custom {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  
+  .scrollbar-custom:hover {
+    overflow-x: auto;
   }
 
   .date-none::-webkit-inner-spin-button,

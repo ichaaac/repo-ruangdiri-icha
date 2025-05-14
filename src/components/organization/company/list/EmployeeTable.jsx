@@ -114,8 +114,6 @@ const EmployeeTable = ({
     
     if (name === 'age' || name === 'workDuration') {
       processedValue = value.substring(0, 2);
-    } else {
-      processedValue = value.substring(0, 70);
     }
     
     setEditData((prev) => ({ ...prev, [name]: processedValue }));
@@ -163,12 +161,23 @@ const EmployeeTable = ({
   };
 
   return (
-    <div className="overflow-x-auto scrollbar-custom">
+    <div className="overflow-x-auto scrollbar-custom" style={{ scrollbarGutter: 'stable' }}>
       <table className="w-full table-fixed">
+        <colgroup>
+          <col style={{ width: '250px' }} />
+          <col style={{ width: '160px' }} />
+          <col style={{ width: '150px' }} />
+          <col style={{ width: '120px' }} />
+          <col style={{ width: '80px' }} />
+          <col style={{ width: '140px' }} />
+          <col style={{ width: '100px' }} />
+          <col style={{ width: '100px' }} />
+          <col style={{ width: '80px' }} />
+        </colgroup>
         <thead className="bg-[#E8F5FF]">
           <tr>
             <th 
-              className="w-[200px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
               onClick={() => requestSort("fullName")}
             >
               <div className="flex items-center gap-2">
@@ -176,17 +185,17 @@ const EmployeeTable = ({
                 <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
               </div>
             </th>
-            <th className="w-[150px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
               DEPARTEMEN
             </th>
-            <th className="w-[150px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
               JABATAN
             </th>
-            <th className="w-[100px] px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-bold text-[#488bbe] uppercase tracking-wider">
               JENIS KELAMIN
             </th>
             <th 
-              className="w-[80px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
               onClick={() => requestSort("age")}
             >
               <div className="flex items-center justify-center gap-2">
@@ -195,7 +204,7 @@ const EmployeeTable = ({
               </div>
             </th>
             <th 
-              className="w-[120px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
+              className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider cursor-pointer"
               onClick={() => requestSort("yearsOfService")}
             >
               <div className="flex items-center justify-center gap-2">
@@ -203,7 +212,7 @@ const EmployeeTable = ({
                 <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
               </div>
             </th>
-            <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider relative">
+            <th className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider relative">
               <div className="flex items-center justify-center">
                 SKRINING
                 <span 
@@ -218,13 +227,11 @@ const EmployeeTable = ({
                 <AnimatePresence>
                   {showHelpTooltip && (
                     <motion.div 
-                      className="absolute bg-[#00000099] text-white text-xs rounded-md p-2.5 shadow-lg"
+                      className="fixed bg-[#00000099] text-white text-xs rounded-md p-2.5 shadow-lg z-[1000]"
                       style={{ 
                         width: "150px",
-                        top: "-80px",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        zIndex: 9999
+                        top: helpIconRef.current ? helpIconRef.current.getBoundingClientRect().top - 80 : 0,
+                        left: helpIconRef.current ? helpIconRef.current.getBoundingClientRect().left + 20 : 0,
                       }}
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -246,7 +253,7 @@ const EmployeeTable = ({
                         </div>
                         <div className="flex items-center">
                           <span className="material-icons text-gray-400 text-sm mr-1.5">remove</span>
-                          <span>Belum Skrining</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>Belum Skrining</span>
                         </div>
                       </div>
                     </motion.div>
@@ -254,10 +261,10 @@ const EmployeeTable = ({
                 </AnimatePresence>
               </div>
             </th>
-            <th className="w-[100px] px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
+            <th className="px-6 py-3 text-center text-xs font-bold text-[#488bbe] uppercase tracking-wider">
               KONSELING
             </th>
-            <th className="w-[80px] px-6 py-3 text-center">
+            <th className="px-6 py-3 text-center">
               {/* Actions column */}
             </th>
           </tr>
@@ -281,7 +288,7 @@ const EmployeeTable = ({
                   onMouseEnter={() => setHoveredRow(employee.id)}
                   onMouseLeave={() => setHoveredRow(null)}
                 >
-                  <td className="px-6 py-4 truncate">
+                  <td className="px-6 py-4">
                     {editingId === employee.id ? (
                       <input
                         type="text"
@@ -289,12 +296,11 @@ const EmployeeTable = ({
                         value={editData.fullName}
                         onChange={handleEditChange}
                         className="text-sm font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 w-full"
-                        maxLength={70}
                         required
                       />
                     ) : (
                       <div 
-                        className={`text-sm font-medium text-gray-900 cursor-pointer truncate ${
+                        className={`text-sm font-medium text-gray-900 cursor-pointer ${
                           hoveredName === employee.id ? 'text-[#488bbe] underline' : ''
                         }`}
                         onMouseEnter={() => setHoveredName(employee.id)}
@@ -305,7 +311,7 @@ const EmployeeTable = ({
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 truncate">
+                  <td className="px-6 py-4">
                     {editingId === employee.id ? (
                       <select
                         name="department"
@@ -318,12 +324,12 @@ const EmployeeTable = ({
                         ))}
                       </select>
                     ) : (
-                      <div className="text-sm text-gray-500 truncate" title={employee.department}>
+                      <div className="text-sm text-gray-500" title={employee.department}>
                         {employee.department}
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 truncate">
+                  <td className="px-6 py-4">
                     {editingId === employee.id ? (
                       <select
                         name="position"
@@ -336,7 +342,7 @@ const EmployeeTable = ({
                         ))}
                       </select>
                     ) : (
-                      <div className="text-sm text-gray-500 truncate" title={employee.position}>
+                      <div className="text-sm text-gray-500" title={employee.position}>
                         {employee.position}
                       </div>
                     )}
