@@ -1,6 +1,6 @@
 // src/hooks/useEmployeeData.js
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiClient } from "../lib/api"; 
+import { apiClient } from "../lib/api"; // Only import apiClient
 
 export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   const queryClient = useQueryClient();
@@ -14,24 +14,20 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     if (searchTerm) {
       params.search = searchTerm;
     }
-  
-    // Only add sort params if there's a direction (not default state)
+
+    // Map frontend key to backend expected key
     if (sortConfig.key && sortConfig.direction) {
-      // Map frontend key to backend expected key
       const sortKeyMap = {
-        'fullName': 'name', // If backend expects 'name' instead of 'fullName'
+        'fullName': 'name', // Backend expects 'name' not 'fullName'
         'age': 'age',
-        'yearsOfService': 'years_of_service' // If backend expects snake_case
+        'yearsOfService': 'years_of_service' // or whatever backend expects
       };
       
       params.sortBy = sortKeyMap[sortConfig.key] || sortConfig.key;
       params.sortOrder = sortConfig.direction === 'ascending' ? 'asc' : 'desc';
     }
-    if (sortConfig.key && sortConfig.direction) {
-      params.sortBy = sortConfig.key;
-      params.sortOrder = sortConfig.direction === 'ascending' ? 'asc' : 'desc';
-    }
 
+    // Add filter parameters
     if (filters.department) {
       params.department = filters.department;
     }
@@ -90,10 +86,9 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     },
   });
 
-  // Update employee mutation - only send changed fields
+  // Update employee mutation
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      // Remove employeeId as it's not used now
       const { employeeId, ...dataToSend } = data;
       return apiClient.patch(`/organizations/employees/${id}`, dataToSend);
     },
@@ -114,7 +109,7 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
 
   return {
     employees: allEmployees,
-    totalData: totalDataFromQuery,  // Use totalData from the filtered query metadata
+    totalData: totalDataFromQuery,
     genderCounts: genderCounts,
     isLoading: infiniteQuery.isLoading,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
@@ -144,14 +139,14 @@ export const useUserProfile = () => {
   });
 };
 
-// Departments data hook
+// Departments data hook - using apiClient directly
 export const useDepartments = () => {
   return useQuery({
     queryKey: ['departments'],
     queryFn: async () => {
       try {
-        const response = await api.organization.company.getDepartments();
-        return response?.data || [];
+        const response = await apiClient.get("/organizations/departments");
+        return response?.data?.data || [];
       } catch (error) {
         console.error('Departments API error:', error);
         // Fallback data

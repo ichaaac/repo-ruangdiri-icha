@@ -11,7 +11,7 @@ const EmployeeListPage = () => {
   const [showFilterModal, setShowFilterModal] = useState(false);
   
   // User profile
-  const { data: userData, isLoading: userLoading } = useUserProfile();
+  const { data: userData } = useUserProfile();
   
   // Filters and sorting
   const {
@@ -29,11 +29,13 @@ const EmployeeListPage = () => {
     hasActiveFilters
   } = useEmployeeFilters();
   
+  // Debounced search
   const debouncedSearchTerm = useDebounce(searchInput, 500);
   
   // Departments data
   const { data: departmentsData } = useDepartments();
   
+  // Process department data
   const { departments, positions } = useMemo(() => {
     if (!departmentsData || departmentsData.length === 0) {
       return {
@@ -73,18 +75,7 @@ const EmployeeListPage = () => {
     updateEmployee
   } = useEmployeeData(debouncedSearchTerm, appliedSortConfig, appliedFilters);
 
-  // if (isLoading && !isFetchingNextPage) {
-  //   return (
-  //     <div className="flex justify-center items-center h-full min-h-[80vh]">
-  //       <div className="flex flex-col items-center">
-  //         <span className="material-icons animate-spin text-[#488bbe] text-4xl mb-4">refresh</span>
-  //         <p className="text-[#488bbe]">Memuat data karyawan...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
-  // Render error state
+  // Only show error state, no loading spinner
   if (isError) {
     return (
       <div className="flex justify-center items-center h-full min-h-[80vh]">
@@ -117,10 +108,10 @@ const EmployeeListPage = () => {
         </div>
       </div>
 
-      {/* Realigned greeting and population boxes */}
-      <div className="flex items-center justify-between px-6 mt-[44px]">
+      {/* Aligned greeting and population boxes */}
+      <div className="flex items-start justify-between px-6 mt-[44px]">
         {/* User greeting - aligned with population boxes */}
-        <div>
+        <div className="mt-2">
           <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
             Halo, {userData?.fullName || 'Pengguna'}
           </h1>
@@ -171,7 +162,7 @@ const EmployeeListPage = () => {
 
       {/* Main content */}
       <div className="px-4 md:px-8 pb-8 mt-8">
-        {/* Search and Filter Row - moved up since greeting is now above */}
+        {/* Search and Filter Row */}
         <div className="flex flex-wrap items-center gap-4 mb-[21px]">
           <div className="relative w-full max-w-md">
             <span className="absolute inset-y-0 left-3 flex items-center">
@@ -209,7 +200,7 @@ const EmployeeListPage = () => {
 
         {/* Employee Table */}
         <EmployeeTable
-          employees={employees}
+          employees={employees || []}
           searchInput={searchInput}
           getSortIcon={getSortIcon}
           requestSort={requestSort}

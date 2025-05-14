@@ -1,6 +1,6 @@
 // src/components/organization/company/EmployeeTable.jsx
 import React, { useState, useRef, useCallback } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 const EmployeeTable = ({ 
   employees, 
