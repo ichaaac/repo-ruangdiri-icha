@@ -44,28 +44,6 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     return params;
   };
 
-  // Initial data fetch for total count only
-  const { data: totalData } = useQuery({
-    queryKey: ['employeeTotalData'],
-    queryFn: async () => {
-      try {
-        const response = await apiClient.get("/organizations/employees", { 
-          params: { 
-            page: 1,
-            limit: 1
-          } 
-        });
-        
-        return {
-          totalData: response.data?.metadata?.totalData || 0
-        };
-      } catch (error) {
-        console.error('Employee total count error:', error);
-        return { totalData: 0 };
-      }
-    },
-  });
-
   const infiniteQuery = useInfiniteQuery({
     queryKey: ['infiniteEmployees', searchTerm, sortConfig, filters],
     queryFn: async ({ pageParam = 1 }) => {
@@ -110,7 +88,6 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['infiniteEmployees'] });
-      queryClient.invalidateQueries({ queryKey: ['employeeTotalData'] });
     }
   });
   
@@ -119,12 +96,14 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     ? infiniteQuery.data.pages.flatMap(page => page.data)
     : [];
 
+  // Get metadata from the most recent page
   const latestMetadata = infiniteQuery.data?.pages[0]?.metadata;
+  const totalDataFromQuery = latestMetadata?.totalData || 0;
   const genderCounts = latestMetadata?.byGender || { male: 0, female: 0 };
 
   return {
     employees: allEmployees,
-    totalData: totalData?.totalData || 0,  // Fixed: changed from totalCountData?.totalCount
+    totalData: totalDataFromQuery,  // Use totalData from the filtered query metadata
     genderCounts: genderCounts,
     isLoading: infiniteQuery.isLoading,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
@@ -151,7 +130,6 @@ export const useUserProfile = () => {
         return { fullName: "Pengguna" };
       }
     },
-    staleTime: 1000 * 60 * 5
   });
 };
 
@@ -177,6 +155,5 @@ export const useDepartments = () => {
         ];
       }
     },
-    staleTime: 1000 * 60 * 60, // 1 hour
   });
 };
