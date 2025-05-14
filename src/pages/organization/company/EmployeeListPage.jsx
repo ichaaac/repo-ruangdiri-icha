@@ -29,13 +29,11 @@ const EmployeeListPage = () => {
     hasActiveFilters
   } = useEmployeeFilters();
   
-  // Debounced search with useEffect version
   const debouncedSearchTerm = useDebounce(searchInput, 500);
   
   // Departments data
   const { data: departmentsData } = useDepartments();
   
-  // Process department data
   const { departments, positions } = useMemo(() => {
     if (!departmentsData || departmentsData.length === 0) {
       return {
@@ -75,17 +73,16 @@ const EmployeeListPage = () => {
     updateEmployee
   } = useEmployeeData(debouncedSearchTerm, appliedSortConfig, appliedFilters);
 
-  // Render loading state
-  if (isLoading && !isFetchingNextPage) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[80vh]">
-        <div className="flex flex-col items-center">
-          <span className="material-icons animate-spin text-[#488bbe] text-4xl mb-4">refresh</span>
-          <p className="text-[#488bbe]">Memuat data karyawan...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (isLoading && !isFetchingNextPage) {
+  //   return (
+  //     <div className="flex justify-center items-center h-full min-h-[80vh]">
+  //       <div className="flex flex-col items-center">
+  //         <span className="material-icons animate-spin text-[#488bbe] text-4xl mb-4">refresh</span>
+  //         <p className="text-[#488bbe]">Memuat data karyawan...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Render error state
   if (isError) {
@@ -120,12 +117,20 @@ const EmployeeListPage = () => {
         </div>
       </div>
 
-      {/* Population boxes - moved 44px below the ID/EN switch */}
-      <div className="flex justify-end px-6 mt-[44px]">
+      {/* Realigned greeting and population boxes */}
+      <div className="flex items-center justify-between px-6 mt-[44px]">
+        {/* User greeting - aligned with population boxes */}
+        <div>
+          <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
+            Halo, {userData?.fullName || 'Pengguna'}
+          </h1>
+        </div>
+
+        {/* Population boxes */}
         <div className="flex flex-wrap gap-3">
           {/* Total Employees */}
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div  className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
                 <span className="material-icons text-[#3399E9] text-lg">groups</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
@@ -166,14 +171,7 @@ const EmployeeListPage = () => {
 
       {/* Main content */}
       <div className="px-4 md:px-8 pb-8 mt-8">
-        {/* User greeting */}
-      <div className="mb-[36px]">
-          <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
-            Halo, {userData?.fullName || 'Pengguna'}
-          </h1>
-        </div>
-
-        {/* Search and Filter Row */}
+        {/* Search and Filter Row - moved up since greeting is now above */}
         <div className="flex flex-wrap items-center gap-4 mb-[21px]">
           <div className="relative w-full max-w-md">
             <span className="absolute inset-y-0 left-3 flex items-center">

@@ -1,6 +1,6 @@
 // src/components/organization/company/EmployeeTable.jsx
 import React, { useState, useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 
 const EmployeeTable = ({ 
   employees, 
@@ -104,9 +104,15 @@ const EmployeeTable = ({
 
   const handleEditChange = (e) => {
     const { name, value } = e.target;
-    // Limit characters to 70
-    const truncatedValue = value.substring(0, 70);
-    setEditData((prev) => ({ ...prev, [name]: truncatedValue }));
+    let processedValue = value;
+    
+    if (name === 'age' || name === 'workDuration') {
+      processedValue = value.substring(0, 2);
+    } else {
+      processedValue = value.substring(0, 70);
+    }
+    
+    setEditData((prev) => ({ ...prev, [name]: processedValue }));
     setHasChanges(true);
   };
 
@@ -154,7 +160,6 @@ const EmployeeTable = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="overflow-x-auto scrollbar-custom">
         <table className="w-full">
           <thead className="bg-[#E8F5FF]">
@@ -436,7 +441,6 @@ const EmployeeTable = ({
             })}
           </tbody>
         </table>
-      </div>
 
       {/* Infinite Scroll Loading Indicator */}
       {isFetchingNextPage && (

@@ -1,6 +1,6 @@
 // src/hooks/useEmployeeData.js
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiClient } from "../lib/api";
+import { apiClient } from "../lib/api"; 
 
 export const useEmployeeData = (searchTerm, sortConfig, filters) => {
   const queryClient = useQueryClient();
@@ -14,8 +14,19 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     if (searchTerm) {
       params.search = searchTerm;
     }
-
+  
     // Only add sort params if there's a direction (not default state)
+    if (sortConfig.key && sortConfig.direction) {
+      // Map frontend key to backend expected key
+      const sortKeyMap = {
+        'fullName': 'name', // If backend expects 'name' instead of 'fullName'
+        'age': 'age',
+        'yearsOfService': 'years_of_service' // If backend expects snake_case
+      };
+      
+      params.sortBy = sortKeyMap[sortConfig.key] || sortConfig.key;
+      params.sortOrder = sortConfig.direction === 'ascending' ? 'asc' : 'desc';
+    }
     if (sortConfig.key && sortConfig.direction) {
       params.sortBy = sortConfig.key;
       params.sortOrder = sortConfig.direction === 'ascending' ? 'asc' : 'desc';
