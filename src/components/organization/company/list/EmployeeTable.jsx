@@ -246,9 +246,9 @@ const EmployeeTable = ({
       fullName: employee.fullName || "",
       department: employee.department || "",
       position: employee.position || "",
-      gender: employee.gender || "male",
-      age: employee.age || 30,
-      yearsOfService: employee.yearsOfService || 2
+      gender: employee.gender || "",
+      age: employee.age || 0,
+      yearsOfService: employee.yearsOfService || 0
     });
   };
 

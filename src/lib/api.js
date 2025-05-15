@@ -333,18 +333,7 @@ const api = {
         } catch (error) {
           console.error("Error fetching departments:", error);
           // Return fallback structure
-          return {
-            status: "success",
-            data: [
-              { department: "Human Resources" },
-              { department: "Finance" },
-              { department: "Marketing" },
-              { department: "Operations" },
-              { department: "Information Technology" },
-              { department: "Engineering" },
-              { department: "Sales" }
-            ]
-          };
+          return 
         }
       }
     }
