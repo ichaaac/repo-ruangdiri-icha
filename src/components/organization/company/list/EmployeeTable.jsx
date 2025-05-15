@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
 import clsx from 'clsx';
 
-// Custom Dropdown Component
+// Custom Dropdown Component with smooth animation
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
   const currentOption = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value);
   const displayValue = currentOption?.label || currentOption || value;
@@ -18,8 +18,9 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
       <Menu.Button
         disabled={disabled}
         className={clsx(
-          "w-full text-left px-3 py-1.5 text-sm border rounded-md transition-all",
+          "w-full text-left px-3 py-1.5 text-sm border rounded-md",
           "flex items-center justify-between gap-2",
+          "transition-[border-color,box-shadow] duration-150 ease-in-out",
           disabled
             ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
             : "bg-white hover:border-[#488BBE] border-gray-300 focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]",
@@ -32,12 +33,12 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
 
       <Transition
         as={React.Fragment}
-        enter="transition ease-out duration-100"
-        enterFrom="transform opacity-0 scale-95"
-        enterTo="transform opacity-100 scale-100"
-        leave="transition ease-in duration-75"
-        leaveFrom="transform opacity-100 scale-100"
-        leaveTo="transform opacity-0 scale-95"
+        enter="transition duration-100 ease-out"
+        enterFrom="transform opacity-0 scale-95 translate-y-1"
+        enterTo="transform opacity-100 scale-100 translate-y-0"
+        leave="transition duration-75 ease-in"
+        leaveFrom="transform opacity-100 scale-100 translate-y-0"
+        leaveTo="transform opacity-0 scale-95 translate-y-1"
       >
         <Menu.Items
           modal={false}
@@ -55,7 +56,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     type="button"
                     onClick={() => handleSelect(optionValue)}
                     className={clsx(
-                      "w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between",
+                      "w-full text-left px-3 py-2 text-sm flex items-center justify-between",
+                      "transition-colors duration-100",
                       active && "bg-[#E2F9FF]",
                       isSelected && "bg-[#E2F9FF] text-[#488BBE] font-medium"
                     )}
@@ -338,7 +340,7 @@ const EmployeeTable = ({
                 <div className="flex items-center justify-center">
                   SKRINING
                   <span 
-                    className="material-icons text-sm ml-1 text-gray-400 cursor-help" 
+                    className="material-icons text-sm ml-1 text-gray-400 cursor-help opacity-70 hover:opacity-100 transition-opacity" 
                     ref={helpIconRef}
                     onMouseEnter={() => setShowHelpTooltip(true)}
                     onMouseLeave={() => setShowHelpTooltip(false)}
@@ -348,7 +350,7 @@ const EmployeeTable = ({
                   <AnimatePresence>
                     {showHelpTooltip && (
                       <motion.div 
-                        className="fixed bg-[#00000099] text-white text-xs rounded-md p-2.5 shadow-lg z-[1000]"
+                        className="fixed bg-[#00000080] text-white text-xs rounded-md p-2.5 shadow-lg z-[1000]"
                         style={{ 
                           width: "150px",
                           top: helpIconRef.current?.getBoundingClientRect().top - 80,
@@ -358,20 +360,33 @@ const EmployeeTable = ({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 5 }}
                       >
-                        <div className="flex flex-col gap-2.5">
-                          <div className="flex items-center">
-                            <span className="material-icons text-red-500 text-sm mr-1.5">warning</span>
-                            <span>Berisiko</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="material-icons text-yellow-500 text-sm mr-1.5">error</span>
-                            <span>Pengawasan</span>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="material-icons text-green-500 text-sm mr-1.5">check_circle</span>
-                            <span>Stabil</span>
-                          </div>
+                      <div className="flex flex-col gap-2.5">
+                        <div className="flex items-center">
+                          <span className="material-icons text-red-500 text-sm mr-1.5">warning</span>
+                          <span>Berisiko</span>
                         </div>
+                        <div className="flex items-center">
+                          <span className="material-icons text-yellow-500 text-sm mr-1.5">error</span>
+                          <span>Pengawasan</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="material-icons text-green-500 text-sm mr-1.5">check_circle</span>
+                          <span>Stabil</span>
+                        </div>
+                        <div className="flex items-center">
+                          <span 
+                            className="material-icons text-[#535353] mr-2"
+                            style={{ 
+                              fontSize: '14px',
+                              display: 'inline-block',
+                              width: '8px',
+                              height: '14px',
+                              lineHeight: '14px'
+                            }}
+                          >remove</span>
+                          <span>Belum Skrining</span>
+                        </div>
+                      </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -400,7 +415,7 @@ const EmployeeTable = ({
                           name="fullName"
                           value={editData.fullName}
                           onChange={handleEditChange}
-                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-all"
+                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                         />
                       ) : (
                         <div className="text-sm font-medium text-gray-900" title={employee.fullName}>
@@ -460,7 +475,7 @@ const EmployeeTable = ({
                             name="age"
                             value={editData.age}
                             onChange={handleEditChange}
-                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-all"
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                             maxLength="2"
                             inputMode="numeric"
                           />
@@ -480,7 +495,7 @@ const EmployeeTable = ({
                             name="yearsOfService"
                             value={editData.yearsOfService}
                             onChange={handleEditChange}
-                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-all"
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                             maxLength="2"
                             inputMode="numeric"
                           />
@@ -546,7 +561,7 @@ const EmployeeTable = ({
                         >
                           <span className="material-icons">edit</span>
                           {showEditTooltip === employee.id && (
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap shadow-lg">
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg">
                               Edit
                             </div>
                           )}
@@ -555,12 +570,17 @@ const EmployeeTable = ({
                     </td>
                   </tr>
                   {!isLastElement && (
-                    <tr>
-                      <td colSpan={9} className="p-0">
-                        <div className="h-[1px] bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
-                      </td>
-                    </tr>
-                  )}
+                  <tr style={{ height: '1px' }}>
+                    <td colSpan={9} className="p-0">
+                      <div 
+                        style={{
+                          height: '1px',
+                          backgroundImage: 'linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)'
+                        }}
+                      />
+                    </td>
+                  </tr>
+                )}
                 </React.Fragment>
               );
             })}
@@ -571,7 +591,7 @@ const EmployeeTable = ({
       <AnimatePresence>
         {hoveredStatus && (
           <motion.div
-            className="fixed bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50 shadow-lg"
+            className="fixed bg-[#00000080] text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50 shadow-lg"
             style={{ 
               left: hoveredStatus.x,
               top: hoveredStatus.y - 10
