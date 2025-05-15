@@ -4,10 +4,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
 import clsx from 'clsx';
 
-// Custom Dropdown Component using HeadlessUI
-const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
-  const currentOption = options.find(opt => 
-    (opt.value !== undefined ? opt.value : opt) === value
+const CustomDropdown = ({
+  name,
+  value,
+  onChange,
+  options,
+  className = "",
+  disabled = false,
+}) => {
+  const currentOption = options.find(
+    (opt) => (opt.value !== undefined ? opt.value : opt) === value
   );
   const displayValue = currentOption?.label || currentOption || value;
 
@@ -22,8 +28,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         className={clsx(
           "w-full text-left px-3 py-1.5 text-sm border rounded-md transition-all",
           "flex items-center justify-between gap-2",
-          disabled 
-            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" 
+          disabled
+            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
             : "bg-white hover:border-[#488BBE] border-gray-300 focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]",
           className
         )}
@@ -43,7 +49,10 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <Menu.Items className="absolute z-50 mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto">
+        <Menu.Items
+          modal={false}
+          className="absolute z-50 mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto"
+        >
           {options.map((option) => {
             const optionValue = option.value !== undefined ? option.value : option;
             const optionLabel = option.label || option;
@@ -63,7 +72,9 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                   >
                     <span>{optionLabel}</span>
                     {isSelected && (
-                      <span className="material-icons text-[#488BBE] text-sm">check</span>
+                      <span className="material-icons text-[#488BBE] text-sm">
+                        check
+                      </span>
                     )}
                   </button>
                 )}

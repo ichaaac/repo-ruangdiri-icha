@@ -27,10 +27,8 @@ const EmployeeListPage = () => {
     hasActiveFilters
   } = useEmployeeFilters();
   
-  // Increase debounce to 600ms for better UX
-  const debouncedSearchTerm = useDebounce(searchInput, 600);
+  const debouncedSearchTerm = useDebounce(searchInput, 10);
   
-  // Use debounced search term for filtering
   const {
     employees,
     totalData,
@@ -187,17 +185,17 @@ const EmployeeListPage = () => {
         </div>
 
         <EmployeeTable
-          employees={employees || []}
-          searchInput={searchInput}
-          getSortIcon={getSortIcon}
-          requestSort={requestSort}
-          fetchNextPage={fetchNextPage}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          updateEmployee={updateEmployee}
-          departmentOptions={departments}
-          positionOptions={positions}
-        />
+        employees={employees || []}
+        searchInput={debouncedSearchTerm}
+        getSortIcon={getSortIcon}
+        requestSort={requestSort}
+        fetchNextPage={fetchNextPage}
+        hasNextPage={hasNextPage}
+        isFetchingNextPage={isFetchingNextPage}
+        updateEmployee={updateEmployee}
+        departmentOptions={departments}
+        positionOptions={positions}
+      />
       </div>
 
       <AnimatePresence>

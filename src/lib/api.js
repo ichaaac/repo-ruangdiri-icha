@@ -236,7 +236,8 @@ const api = {
        */
       getClassrooms: async () => {
         try {
-          const response = await apiClient.get("/students/classrooms");
+          const response = await apiClient.get("/students/academic-info");
+          console.log(response)
           return response.data;
         } catch (error) {
           throw error;
@@ -326,7 +327,8 @@ const api = {
       getDepartments: async () => {
         try {
           // Gunakan endpoint yang benar
-          const response = await apiClient.get("/employees/departments");
+          const response = await apiClient.get("/employees/roles");
+          console.log(response)
           return response.data;
         } catch (error) {
           console.error("Error fetching departments:", error);

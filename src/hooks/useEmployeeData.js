@@ -125,7 +125,7 @@ export const useDepartments = () => {
     queryKey: ['departments'],
     queryFn: async () => {
       try {
-        const response = await apiClient.get("/employees/departments");
+        const response = await apiClient.get("/employees/roles");
         const rawData = response?.data?.data || [];
         const departmentMap = {};
         

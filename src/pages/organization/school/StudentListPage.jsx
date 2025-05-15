@@ -15,7 +15,7 @@ const StudentListPage = () => {
 	const [sortConfigInput, setSortConfigInput] = useState({
 		key: null,
 		direction: null,
-	});
+});
 	const debouncedSearchTerm = useDebounce(searchInput, 500);
 	const [appliedSortConfig, setAppliedSortConfig] = useState({
 		key: null,
@@ -95,7 +95,7 @@ const StudentListPage = () => {
 		queryKey: ["classrooms"],
 		queryFn: async () => {
 			try {
-				const response = await apiClient.get("/students/classrooms");
+				const response = await apiClient.get("/students/academic-info");
 				return response.data?.data || [];
 			} catch (error) {
 				console.error("Classrooms API error:", error);
