@@ -375,14 +375,7 @@ const EmployeeTable = ({
                         </div>
                         <div className="flex items-center">
                           <span 
-                            className="material-icons text-[#535353] mr-2"
-                            style={{ 
-                              fontSize: '14px',
-                              display: 'inline-block',
-                              width: '8px',
-                              height: '14px',
-                              lineHeight: '14px'
-                            }}
+                            className="material-icons text-sm font-bold text-[#535353] mr-2"
                           >remove</span>
                           <span>Belum Skrining</span>
                         </div>
