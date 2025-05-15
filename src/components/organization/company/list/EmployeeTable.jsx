@@ -1,20 +1,12 @@
 // src/components/organization/company/list/EmployeeTable.jsx
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
 import clsx from 'clsx';
 
-const CustomDropdown = ({
-  name,
-  value,
-  onChange,
-  options,
-  className = "",
-  disabled = false,
-}) => {
-  const currentOption = options.find(
-    (opt) => (opt.value !== undefined ? opt.value : opt) === value
-  );
+// Custom Dropdown Component
+const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
+  const currentOption = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value);
   const displayValue = currentOption?.label || currentOption || value;
 
   const handleSelect = (optionValue) => {
@@ -35,9 +27,7 @@ const CustomDropdown = ({
         )}
       >
         <span className="truncate">{displayValue}</span>
-        <span className="material-icons text-gray-400 text-sm">
-          expand_more
-        </span>
+        <span className="material-icons text-gray-400 text-sm">expand_more</span>
       </Menu.Button>
 
       <Transition
@@ -72,9 +62,7 @@ const CustomDropdown = ({
                   >
                     <span>{optionLabel}</span>
                     {isSelected && (
-                      <span className="material-icons text-[#488BBE] text-sm">
-                        check
-                      </span>
+                      <span className="material-icons text-[#488BBE] text-sm">check</span>
                     )}
                   </button>
                 )}
@@ -95,22 +83,16 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   const [scrollRatio, setScrollRatio] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
-  // Update scrollbar on content scroll
   const updateScrollbar = useCallback(() => {
     if (!contentRef.current) return;
     
     const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
     const maxScroll = scrollWidth - clientWidth;
     
-    if (maxScroll > 0) {
-      setScrollRatio(scrollLeft / maxScroll);
-      setIsVisible(true);
-    } else {
-      setIsVisible(false);
-    }
+    setIsVisible(maxScroll > 0);
+    if (maxScroll > 0) setScrollRatio(scrollLeft / maxScroll);
   }, [contentRef]);
 
-  // Handle scrollbar click
   const handleScrollbarClick = useCallback((e) => {
     if (!contentRef.current || !scrollbarRef.current || e.target === thumbRef.current) return;
     
@@ -121,7 +103,6 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     contentRef.current.scrollLeft = percentage * maxScroll;
   }, [contentRef]);
 
-  // Handle thumb drag
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
     setIsDragging(true);
@@ -147,15 +128,13 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     document.addEventListener('mouseup', handleMouseUp);
   }, [contentRef]);
 
-  // Setup scroll listener
-  React.useEffect(() => {
+  useEffect(() => {
     const content = contentRef.current;
     if (!content) return;
     
     content.addEventListener('scroll', updateScrollbar);
     updateScrollbar();
     
-    // Handle resize
     const resizeObserver = new ResizeObserver(updateScrollbar);
     resizeObserver.observe(content);
     
@@ -225,17 +204,7 @@ const EmployeeTable = ({
     if (node) observerRef.current.observe(node);
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  // Get positions for department - using only backend data
-  const getPositionsForDepartment = (department) => {
-    // Get unique positions from employees in the same department
-    const deptEmployees = employees.filter(emp => emp.department === department);
-    const uniquePositions = [...new Set(deptEmployees.map(emp => emp.position))].filter(Boolean);
-    
-    // Return positions from current employees, or use global positions if none found
-    return uniquePositions.length > 0 ? uniquePositions : positionOptions;
-  };
-
-  // Edit handlers
+  // Start editing
   const startEditing = (id) => {
     if (editingId) return;
     const employee = employees.find(emp => emp.id === id);
@@ -252,16 +221,20 @@ const EmployeeTable = ({
     });
   };
 
+  // Cancel editing
   const cancelEditing = () => {
     setEditingId(null);
     setEditData({});
   };
 
+  // Save editing
   const saveEditing = (id) => {
     if (!editData.fullName?.trim()) return;
     
     const changedFields = {};
     const original = employees.find(emp => emp.id === id);
+    
+    if (!original) return;
     
     Object.keys(editData).forEach(key => {
       if (editData[key] !== original[key]) {
@@ -271,8 +244,12 @@ const EmployeeTable = ({
     
     if (!Object.keys(changedFields).length) return;
     
+    if (changedFields.age !== undefined) {
+      changedFields.age = parseInt(changedFields.age) || 0;
+    }
+    
     if (changedFields.yearsOfService !== undefined) {
-      changedFields.yearsOfService = parseInt(changedFields.yearsOfService);
+      changedFields.yearsOfService = parseInt(changedFields.yearsOfService) || 0;
     }
     
     updateEmployee.mutate(
@@ -281,6 +258,7 @@ const EmployeeTable = ({
     );
   };
 
+  // Handle edit change
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     let processedValue = value;
@@ -292,18 +270,19 @@ const EmployeeTable = ({
     setEditData(prev => ({ ...prev, [name]: processedValue }));
   };
 
-  // Helpers
+  // Helper functions
   const getScreeningStatusUI = (status) => {
-    const map = {
+    const statusMap = {
       'at_risk': { bg: 'bg-red-100', icon: 'warning', color: 'text-red-500', text: 'Berisiko' },
       'monitored': { bg: 'bg-yellow-100', icon: 'error', color: 'text-yellow-500', text: 'Pengawasan' },
       'stable': { bg: 'bg-green-100', icon: 'check_circle', color: 'text-green-500', text: 'Stabil' }
     };
-    return map[status] || map.stable;
+    return statusMap[status] || statusMap.stable;
   };
 
   const highlightText = (text) => {
     if (!searchInput || !text) return text;
+    
     const parts = text.split(new RegExp(`(${searchInput})`, 'gi'));
     return parts.map((part, i) => 
       part.toLowerCase() === searchInput.toLowerCase() ? 
@@ -314,17 +293,14 @@ const EmployeeTable = ({
   const hasChanges = editingId && editData.fullName?.trim() && 
     Object.keys(editData).some(key => {
       const original = employees.find(emp => emp.id === editingId);
-      return editData[key] !== original[key];
+      return original && editData[key] !== original[key];
     });
 
   return (
     <div className="relative">
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
       
-      <div 
-        ref={contentRef} 
-        className="overflow-x-auto scrollbar-hide"
-      >
+      <div ref={contentRef} className="overflow-x-auto scrollbar-hide">
         <table className="w-full" style={{ minWidth: '1200px' }}>
           <thead className="bg-[#E2F9FF]">
             <tr>
@@ -410,7 +386,6 @@ const EmployeeTable = ({
               const statusUI = getScreeningStatusUI(employee.screeningStatus || 'stable');
               const isLastElement = index === employees.length - 1;
               const isEditing = editingId === employee.id;
-              const positions = isEditing ? getPositionsForDepartment(editData.department) : [];
               
               return (
                 <React.Fragment key={employee.id}>
@@ -452,7 +427,7 @@ const EmployeeTable = ({
                           name="position"
                           value={editData.position}
                           onChange={handleEditChange}
-                          options={positions}
+                          options={positionOptions}
                           className="min-w-[120px]"
                         />
                       ) : (
@@ -593,7 +568,6 @@ const EmployeeTable = ({
         </table>
       </div>
 
-      {/* Status Tooltip */}
       <AnimatePresence>
         {hoveredStatus && (
           <motion.div
@@ -611,7 +585,6 @@ const EmployeeTable = ({
         )}
       </AnimatePresence>
 
-      {/* Loading indicator */}
       {isFetchingNextPage && (
         <div className="py-4 text-center">
           <span className="material-icons animate-spin text-[#488BBE]">refresh</span>
@@ -619,7 +592,6 @@ const EmployeeTable = ({
         </div>
       )}
 
-      {/* Empty state */}
       {employees.length === 0 && !isFetchingNextPage && (
         <div className="text-center py-8">
           <span className="material-icons text-gray-400 text-5xl">business_center</span>

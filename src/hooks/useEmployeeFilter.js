@@ -1,10 +1,8 @@
 // src/hooks/useEmployeeFilter.js
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export const useEmployeeFilters = () => {
   const [searchInput, setSearchInput] = useState("");
-  // Start with no sort applied
-  const [sortConfigInput, setSortConfigInput] = useState({ key: null, direction: null });
   const [appliedSortConfig, setAppliedSortConfig] = useState({ key: null, direction: null });
   const [filtersInput, setFiltersInput] = useState({
     department: null,
@@ -14,40 +12,36 @@ export const useEmployeeFilters = () => {
     counselingStatus: null
   });
   const [appliedFilters, setAppliedFilters] = useState(filtersInput);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+
+  // Reset filters input when modal closes
+  useEffect(() => {
+    if (!showFilterModal) {
+      setFiltersInput(appliedFilters);
+    }
+  }, [showFilterModal]);
 
   const requestSort = (key) => {
     let newConfig = { key: null, direction: null };
     
     if (appliedSortConfig.key === key) {
-      // Same column: cycle through states
       if (!appliedSortConfig.direction) {
-        // Currently no sort -> go to ascending
         newConfig = { key, direction: "ascending" };
       } else if (appliedSortConfig.direction === "ascending") {
-        // Currently ascending -> go to descending
         newConfig = { key, direction: "descending" };
       } else {
-        // Currently descending -> go back to no sort
         newConfig = { key: null, direction: null };
       }
     } else {
-      // Different column: start with ascending
       newConfig = { key, direction: "ascending" };
     }
     
-    setSortConfigInput(newConfig);
     setAppliedSortConfig(newConfig);
   };
 
   const getSortIcon = (key) => {
-    if (appliedSortConfig.key !== key) {
-      return "sort"; // Default icon when not sorted
-    }
-    
-    if (!appliedSortConfig.direction) {
-      return "sort"; // Default icon
-    }
-    
+    if (appliedSortConfig.key !== key) return "sort";
+    if (!appliedSortConfig.direction) return "sort";
     return appliedSortConfig.direction === "ascending" ? "arrow_upward" : "arrow_downward";
   };
 
@@ -79,7 +73,6 @@ export const useEmployeeFilters = () => {
   return {
     searchInput,
     setSearchInput,
-    sortConfigInput,
     appliedSortConfig,
     requestSort,
     getSortIcon,
@@ -88,6 +81,8 @@ export const useEmployeeFilters = () => {
     handleFilterSelect,
     applyFilters,
     clearFilters,
-    hasActiveFilters
+    hasActiveFilters,
+    showFilterModal,
+    setShowFilterModal
   };
 };

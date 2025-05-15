@@ -1,27 +1,21 @@
 // src/components/organization/company/list/EmployeeFilters.jsx
-import React, { useEffect } from "react";
+import React from "react";
 import { motion } from "framer-motion";
 
 const EmployeeFilters = ({ 
   showModal,
   setShowModal,
   filtersInput,
-  setFiltersInput, // Add this prop to handle state changes
+  setFiltersInput,
   handleFilterSelect,
   applyFilters,
   departments,
   positions,
   employees
 }) => {
-  // Reset state when modal closes without saving
-  useEffect(() => {
-    if (!showModal) {
-      // No automatic reset here - we'll handle it differently
-    }
-  }, [showModal]);
+  if (!showModal) return null;
 
   const handleClose = () => {
-    // Reset to applied filters when closing without saving
     setShowModal(false);
   };
 
@@ -29,8 +23,6 @@ const EmployeeFilters = ({
     applyFilters();
     setShowModal(false);
   };
-
-  if (!showModal) return null;
 
   return (
     <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
@@ -70,7 +62,7 @@ const EmployeeFilters = ({
                 </div>
               </div>
               
-              {/* Position Selection - Now shows all positions regardless of department */}
+              {/* Position Selection */}
               <div className="w-full flex flex-col justify-start items-start gap-3">
                 <div className="text-[#488bbe] text-sm font-normal">Jabatan</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">

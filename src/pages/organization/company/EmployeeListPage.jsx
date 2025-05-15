@@ -17,18 +17,16 @@ const EmployeeListPage = () => {
     requestSort,
     getSortIcon,
     filtersInput,
-    setFiltersInput,
     appliedFilters,
     handleFilterSelect,
     applyFilters,
     clearFilters,
     hasActiveFilters,
     showFilterModal,
-    openFilterModal,
     setShowFilterModal
   } = useEmployeeFilters();
   
-  const debouncedSearchTerm = useDebounce(searchInput, 300);
+  const debouncedSearchTerm = useDebounce(searchInput, 10);
   
   const {
     employees,
@@ -46,7 +44,6 @@ const EmployeeListPage = () => {
   
   const { data: departmentsData } = useDepartments();
   
-  // Process departments and positions from backend
   const { departments, positions } = useMemo(() => {
     if (departmentsData) {
       return {
@@ -55,7 +52,6 @@ const EmployeeListPage = () => {
       };
     }
     
-    // Fallback to extracting from employees if needed
     const uniqueDepts = new Set();
     const allPositions = new Set();
     
@@ -167,15 +163,10 @@ const EmployeeListPage = () => {
           <div className="flex items-center gap-2">
             <button
               className="flex items-center justify-center px-4 py-2 rounded-full text-[#8b8b8b] hover:bg-[#f7f7f9] transition-colors"
-              onClick={openFilterModal}
+              onClick={() => setShowFilterModal(true)}
             >
               <span className="material-icons mr-2">filter_alt</span>
               <span>Filter</span>
-              {hasActiveFilters && (
-                <span className="ml-2 bg-[#488bbe] text-white rounded-full px-2 py-0.5 text-xs">
-                  {Object.values(appliedFilters).filter(v => v !== null).length}
-                </span>
-              )}
             </button>
             
             {hasActiveFilters && (
@@ -189,54 +180,6 @@ const EmployeeListPage = () => {
             )}
           </div>
         </div>
-
-        {/* Active filters display */}
-        {hasActiveFilters && (
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-sm text-gray-600">Filter aktif:</span>
-            {Object.entries(appliedFilters).map(([key, value]) => {
-              if (value === null) return null;
-              
-              let displayValue = value;
-              let displayKey = key;
-              
-              if (key === 'department') displayKey = 'Departemen';
-              if (key === 'position') displayKey = 'Jabatan';
-              if (key === 'gender') {
-                displayKey = 'Jenis Kelamin';
-                displayValue = value === 'L' ? 'Laki-laki' : 'Perempuan';
-              }
-              if (key === 'screeningStatus') {
-                displayKey = 'Skrining';
-                displayValue = value === 'at_risk' ? 'Berisiko' : 
-                               value === 'monitored' ? 'Pengawasan' : 'Stabil';
-              }
-              if (key === 'counselingStatus') {
-                displayKey = 'Konseling';
-                displayValue = value ? 'Sudah' : 'Belum';
-              }
-              
-              return (
-                <span 
-                  key={key}
-                  className="bg-[#E2F9FF] text-[#488BBE] px-3 py-1 rounded-full text-sm flex items-center gap-1"
-                >
-                  <span className="text-xs text-[#3399e9]">{displayKey}:</span>
-                  {displayValue}
-                  <button
-                    onClick={() => {
-                      handleFilterSelect(key, value);
-                      applyFilters();
-                    }}
-                    className="ml-1 hover:text-[#3399e9]"
-                  >
-                    <span className="material-icons text-sm">close</span>
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        )}
 
         <EmployeeTable
           employees={employees || []}
@@ -258,7 +201,6 @@ const EmployeeListPage = () => {
             showModal={showFilterModal}
             setShowModal={setShowFilterModal}
             filtersInput={filtersInput}
-            setFiltersInput={setFiltersInput}
             handleFilterSelect={handleFilterSelect}
             applyFilters={applyFilters}
             departments={departments}
