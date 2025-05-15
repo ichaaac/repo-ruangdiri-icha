@@ -126,36 +126,28 @@ export const useDepartments = () => {
     queryFn: async () => {
       try {
         const response = await apiClient.get("/employees/roles");
-        const rawData = response?.data?.data || [];
-        const departmentMap = {};
+        const data = response?.data?.data;
         
-        rawData.forEach(item => {
-          if (item.department) {
-            if (!departmentMap[item.department]) {
-              departmentMap[item.department] = new Set();
-            }
-            if (item.position) {
-              departmentMap[item.department].add(item.position);
-            }
-          }
-        });
+        // Handle new API format
+        if (data?.departments && data?.positions) {
+          return {
+            departments: data.departments || [],
+            positions: data.positions || []
+          };
+        }
         
-        const departments = Object.entries(departmentMap).map(([dept, positions]) => ({
-          department: dept,
-          positions: positions.size > 0 ? Array.from(positions) : 
-            ["Head", "Manager", "Staff", "Specialist"]
-        }));
-        
-        return departments;
+        // Fallback if API returns unexpected format
+        console.error("Unexpected data format from /employees/roles");
+        return {
+          departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
+          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"]
+        };
       } catch (error) {
         console.error("Error fetching departments:", error);
-        return [
-          { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter"] },
-          { department: "Finance", positions: ["Head", "Accountant", "Analyst", "Manager"] },
-          { department: "Marketing", positions: ["Head", "Specialist", "Manager", "Coordinator"] },
-          { department: "IT", positions: ["Lead", "Developer", "Designer", "Support"] },
-          { department: "Operations", positions: ["Head", "Manager", "Specialist", "Lead"] },
-        ];
+        return {
+          departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
+          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"]
+        };
       }
     },
   });

@@ -1,38 +1,36 @@
 // src/components/organization/company/list/EmployeeFilters.jsx
-import React, { useMemo } from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 
 const EmployeeFilters = ({ 
   showModal,
   setShowModal,
   filtersInput,
+  setFiltersInput, // Add this prop to handle state changes
   handleFilterSelect,
   applyFilters,
   departments,
   positions,
   employees
 }) => {
+  // Reset state when modal closes without saving
+  useEffect(() => {
+    if (!showModal) {
+      // No automatic reset here - we'll handle it differently
+    }
+  }, [showModal]);
+
+  const handleClose = () => {
+    // Reset to applied filters when closing without saving
+    setShowModal(false);
+  };
+
+  const handleSave = () => {
+    applyFilters();
+    setShowModal(false);
+  };
+
   if (!showModal) return null;
-
-  // Get positions based on selected department from actual employees data
-  const availablePositions = useMemo(() => {
-    if (!filtersInput.department || !employees) {
-      return positions;
-    }
-
-    // Extract positions from employees with the selected department
-    const departmentEmployees = employees.filter(emp => emp.department === filtersInput.department);
-    const uniquePositions = [...new Set(departmentEmployees.map(emp => emp.position))];
-    
-    return uniquePositions.length > 0 ? uniquePositions.sort() : positions;
-  }, [filtersInput.department, employees, positions]);
-
-  // Reset position when department changes if position not available
-  React.useEffect(() => {
-    if (filtersInput.position && !availablePositions.includes(filtersInput.position)) {
-      handleFilterSelect('position', null);
-    }
-  }, [filtersInput.department, filtersInput.position, availablePositions, handleFilterSelect]);
 
   return (
     <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
@@ -48,7 +46,7 @@ const EmployeeFilters = ({
             <div className="inline-flex justify-between items-center w-full">
               <div className="text-[#488bbe] text-xl font-semibold">Filter</div>
               <button 
-                onClick={() => setShowModal(false)}
+                onClick={handleClose}
                 className="text-[#488bbe] hover:text-[#3399e9]"
               >
                 <span className="material-icons">close</span>
@@ -72,18 +70,11 @@ const EmployeeFilters = ({
                 </div>
               </div>
               
-              {/* Position Selection - Dynamic based on department */}
+              {/* Position Selection - Now shows all positions regardless of department */}
               <div className="w-full flex flex-col justify-start items-start gap-3">
-                <div className="text-[#488bbe] text-sm font-normal">
-                  Jabatan 
-                  {filtersInput.department && (
-                    <span className="text-xs text-gray-500 ml-2">
-                      ({filtersInput.department})
-                    </span>
-                  )}
-                </div>
+                <div className="text-[#488bbe] text-sm font-normal">Jabatan</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {availablePositions.map((pos) => (
+                  {positions.map((pos) => (
                     <button
                       key={pos}
                       className={`h-7 px-2.5 py-1 ${filtersInput.position === pos ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
@@ -167,10 +158,7 @@ const EmployeeFilters = ({
           <div className="mt-6 pt-4 border-t border-gray-200">
             <button
               className="w-full h-[42px] px-7 py-2.5 bg-[#488bbe] rounded-full flex justify-center items-center"
-              onClick={() => {
-                applyFilters();
-                setShowModal(false);
-              }}
+              onClick={handleSave}
             >
               <div className="text-white text-sm font-semibold">Simpan</div>
             </button>
