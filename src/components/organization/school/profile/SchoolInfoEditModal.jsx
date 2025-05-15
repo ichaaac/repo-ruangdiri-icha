@@ -4,53 +4,31 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import api, { apiClient } from "../../../../lib/api";
+import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
-import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 
-// Format phone number with proper hyphens for Indonesia
-const formatIndonesianPhoneNumber = (value) => {
-  if (!value) return '';
-  
-  try {
-    // Ensure the value starts with a country code
-    const phoneValue = value.startsWith('+') ? value : `+${value}`;
-    const phoneNumber = parsePhoneNumber(phoneValue, 'ID');
-    
-    if (phoneNumber && phoneNumber.isValid()) {
-      const nationalNumber = phoneNumber.nationalNumber;
-      
-      // Format Indonesian numbers: +62 8XX-XXXX-XXXX
-      if (nationalNumber.length > 7) {
-        return `+${phoneNumber.countryCallingCode} ${nationalNumber.slice(0, 3)}-${nationalNumber.slice(3, 7)}-${nationalNumber.slice(7)}`;
-      } else if (nationalNumber.length > 3) {
-        return `+${phoneNumber.countryCallingCode} ${nationalNumber.slice(0, 3)}-${nationalNumber.slice(3)}`;
-      } else {
-        return `+${phoneNumber.countryCallingCode} ${nationalNumber}`;
-      }
-    }
-  } catch (error) {
-    console.error("Error formatting phone number:", error);
-  }
-  
-  return value;
+// Phone validation helpers
+const extractDigits = (phone) => phone?.replace(/[^\d]/g, '') || '';
+const isEmptyPhone = (phone) => {
+  const digits = extractDigits(phone);
+  return !digits || digits.length <= 3; // Just country code
 };
 
+// Schema with simplified phone validation
 const schoolInfoSchema = z.object({
   fullName: z.string().min(1, "Nama sekolah wajib diisi"),
-  address: z.string().min(1, "Alamat sekolah wajib diisi"),
+  address: z.string().optional(),
   phone: z.string()
-    .min(1, "Nomor telepon wajib diisi")
+    .optional()
     .refine((value) => {
-      try {
-        if (value.length < 8) return true;
-        return isValidPhoneNumber(value, 'ID');
-      } catch (error) {
-        return false;
-      }
-    }, "Format nomor telepon tidak valid")
+      if (isEmptyPhone(value)) return true;
+      const digits = extractDigits(value);
+      return digits.length >= 7 && digits.length <= 15;
+    }, {
+      message: "Nomor telepon harus 7-15 digit"
+    })
 });
 
 // Confirmation modal component
@@ -87,9 +65,8 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const queryClient = useQueryClient();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-  // Initialize form with current user data
+  // Initialize form
   const {
     register,
     handleSubmit,
@@ -100,7 +77,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     defaultValues: {
       fullName: userData?.fullName || "",
       address: userData?.organization?.address || "",
-      phone: userData?.organization?.phone || "+62", // Ensure we have at least the country code
+      phone: isEmptyPhone(userData?.organization?.phone) ? "" : userData?.organization?.phone || "",
     },
     mode: "onChange",
   });
@@ -108,43 +85,26 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
-      // Clear previous error messages
       setErrorMessage("");
       
-      console.log("Updating organization profile with data:", data);
+      // Clean empty values
+      if (!data.address) data.address = '';
+      if (isEmptyPhone(data.phone)) data.phone = '';
       
-      return apiClient.patch(
-        `${API_URL}/organizations/profile`,
-        data,
-      );
+      return apiClient.patch('/organizations/profile', data);
     },
-    onSuccess: (response) => {
-      console.log("Profile update success:", response.data);
-      
-      // Invalidate both general user profile and organization-specific queries
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
-      
-      if (onClose) onClose(true); // Pass true to indicate success
+      queryClient.invalidateQueries({ queryKey: ['school-profile'] });
+      onClose(true);
     },
     onError: (error) => {
-      console.error("Error updating profile:", error);
-      
-      // Handle specific error messages
-      if (error.response?.data?.message) {
-        setErrorMessage(error.response.data.message);
-      } else {
-        setErrorMessage("Terjadi kesalahan saat memperbarui profil");
-      }
+      setErrorMessage(error.response?.data?.message || "Terjadi kesalahan");
     },
   });
 
   const onSubmit = (data) => {
+    if (isEmptyPhone(data.phone)) data.phone = '';
     updateProfileMutation.mutate(data);
   };
 
@@ -183,12 +143,10 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-5">
               <div>
-                <label className="block text-sm text-gray-500 mb-1" htmlFor="fullName">
+                <label className="block text-sm text-gray-500 mb-1">
                   Nama Sekolah
                 </label>
                 <input
-                  id="fullName"
-                  type="text"
                   {...register("fullName")}
                   className={clsx(
                     "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
@@ -197,35 +155,24 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                   placeholder="Masukkan nama sekolah"
                 />
                 {errors.fullName && (
-                  <span className="text-xs text-red-500 mt-1">
+                  <span className="text-xs text-red-500 mt-1 block">
                     {errors.fullName.message}
                   </span>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1" htmlFor="address">
+                <label className="block text-sm text-gray-500 mb-1">
                   Alamat Sekolah
                 </label>
                 <input
-                  id="address"
-                  type="text"
                   {...register("address")}
-                  className={clsx(
-                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
-                    errors.address ? "border-red-500" : "border-gray-300"
-                  )}
-                  placeholder="Jalan Lorem Ipsum dolor sit amet"
+                  className="w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary border-gray-300"
                 />
-                {errors.address && (
-                  <span className="text-xs text-red-500 mt-1">
-                    {errors.address.message}
-                  </span>
-                )}
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1" htmlFor="phone">
+                <label className="block text-sm text-gray-500 mb-1">
                   Nomor Telepon
                 </label>
                 <Controller
@@ -234,36 +181,37 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                   render={({ field }) => (
                     <PhoneInput
                       defaultCountry="id"
-                      value={field.value}
+                      value={field.value || ''}
                       onChange={(value) => {
-                        // Apply custom formatting and update the field
-                        const formattedValue = formatIndonesianPhoneNumber(value);
-                        field.onChange(formattedValue);
+                        if (isEmptyPhone(value)) {
+                          field.onChange('');
+                          return;
+                        }
+                        const digits = extractDigits(value);
+                        if (digits.length <= 15) field.onChange(value);
                       }}
-                      onBlur={field.onBlur}
+                      onBlur={() => {
+                        if (isEmptyPhone(field.value)) field.onChange('');
+                        field.onBlur();
+                      }}
                       inputClassName={clsx(
                         "w-full h-12 border-[1.5px] text-base px-4 focus:outline-none focus:border-primary",
                         errors.phone ? "border-red-500" : "border-gray-300"
                       )}
-                      containerClassName={clsx(
-                        "rounded-md overflow-hidden", 
-                        errors.phone ? "border-red-500" : "border-gray-300"
-                      )}
+                      containerClassName="rounded-md overflow-hidden"
                       buttonClassName="h-12 px-3 flex items-center justify-center border-r border-gray-300"
-                      placeholder="Masukkan nomor telepon"
+                      placeholder="Masukkan nomor telepon (opsional)"
                       inputProps={{
-                        id: "phone",
-                        name: "phone",
+                        maxLength: 20,
                       }}
-                      international={true}
-                      withCountryCallingCode={true}
-                      disableDialCodeAndPrefix={false}
-                      forceDialCode={true}
+                      international
+                      withCountryCallingCode
+                      forceDialCode
                     />
                   )}
                 />
                 {errors.phone && (
-                  <span className="text-xs text-red-500 mt-1">
+                  <span className="text-xs text-red-500 mt-1 block">
                     {errors.phone.message}
                   </span>
                 )}
@@ -282,8 +230,8 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                 >
                   {isSubmitting || updateProfileMutation.isPending ? (
                     <span className="flex items-center">
-                      <span className="material-icons animate-spin text-sm inline-block mr-1">refresh</span>
-                      <span>Menyimpan...</span>
+                      <span className="material-icons animate-spin text-sm mr-1">refresh</span>
+                      Menyimpan...
                     </span>
                   ) : (
                     "Simpan"
