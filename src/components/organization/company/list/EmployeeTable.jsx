@@ -4,18 +4,33 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
 import clsx from 'clsx';
 
-// Custom Dropdown Component with smooth animation
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
   const currentOption = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value);
   const displayValue = currentOption?.label || currentOption || value;
+  const menuButtonRef = useRef(null);
+  const menuItemsRef = useRef(null);
 
   const handleSelect = (optionValue) => {
     onChange({ target: { name, value: optionValue } });
   };
 
+  // Fungsi scroll yang lebih sederhana dengan scrollIntoView
+  const handleMenuOpen = () => {
+    // Beri waktu untuk transisi menu muncul
+    setTimeout(() => {
+      if (menuItemsRef.current) {
+        menuItemsRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest' 
+        });
+      }
+    }, 10);
+  };
+
   return (
     <Menu as="div" className="relative">
       <Menu.Button
+        ref={menuButtonRef}
         disabled={disabled}
         className={clsx(
           "w-full text-left px-3 py-1.5 text-sm border rounded-md",
@@ -26,6 +41,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
             : "bg-white hover:border-[#488BBE] border-gray-300 focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]",
           className
         )}
+        onClick={handleMenuOpen}
       >
         <span className="truncate">{displayValue}</span>
         <span className="material-icons text-gray-400 text-sm">expand_more</span>
@@ -41,6 +57,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         leaveTo="transform opacity-0 scale-95 translate-y-1"
       >
         <Menu.Items
+          ref={menuItemsRef}
           modal={false}
           className="absolute z-[9999] mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto"
           style={{ backgroundColor: "white" }}
@@ -175,6 +192,19 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   );
 };
 
+// CSS untuk animasi mode edit
+const editModeStyles = `
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.edit-mode-icon {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+`;
+
 const EmployeeTable = ({ 
   employees, 
   searchInput,
@@ -197,6 +227,17 @@ const EmployeeTable = ({
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Tambahkan style animasi ke document
+  useEffect(() => {
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = editModeStyles;
+    document.head.appendChild(styleTag);
+    
+    return () => {
+      document.head.removeChild(styleTag);
+    };
+  }, []);
 
   // Reset editing mode when filters change
   useEffect(() => {
@@ -568,31 +609,34 @@ const EmployeeTable = ({
                     <td className="px-4 py-3 text-center relative whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex space-x-2 pr-5 justify-center">
-                        <button
-                          className={clsx(
-                            "text-[#EE4266] hover:text-[#b53434] transition-colors",
-                            updateEmployee.isPending && "opacity-50 cursor-not-allowed"
-                          )}
-                          onClick={() => cancelEditing(employee.id)}
-                          disabled={updateEmployee.isPending}
-                        >
-                          <span className="material-icons">cancel</span>
-                        </button>
+                          <button
+                            className={clsx(
+                              "text-[#EE4266] hover:text-[#b53434] transition-colors",
+                              updateEmployee.isPending && "opacity-50 cursor-not-allowed"
+                            )}
+                            onClick={() => cancelEditing(employee.id)}
+                            disabled={updateEmployee.isPending}
+                          >
+                            <span className="material-icons">cancel</span>
+                          </button>
 
-                        <button 
-                          className={clsx(
-                            "text-[#9BCA61] hover:text-[#6DAF31] transition-colors",
-                            (!hasChanges || updateEmployee.isPending) && "opacity-50 cursor-not-allowed"
-                          )}
-                          onClick={() => hasChanges && saveEditing(employee.id)}
-                          disabled={!hasChanges || updateEmployee.isPending}
-                        >
-                          <span className="material-icons">check_circle</span>
-                        </button>
+                          <button 
+                            className={clsx(
+                              "text-[#9BCA61] hover:text-[#6DAF31] transition-colors",
+                              (!hasChanges || updateEmployee.isPending) && "opacity-50 cursor-not-allowed"
+                            )}
+                            onClick={() => hasChanges && saveEditing(employee.id)}
+                            disabled={!hasChanges || updateEmployee.isPending}
+                          >
+                            <span className="material-icons">check_circle</span>
+                          </button>
                         </div>
                       ) : (
                         <button
-                          className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
+                          className={clsx(
+                            "text-gray-400 hover:text-[#488BBE] transition-colors relative",
+                            editingId && editingId !== employee.id && "edit-mode-icon text-[#488BBE]"
+                          )}
                           onClick={() => startEditing(employee.id)}
                           disabled={editingId !== null}
                           onMouseEnter={() => setShowEditTooltip(employee.id)}
