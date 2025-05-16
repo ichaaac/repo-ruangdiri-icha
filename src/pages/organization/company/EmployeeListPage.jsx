@@ -1,5 +1,5 @@
 // src/pages/organization/company/EmployeeListPage.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import useDebounce from "../../../hooks/useDebounce";
 import { useEmployeeData, useUserProfile, useDepartments } from "../../../hooks/useEmployeeData";
@@ -9,6 +9,8 @@ import EmployeeFilters from "../../../components/organization/company/list/Emplo
 
 const EmployeeListPage = () => {
   const { data: userData } = useUserProfile();
+  const resetEditModeRef = useRef(null);
+  const [filtersChanged, setFiltersChanged] = useState(false);
   
   const {
     searchInput,
@@ -17,6 +19,7 @@ const EmployeeListPage = () => {
     requestSort,
     getSortIcon,
     filtersInput,
+    setFiltersInput,
     appliedFilters,
     handleFilterSelect,
     applyFilters,
@@ -43,6 +46,42 @@ const EmployeeListPage = () => {
   } = useEmployeeData(debouncedSearchTerm, appliedSortConfig, appliedFilters);
   
   const { data: departmentsData } = useDepartments();
+
+  // Reset filters tracking effect
+  useEffect(() => {
+    // Reset the flag after it's been consumed
+    if (filtersChanged) {
+      setTimeout(() => setFiltersChanged(false), 100);
+    }
+  }, [filtersChanged]);
+  
+  // Enhanced clearFilters function
+  const handleClearFilters = () => {
+    // Cancel edit mode before clearing filters
+    if (resetEditModeRef.current) {
+      resetEditModeRef.current();
+    }
+    
+    // Clear the filters
+    clearFilters();
+    
+    // Set flag to notify table component
+    setFiltersChanged(true);
+  };
+  
+  // Enhanced apply filters function
+  const handleApplyFilters = () => {
+    // Cancel edit mode before applying filters
+    if (resetEditModeRef.current) {
+      resetEditModeRef.current();
+    }
+    
+    // Apply the filters
+    applyFilters();
+    
+    // Set flag to notify table component
+    setFiltersChanged(true);
+  };
   
   const { departments, positions } = useMemo(() => {
     if (departmentsData) {
@@ -108,9 +147,9 @@ const EmployeeListPage = () => {
 
         <div className="flex flex-wrap gap-3">
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div className="absolute inset-0 rounded-lg p-[1px] w-[98px] h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
-                <span className="material-icons text-[#3399E9] text-lg">groups</span>
+                <span className="material-icons text-[#3399E9] text-lg pb-4">groups</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{totalData}</div>
                   <div className="text-xs text-[#488BBE]">Karyawan</div>
@@ -120,9 +159,9 @@ const EmployeeListPage = () => {
           </div>
 
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div className="absolute inset-0 rounded-lg p-[1px] w-[98px] h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
-                <span className="material-icons text-[#FF86E1] text-lg">face_2</span>
+                <span className="material-icons text-[#FF86E1] text-lg pb-4">face_2</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts.female}</div>
                   <div className="text-xs text-[#488BBE]">Perempuan</div>
@@ -132,9 +171,9 @@ const EmployeeListPage = () => {
           </div>
 
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div className="absolute inset-0 rounded-lg p-[1px] w-[98px] h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
-                <span className="material-icons text-[#FF7173] text-lg">face</span>
+                <span className="material-icons text-[#FF7173] text-lg pb-4">face</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts.male}</div>
                   <div className="text-xs text-[#488BBE]">Laki Laki</div>
@@ -172,7 +211,7 @@ const EmployeeListPage = () => {
             {hasActiveFilters && (
               <button 
                 className="flex items-center justify-center px-4 py-2 rounded-full text-[#488bbe] hover:bg-[#e8f5ff] transition-colors"
-                onClick={clearFilters}
+                onClick={handleClearFilters}
               >
                 <span className="material-icons mr-1 text-sm">close</span>
                 <span>Clear all</span>
@@ -181,18 +220,22 @@ const EmployeeListPage = () => {
           </div>
         </div>
 
-        <EmployeeTable
-          employees={employees || []}
-          searchInput={debouncedSearchTerm}
-          getSortIcon={getSortIcon}
-          requestSort={requestSort}
-          fetchNextPage={fetchNextPage}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          updateEmployee={updateEmployee}
-          departmentOptions={departments}
-          positionOptions={positions}
-        />
+        <div className="relative" style={{ zIndex: 1 }}>
+          <EmployeeTable
+            employees={employees || []}
+            searchInput={debouncedSearchTerm}
+            getSortIcon={getSortIcon}
+            requestSort={requestSort}
+            fetchNextPage={fetchNextPage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            updateEmployee={updateEmployee}
+            departmentOptions={departments}
+            positionOptions={positions}
+            resetEditMode={resetEditModeRef}
+            filtersChanged={filtersChanged}
+          />
+        </div>
       </div>
 
       <AnimatePresence>
@@ -201,8 +244,9 @@ const EmployeeListPage = () => {
             showModal={showFilterModal}
             setShowModal={setShowFilterModal}
             filtersInput={filtersInput}
+            setFiltersInput={setFiltersInput}
             handleFilterSelect={handleFilterSelect}
-            applyFilters={applyFilters}
+            applyFilters={handleApplyFilters}
             departments={departments}
             positions={positions}
             employees={employees}

@@ -42,7 +42,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
       >
         <Menu.Items
           modal={false}
-          className="absolute z-50 mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto"
+          className="absolute z-[9999] mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto"
+          style={{ backgroundColor: "white" }}
         >
           {options.map((option) => {
             const optionValue = option.value !== undefined ? option.value : option;
@@ -61,6 +62,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                       active && "bg-[#E2F9FF]",
                       isSelected && "bg-[#E2F9FF] text-[#488BBE] font-medium"
                     )}
+                    style={{ backgroundColor: active ? "#E2F9FF" : "white" }}
                   >
                     <span>{optionLabel}</span>
                     {isSelected && (
@@ -183,7 +185,9 @@ const EmployeeTable = ({
   isFetchingNextPage,
   updateEmployee,
   departmentOptions,
-  positionOptions
+  positionOptions,
+  resetEditMode,
+  filtersChanged
 }) => {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
@@ -193,6 +197,20 @@ const EmployeeTable = ({
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Reset editing mode when filters change
+  useEffect(() => {
+    if (filtersChanged) {
+      cancelEditing();
+    }
+  }, [filtersChanged]);
+
+  // Expose reset method to parent
+  useEffect(() => {
+    if (resetEditMode) {
+      resetEditMode.current = cancelEditing;
+    }
+  }, [resetEditMode]);
 
   // Infinite scroll observer
   const lastEmployeeElementRef = useCallback(node => {
@@ -298,6 +316,20 @@ const EmployeeTable = ({
       return original && editData[key] !== original[key];
     });
 
+  // Linear gradient divider element
+  const LinearGradientDivider = () => (
+    <tr style={{ height: '1px' }}>
+      <td colSpan={9} className="p-0">
+        <div 
+          style={{
+            height: '1px',
+            backgroundImage: 'linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)'
+          }}
+        />
+      </td>
+    </tr>
+  );
+
   return (
     <div className="relative">
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
@@ -315,9 +347,9 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JABATAN</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JABATAN</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
               <th 
                 className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("age")}
@@ -350,7 +382,7 @@ const EmployeeTable = ({
                   <AnimatePresence>
                     {showHelpTooltip && (
                       <motion.div 
-                        className="fixed bg-[#00000080] text-white text-xs rounded-md p-2.5 shadow-lg z-[1000]"
+                        className="fixed bg-[#00000080] text-white text-xs rounded-md p-2.5 shadow-lg z-[9999]"
                         style={{ 
                           width: "150px",
                           top: helpIconRef.current?.getBoundingClientRect().top - 80,
@@ -389,7 +421,10 @@ const EmployeeTable = ({
               <th className="px-4 py-3 text-center whitespace-nowrap"></th>
             </tr>
           </thead>
+          {/* Add divider after header */}
           <tbody>
+            <LinearGradientDivider />
+            
             {employees.map((employee, index) => {
               const statusUI = getScreeningStatusUI(employee.screeningStatus || 'stable');
               const isLastElement = index === employees.length - 1;
@@ -401,7 +436,7 @@ const EmployeeTable = ({
                     className="bg-white hover:bg-gray-50 transition-colors"
                     ref={isLastElement ? lastEmployeeElementRef : null}
                   >
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 text-left whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="text"
@@ -416,44 +451,50 @@ const EmployeeTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
-                        <CustomDropdown
-                          name="department"
-                          value={editData.department}
-                          onChange={handleEditChange}
-                          options={departmentOptions}
-                          className="min-w-[150px]"
-                        />
+                        <div className="relative" style={{ zIndex: 9000 }}>
+                          <CustomDropdown
+                            name="department"
+                            value={editData.department}
+                            onChange={handleEditChange}
+                            options={departmentOptions}
+                            className="min-w-[150px]"
+                          />
+                        </div>
                       ) : (
                         <div className="text-sm text-gray-600">{employee.department}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
-                        <CustomDropdown
-                          name="position"
-                          value={editData.position}
-                          onChange={handleEditChange}
-                          options={positionOptions}
-                          className="min-w-[120px]"
-                        />
+                        <div className="relative" style={{ zIndex: 9000 }}>
+                          <CustomDropdown
+                            name="position"
+                            value={editData.position}
+                            onChange={handleEditChange}
+                            options={positionOptions}
+                            className="min-w-[120px]"
+                          />
+                        </div>
                       ) : (
                         <div className="text-sm text-gray-600">{employee.position}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
-                        <CustomDropdown
-                          name="gender"
-                          value={editData.gender}
-                          onChange={handleEditChange}
-                          options={[
-                            { value: 'male', label: 'L' },
-                            { value: 'female', label: 'P' }
-                          ]}
-                          className="w-16"
-                        />
+                        <div className="relative" style={{ zIndex: 9000 }}>
+                          <CustomDropdown
+                            name="gender"
+                            value={editData.gender}
+                            onChange={handleEditChange}
+                            options={[
+                              { value: 'male', label: 'L' },
+                              { value: 'female', label: 'P' }
+                            ]}
+                            className="w-16"
+                          />
+                        </div>
                       ) : (
                         <div className="text-sm text-gray-600">
                           {employee.gender === 'male' ? 'L' : 'P'}
@@ -526,23 +567,28 @@ const EmployeeTable = ({
                     </td>
                     <td className="px-4 py-3 text-center relative whitespace-nowrap">
                       {isEditing ? (
-                        <div className="flex space-x-2 justify-center">
-                          <button
-                            className={clsx(
-                              "text-[#87C054] hover:text-[#6DAF31] transition-colors",
-                              (!hasChanges || updateEmployee.isPending) && "opacity-50 cursor-not-allowed"
-                            )}
-                            onClick={() => hasChanges && saveEditing(employee.id)}
-                            disabled={!hasChanges || updateEmployee.isPending}
-                          >
-                            <span className="material-icons">check_circle</span>
-                          </button>
-                          <button 
-                            className="text-[#EE4266] hover:text-red-700 transition-colors" 
-                            onClick={cancelEditing}
-                          >
-                            <span className="material-icons">cancel</span>
-                          </button>
+                        <div className="flex space-x-2 pr-5 justify-center">
+                        <button
+                          className={clsx(
+                            "text-[#EE4266] hover:text-[#b53434] transition-colors",
+                            updateEmployee.isPending && "opacity-50 cursor-not-allowed"
+                          )}
+                          onClick={() => cancelEditing(employee.id)}
+                          disabled={updateEmployee.isPending}
+                        >
+                          <span className="material-icons">cancel</span>
+                        </button>
+
+                        <button 
+                          className={clsx(
+                            "text-[#9BCA61] hover:text-[#6DAF31] transition-colors",
+                            (!hasChanges || updateEmployee.isPending) && "opacity-50 cursor-not-allowed"
+                          )}
+                          onClick={() => hasChanges && saveEditing(employee.id)}
+                          disabled={!hasChanges || updateEmployee.isPending}
+                        >
+                          <span className="material-icons">check_circle</span>
+                        </button>
                         </div>
                       ) : (
                         <button
@@ -554,7 +600,7 @@ const EmployeeTable = ({
                         >
                           <span className="material-icons">edit</span>
                           {showEditTooltip === employee.id && (
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg">
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
                               Edit
                             </div>
                           )}
@@ -562,18 +608,8 @@ const EmployeeTable = ({
                       )}
                     </td>
                   </tr>
-                  {!isLastElement && (
-                  <tr style={{ height: '1px' }}>
-                    <td colSpan={9} className="p-0">
-                      <div 
-                        style={{
-                          height: '1px',
-                          backgroundImage: 'linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)'
-                        }}
-                      />
-                    </td>
-                  </tr>
-                )}
+                  {/* Add divider after each row */}
+                  <LinearGradientDivider />
                 </React.Fragment>
               );
             })}
@@ -584,7 +620,7 @@ const EmployeeTable = ({
       <AnimatePresence>
         {hoveredStatus && (
           <motion.div
-            className="fixed bg-[#00000080] text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50 shadow-lg"
+            className="fixed bg-[#00000080] text-white text-xs rounded px-2 py-1 whitespace-nowrap z-[9999] shadow-lg"
             style={{ 
               left: hoveredStatus.x,
               top: hoveredStatus.y - 10
