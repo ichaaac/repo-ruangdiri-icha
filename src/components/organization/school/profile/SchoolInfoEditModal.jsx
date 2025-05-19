@@ -16,9 +16,9 @@ const isEmptyPhone = (phone) => {
   return !digits || digits.length <= 3; // Just country code
 };
 
-// Schema with simplified phone validation
+// Modified schema to make fullName optional
 const schoolInfoSchema = z.object({
-  fullName: z.string().min(1, "Nama sekolah wajib diisi"),
+  fullName: z.string().optional(), // Changed from required to optional
   address: z.string().optional(),
   phone: z.string()
     .optional()
@@ -87,7 +87,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     mutationFn: async (data) => {
       setErrorMessage("");
       
-      // Clean empty values
+      // Clean empty values - removed conditioning for fullName to allow empty submissions
       if (!data.address) data.address = '';
       if (isEmptyPhone(data.phone)) data.phone = '';
       
@@ -152,7 +152,6 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                     "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
                     errors.fullName ? "border-red-500" : "border-gray-300"
                   )}
-                  placeholder="Masukkan nama sekolah"
                 />
                 {errors.fullName && (
                   <span className="text-xs text-red-500 mt-1 block">
