@@ -1,4 +1,4 @@
-// src/lib/api.js
+// src/lib/api.js - Fixed function naming
 
 import axios from "axios";
 
@@ -151,6 +151,175 @@ const api = {
     },
   },
 
+  // ===== Students endpoints =====
+  students: {
+    /**
+     * Get a single student by ID
+     * @param {string} studentId - The ID of the student to fetch
+     * @returns {Promise} API response with student data
+     */
+    getStudentById: async (studentId) => {
+      try {
+        const response = await apiClient.get(`/students/${studentId}`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching student ${studentId}:`, error);
+        throw error;
+      }
+    },
+
+    /**
+     * Update a student's profile
+     * @param {string} studentId - The ID of the student to update
+     * @param {Object} data - Profile data to update
+     * @returns {Promise} API response with updated student data
+     */
+    update: async (studentId, data) => {
+      try {
+        const response = await apiClient.patch(`/students/${studentId}`, data);
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating student ${studentId}:`, error);
+        throw error;
+      }
+    },
+
+    /**
+     * Get student's academic info (grades, classrooms)
+     * @returns {Promise} API response with academic info
+     */
+    getAcademicInfo: async () => {
+      try {
+        const response = await apiClient.get('/students/academic-info');
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching academic info:", error);
+        // Return a fallback structure with some common values
+        return {
+          status: "fallback",
+          data: {
+            grades: ["X", "XI", "XII"],
+            classNumbers: ["1", "2", "3", "4", "5", "IPA-1", "IPA-2", "IPS-1", "IPS-2"],
+            // Generate some sample classrooms
+            classrooms: [
+              "X-1", "X-2", "X-3", "X-4", "X-5", 
+              "XI-IPA-1", "XI-IPA-2", "XI-IPS-1", "XI-IPS-2",
+              "XII-IPA-1", "XII-IPA-2", "XII-IPS-1", "XII-IPS-2",
+              "x-ayam bakar"
+            ]
+          }
+        };
+      }
+    },
+
+    /**
+     * Get student's mental health history
+     * @param {string} studentId - The ID of the student
+     * @returns {Promise} API response with mental health data
+     */
+    getMentalHealthHistory: async (studentId) => {
+      try {
+        const response = await apiClient.get(`/students/${studentId}/mental-health-history`);
+        return response.data;
+      } catch (error) {
+        console.error(`Error fetching mental health history for student ${studentId}:`, error);
+        throw error;
+      }
+    },
+
+    /**
+     * Upload student profile picture
+     * @param {string} studentId - The ID of the student
+     * @param {File} file - Profile picture file
+     * @returns {Promise} API response
+     */
+    updateProfilePicture: async (studentId, file) => {
+      try {
+        const formData = new FormData();
+        formData.append("profilePicture", file);
+
+        const response = await apiClient.put(`/students/${studentId}/profile-picture`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating profile picture for student ${studentId}:`, error);
+        throw error;
+      }
+    },
+
+    /**
+     * Update student progress notes
+     * @param {string} studentId - The ID of the student
+     * @param {string} progress - Progress notes text
+     * @returns {Promise} API response
+     */
+    updateProgress: async (studentId, progress) => {
+      try {
+        const response = await apiClient.patch(`/students/${studentId}/progress`, { progress });
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating progress for student ${studentId}:`, error);
+        throw error;
+      }
+    },
+
+    /**
+     * Update student screening status
+     * @param {string} studentId - The ID of the student
+     * @param {string} status - New screening status ('at_risk', 'monitored', 'stable')
+     * @param {string} notes - Optional notes about the status change
+     * @returns {Promise} API response
+     */
+    updateScreeningStatus: async (studentId, status, notes = "") => {
+      try {
+        const response = await apiClient.patch(`/students/${studentId}/screening-status`, { 
+          status, 
+          notes 
+        });
+        return response.data;
+      } catch (error) {
+        console.error(`Error updating screening status for student ${studentId}:`, error);
+        throw error;
+      }
+    },
+
+    /**
+     * Get dashboard metrics for students
+     * @returns {Promise} API response with dashboard metrics data
+     */
+    getDashboardMetrics: async () => {
+      try {
+        const response = await apiClient.get('/students/dashboard/metrics');
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching student dashboard metrics:", error);
+        // Return a fallback empty structure
+        return {
+          status: "fallback",
+          data: {
+            summary: {
+              atRisk: { count: 0, total: 0 },
+              notScreened: { count: 0, total: 0 },
+              notCounseled: { count: 0, total: 0 }
+            },
+            mentalHealth: {
+              overall: { atRisk: 0, monitored: 0, stable: 0 },
+              byMonth: []
+            },
+            status: {
+              screening: { completed: 0, notCompleted: 0 },
+              counseling: { completed: 0, notCompleted: 0 }
+            }
+          },
+          message: "Fallback student dashboard metrics"
+        };
+      }
+    }
+  },
+
   // ===== Organization endpoints =====
   organization: {
     /**
@@ -237,7 +406,6 @@ const api = {
       getClassrooms: async () => {
         try {
           const response = await apiClient.get("/students/academic-info");
-          console.log(response)
           return response.data;
         } catch (error) {
           throw error;
@@ -245,7 +413,7 @@ const api = {
       },
     
       /**
-       * Update a student's profile
+       * Update a student's profile (via organization endpoint)
        * @param {string} studentId - The ID of the student to update
        * @param {Object} studentData - Profile data to update
        * @returns {Promise} API response with updated student data
@@ -258,6 +426,39 @@ const api = {
           throw error;
         }
       },
+
+      /**
+       * Get dashboard metrics for the school
+       * @returns {Promise} API response with dashboard metrics
+       */
+      getDashboardMetrics: async () => {
+        try {
+          const response = await apiClient.get("/students/dashboard/metrics");
+          return response.data;
+        } catch (error) {
+          console.error("Error fetching school dashboard metrics:", error);
+          // Return fallback structure
+          return {
+            status: "fallback",
+            data: {
+              summary: {
+                atRisk: { count: 0, total: 0 },
+                notScreened: { count: 0, total: 0 },
+                notCounseled: { count: 0, total: 0 }
+              },
+              mentalHealth: {
+                overall: { atRisk: 0, monitored: 0, stable: 0 },
+                byMonth: []
+              },
+              status: {
+                screening: { completed: 0, notCompleted: 0 },
+                counseling: { completed: 0, notCompleted: 0 }
+              }
+            },
+            message: "Fallback school dashboard metrics"
+          };
+        }
+      }
     },
 
     // Company-specific endpoints
@@ -321,19 +522,111 @@ const api = {
       },
 
       /**
-       * Get departments - menggunakan endpoint yang benar
+       * Get departments and roles
        * @returns {Promise} API response with departments data
        */
       getDepartments: async () => {
         try {
-          // Gunakan endpoint yang benar
           const response = await apiClient.get("/employees/roles");
-          console.log(response)
           return response.data;
         } catch (error) {
           console.error("Error fetching departments:", error);
           // Return fallback structure
-          return 
+          return {
+            status: "fallback",
+            data: [
+              { department: "Human Resources", positions: ["Head", "Manager", "Staff", "Recruiter"] },
+              { department: "Finance", positions: ["Head", "Manager", "Accountant", "Analyst"] },
+              { department: "Marketing", positions: ["Head", "Manager", "Specialist", "Coordinator"] },
+              { department: "Operations", positions: ["Head", "Lead", "Manager", "Staff"] },
+              { department: "Information Technology", positions: ["Head", "Lead", "Developer", "Designer", "Support"] },
+              { department: "Product Development", positions: ["Head", "Lead", "Manager", "Engineer"] },
+              { department: "Legal", positions: ["Head", "Counsel", "Specialist"] }
+            ]
+          };
+        }
+      },
+
+      /**
+       * Get dashboard metrics for company
+       * @returns {Promise} API response with dashboard metrics
+       */
+      getDashboardMetrics: async () => {
+        try {
+          const response = await apiClient.get("/employees/dashboard/metrics");
+          return response.data;
+        } catch (error) {
+          console.error("Error fetching employee dashboard metrics:", error);
+          // Return fallback structure
+          return {
+            status: "fallback",
+            data: {
+              summary: {
+                atRisk: { count: 0, total: 0 },
+                notScreened: { count: 0, total: 0 },
+                notCounseled: { count: 0, total: 0 }
+              },
+              mentalHealth: {
+                overall: { atRisk: 0, monitored: 0, stable: 0 },
+                byMonth: []
+              },
+              status: {
+                screening: { completed: 0, notCompleted: 0 },
+                counseling: { completed: 0, notCompleted: 0 }
+              }
+            },
+            message: "Fallback employee dashboard metrics"
+          };
+        }
+      },
+
+      /**
+       * Get employee by ID
+       * @param {string} employeeId - The ID of the employee
+       * @returns {Promise} API response with employee data
+       */
+      getEmployeeById: async (employeeId) => {
+        try {
+          const response = await apiClient.get(`/employees/${employeeId}`);
+          return response.data;
+        } catch (error) {
+          console.error(`Error fetching employee ${employeeId}:`, error);
+          throw error;
+        }
+      },
+
+      /**
+       * Get employee mental health history
+       * @param {string} employeeId - The ID of the employee
+       * @returns {Promise} API response with mental health data
+       */
+      getEmployeeMentalHealthHistory: async (employeeId) => {
+        try {
+          const response = await apiClient.get(`/employees/${employeeId}/mental-health-history`);
+          return response.data;
+        } catch (error) {
+          console.error(`Error fetching mental health history for employee ${employeeId}:`, error);
+          throw error;
+        }
+      },
+
+      /**
+       * Update employee screening status
+       * @param {string} employeeId - The ID of the employee
+       * @param {string} status - New screening status ('at_risk', 'monitored', 'stable')
+       * @param {string} notes - Optional notes about the status change
+       * @returns {Promise} API response
+       */
+      updateEmployeeScreeningStatus: async (employeeId, status, notes = "") => {
+        try {
+          const response = await apiClient.patch(`/employees/${employeeId}/screening-status`, { 
+            status, 
+            notes 
+          });
+          return response.data;
+        } catch (error) {
+          console.error(`Error updating screening status for employee ${employeeId}:`, error);
+          throw error;
         }
       }
     }

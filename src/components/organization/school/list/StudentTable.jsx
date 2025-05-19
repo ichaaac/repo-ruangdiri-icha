@@ -2,6 +2,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
+import { useNavigate } from "react-router-dom";
 import clsx from 'clsx';
 
 // Custom Dropdown Component with smooth animation
@@ -184,6 +185,7 @@ const StudentTable = ({
   updateStudent,
   classroomOptions
 }) => {
+  const navigate = useNavigate(); // Add navigation hook
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
@@ -192,6 +194,12 @@ const StudentTable = ({
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Function to navigate to student detail
+  const handleViewStudentDetail = (id) => {
+    if (editingId !== null) return; // Don't navigate while editing
+    navigate(`/organization/school/student/${id}`);
+  };
 
   // Infinite scroll observer
   const lastStudentElementRef = useCallback(node => {
@@ -391,8 +399,9 @@ const StudentTable = ({
               return (
                 <React.Fragment key={student.id}>
                   <tr 
-                    className="bg-white hover:bg-gray-50 transition-colors"
+                    className="bg-white hover:bg-gray-50 transition-colors cursor-pointer"
                     ref={isLastElement ? lastStudentElementRef : null}
+                    onClick={() => !isEditing && handleViewStudentDetail(student.id)}
                   >
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
@@ -401,10 +410,11 @@ const StudentTable = ({
                           name="fullName"
                           value={editData.fullName}
                           onChange={handleEditChange}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                         />
                       ) : (
-                        <div className="text-sm font-medium text-gray-900" title={student.fullName}>
+                        <div className="text-sm font-medium text-gray-900 hover:text-[#488BBE] hover:underline" title={student.fullName}>
                           {highlightText(student.fullName)}
                         </div>
                       )}
@@ -415,8 +425,9 @@ const StudentTable = ({
                           name="classroom"
                           value={editData.classroom}
                           onChange={handleEditChange}
-                          options={classroomOptions}
+                          options={classroomOptions || [student.classroom]}
                           className="min-w-[120px]"
+                          onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
                         <div className="text-sm text-gray-600">{student.classroom}</div>
@@ -433,6 +444,7 @@ const StudentTable = ({
                             { value: 'female', label: 'Perempuan' }
                           ]}
                           className="w-[110px]"
+                          onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
                         <div className="text-sm text-gray-600">
@@ -447,6 +459,7 @@ const StudentTable = ({
                           name="nis"
                           value={editData.nis}
                           onChange={handleEditChange}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-sm text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 w-full hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                         />
                       ) : (
@@ -462,6 +475,7 @@ const StudentTable = ({
                           statusUI.bg
                         )}
                         onMouseEnter={(e) => {
+                          e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
                           setHoveredStatus({
                             status: student.screeningStatus || 'stable',
@@ -486,6 +500,7 @@ const StudentTable = ({
                           name="iqScore"
                           value={editData.iqScore}
                           onChange={handleEditChange}
+                          onClick={(e) => e.stopPropagation()}
                           className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-16 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                           maxLength="3"
                           inputMode="numeric"
@@ -496,7 +511,7 @@ const StudentTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center relative whitespace-nowrap">
+                    <td className="px-4 py-3 text-center relative whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {isEditing ? (
                         <div className="flex space-x-2 justify-center">
                           <button

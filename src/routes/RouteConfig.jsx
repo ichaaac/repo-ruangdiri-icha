@@ -25,6 +25,7 @@ import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage
 import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
 import StudentListPage from "../pages/organization/school/StudentListPage";
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
+import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
 // import SchoolSchedulePage from "../pages/organization/school/SchoolSchedulePage"; // Not yet developed
 
 /**
@@ -121,6 +122,10 @@ const routes = [
         path: "student-list",
         element: <StudentListPage />
       },
+      {
+        path: "student/:studentId",
+        element: <StudentDetailPage />
+      },
       // Route to profile page when settings is clicked (settings is profile page)
       {
         path: "settings",
@@ -195,6 +200,10 @@ const routes = [
       {
         path: "student-list",
         element: <StudentListPage />
+      },
+      {
+        path: "student/:studentId",
+        element: <StudentDetailPage />
       },
       // Route to profile page when settings is clicked (settings is profile page)
       {
