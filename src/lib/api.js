@@ -30,12 +30,12 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Don't redirect on 401 errors during login attempts
-    // This ensures login errors are handled by the component
+    // Don't redirect on 401 errors during login attempts or when skipAuthRedirect header is set
     const isLoginAttempt = error.config.url?.includes("/auth/login");
+    const skipAuthRedirect = error.config.headers?.['X-Skip-Auth-Redirect'] === 'true';
 
-    if (error.response && error.response.status === 401 && !isLoginAttempt) {
-      // Only clear tokens and redirect for non-login 401 errors
+    if (error.response?.status === 401 && !isLoginAttempt && !skipAuthRedirect) {
+      // Only clear tokens and redirect for non-login 401 errors without skip flag
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";
@@ -43,7 +43,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
 // Consolidated API object with all endpoints
 const api = {
   // ===== User endpoints =====
@@ -120,12 +119,17 @@ const api = {
      * @param {string} newPassword - New password
      * @returns {Promise} API response
      */
-    changePassword: async (oldPassword, newPassword) => {
+    changePassword: async (oldPassword, newPassword, skipAuthRedirect = false) => {
       try {
-        const response = await apiClient.patch("/users/change-password", {
-          oldPassword,
-          newPassword,
-        });
+        const response = await apiClient.patch("/users/change-password", 
+          {
+            oldPassword,
+            newPassword,
+          },
+          skipAuthRedirect ? { 
+            headers: { 'X-Skip-Auth-Redirect': 'true' }
+          } : undefined
+        );
         return response.data;
       } catch (error) {
         throw error;

@@ -1,11 +1,11 @@
 // src/pages/organization/school/SchoolProfilePage.jsx
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import SchoolInfoEditModal from "../../../components/organization/school/profile/SchoolInfoEditModal";
 import SchoolAccountEditModal from "../../../components/organization/school/profile/SchoolAccountEditModal";
 import ProfilePictureUpload from "../../../components/organization/school/profile/ProfilePictureUpload";
-import { apiClient, getMe } from "../../../lib/api";
+import { getMe } from "../../../lib/api";
 import { parsePhoneNumber } from 'libphonenumber-js';
 
 // Helper function to format phone number with clear country code separation
@@ -162,36 +162,8 @@ const SchoolProfilePage = () => {
 	const [showErrorModal, setShowErrorModal] = useState(false);
 	const [modalMessage, setModalMessage] = useState("");
 
-	const {
-		data: userData,
-		isLoading,
-		error,
-		refetch,
-	} = useQuery({
-		queryKey: ["school-profile"],
-		queryFn: async () => {
-			const token = localStorage.getItem("token");
-			if (!token) {
-				throw new Error("No authentication token found");
-			}
+	const { user: userData, isLoading, error, refetchUser } = useAuth();
 
-			try {
-				const response = await getMe();
-				if (response.data && response.data.status === "success") {
-					return response.data.data;
-				}
-
-				throw new Error(
-					response.data?.message || "No usable data returned from API"
-				);
-			} catch (error) {
-				console.error("Profile API error details:", error);
-				throw error;
-			}
-		},
-		staleTime: 1000 * 60 * 5,
-		retry: 1,
-	});
 
 	const handleModalClose = (success) => {
 		setActiveModal(null);
@@ -207,7 +179,7 @@ const SchoolProfilePage = () => {
 			}, 2000);
 
 			// Refresh data
-			refetch();
+			refetchUser();
 		}
 	};
 
@@ -445,3 +417,5 @@ const SchoolProfilePage = () => {
 };
 
 export default SchoolProfilePage;
+
+

@@ -1,14 +1,13 @@
+// src/components/organization/school/SchoolSidebar.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../../../hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import { getMe } from "../../../lib/api";
 
-const SchoolSidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
+const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user: userData } = useAuth(); // Gunakan user dari useAuth
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showDashboardDropdown, setShowDashboardDropdown] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -16,9 +15,6 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
   const expandTimeoutRef = useRef(null);
   const collapseTimeoutRef = useRef(null);
   const sidebarRef = useRef(null);
-
-  // Remove the duplicate query - use userData passed from parent component instead
-  // This ensures a single source of truth and avoids desynchronized states
 
   const expandedWidth = 237;
   const collapsedWidth = 59;
@@ -237,12 +233,13 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
         </AnimatePresence>
       </div>
 
+      {/* Sisa komponen tetap sama */}
       {/* Divider */}
       <div className="mt-6 px-2">
         <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
       </div>
 
-      {/* Navigation Menu - with mouse hover only in this section */}
+      {/* Navigation Menu */}
       <div 
         className="flex flex-col mt-6 flex-1 overflow-y-auto gap-y-[21px]"
         onMouseEnter={handleSidebarMouseEnter}
