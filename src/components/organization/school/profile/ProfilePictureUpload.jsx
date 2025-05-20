@@ -1,7 +1,5 @@
-// src/components/organization/school/profile/ProfilePictureUpload.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-
 import clsx from "clsx";
 import { apiClient } from "../../../../lib/api";
 
@@ -11,7 +9,9 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const queryClient = useQueryClient();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  
+  // Fix the API_URL definition by providing a fallback
+  const API_URL = import.meta.env.VITE_API_URL || "";
 
   // Update preview when currentProfilePicture changes
   useEffect(() => {
@@ -34,25 +34,24 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       
       console.log("Uploading profile picture...");
       
+      // Use apiClient directly instead of constructing URL
       return apiClient.put(
-        `${API_URL}/organizations/profile-picture`,
+        "/organizations/profile-picture",
         formData,
         {
           headers: {
-            "Content-Type": "multipart/form-data",
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json"
-          },
+            "Content-Type": "multipart/form-data"
+          }
         }
       );
     },
     onSuccess: (response) => {
       console.log("Profile picture upload success:", response.data);
       
+      // Invalidate the consistent query key used across the app
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['school', 'profile'] });
-      queryClient.invalidateQueries({ queryKey: ['company', 'profile'] });
       
+      // Set preview image from response
       if (response.data?.data?.organization?.profilePicture) {
         setPreviewImage(response.data.data.organization.profilePicture);
       } else if (response.data?.data?.profilePicture) {
@@ -124,6 +123,16 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
               src={previewImage}
               alt="Profile"
               className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error("Profile image failed to load:", e);
+                e.target.onerror = null; // Prevent infinite loops
+                // Set fallback
+                e.target.parentNode.innerHTML = `
+                  <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <span class="material-icons text-gray-400" style="font-size: 3rem;">person</span>
+                  </div>
+                `;
+              }}
             />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">

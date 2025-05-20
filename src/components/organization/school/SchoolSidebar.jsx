@@ -1,4 +1,3 @@
-// src/components/organization/school/SchoolSidebar.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -6,7 +5,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { getMe } from "../../../lib/api";
 
-const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
+const SchoolSidebar = ({ expanded, setExpanded, onHoverChange, userData }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -18,17 +17,8 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const collapseTimeoutRef = useRef(null);
   const sidebarRef = useRef(null);
 
-  // Fetch user data
-  const { data: userData } = useQuery({
-    queryKey: ["school-profile"],
-    queryFn: async () => {
-      const response = await getMe();
-      if (response.data?.status === "success") {
-        return response.data.data;
-      }
-      throw new Error("Failed to fetch user data");
-    }
-  });
+  // Remove the duplicate query - use userData passed from parent component instead
+  // This ensures a single source of truth and avoids desynchronized states
 
   const expandedWidth = 237;
   const collapsedWidth = 59;
@@ -182,9 +172,18 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
             {userData?.organization?.profilePicture ? (
               <img
-                src={`${userData.organization.profilePicture}?t=${new Date().getTime()}`}
+                src={userData.organization.profilePicture}
                 alt="Organization"
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.error("Profile image failed to load:", e);
+                  e.target.onerror = null; // Prevent infinite loops
+                  e.target.src = ""; // Clear the src
+                  e.target.style.backgroundColor = "#488BBE";
+                  e.target.style.display = "flex";
+                  e.target.style.alignItems = "center";
+                  e.target.style.justifyContent = "center";
+                }}
               />
             ) : (
               <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">

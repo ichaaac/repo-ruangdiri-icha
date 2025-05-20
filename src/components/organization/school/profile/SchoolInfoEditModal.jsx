@@ -1,5 +1,4 @@
-// src/components/organization/school/profile/SchoolInfoEditModal.jsx
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,17 +7,16 @@ import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
+import { add } from "date-fns";
 
-// Phone validation helpers
 const extractDigits = (phone) => phone?.replace(/[^\d]/g, '') || '';
 const isEmptyPhone = (phone) => {
   const digits = extractDigits(phone);
   return !digits || digits.length <= 3; // Just country code
 };
 
-// Modified schema to make fullName optional
 const schoolInfoSchema = z.object({
-  fullName: z.string().optional(), // Changed from required to optional
+  fullName: z.string().nullable(), 
   address: z.string().optional(),
   phone: z.string()
     .optional()
@@ -31,7 +29,36 @@ const schoolInfoSchema = z.object({
     })
 });
 
-// Confirmation modal component
+const AutoResizeTextarea = ({ className, ...props }) => {
+  const textareaRef = useRef(null);
+  
+  const adjustHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  };
+  
+  useEffect(() => {
+    adjustHeight();
+  }, [props.value]);
+  
+
+  
+  return (
+    <textarea
+      ref={textareaRef}
+      className={className}
+      onChange={(e) => {
+        props.onChange(e);
+        adjustHeight();
+      }}
+      {...props}
+      style={{ resize: 'none', overflow: 'hidden', minHeight: '48px' }}
+    />
+  );
+};
+
 const ConfirmationModal = ({ onCancel, onConfirm }) => (
   <div className="fixed inset-0 z-[60] flex items-center justify-center">
     <div className="fixed inset-0 bg-black bg-opacity-30"></div>
@@ -72,6 +99,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     handleSubmit,
     control,
     formState: { errors, isSubmitting, isDirty },
+    watch
   } = useForm({
     resolver: zodResolver(schoolInfoSchema),
     defaultValues: {
@@ -82,29 +110,51 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     mode: "onChange",
   });
 
-  // Update profile mutation
+  const addressValue = watch("address");
+  const isMeaninglessChange = addressValue.trim() === "";
+
+
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
       setErrorMessage("");
       
-      // Clean empty values - removed conditioning for fullName to allow empty submissions
-      if (!data.address) data.address = '';
-      if (isEmptyPhone(data.phone)) data.phone = '';
+      const processedData = {
+        fullName: data.fullName === null ? "" : data.fullName,
+        address: !data.address || data.address.trim() === "" ? "" : data.address.trim(),
+        phone: isEmptyPhone(data.phone) ? "" : data.phone
+      };
       
-      return apiClient.patch('/organizations/profile', data);
+      console.log("Submitting school info:", processedData);
+      
+      try {
+        const response = await apiClient.patch('/organizations/profile', processedData);
+        return response;
+      } catch (error) {
+        console.error("First attempt failed:", error);
+        if (processedData.fullName === "") {
+          console.log("Trying direct API call to set empty name");
+          const directResponse = await apiClient.patch('/organizations/profile/name', { fullName: "" });
+          return directResponse;
+        }
+        throw error;
+      }
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Update profile success:", response.data);
+      
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       queryClient.invalidateQueries({ queryKey: ['school-profile'] });
+      
       onClose(true);
     },
     onError: (error) => {
+      console.error("Update profile error:", error);
       setErrorMessage(error.response?.data?.message || "Terjadi kesalahan");
     },
   });
 
   const onSubmit = (data) => {
-    if (isEmptyPhone(data.phone)) data.phone = '';
+    // Process and submit data
     updateProfileMutation.mutate(data);
   };
 
@@ -146,13 +196,16 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                 <label className="block text-sm text-gray-500 mb-1">
                   Nama Sekolah
                 </label>
-                <input
-                  {...register("fullName")}
-                  className={clsx(
-                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
-                    errors.fullName ? "border-red-500" : "border-gray-300"
-                  )}
-                />
+                <div className="relative">
+                  <input
+                    id="fullName"
+                    {...register("fullName")}
+                    className={clsx(
+                      "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
+                      errors.fullName ? "border-red-500" : "border-gray-300"
+                    )}
+                  />
+                </div>
                 {errors.fullName && (
                   <span className="text-xs text-red-500 mt-1 block">
                     {errors.fullName.message}
@@ -164,10 +217,17 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                 <label className="block text-sm text-gray-500 mb-1">
                   Alamat Sekolah
                 </label>
-                <input
-                  {...register("address")}
-                  className="w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary border-gray-300"
-                />
+                <AutoResizeTextarea
+                {...register("address")}
+                onBlur={(e) => {
+                  const trimmed = e.target.value.trim();
+                  if (trimmed === "") {
+                    setValue("address", "");
+                  }
+                }}
+                className="w-full rounded-md px-4 py-3 focus:outline-none focus:border-primary border-[1.5px] border-gray-300 resize-none max-h-32 overflow-y-auto"
+                value={addressValue}
+               />
               </div>
 
               <div>
@@ -219,10 +279,15 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isDirty || updateProfileMutation.isPending}
+                  disabled={
+                    isSubmitting ||
+                    !isDirty ||
+                    isMeaninglessChange || 
+                    updateProfileMutation.isPending
+                  }
                   className={clsx(
                     "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                    isDirty && !isSubmitting && !updateProfileMutation.isPending
+                    isDirty && !isMeaninglessChange && !isSubmitting && !updateProfileMutation.isPending
                       ? "bg-primary hover:bg-primary-variant1"
                       : "bg-gray-400 cursor-not-allowed"
                   )}

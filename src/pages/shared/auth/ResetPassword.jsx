@@ -59,6 +59,10 @@ const SuccessModal = ({ isOpen, onClose }) => {
           <span className="material-icons animate-spin">rotate_left</span>
         </div>
       </div>
+      <div className="flex items-center gap-2 text-zinc-500">
+          <span>Kamu akan dialihkan ke halaman Masuk</span>
+          <span className="material-icons animate-spin">rotate_left</span>
+        </div>
     </div>
   );
 };

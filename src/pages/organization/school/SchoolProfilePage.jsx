@@ -288,7 +288,7 @@ const SchoolProfilePage = () => {
 							/>
 							<div className="flex flex-col gap-1.5">
 								<h2 className="text-base font-bold text-neutral-600">
-									{userData?.fullName || "Nama Sekolah"}
+									{userData?.fullName || "-"}
 								</h2>
 								<p className="text-xs text-neutral-600">Admin</p>
 								<p className="text-xs text-neutral-600">
