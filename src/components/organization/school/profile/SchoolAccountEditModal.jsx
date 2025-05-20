@@ -8,7 +8,6 @@ import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../../../hooks/useAuth";
 
 // Validation schema
 const passwordSchema = z.object({
@@ -119,7 +118,6 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
   });
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const { changePassword } = useAuth(); // Gunakan changePassword dari useAuth
 
   const {
     register,
@@ -156,22 +154,32 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
     });
   }, [newPassword]);
 
+  // Buat langsung panggil API tanpa custom header
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data) => {
+      setErrorMessage("");
+      return apiClient.patch('/users/change-password', {
+        oldPassword: data.oldPassword,
+        newPassword: data.newPassword,
+      });
+    },
+    onSuccess: () => onClose(true),
+    onError: (error) => {
+      console.error("Password change error:", error);
+      // Tampilkan pesan error dari backend
+      setErrorMessage(
+        error.response?.data?.message || 
+        "Terjadi kesalahan saat mengubah password"
+      );
+    },
+  });
+
   const onSubmit = (data) => {
     setErrorMessage("");
-    
-    // Use the changePassword mutation from useAuth hook
-    changePassword.mutate(
-      { 
-        oldPassword: data.oldPassword, 
-        newPassword: data.newPassword 
-      },
-      {
-        onSuccess: () => onClose(true),
-        onError: (error) => {
-          setErrorMessage(error.message || "Terjadi kesalahan saat mengubah password");
-        }
-      }
-    );
+    changePasswordMutation.mutate({
+      oldPassword: data.oldPassword,
+      newPassword: data.newPassword
+    });
   };
 
   const handleCloseClick = () => {
@@ -203,9 +211,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
           )}
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            {/* Form content tetap sama */}``
             <div className="space-y-5">
-              {/* Email field */}
               <div>
                 <label className="block text-sm text-gray-500 mb-1">Email</label>
                 <input
@@ -217,7 +223,6 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
                 />
               </div>
 
-              {/* Password fields */}
               <div>
                 <PasswordField
                   label="Password Lama"
@@ -281,15 +286,15 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
               <div className="flex justify-end pt-2">
                 <button
                   type="submit"
-                  disabled={isSubmitting || !isDirty || Object.keys(errors).length > 0 || changePassword.isPending}
+                  disabled={isSubmitting || !isDirty || Object.keys(errors).length > 0 || changePasswordMutation.isPending}
                   className={clsx(
                     "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                    isDirty && !isSubmitting && Object.keys(errors).length === 0 && !changePassword.isPending
+                    isDirty && !isSubmitting && Object.keys(errors).length === 0 && !changePasswordMutation.isPending
                       ? "bg-primary hover:bg-primary-variant1"
                       : "bg-gray-400 cursor-not-allowed"
                   )}
                 >
-                  {isSubmitting || changePassword.isPending ? (
+                  {isSubmitting || changePasswordMutation.isPending ? (
                     <span className="flex items-center">
                       <span className="material-icons animate-spin text-sm mr-1">refresh</span>
                       Menyimpan...

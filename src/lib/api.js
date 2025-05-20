@@ -26,16 +26,12 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Add response interceptor to handle 401 errors
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Don't redirect on 401 errors during login attempts or when skipAuthRedirect header is set
+    const isPasswordChange = error.config.url?.includes("/users/change-password");
     const isLoginAttempt = error.config.url?.includes("/auth/login");
-    const skipAuthRedirect = error.config.headers?.['X-Skip-Auth-Redirect'] === 'true';
-
-    if (error.response?.status === 401 && !isLoginAttempt && !skipAuthRedirect) {
-      // Only clear tokens and redirect for non-login 401 errors without skip flag
+    if (error.response?.status === 401 && !isLoginAttempt && !isPasswordChange) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";
@@ -126,9 +122,9 @@ const api = {
             oldPassword,
             newPassword,
           },
-          skipAuthRedirect ? { 
-            headers: { 'X-Skip-Auth-Redirect': 'true' }
-          } : undefined
+          // skipAuthRedirect ? { 
+          //   headers: { 'X-Skip-Auth-Redirect': 'true' }
+          // } : undefined
         );
         return response.data;
       } catch (error) {
