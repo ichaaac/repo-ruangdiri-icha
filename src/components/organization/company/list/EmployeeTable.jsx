@@ -14,9 +14,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
     onChange({ target: { name, value: optionValue } });
   };
 
-  // Fungsi scroll yang lebih sederhana dengan scrollIntoView
   const handleMenuOpen = () => {
-    // Beri waktu untuk transisi menu muncul
     setTimeout(() => {
       if (menuItemsRef.current) {
         menuItemsRef.current.scrollIntoView({ 
@@ -64,7 +62,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         >
           {options.map((option) => {
             const optionValue = option.value !== undefined ? option.value : option;
-            const optionLabel = option.label || option;
+          const optionLabel = option.label || option;
             const isSelected = optionValue === value;
 
             return (

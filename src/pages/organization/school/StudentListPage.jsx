@@ -100,9 +100,9 @@ const StudentListPage = () => {
 
         <div className="flex flex-wrap gap-3">
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
-              <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
-                <span className="material-icons text-[#3399E9] text-lg">groups</span>
+          <div className="absolute inset-0 rounded-lg p-[1px] w-[98px] h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+          <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
+                <span className="material-icons text-[#3399E9] text-lg pb-5">groups</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{totalData}</div>
                   <div className="text-xs text-[#488BBE]">Siswa</div>
@@ -112,9 +112,9 @@ const StudentListPage = () => {
           </div>
 
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
-              <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
-                <span className="material-icons text-[#FF86E1] text-lg">face_2</span>
+          <div className="absolute inset-0 rounded-lg p-[1px] w-[98px] h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+          <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
+                <span className="material-icons text-[#FF86E1] text-lg pb-5">face_2</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts.female}</div>
                   <div className="text-xs text-[#488BBE]">Perempuan</div>
@@ -124,9 +124,9 @@ const StudentListPage = () => {
           </div>
 
           <div className="relative w-[100px] md:w-[120px] h-[70px] md:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
-              <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
-                <span className="material-icons text-[#FF7173] text-lg">face</span>
+          <div className="absolute inset-0 rounded-lg p-[1px] w-[98px] h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+          <div className="bg-white rounded-lg w-full h-full flex items-center pl-3">
+                <span className="material-icons text-[#FF7173] text-lg pb-5">face</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
                   <div className="text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts.male}</div>
                   <div className="text-xs text-[#488BBE]">Laki-laki</div>
