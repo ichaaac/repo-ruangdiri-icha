@@ -2,16 +2,15 @@
 import React, { useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import useDebounce from "../../../hooks/useDebounce";
-import { useStudentData, useUserProfile, useClassrooms } from "../../../hooks/useStudentData";
+import { useStudentData, useClassrooms } from "../../../hooks/useStudentData";
 import { useStudentFilters } from "../../../hooks/useStudentFilter";
 import StudentFilters from "../../../components/organization/school/list/StudentFilter";
 import StudentTable from "../../../components/organization/school/list/StudentTable";
+import { useAuth } from "@/hooks/useAuth";
 
 const StudentListPage = () => {
-  // Fetch user profile data
-  const { data: userData } = useUserProfile();
+  const { data: userData } = useAuth();
   
-  // Initialize student filter hook
   const {
     searchInput,
     setSearchInput,
@@ -31,7 +30,6 @@ const StudentListPage = () => {
   // Debounce search input to avoid excessive API calls
   const debouncedSearchTerm = useDebounce(searchInput, 300);
   
-  // Fetch student data with filters applied
   const {
     students,
     totalData,
@@ -116,12 +114,15 @@ const StudentListPage = () => {
         </div>
       </div>
 
-      {/* Greeting and metrics section */}
       <div className="flex items-start justify-between px-6 mt-[44px]">
         <div className="mt-2">
+        {isLoading ? (
+          <p className="text-sm text-gray-400">Loading...</p>
+        ) : (
           <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
-            Halo, {userData?.fullName || '-'}
+            Halo, {userData?.fullName || ""}
           </h1>
+        )}
         </div>
 
         {/* Stats cards */}

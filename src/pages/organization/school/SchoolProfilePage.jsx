@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
-import SchoolInfoEditModal from "../../../components/organization/school/profile/SchoolInfoEditModal";
+import SchoolInfoEditModal from "@/components/organization/school/profile/SchoolInfoEditModal";
 import SchoolAccountEditModal from "../../../components/organization/school/profile/SchoolAccountEditModal";
 import ProfilePictureUpload from "../../../components/organization/school/profile/ProfilePictureUpload";
 import { parsePhoneNumber } from 'libphonenumber-js';
@@ -163,7 +163,6 @@ const SchoolProfilePage = () => {
 
 	const { user: userData, isLoading, error, refetchUser } = useAuth();
 
-
 	const handleModalClose = (success) => {
 		setActiveModal(null);
 		if (success) {
@@ -198,7 +197,7 @@ const SchoolProfilePage = () => {
 						"Gagal memuat profil. Silakan coba beberapa saat lagi."}
 				</p>
 				<button
-					onClick={() => refetch()}
+					onClick={() => refetchUser()}
 					className="px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-variant1 transition-colors"
 				>
 					Coba Lagi
@@ -378,7 +377,7 @@ const SchoolProfilePage = () => {
 				)}
 			</AnimatePresence>
 
-			{/* Account Settings Edit Modal */}
+			{/* Account Settings Modal */}
 			<AnimatePresence>
 				{activeModal === "accountSettings" && (
 					<Modal isOpen={true} onClose={() => handleModalClose(false)}>
@@ -400,7 +399,7 @@ const SchoolProfilePage = () => {
 					/>
 				)}
 			</AnimatePresence>
-
+			
 			{/* Error Modal */}
 			<AnimatePresence>
 				{showErrorModal && (
@@ -416,5 +415,3 @@ const SchoolProfilePage = () => {
 };
 
 export default SchoolProfilePage;
-
-

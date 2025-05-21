@@ -87,7 +87,6 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       return;
     }
 
-    // Validate file size (max 2MB)
     const maxSize = 2 * 1024 * 1024; // 2MB
     if (file.size > maxSize) {
       setUploadError("Ukuran file terlalu besar. Maksimal 2MB.");
@@ -173,10 +172,10 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       
       {/* Error message display */}
       {uploadError && (
-        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs whitespace-nowrap">
-          {uploadError}
-        </div>
-      )}
+      <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs whitespace-nowrap z-[9999] shadow-lg">
+        {uploadError}
+      </div>
+    )}
     </div>
   );
 };

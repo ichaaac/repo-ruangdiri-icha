@@ -1,6 +1,7 @@
 // src/hooks/useStudentData.js
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
+import { data } from "react-router-dom";
 
 /**
  * Hook for fetching user profile data
@@ -11,7 +12,7 @@ export const useUserProfile = () => {
     queryFn: async () => {
       try {
         const response = await api.user.getMe();
-        return response.data;
+        return response.data.data;
       } catch (error) {
         console.error("Error fetching user profile:", error);
         throw error;

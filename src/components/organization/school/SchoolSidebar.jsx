@@ -1,4 +1,3 @@
-// src/components/organization/school/SchoolSidebar.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,7 +43,6 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
     }
   };
 
-  // Close dropdowns when sidebar collapses
   useEffect(() => {
     if (!expanded && !hovered) {
       setShowProfileDropdown(false);
@@ -89,6 +87,14 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   // Fixed image error handler that won't cause infinite renders
   const handleImageError = () => {
     setFallbackProfileImage(true);
+  };
+  
+  // Check if school name is long
+  const isLongName = () => {
+    if (userData?.organization?.name) {
+      return userData.organization.name.length > 20;
+    }
+    return false;
   };
 
   const menuItems = [
@@ -147,8 +153,8 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
-      {/* Logo */}
-      <div className="p-4 flex justify-center items-center relative">
+      {/* Logo Container - Centered */}
+      <motion.div className="flex justify-center items-center relative h-[90px]">
         <motion.img
           src="/logo/ruang-diri-logo.svg"
           alt="Ruang Diri Logo"
@@ -159,8 +165,9 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="object-contain"
         />
-
-        <div
+        
+        {/* Toggle Button - Always on right edge */}
+        <motion.div
           className="absolute right-0 top-4"
           onMouseEnter={() => setToggleHovered(true)}
           onMouseLeave={() => setToggleHovered(false)}
@@ -175,16 +182,17 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
               {expanded ? 'chevron_left' : 'chevron_right'}
             </span>
           </button>
-        </div>
-      </div>
-
+        </motion.div>
+      </motion.div>
+      
       {/* Profile Section */}
-      <div className="mt-6 px-4">
-        <div
-          className="flex items-center cursor-pointer"
+      <motion.div className="px-4 mt-2">
+        <motion.div
+          className={`flex ${isLongName() && (expanded || hovered) ? 'flex-col items-center' : 'items-center'} cursor-pointer`}
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
-          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+          {/* Profile Picture - Fixed Position */}
+          <motion.div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
             {userData?.organization?.profilePicture && !fallbackProfileImage ? (
               <img
                 src={userData.organization.profilePicture}
@@ -193,34 +201,38 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
                 onError={handleImageError}
               />
             ) : (
-              <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
+              <motion.div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
                 {getInitial()}
-              </div>
+              </motion.div>
             )}
-          </div>
+          </motion.div>
+          
+          {/* Profile Text */}
           <motion.div
-            className="ml-3 overflow-hidden"
+            className={`${isLongName() && (expanded || hovered) ? 'mt-2 text-center' : 'ml-3'} overflow-hidden`}
             animate={{
               width: expanded || hovered ? "auto" : 0,
-              opacity: expanded || hovered ? 1 : 0
+              opacity: expanded || hovered ? 1 : 0,
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             <div className="text-sm font-medium text-[#488BBE]">Admin</div>
-            <div className="text-sm font-medium text-[#488BBE]">
-              {userData?.fullName || "-"}
-              <span className="material-icons text-sm ml-1 text-[#488BBE]">
+            <div className="text-sm font-medium text-[#488BBE] flex items-center">
+              <span className="truncate max-w-[140px]">
+                {userData?.fullName || "-"}
+              </span>
+              <span className="material-icons text-sm ml-1 text-[#488BBE] flex-shrink-0">
                 {showProfileDropdown ? 'expand_less' : 'expand_more'}
               </span>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
         
         {/* Profile Dropdown */}
         <AnimatePresence>
           {showProfileDropdown && (expanded || hovered) && (
             <motion.div
-              className="mt-2 pl-12 overflow-hidden"
+              className={`mt-2 ${isLongName() ? 'pl-0 text-center' : 'pl-12'} overflow-hidden`}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -242,22 +254,22 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* Divider */}
-      <div className="mt-6 px-2">
+      <div className="mt-4 px-2">
         <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
       </div>
 
       {/* Navigation Menu */}
-      <div 
+      <motion.div 
         className="flex flex-col mt-6 flex-1 overflow-y-auto gap-y-[21px]"
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
       >
         {menuItems.map((item, index) => (
-          <div key={index}>
-            <div
+          <motion.div key={index}>
+            <motion.div
               className={`flex items-center w-full h-[47px] px-5 transition-colors cursor-pointer ${
                 isActive(item.path)
                   ? "bg-[#488BBE] text-white"
@@ -272,7 +284,15 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
                 }
               }}
             >
-              <span className="material-icons text-[22px]">{item.icon}</span>
+              {/* Icon - Always Visible */}
+              <motion.span 
+                className="material-icons w-[22px] flex-shrink-0"
+                style={{ fontSize: '22px' }}
+              >
+                {item.icon}
+              </motion.span>
+              
+              {/* Label - Only Visible when Expanded */}
               <motion.span
                 animate={{
                   width: expanded || hovered ? "auto" : 0,
@@ -289,7 +309,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
                   </span>
                 )}
               </motion.span>
-            </div>
+            </motion.div>
             
             {/* Dashboard Dropdown */}
             <AnimatePresence>
@@ -314,9 +334,9 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </motion.div>
   );
 };

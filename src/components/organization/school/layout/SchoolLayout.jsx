@@ -3,10 +3,6 @@ import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import SchoolSidebar from "../SchoolSidebar";
 
-/**
- * Layout component for school organization pages
- * Manages sidebar expansion state and contains the page outlet
- */
 const SchoolLayout = () => {
   const [expanded, setExpanded] = useState(true);
   const [sidebarHovered, setSidebarHovered] = useState(false);

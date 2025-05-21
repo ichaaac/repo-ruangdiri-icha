@@ -481,15 +481,15 @@ const StudentTable = ({
                             value={editData.gender}
                             onChange={handleEditChange}
                             options={[
-                              { value: 'male', label: 'Laki-laki' },
-                              { value: 'female', label: 'Perempuan' }
+                              { value: 'male', label: 'L' },
+                              { value: 'female', label: 'P' }
                             ]}
                             className="w-[110px]"
                           />
                         </div>
                       ) : (
-                        <div className="text-sm text-gray-600">
-                          {student.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
+                        <div className="text-sm text-gray-600 justify-center">
+                          {student.gender === 'male' ? 'L' : 'P'}
                         </div>
                       )}
                     </td>
