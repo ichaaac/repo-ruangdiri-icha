@@ -196,12 +196,9 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               <div className="flex-grow mr-4">
                 {errorMessage && (
                   <div className="inline-block px-4 py-3 text-xs bg-pink-100 border border-red-400 text-red-700 rounded-md" style={{ maxWidth: 'fit-content' }}>
-                    <div className="flex items-start">
+                    <div className="flex items-center">
                       <span className="material-icons mr-2 text-sm">error</span>
-                      <div className="flex items-center">
-                        <span className="material-icons text-xs mr-1">error_outline</span>
-                        {errorMessage}
-                      </div>
+                      {errorMessage}
                     </div>
                   </div>
                 )}

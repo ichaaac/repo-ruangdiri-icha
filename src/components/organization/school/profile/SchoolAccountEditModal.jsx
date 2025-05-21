@@ -1,5 +1,5 @@
 // src/components/organization/school/profile/SchoolAccountEditModal.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, memo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,6 +26,95 @@ const passwordSchema = z.object({
   path: ["confirmPassword"],
 });
 
+// Password validation indicator component - memoized untuk mengurangi re-render
+const PasswordValidationItem = memo(({ isValid, text }) => (
+  <div className="flex items-center gap-2">
+    <motion.span 
+      animate={isValid ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className="material-icons text-sm"
+      style={{ color: isValid ? "#0EAD69" : "#71717A" }}
+    >
+      {isValid ? "check_circle" : "cancel"}
+    </motion.span>
+    <span className={`text-xs ${isValid ? "text-green-600" : "text-zinc-500"}`}>
+      {text}
+    </span>
+  </div>
+));
+
+// Password input field component - memoized untuk mengurangi re-render
+const PasswordField = memo(({ label, name, register, error, placeholder }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  
+  const togglePasswordVisibility = React.useCallback((e) => {
+    e.preventDefault(); // Prevent the button from stealing focus
+    setShowPassword(prevState => !prevState);
+  }, []);
+  
+  return (
+    <div>
+      <label className="block text-sm text-gray-500 mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type={showPassword ? "text" : "password"}
+          {...register(name)}
+          className={clsx(
+            "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
+            error ? "border-red-500" : "border-gray-300"
+          )}
+          placeholder={placeholder}
+          autoComplete={name.includes("new") ? "new-password" : "current-password"}
+        />
+        <button
+          type="button"
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+          onClick={togglePasswordVisibility}
+          tabIndex="-1" // Prevent tab focus on this button
+        >
+          <span className="material-icons">
+            {showPassword ? "visibility" : "visibility_off"}
+          </span>
+        </button>
+      </div>
+      {error && (
+        <span className="text-xs text-red-500 mt-1 block">
+          {error.message}
+        </span>
+      )}
+    </div>
+  );
+});
+
+// Validasi saat blur daripada setiap ketikan
+const ValidationCheckbox = memo(({ validations }) => {
+  return (
+    <div>
+      <span className="block text-xs text-gray-500 mb-3">
+        Password harus terdiri dari:
+      </span>
+      <div className="grid grid-cols-2 gap-x-5 gap-y-2">
+        <PasswordValidationItem 
+          isValid={validations.minLength} 
+          text="Minimal 8 karakter" 
+        />
+        <PasswordValidationItem 
+          isValid={validations.hasNumber} 
+          text="Minimal 1 angka" 
+        />
+        <PasswordValidationItem 
+          isValid={validations.hasUpperCase} 
+          text="Minimal 1 huruf kapital" 
+        />
+        <PasswordValidationItem 
+          isValid={validations.hasSpecialChar} 
+          text="Minimal 1 karakter khusus" 
+        />
+      </div>
+    </div>
+  );
+});
+
 const SchoolAccountEditModal = ({ onClose, userData }) => {
   const [validations, setValidations] = useState({
     minLength: false,
@@ -50,6 +139,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       newPassword: "",
       confirmPassword: "",
     },
+    mode: "onBlur", // Validasi hanya saat blur, bukan saat ketik
   });
 
   const newPassword = watch("newPassword");
@@ -61,14 +151,21 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
     }
   }, [userData, setValue]);
 
-  // Validate password in real-time
+  // Validasi password hanya ketika nilai berubah signifikan
+  // Menggunakan throttle untuk mengurangi re-render
   useEffect(() => {
-    setValidations({
-      minLength: newPassword?.length >= 8,
-      hasNumber: /\d/.test(newPassword),
-      hasUpperCase: /[A-Z]/.test(newPassword),
-      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
-    });
+    const validatePassword = () => {
+      setValidations({
+        minLength: newPassword?.length >= 8,
+        hasNumber: /\d/.test(newPassword),
+        hasUpperCase: /[A-Z]/.test(newPassword),
+        hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(newPassword),
+      });
+    };
+
+    // Batasi validasi hanya ketika user tidak aktif mengetik
+    const timer = setTimeout(validatePassword, 300);
+    return () => clearTimeout(timer);
   }, [newPassword]);
 
   const changePasswordMutation = useMutation({
@@ -100,85 +197,6 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
 
   const handleCloseClick = () => {
     isDirty ? setShowConfirmationModal(true) : onClose(false);
-  };
-
-  // Mempersiapkan pesan error untuk ditampilkan
-  const getValidationErrors = () => {
-    const errorMessages = [];
-    
-    if (errors.email) {
-      errorMessages.push(errors.email.message);
-    }
-    
-    if (errors.oldPassword) {
-      errorMessages.push(errors.oldPassword.message);
-    }
-    
-    if (errors.newPassword) {
-      errorMessages.push(errors.newPassword.message);
-    }
-    
-    if (errors.confirmPassword) {
-      errorMessages.push(errors.confirmPassword.message);
-    }
-    
-    if (errorMessage) {
-      errorMessages.push(errorMessage);
-    }
-    
-    return errorMessages;
-  };
-
-  const validationErrors = getValidationErrors();
-  const hasValidationErrors = validationErrors.length > 0;
-
-  // Password validation indicator component
-  const PasswordValidationItem = ({ isValid, text }) => (
-    <div className="flex items-center gap-2">
-      <motion.span 
-        animate={isValid ? { scale: [1, 1.2, 1] } : { scale: 1 }}
-        transition={{ duration: 0.3 }}
-        className="material-icons text-sm"
-        style={{ color: isValid ? "#0EAD69" : "#71717A" }}
-      >
-        {isValid ? "check_circle" : "cancel"}
-      </motion.span>
-      <span className={`text-xs ${isValid ? "text-green-600" : "text-zinc-500"}`}>
-        {text}
-      </span>
-    </div>
-  );
-
-  // Password input field component
-  const PasswordField = ({ label, name, error, placeholder }) => {
-    const [showPassword, setShowPassword] = useState(false);
-    
-    return (
-      <div>
-        <label className="block text-sm text-gray-500 mb-1">{label}</label>
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            {...register(name)}
-            className={clsx(
-              "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
-              error ? "border-red-500" : "border-gray-300"
-            )}
-            placeholder={placeholder}
-            autoComplete={name.includes("new") ? "new-password" : "current-password"}
-          />
-          <button
-            type="button"
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            <span className="material-icons">
-              {showPassword ? "visibility" : "visibility_off"}
-            </span>
-          </button>
-        </div>
-      </div>
-    );
   };
 
   if (showConfirmationModal) {
@@ -218,12 +236,18 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
                 className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 bg-gray-100"
                 autoComplete="email"
               />
+              {errors.email && (
+                <span className="text-xs text-red-500 mt-1 block">
+                  {errors.email.message}
+                </span>
+              )}
             </div>
 
             <div>
               <PasswordField
                 label="Password Lama"
                 name="oldPassword"
+                register={register}
                 error={errors.oldPassword}
                 placeholder="Masukkan password lama"
               />
@@ -242,37 +266,17 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
             <PasswordField
               label="Password Baru"
               name="newPassword"
+              register={register}
               error={errors.newPassword}
               placeholder="Masukkan password baru"
             />
 
-            <div>
-              <span className="block text-xs text-gray-500 mb-3">
-                Password harus terdiri dari:
-              </span>
-              <div className="grid grid-cols-2 gap-x-5 gap-y-2">
-                <PasswordValidationItem 
-                  isValid={validations.minLength} 
-                  text="Minimal 8 karakter" 
-                />
-                <PasswordValidationItem 
-                  isValid={validations.hasNumber} 
-                  text="Minimal 1 angka" 
-                />
-                <PasswordValidationItem 
-                  isValid={validations.hasUpperCase} 
-                  text="Minimal 1 huruf kapital" 
-                />
-                <PasswordValidationItem 
-                  isValid={validations.hasSpecialChar} 
-                  text="Minimal 1 karakter khusus" 
-                />
-              </div>
-            </div>
+            <ValidationCheckbox validations={validations} />
 
             <PasswordField
               label="Konfirmasi Password Baru"
               name="confirmPassword"
+              register={register}
               error={errors.confirmPassword}
               placeholder="Konfirmasi password baru"
             />
@@ -280,18 +284,11 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
             <div className="flex justify-between items-center pt-2">
               {/* Error message on the left */}
               <div className="flex-grow mr-4">
-                {hasValidationErrors && (
+                {errorMessage && (
                   <div className="inline-block px-4 py-3 text-xs bg-pink-100 border border-red-400 text-red-700 rounded-md" style={{ maxWidth: 'fit-content' }}>
-                    <div className="flex items-start">
+                    <div className="flex items-center">
                       <span className="material-icons mr-2 text-sm">error</span>
-                      <div className="flex flex-col">
-                        {validationErrors.map((error, index) => (
-                          <div key={index} className="flex items-center mb-1 last:mb-0">
-                            <span className="material-icons text-xs mr-1">error_outline</span>
-                            {error}
-                          </div>
-                        ))}
-                      </div>
+                      {errorMessage}
                     </div>
                   </div>
                 )}
