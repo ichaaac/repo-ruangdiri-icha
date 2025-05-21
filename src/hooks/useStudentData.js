@@ -3,8 +3,23 @@ import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tansta
 import api from "../lib/api";
 
 /**
- * Hook for fetching and managing student data in a list context
+ * Hook for fetching user profile data
  */
+export const useUserProfile = () => {
+  return useQuery({
+    queryKey: ['userProfile'],
+    queryFn: async () => {
+      try {
+        const response = await api.user.getMe();
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        throw error;
+      }
+    },
+  });
+};
+
 export const useStudentData = (searchTerm, sortConfig, filters) => {
   const queryClient = useQueryClient();
   
@@ -18,8 +33,13 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
     
     // Filters
     if (filters.grade) params.grade = filters.grade;
-    if (filters.classroom) params.classroom = filters.classroom;
-    if (filters.gender) params.gender = filters.gender;
+    if (filters.classNumber) params.classNumber = filters.classNumber;
+    if (filters.gender) {
+      // Convert 'L'/'P' to 'male'/'female' for API
+      if (filters.gender === 'L') params.gender = 'male';
+      else if (filters.gender === 'P') params.gender = 'female';
+      else params.gender = filters.gender;
+    }
     if (filters.screeningStatus) params.screening = filters.screeningStatus;
     if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? '1' : '0';
     if (filters.iqScore) params.iqScore = filters.iqScore;
@@ -79,18 +99,19 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
         };
         
         // Use the organization endpoint for student lists
-        const data = await api.organization.school.getStudents(params);
+        const response = await api.organization.school.getStudents(params);
         
+        // The API response structure has metadata in a specific format
         return { 
-          data: data?.data?.students || [], 
-          metadata: data?.metadata || {
-            totalPage: 1,
+          data: response.data?.students || [], 
+          metadata: response.metadata || {
             totalData: 0,
+            totalPage: 1,
             page: pageParam,
             limit: 10,
             hasNextPage: false,
             byGender: { male: 0, female: 0 }
-          }, 
+          },
           pageParam 
         };
       } catch (error) {
@@ -99,8 +120,11 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
       }
     },
     getNextPageParam: (lastPage) => {
-      const { page, totalPage } = lastPage.metadata;
-      return page < totalPage ? page + 1 : undefined;
+      // Check if there are more pages based on metadata
+      if (lastPage.metadata && lastPage.metadata.hasNextPage) {
+        return lastPage.metadata.page + 1;
+      }
+      return undefined;
     },
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -109,23 +133,30 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
   // Update student mutation
   const updateStudentMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      // Use the new direct student API endpoint
-      return api.students.updateStudent(id, data);
+      return api.organization.school.updateStudent(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['infiniteStudents']);
+    },
+    onError: (error) => {
+      console.error("Error updating student:", error);
     }
   });
   
   // Flatten all pages into single array and sort on frontend
   const allStudents = infiniteQuery.data?.pages.flatMap(page => page.data) || [];
   const sortedStudents = sortData(allStudents, sortConfig);
+  
+  // Get metadata from the first page (should be the same for all pages)
   const metadata = infiniteQuery.data?.pages[0]?.metadata;
+
+  // Get gender counts from metadata if available
+  const genderCounts = metadata?.byGender || { male: 0, female: 0 };
 
   return {
     students: sortedStudents,
     totalData: metadata?.totalData || 0,
-    genderCounts: metadata?.byGender || { male: 0, female: 0 },
+    genderCounts,
     isLoading: infiniteQuery.isLoading,
     isFetchingNextPage: infiniteQuery.isFetchingNextPage,
     hasNextPage: infiniteQuery.hasNextPage,
@@ -146,7 +177,7 @@ export const useStudentDetail = (studentId) => {
   
   // Fetch student detail
   const {
-    data: student,
+    data: studentData,
     isLoading,
     isError,
     error,
@@ -161,7 +192,7 @@ export const useStudentDetail = (studentId) => {
 
   // Update student detail mutation
   const updateStudentMutation = useMutation({
-    mutationFn: (data) => api.students.updateStudent(studentId, data),
+    mutationFn: (data) => api.students.update(studentId, data),
     onSuccess: () => {
       // Invalidate the student detail query to refetch
       queryClient.invalidateQueries(['student', studentId]);
@@ -188,9 +219,23 @@ export const useStudentDetail = (studentId) => {
     }
   });
 
+  // Get student mental health history
+  const {
+    data: mentalHealthHistory,
+    isLoading: isLoadingHistory
+  } = useQuery({
+    queryKey: ['student', studentId, 'mentalHealthHistory'],
+    queryFn: () => api.students.getMentalHealthHistory(studentId),
+    enabled: !!studentId && !!studentData,
+    retry: 1,
+    staleTime: 1000 * 60 * 5 // 5 minutes
+  });
+
   return {
-    student: student?.data,
+    student: studentData?.data || null,
+    mentalHealthHistory: mentalHealthHistory?.data || null,
     isLoading,
+    isLoadingHistory,
     isError,
     error,
     refetch,
@@ -201,7 +246,7 @@ export const useStudentDetail = (studentId) => {
 };
 
 /**
- * Hook to fetch classrooms data
+ * Hook to fetch classrooms data from API
  */
 export const useClassrooms = () => {
   return useQuery({
@@ -209,36 +254,19 @@ export const useClassrooms = () => {
     queryFn: async () => {
       try {
         const response = await api.students.getAcademicInfo();
-        return response?.data || {
-          grades: ["X", "XI", "XII"],
-          classNumbers: ["1", "2", "3", "4", "5", "IPA-1", "IPA-2", "IPS-1", "IPS-2"],
-          classrooms: [
-            "X-1", "X-2", "X-3", "X-4", "X-5", 
-            "XI-IPA-1", "XI-IPA-2", "XI-IPS-1", "XI-IPS-2",
-            "XII-IPA-1", "XII-IPA-2", "XII-IPS-1", "XII-IPS-2",
-            "x-ayam bakar"
-          ]
+        return {
+          // Use the actual data structure from the API
+          gradesResult: response?.data?.gradesResult || [],
+          // There's no classNumbers in the API, we'll extract them from classrooms
+          classNumbers: [],
+          classroomsResult: response?.data?.classroomsResult || []
         };
       } catch (error) {
         console.error("Error in useClassrooms:", error);
-        // Return fallback data
-        return {
-          grades: ["X", "XI", "XII"],
-          classNumbers: ["1", "2", "3", "4", "5", "IPA-1", "IPA-2", "IPS-1", "IPS-2"],
-          classrooms: [
-            "X-1", "X-2", "X-3", "X-4", "X-5", 
-            "XI-IPA-1", "XI-IPA-2", "XI-IPS-1", "XI-IPS-2",
-            "XII-IPA-1", "XII-IPA-2", "XII-IPS-1", "XII-IPS-2",
-            "x-ayam bakar"
-          ]
-        };
+        throw error;
       }
     },
-    staleTime: 1000 * 60 * 60, // 1 hour
-    retry: false
+    staleTime: 1000 * 60 * 30, // 30 minutes
+    retry: 2
   });
 };
-
-/**
- * Hook to fetch user profile data
- */

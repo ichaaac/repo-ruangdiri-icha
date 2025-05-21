@@ -371,7 +371,6 @@ const api = {
       }
     },
 
-    // School-specific endpoints
     school: {
       /**
        * Get school student list
@@ -416,12 +415,13 @@ const api = {
       /**
        * Update a student's profile (via organization endpoint)
        * @param {string} studentId - The ID of the student to update
-       * @param {Object} studentData - Profile data to update
+       * @param {Object} studentData - Profile data to update (flat structure)
        * @returns {Promise} API response with updated student data
        */
-      updateStudent: async (studentId, studentData) => {
+      updateStudent: async (studentId, data) => {
         try {
-          const response = await apiClient.patch(`/organizations/students/${studentId}`, studentData);
+          // Send only the data fields to update, no nesting
+          const response = await apiClient.patch(`/organizations/students/${studentId}`, data);
           return response.data;
         } catch (error) {
           throw error;

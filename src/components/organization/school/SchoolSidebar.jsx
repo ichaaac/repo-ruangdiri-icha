@@ -9,9 +9,10 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const navigate = useNavigate();
   const { logout, user: userData } = useAuth();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState(null); // Ubah ke tracking item spesifik
+  const [activeDropdown, setActiveDropdown] = useState(null);
   const [hovered, setHovered] = useState(false);
   const [toggleHovered, setToggleHovered] = useState(false);
+  const [fallbackProfileImage, setFallbackProfileImage] = useState(false);
   const expandTimeoutRef = useRef(null);
   const collapseTimeoutRef = useRef(null);
   const sidebarRef = useRef(null);
@@ -85,6 +86,11 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
     };
   }, []);
 
+  // Fixed image error handler that won't cause infinite renders
+  const handleImageError = () => {
+    setFallbackProfileImage(true);
+  };
+
   const menuItems = [
     {
       icon: "bar_chart",
@@ -123,6 +129,14 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   // Handle dropdown toggle untuk item spesifik
   const toggleDropdown = (path) => {
     setActiveDropdown(activeDropdown === path ? null : path);
+  };
+
+  // Get the first letter of the name safely
+  const getInitial = () => {
+    if (userData?.fullName && userData.fullName.length > 0) {
+      return userData.fullName.charAt(0).toUpperCase();
+    }
+    return 'S';
   };
 
   return (
@@ -171,24 +185,16 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-            {userData?.organization?.profilePicture ? (
+            {userData?.organization?.profilePicture && !fallbackProfileImage ? (
               <img
                 src={userData.organization.profilePicture}
                 alt="Organization"
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  console.error("Profile image failed to load:", e);
-                  e.target.onerror = null; // Prevent infinite loops
-                  e.target.src = ""; // Clear the src
-                  e.target.style.backgroundColor = "#488BBE";
-                  e.target.style.display = "flex";
-                  e.target.style.alignItems = "center";
-                  e.target.style.justifyContent = "center";
-                }}
+                onError={handleImageError}
               />
             ) : (
               <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
-                {userData?.fullName?.charAt(0).toUpperCase() || 'S'}
+                {getInitial()}
               </div>
             )}
           </div>
@@ -259,7 +265,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
               }`}
               onClick={() => {
                 if (item.hasDropdown) {
-                  // Toggle dropdown untuk item ini
+                  // Toggle dropdown for this item
                   toggleDropdown(item.path);
                 } else {
                   navigate(item.path);

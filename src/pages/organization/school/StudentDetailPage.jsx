@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { id as indonesianLocale } from "date-fns/locale";
 import clsx from "clsx";
 import { useStudentDetail } from "../../../hooks/useStudentData";
-import StudentProfileEditModal from "@/components/organization/school/student-detail/StudentProfileEditModal";
+import StudentProfileEditModal from "../../../components/organization/school/student-detail/StudentProfileEditModal";
 
 // Helper to format dates with proper locale
 const formatDate = (dateString) => {
@@ -142,53 +142,70 @@ const SuccessModal = ({ isOpen, message, onClose }) => {
 };
 
 // Mental Health Timeline Chart Component
-const MentalHealthTimeline = ({ studentData }) => {
-  // In a real app, you would fetch timeline data from the API
-  // For now, let's create a sample based on the available data
-  
-  // Generate some mock data points for the past 6 months
+const MentalHealthTimeline = ({ studentData, mentalHealthHistory }) => {
+  // Use mental health history data if available, otherwise generate mock data
   const generateTimelineData = () => {
-    const now = new Date();
-    const data = [];
-    
-    // Start with current status
-    const currentStatus = studentData?.studentProfile?.screeningStatus || 'stable';
-    
-    // Status values (3 = stable, 2 = monitored, 1 = at_risk)
-    const statusValues = {
-      'stable': 3,
-      'monitored': 2,
-      'at_risk': 1
-    };
-    
-    // Create data for the last 6 months
-    for (let i = 5; i >= 0; i--) {
-      const month = new Date(now);
-      month.setMonth(month.getMonth() - i);
-      
-      let status;
-      // For current month, use actual status
-      if (i === 0) {
-        status = statusValues[currentStatus];
-      } else {
-        // Generate realistic progression based on current status
-        // More likely to be near current status than far from it
-        const volatility = 0.7; // How much variation between months
-        const baseLine = statusValues[currentStatus];
-        const prevValue = data.length > 0 ? data[data.length - 1].value : baseLine;
-        const randomFactor = Math.random() * volatility * 2 - volatility;
+    if (mentalHealthHistory && Array.isArray(mentalHealthHistory) && mentalHealthHistory.length > 0) {
+      // Process actual mental health history data
+      return mentalHealthHistory.slice(0, 6).map(record => {
+        const date = new Date(record.createdAt);
+        const statusValues = {
+          'at_risk': 1,
+          'monitored': 2,
+          'stable': 3
+        };
         
-        // Constrain values between 1-3
-        status = Math.max(1, Math.min(3, Math.round(prevValue + randomFactor)));
+        return {
+          month: format(date, 'MMM', { locale: indonesianLocale }),
+          value: statusValues[record.status] || 3,
+          date: date
+        };
+      });
+    } else {
+      // Generate mock data if history not available
+      const now = new Date();
+      const data = [];
+      
+      // Start with current status
+      const currentStatus = studentData?.studentProfile?.screeningStatus || 'stable';
+      
+      // Status values (3 = stable, 2 = monitored, 1 = at_risk)
+      const statusValues = {
+        'stable': 3,
+        'monitored': 2,
+        'at_risk': 1
+      };
+      
+      // Create data for the last 6 months
+      for (let i = 5; i >= 0; i--) {
+        const month = new Date(now);
+        month.setMonth(month.getMonth() - i);
+        
+        let status;
+        // For current month, use actual status
+        if (i === 0) {
+          status = statusValues[currentStatus];
+        } else {
+          // Generate realistic progression based on current status
+          // More likely to be near current status than far from it
+          const volatility = 0.7; // How much variation between months
+          const baseLine = statusValues[currentStatus];
+          const prevValue = data.length > 0 ? data[data.length - 1].value : baseLine;
+          const randomFactor = Math.random() * volatility * 2 - volatility;
+          
+          // Constrain values between 1-3
+          status = Math.max(1, Math.min(3, Math.round(prevValue + randomFactor)));
+        }
+        
+        data.push({
+          month: format(month, 'MMM', { locale: indonesianLocale }),
+          value: status,
+          date: month
+        });
       }
       
-      data.push({
-        month: format(month, 'MMM', { locale: indonesianLocale }),
-        value: status
-      });
+      return data;
     }
-    
-    return data;
   };
   
   const timelineData = generateTimelineData();
@@ -303,7 +320,9 @@ const StudentDetailPage = () => {
   // Use the custom hook to fetch student data
   const { 
     student,
+    mentalHealthHistory,
     isLoading,
+    isLoadingHistory,
     isError,
     error,
     refetch,
@@ -325,8 +344,8 @@ const StudentDetailPage = () => {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex items-center space-x-2">
-          <span className="material-icons animate-spin text-primary">sync</span>
-          <span className="text-primary">Memuat data siswa...</span>
+          <span className="material-icons animate-spin text-[#488BBE]">sync</span>
+          <span className="text-[#488BBE]">Memuat data siswa...</span>
         </div>
       </div>
     );
@@ -349,7 +368,7 @@ const StudentDetailPage = () => {
           </p>
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-variant1 transition-colors"
+            className="px-4 py-2 bg-[#488BBE] text-white rounded-full hover:bg-[#3399E9] transition-colors"
           >
             Coba Lagi
           </button>
@@ -366,8 +385,8 @@ const StudentDetailPage = () => {
       {/* Header section with language switcher and notifications */}
       <header className="flex gap-6 items-center self-end mr-10 pt-8 text-sm">
         <div className="flex items-center">
-          <span className="font-bold text-primary">ID</span>
-          <span className="mx-2 text-primary">/</span>
+          <span className="font-bold text-[#488BBE]">ID</span>
+          <span className="mx-2 text-[#488BBE]">/</span>
           <span className="text-zinc-500">EN</span>
         </div>
         <button
@@ -379,16 +398,16 @@ const StudentDetailPage = () => {
       </header>
 
       {/* Main content section */}
-      <section className="mt-14 w-full px-12 pb-12 max-md:px-4 max-lg:mt-8">
-        <div className="flex gap-8 max-lg:flex-col">
+      <section className="mt-10 w-full px-12 pb-12 max-md:px-4 max-lg:mt-8">
+        <div className="flex gap-10 max-lg:flex-col">
           {/* Left Column - Student Information */}
           <div className="w-[35%] max-lg:w-full">
             <div className="flex justify-between items-center mb-5">
-              <h1 className="text-xl font-semibold text-primary">Profil Siswa</h1>
+              <h1 className="text-xl font-semibold text-[#488BBE]">Profil Siswa</h1>
               
               <button
                 onClick={() => setShowEditModal(true)}
-                className="px-2.5 py-1.5 text-xs font-semibold text-white bg-primary rounded-md cursor-pointer hover:bg-primary-variant1 transition duration-200"
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-[#488BBE] rounded-md cursor-pointer hover:bg-[#3399E9] transition duration-200"
               >
                 Edit
               </button>
@@ -415,202 +434,206 @@ const StudentDetailPage = () => {
             </div>
             
             {/* Student Info Grid */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-8 mt-8">
-              {/* Full Name */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Nama Lengkap</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {student.fullName || "-"}
-                </p>
-              </div>
-              
-              {/* Birth Info */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Tempat/Tanggal Lahir</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {formatBirthInfo(profile.birthPlace, profile.birthDate)}
-                </p>
-              </div>
-              
-              {/* NIS */}
-              <div>
-                <h2 className="text-xs text-zinc-500">NIS</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {profile.nis || "-"}
-                </p>
-              </div>
-              
-              {/* Guardian Contact */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Kontak Wali</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {formatPhoneNumber(profile.guardianContact)}
-                </p>
-              </div>
-              
-              {/* Class */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Kelas</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {profile.classroom || "-"}
-                </p>
-              </div>
-              
-              {/* IQ Score */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Skor IQ</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {profile.iqScore || "-"}
-                </p>
-              </div>
-              
-              {/* Gender */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Jenis Kelamin</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {profile.gender === 'male' ? 'Laki-laki' : 
-                   profile.gender === 'female' ? 'Perempuan' : '-'}
-                </p>
-              </div>
-              
-              {/* IQ Category */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Kategori</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {getIqCategoryDisplay(profile.iqCategory)}
-                </p>
-              </div>
-              
-              {/* Guardian Name */}
-              <div className="col-span-2">
-                <h2 className="text-xs text-zinc-500">Nama Wali</h2>
-                <p className="mt-2.5 text-base text-neutral-600">
-                  {profile.guardianName || "-"}
-                </p>
-              </div>
-              
-              {/* Current screening status */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Status Saat Ini</h2>
-                <div className="mt-2.5 flex items-center gap-2">
-                  <span className={clsx(
-                    "flex items-center justify-center w-6 h-6 rounded-full",
-                    screeningStatus.bgColor
-                  )}>
-                    <span className={clsx("material-icons text-sm", screeningStatus.color)}>
-                      {screeningStatus.icon}
-                    </span>
-                  </span>
-                  <span className={clsx("text-base", screeningStatus.color)}>
-                    {screeningStatus.label}
-                  </span>
+            <div className="bg-[#f8f9fa] rounded-xl p-6 border border-gray-200 shadow-sm">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                {/* Full Name */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Nama Lengkap</h2>
+                  <p className="text-base text-[#333333] font-medium truncate">
+                    {student.fullName || "-"}
+                  </p>
                 </div>
-              </div>
-              
-              {/* Counseling Status */}
-              <div>
-                <h2 className="text-xs text-zinc-500">Status Konseling</h2>
-                <p className={clsx(
-                  "mt-2.5 text-base",
-                  profile.counselingStatus ? "text-green-500" : "text-red-500"
-                )}>
-                  {profile.counselingStatus ? "Sudah Konseling" : "Belum Konseling"}
-                </p>
-              </div>
-              
-              {/* Dates section - only show if any date exists */}
-              {(profile.screeningDate || profile.counselingDate || profile.mentalHealthStatusUpdatedAt) && (
-                <div className="col-span-2 mt-2 p-4 bg-[#f8f9fa] rounded-lg">
-                  <h3 className="font-medium text-sm text-primary mb-3">Riwayat Terkini</h3>
-                  <div className="grid grid-cols-1 gap-y-3">
-                    {profile.screeningDate && (
-                      <div>
-                        <h4 className="text-xs text-zinc-500">Tanggal Skrining</h4>
-                        <p className="text-sm text-neutral-600">{formatDate(profile.screeningDate)}</p>
-                      </div>
-                    )}
-                    
-                    {profile.counselingDate && (
-                      <div>
-                        <h4 className="text-xs text-zinc-500">Tanggal Konseling</h4>
-                        <p className="text-sm text-neutral-600">{formatDate(profile.counselingDate)}</p>
-                      </div>
-                    )}
-                    
-                    {profile.mentalHealthStatusUpdatedAt && (
-                      <div>
-                        <h4 className="text-xs text-zinc-500">Status Kesehatan Mental Diperbarui</h4>
-                        <p className="text-sm text-neutral-600">{formatDate(profile.mentalHealthStatusUpdatedAt)}</p>
-                      </div>
-                    )}
+                
+                {/* Birth Info */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Tempat/Tanggal Lahir</h2>
+                  <p className="text-base text-[#333333]">
+                    {formatBirthInfo(profile.birthPlace, profile.birthDate)}
+                  </p>
+                </div>
+                
+                {/* NIS */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">NIS</h2>
+                  <p className="text-base text-[#333333]">
+                    {profile.nis || "-"}
+                  </p>
+                </div>
+                
+                {/* Guardian Contact */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Kontak Wali</h2>
+                  <p className="text-base text-[#333333]">
+                    {formatPhoneNumber(profile.guardianContact)}
+                  </p>
+                </div>
+                
+                {/* Class */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Kelas</h2>
+                  <p className="text-base text-[#333333]">
+                    {profile.classroom || "-"}
+                  </p>
+                </div>
+                
+                {/* IQ Score */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Skor IQ</h2>
+                  <p className="text-base text-[#333333]">
+                    {profile.iqScore || "-"}
+                  </p>
+                </div>
+                
+                {/* Gender */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Jenis Kelamin</h2>
+                  <p className="text-base text-[#333333]">
+                    {profile.gender === 'male' ? 'Laki-laki' : 
+                     profile.gender === 'female' ? 'Perempuan' : '-'}
+                  </p>
+                </div>
+                
+                {/* IQ Category */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Kategori</h2>
+                  <p className="text-base text-[#333333]">
+                    {getIqCategoryDisplay(profile.iqCategory)}
+                  </p>
+                </div>
+                
+                {/* Guardian Name */}
+                <div className="col-span-2">
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Nama Wali</h2>
+                  <p className="text-base text-[#333333]">
+                    {profile.guardianName || "-"}
+                  </p>
+                </div>
+                
+                {/* Current screening status */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Status Saat Ini</h2>
+                  <div className="flex items-center gap-2">
+                    <span className={clsx(
+                      "flex items-center justify-center w-6 h-6 rounded-full",
+                      screeningStatus.bgColor
+                    )}>
+                      <span className={clsx("material-icons text-sm", screeningStatus.color)}>
+                        {screeningStatus.icon}
+                      </span>
+                    </span>
+                    <span className={clsx("text-base font-medium", screeningStatus.color)}>
+                      {screeningStatus.label}
+                    </span>
                   </div>
                 </div>
-              )}
+                
+                {/* Counseling Status */}
+                <div>
+                  <h2 className="text-xs text-zinc-500 font-medium mb-1.5">Status Konseling</h2>
+                  <p className={clsx(
+                    "text-base font-medium",
+                    profile.counselingStatus ? "text-green-500" : "text-red-500"
+                  )}>
+                    {profile.counselingStatus ? "Sudah Konseling" : "Belum Konseling"}
+                  </p>
+                </div>
+              </div>
             </div>
+            
+            {/* Dates section - only show if any date exists */}
+            {(profile.screeningDate || profile.counselingDate || profile.mentalHealthStatusUpdatedAt) && (
+              <div className="mt-5 p-5 bg-[#f0f7ff] rounded-xl border border-[#d0e7ff]">
+                <h3 className="font-medium text-sm text-[#488BBE] mb-4">Riwayat Terkini</h3>
+                <div className="grid grid-cols-1 gap-y-3">
+                  {profile.screeningDate && (
+                    <div>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1">Tanggal Skrining</h4>
+                      <p className="text-sm text-[#333333] font-medium">{formatDate(profile.screeningDate)}</p>
+                    </div>
+                  )}
+                  
+                  {profile.counselingDate && (
+                    <div>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1">Tanggal Konseling</h4>
+                      <p className="text-sm text-[#333333] font-medium">{formatDate(profile.counselingDate)}</p>
+                    </div>
+                  )}
+                  
+                  {profile.mentalHealthStatusUpdatedAt && (
+                    <div>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1">Status Kesehatan Mental Diperbarui</h4>
+                      <p className="text-sm text-[#333333] font-medium">{formatDate(profile.mentalHealthStatusUpdatedAt)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Right Column - Progress Information */}
           <div className="w-[65%] max-lg:w-full">
             {/* Student Progress */}
             <div>
-              <h2 className="text-xl font-semibold text-primary mb-4">
+              <h2 className="text-xl font-semibold text-[#488BBE] mb-4">
                 Perkembangan Siswa
               </h2>
-              <div className="relative p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#f8f9fa] to-white rounded-lg opacity-50"></div>
-                <div className="relative z-10">
-                  <p className="text-sm text-neutral-600 leading-relaxed">
-                    {profile.progress || "Belum ada catatan perkembangan untuk siswa ini. Silakan tambahkan catatan perkembangan untuk membantu pemantauan tumbuh kembang siswa."}
-                  </p>
+              <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#f8f9fa] to-white rounded-lg opacity-50"></div>
+                  <div className="relative z-10">
+                    <p className="text-sm text-[#333333] leading-relaxed">
+                      {profile.progress || "Belum ada catatan perkembangan untuk siswa ini. Silakan tambahkan catatan perkembangan untuk membantu pemantauan tumbuh kembang siswa."}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
             
             {/* Mental Health Timeline */}
             <div className="mt-8">
-              <h2 className="text-xl font-semibold text-primary mb-4">
+              <h2 className="text-xl font-semibold text-[#488BBE] mb-4">
                 Perkembangan Status Kesehatan Mental ({student.fullName})
               </h2>
               
-              <MentalHealthTimeline studentData={student} />
+              <MentalHealthTimeline studentData={student} mentalHealthHistory={mentalHealthHistory} />
             </div>
             
             {/* Additional Information - test results, etc. */}
             <div className="mt-8">
-              <h2 className="text-xl font-semibold text-primary mb-4">
+              <h2 className="text-xl font-semibold text-[#488BBE] mb-4">
                 Hasil Tes dan Evaluasi
               </h2>
               
               <div className="grid grid-cols-2 gap-6">
                 {/* Left card */}
-                <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <h3 className="font-medium text-lg text-primary mb-2">Tes Kognitif</h3>
-                  <div className="space-y-3">
+                <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+                  <h3 className="font-medium text-lg text-[#488BBE] mb-4">Tes Kognitif</h3>
+                  <div className="space-y-4">
                     <div>
-                      <h4 className="text-xs text-zinc-500">Tanggal Tes</h4>
-                      <p className="text-sm font-medium text-neutral-600">{formatDate(profile.cognitiveTestDate)}</p>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1.5">Tanggal Tes</h4>
+                      <p className="text-sm font-medium text-[#333333]">{formatDate(profile.cognitiveTestDate)}</p>
                     </div>
                     <div>
-                      <h4 className="text-xs text-zinc-500">Skor</h4>
-                      <p className="text-lg font-bold text-primary">{profile.iqScore || "-"}</p>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1.5">Skor</h4>
+                      <p className="text-lg font-bold text-[#488BBE]">{profile.iqScore || "-"}</p>
                     </div>
                     <div>
-                      <h4 className="text-xs text-zinc-500">Kategori</h4>
-                      <p className="text-sm font-medium text-neutral-600">{getIqCategoryDisplay(profile.iqCategory)}</p>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1.5">Kategori</h4>
+                      <p className="text-sm font-medium text-[#333333]">{getIqCategoryDisplay(profile.iqCategory)}</p>
                     </div>
                   </div>
                 </div>
                 
                 {/* Right card */}
-                <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <h3 className="font-medium text-lg text-primary mb-2">Penilaian Sosioemosional</h3>
-                  <div className="space-y-3">
+                <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+                  <h3 className="font-medium text-lg text-[#488BBE] mb-4">Penilaian Sosioemosional</h3>
+                  <div className="space-y-4">
                     <div>
-                      <h4 className="text-xs text-zinc-500">Terakhir Diperbarui</h4>
-                      <p className="text-sm font-medium text-neutral-600">{formatDate(profile.mentalHealthStatusUpdatedAt)}</p>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1.5">Terakhir Diperbarui</h4>
+                      <p className="text-sm font-medium text-[#333333]">{formatDate(profile.mentalHealthStatusUpdatedAt)}</p>
                     </div>
                     <div>
-                      <h4 className="text-xs text-zinc-500">Status</h4>
+                      <h4 className="text-xs text-zinc-500 font-medium mb-1.5">Status</h4>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={clsx(
                           "flex items-center justify-center w-6 h-6 rounded-full",

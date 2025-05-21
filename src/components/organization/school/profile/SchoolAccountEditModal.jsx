@@ -191,7 +191,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[520px] max-w-full">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-primary">Edit Pengaturan Akun</h2>
+            <h2 className="text-xl font-semibold text-primary">Ubah Password</h2>
             <button 
               type="button" 
               onClick={handleCloseClick}

@@ -1,13 +1,11 @@
-// src/components/organization/school/profile/StudentProfileEditModal.jsx
+// src/components/organization/school/student-detail/StudentProfileEditModal.jsx
 import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
-import { format, parse } from "date-fns";
+import { format } from "date-fns";
 import 'react-international-phone/style.css';
 
 // Phone validation helpers
@@ -88,11 +86,10 @@ const FormField = ({ label, error, children }) => (
   </div>
 );
 
-const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
+const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStudentMutation }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const queryClient = useQueryClient();
-
+  
   const profile = studentData?.studentProfile || {};
   
   // Format birth date to YYYY-MM-DD for input
@@ -146,23 +143,10 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
     }
   }, [studentData, profile, reset]);
 
-  // Update student profile mutation
-  const updateProfileMutation = useMutation({
-    mutationFn: async (data) => {
-      setErrorMessage("");
-      return apiClient.patch(`/students/${studentData.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['student', studentData.id]);
-      onSuccess("Data siswa berhasil diperbarui!");
-    },
-    onError: (error) => {
-      setErrorMessage(error.response?.data?.message || "Terjadi kesalahan saat memperbarui data");
-      console.error("Error updating student profile:", error);
-    }
-  });
-
   const onSubmit = (data) => {
+    // Reset any previous error
+    setErrorMessage("");
+    
     // Clean up and format data
     const formattedData = {
       fullName: data.fullName.trim(),
@@ -195,7 +179,15 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
     }
 
     // Submit the data
-    updateProfileMutation.mutate(formattedData);
+    updateStudentMutation.mutate(formattedData, {
+      onSuccess: () => {
+        onSuccess("Data siswa berhasil diperbarui!");
+      },
+      onError: (error) => {
+        setErrorMessage(error.response?.data?.message || "Terjadi kesalahan saat memperbarui data");
+        console.error("Error updating student profile:", error);
+      }
+    });
   };
 
   const handleCloseClick = () => {
@@ -211,11 +203,11 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
       <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[720px] max-w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-primary">Edit Profil Siswa</h2>
+            <h2 className="text-xl font-semibold text-[#488BBE]">Edit Profil Siswa</h2>
             <button 
               type="button" 
               onClick={handleCloseClick}
-              className="text-primary hover:text-primary-variant1 transition-colors"
+              className="text-[#488BBE] hover:text-[#3399E9] transition-colors"
             >
               <span className="material-icons">close</span>
             </button>
@@ -240,7 +232,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                 <input
                   {...register("fullName")}
                   className={clsx(
-                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary transition-colors",
+                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-[#488BBE] transition-colors",
                     errors.fullName ? "border-red-500" : "border-gray-300"
                   )}
                   placeholder="Masukkan nama lengkap siswa"
@@ -255,7 +247,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                 <input
                   {...register("nis")}
                   className={clsx(
-                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary transition-colors",
+                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-[#488BBE] transition-colors",
                     errors.nis ? "border-red-500" : "border-gray-300"
                   )}
                   placeholder="Masukkan NIS"
@@ -269,7 +261,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
               >
                 <input
                   {...register("birthPlace")}
-                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-primary transition-colors"
+                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-[#488BBE] transition-colors"
                   placeholder="Masukkan tempat lahir (opsional)"
                 />
               </FormField>
@@ -282,7 +274,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                 <input
                   type="date"
                   {...register("birthDate")}
-                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-primary transition-colors date-none"
+                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-[#488BBE] transition-colors date-none"
                 />
               </FormField>
 
@@ -297,7 +289,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                       type="radio"
                       value="male"
                       {...register("gender")}
-                      className="w-4 h-4 accent-primary"
+                      className="w-4 h-4 accent-[#488BBE]"
                     />
                     <span>Laki-laki</span>
                   </label>
@@ -306,7 +298,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                       type="radio"
                       value="female"
                       {...register("gender")}
-                      className="w-4 h-4 accent-primary"
+                      className="w-4 h-4 accent-[#488BBE]"
                     />
                     <span>Perempuan</span>
                   </label>
@@ -321,7 +313,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                 <input
                   {...register("classroom")}
                   className={clsx(
-                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary transition-colors",
+                    "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-[#488BBE] transition-colors",
                     errors.classroom ? "border-red-500" : "border-gray-300"
                   )}
                   placeholder="Contoh: X-1, XI IPA 2"
@@ -335,7 +327,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
               >
                 <input
                   {...register("guardianName")}
-                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-primary transition-colors"
+                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-[#488BBE] transition-colors"
                   placeholder="Masukkan nama wali siswa (opsional)"
                 />
               </FormField>
@@ -365,7 +357,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                         field.onBlur();
                       }}
                       inputClassName={clsx(
-                        "w-full h-12 border-[1.5px] text-base px-4 focus:outline-none focus:border-primary transition-colors",
+                        "w-full h-12 border-[1.5px] text-base px-4 focus:outline-none focus:border-[#488BBE] transition-colors",
                         errors.guardianContact ? "border-red-500" : "border-gray-300"
                       )}
                       containerClassName="rounded-md overflow-hidden"
@@ -390,7 +382,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
                 <input
                   type="number"
                   {...register("iqScore")}
-                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-primary transition-colors"
+                  className="w-full rounded-md h-12 border-[1.5px] border-gray-300 px-4 focus:outline-none focus:border-[#488BBE] transition-colors"
                   placeholder="Masukkan skor IQ (opsional)"
                   min="0"
                   max="200"
@@ -401,15 +393,15 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess }) => {
             <div className="flex justify-end pt-4">
               <button
                 type="submit"
-                disabled={isSubmitting || updateProfileMutation.isPending}
+                disabled={isSubmitting || updateStudentMutation.isPending}
                 className={clsx(
                   "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                  isSubmitting || updateProfileMutation.isPending
+                  isSubmitting || updateStudentMutation.isPending
                     ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-primary hover:bg-primary-variant1"
+                    : "bg-[#488BBE] hover:bg-[#3399E9]"
                 )}
               >
-                {isSubmitting || updateProfileMutation.isPending ? (
+                {isSubmitting || updateStudentMutation.isPending ? (
                   <span className="flex items-center">
                     <span className="material-icons animate-spin text-sm mr-1">refresh</span>
                     Menyimpan...

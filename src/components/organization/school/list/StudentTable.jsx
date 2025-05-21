@@ -192,9 +192,10 @@ const StudentTable = ({
   hasNextPage,
   isFetchingNextPage,
   updateStudent,
-  classroomOptions
+  classroomOptions,
+  isLoading
 }) => {
-  const navigate = useNavigate(); // Add navigation hook
+  const navigate = useNavigate();
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
@@ -253,11 +254,11 @@ const StudentTable = ({
     setEditData({});
   };
 
-  // Save editing
   const saveEditing = (id) => {
     if (!editData.fullName?.trim()) return;
     
     try {
+      // API expects a flat structure with only the fields to update
       const data = {
         fullName: editData.fullName,
         classroom: editData.classroom,
@@ -268,14 +269,11 @@ const StudentTable = ({
       
       console.log("Saving student data:", data, "for ID:", id);
       
-      // Direct call to updateStudent function
-      if (typeof updateStudent === 'function') {
-        updateStudent({ id, data });
-      } else if (updateStudent && typeof updateStudent.mutate === 'function') {
-        updateStudent.mutate({ id, data });
-      } else {
-        console.error("updateStudent is not valid:", updateStudent);
-      }
+      // Call the updateStudent mutation
+      updateStudent.mutate({ 
+        id, 
+        data 
+      });
       
       // Reset editing state
       setEditingId(null);
@@ -283,11 +281,10 @@ const StudentTable = ({
       console.error("Error saving student:", error);
     }
   };
-
   // Handle edit change
   const handleEditChange = (e) => {
     // Handle both custom dropdown and regular events
-    if (e.stopPropagation) {
+    if (e.stopPropagation && !e.synthetic) {
       e.stopPropagation();
     }
     
@@ -326,7 +323,18 @@ const StudentTable = ({
     );
   };
 
-  const hasChanges = editingId && editData.fullName?.trim(); // Simplified condition - just check for valid name
+  const hasChanges = editingId && editData.fullName?.trim();
+
+  if (isLoading && students.length === 0) {
+    return (
+      <div className="w-full flex justify-center items-center py-12">
+        <div className="flex flex-col items-center">
+          <span className="material-icons animate-spin text-[#488BBE] text-3xl mb-4">sync</span>
+          <p className="text-[#488BBE]">Memuat data siswa...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -541,12 +549,12 @@ const StudentTable = ({
                         />
                       ) : (
                         <div className="text-sm text-gray-600">
-                          {student.iqScore}
+                          {student.iqScore || "-"}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                                              {isEditing ? (
+                      {isEditing ? (
                         <div 
                           className="flex space-x-2 justify-center" 
                           onClick={(e) => e.stopPropagation()}
@@ -642,7 +650,7 @@ const StudentTable = ({
         </div>
       )}
 
-      {students.length === 0 && !isFetchingNextPage && (
+      {students.length === 0 && !isFetchingNextPage && !isLoading && (
         <div className="text-center py-8">
           <span className="material-icons text-gray-400 text-5xl">school</span>
           <p className="text-gray-500 mt-2">Tidak ada data siswa.</p>

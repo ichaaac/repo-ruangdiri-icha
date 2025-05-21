@@ -1,4 +1,4 @@
-// src/components/organization/school/list/StudentFilters.jsx
+// src/components/organization/school/list/StudentFilter.jsx - API Integration
 import React from "react";
 import { motion } from "framer-motion";
 
@@ -6,11 +6,10 @@ const StudentFilters = ({
   showModal,
   setShowModal,
   filtersInput,
-  setFiltersInput,
   handleFilterSelect,
   applyFilters,
   grades,
-classNumbers,
+  classNumbers,
   students
 }) => {
   if (!showModal) return null;
@@ -23,6 +22,14 @@ classNumbers,
     applyFilters();
     setShowModal(false);
   };
+
+  // Ensure we have valid array data for filters
+  // Using actual API data from the backend as provided in gradesResult
+  const validGrades = Array.isArray(grades) && grades.length > 0 ? 
+    grades : ["X", "XI", "XII", "10", "11", "12"];
+
+  const validClassNumbers = Array.isArray(classNumbers) && classNumbers.length > 0 ? 
+    classNumbers : ["1", "2", "3", "4", "5", "A", "B", "C"];
 
   return (
     <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
@@ -50,16 +57,12 @@ classNumbers,
               <div className="w-full flex flex-col justify-start items-start gap-3">
                 <div className="text-[#488bbe] text-sm font-normal">Kelas</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {grades.map((grade) => (
+                  {validGrades.map((grade) => (
                     <button
                       key={grade}
                       className={`h-7 px-2.5 py-1 ${filtersInput.grade === grade ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
                       onClick={() => {
                         handleFilterSelect('grade', grade);
-                        // Reset class number when grade changes
-                        if (filtersInput.grade !== grade) {
-                          handleFilterSelect('classNumber', null);
-                        }
                       }}
                     >
                       <div className="text-center text-xs font-normal">{grade}</div>
@@ -72,7 +75,7 @@ classNumbers,
               <div className="w-full flex flex-col justify-start items-start gap-3">
                 <div className="text-[#488bbe] text-sm font-normal">Nomor Kelas</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {classNumbers.map((num) => (
+                  {validClassNumbers.map((num) => (
                     <button
                       key={num}
                       className={`h-7 px-2.5 py-1 ${

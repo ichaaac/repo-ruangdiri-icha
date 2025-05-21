@@ -1,13 +1,12 @@
 // src/components/organization/school/profile/SchoolInfoEditModal.jsx
 import React, { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 
-// Helper untuk phone number
 const extractDigits = (phone) => phone?.replace(/[^\d]/g, '') || '';
 const isEmptyPhone = (phone) => {
   const digits = extractDigits(phone);
@@ -49,7 +48,6 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const queryClient = useQueryClient();
 
-  // Simplified form without Zod
   const {
     register,
     handleSubmit,
@@ -64,16 +62,12 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     }
   });
 
-  // Watch semua nilai untuk cek perubahan bermakna
   const fullName = watch("fullName");
   const address = watch("address");
   const phone = watch("phone");
-
-  // Cek apakah perubahan yang dilakukan bermakna (bukan hanya whitespace/newline)
   const hasMeaningfulChanges = () => {
     if (!isDirty) return false;
     
-    // Bandingkan nilai asli dengan nilai sekarang setelah trim
     const originalName = (userData?.fullName || "").trim();
     const originalAddress = (userData?.organization?.address || "").trim();
     const originalPhone = (userData?.organization?.phone || "").trim();
@@ -82,7 +76,6 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     const currentAddress = (address || "").trim();
     const currentPhone = (phone || "").trim();
     
-    // Jika ada perbedaan setelah trim, itu adalah perubahan bermakna
     return (
       originalName !== currentName || 
       originalAddress !== currentAddress || 
@@ -94,7 +87,6 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     mutationFn: async (data) => {
       setErrorMessage("");
       
-      // Format phone properly
       const processedData = {
         ...data,
         phone: isEmptyPhone(data.phone) ? "" : data.phone
@@ -123,6 +115,9 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
       onClose(false);
     }
   };
+
+const addressValue = useWatch({ control, name: "address" }); 
+
 
   return (
     <>
@@ -163,15 +158,19 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm text-gray-500 mb-1">
-                  Alamat Sekolah
-                </label>
-                <textarea
-                  {...register("address")}
-                  className="w-full rounded-md px-4 py-3 focus:outline-none focus:border-primary border-[1.5px] border-gray-300 resize-none min-h-[48px]"
-                />
-              </div>
+       
+              <div className="relative">
+              <label className="block text-sm text-gray-500 mb-1">
+                Alamat Sekolah
+              </label>
+              <textarea
+                {...register("address", { maxLength: 255 })}
+                className="w-full rounded-md px-4 py-3 focus:outline-none focus:border-primary border-[1.5px] border-gray-300 resize-none min-h-[48px] pr-12" // kasih padding kanan biar ga numpuk sama counter
+              />
+              <span className="absolute bottom-2 right-3 text-[11px] text-gray-400 pointer-events-none">
+                {(addressValue?.length || 0)}/255
+              </span>
+            </div>
 
               <div>
                 <label className="block text-sm text-gray-500 mb-1">
