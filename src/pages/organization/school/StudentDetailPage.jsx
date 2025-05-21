@@ -1,11 +1,11 @@
-// src/pages/organization/school/StudentDetailPage.jsx
+// src/pages/organization/school/StudentDetailPage.jsx - Fixed CSS alignment issues
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { id as indonesianLocale } from "date-fns/locale";
 import clsx from "clsx";
-import { useStudentDetail } from "../../../hooks/useStudentData";
+import { useStudentDetail } from "@/hooks/useStudentDetail";
 import StudentProfileEditModal from "../../../components/organization/school/student-detail/StudentProfileEditModal";
 
 // Helper to format dates with proper locale

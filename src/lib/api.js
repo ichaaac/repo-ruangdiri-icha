@@ -638,4 +638,11 @@ export default api;
 
 export { apiClient };
 
-export const getMe = api.user.getMe;
+export const getMe = async () => {
+  try {
+    const response = await apiClient.get("/users/me");
+    return response.data; // Return response.data instead of response
+  } catch (error) {
+    throw error;
+  }
+};

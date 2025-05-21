@@ -1,7 +1,6 @@
-// src/hooks/useStudentData.js
+// src/hooks/useStudentData.js - Fixed to properly handle API response structure
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
-import { data } from "react-router-dom";
 
 /**
  * Hook for fetching user profile data
@@ -12,7 +11,7 @@ export const useUserProfile = () => {
     queryFn: async () => {
       try {
         const response = await api.user.getMe();
-        return response.data.data;
+        return response.data;
       } catch (error) {
         console.error("Error fetching user profile:", error);
         throw error;
@@ -22,29 +21,25 @@ export const useUserProfile = () => {
 };
 
 export const useStudentData = (searchTerm, sortConfig, filters) => {
-  const queryClient = useQueryClient();
-  
   const buildFilterParams = () => {
     const params = { 
       page: 1, 
-      limit: 10
+      limit: 30
     };
   
     if (searchTerm) params.search = searchTerm;
     
-    // Filters
+    // Filters - using EXACT API parameter names
+    if (filters.classroom) params.classroom = filters.classroom;
     if (filters.grade) params.grade = filters.grade;
-    if (filters.classNumber) params.classNumber = filters.classNumber;
     if (filters.gender) {
-      // Convert 'L'/'P' to 'male'/'female' for API
       if (filters.gender === 'L') params.gender = 'male';
       else if (filters.gender === 'P') params.gender = 'female';
       else params.gender = filters.gender;
     }
     if (filters.screeningStatus) params.screening = filters.screeningStatus;
     if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? '1' : '0';
-    if (filters.iqScore) params.iqScore = filters.iqScore;
-
+    
     return params;
   };
 
@@ -109,7 +104,7 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
             totalData: 0,
             totalPage: 1,
             page: pageParam,
-            limit: 10,
+            limit: 30, // Match the increased limit
             hasNextPage: false,
             byGender: { male: 0, female: 0 }
           },
@@ -170,83 +165,6 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
 };
 
 /**
- * Hook to fetch student detail data
- * @param {string} studentId - The ID of the student to fetch
- */
-export const useStudentDetail = (studentId) => {
-  const queryClient = useQueryClient();
-  
-  // Fetch student detail
-  const {
-    data: studentData,
-    isLoading,
-    isError,
-    error,
-    refetch
-  } = useQuery({
-    queryKey: ['student', studentId],
-    queryFn: () => api.students.getStudentById(studentId),
-    enabled: !!studentId,
-    retry: 1,
-    staleTime: 1000 * 60 * 5 // 5 minutes
-  });
-
-  // Update student detail mutation
-  const updateStudentMutation = useMutation({
-    mutationFn: (data) => api.students.update(studentId, data),
-    onSuccess: () => {
-      // Invalidate the student detail query to refetch
-      queryClient.invalidateQueries(['student', studentId]);
-      
-      // Also invalidate the student list if it exists
-      queryClient.invalidateQueries(['infiniteStudents']);
-    }
-  });
-
-  // Update student progress notes
-  const updateProgressMutation = useMutation({
-    mutationFn: (progress) => api.students.updateProgress(studentId, progress),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['student', studentId]);
-    }
-  });
-
-  // Update mental health status
-  const updateScreeningStatusMutation = useMutation({
-    mutationFn: ({ status, notes }) => api.students.updateScreeningStatus(studentId, status, notes),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['student', studentId]);
-      queryClient.invalidateQueries(['infiniteStudents']);
-    }
-  });
-
-  // Get student mental health history
-  const {
-    data: mentalHealthHistory,
-    isLoading: isLoadingHistory
-  } = useQuery({
-    queryKey: ['student', studentId, 'mentalHealthHistory'],
-    queryFn: () => api.students.getMentalHealthHistory(studentId),
-    enabled: !!studentId && !!studentData,
-    retry: 1,
-    staleTime: 1000 * 60 * 5 // 5 minutes
-  });
-
-  return {
-    student: studentData?.data || null,
-    mentalHealthHistory: mentalHealthHistory?.data || null,
-    isLoading,
-    isLoadingHistory,
-    isError,
-    error,
-    refetch,
-    updateStudent: updateStudentMutation,
-    updateProgress: updateProgressMutation,
-    updateScreeningStatus: updateScreeningStatusMutation
-  };
-};
-
-/**
  * Hook to fetch classrooms data from API
  */
 export const useClassrooms = () => {
@@ -255,12 +173,28 @@ export const useClassrooms = () => {
     queryFn: async () => {
       try {
         const response = await api.students.getAcademicInfo();
+        
+        // Parse the classroom data exactly as returned from API
+        const classroomsResult = response?.data?.classroomsResult || [];
+        const gradesResult = response?.data?.gradesResult || [];
+        
+        // Extract class numbers from classroom strings
+        const classNumbers = new Set();
+        classroomsResult.forEach(classroom => {
+          const parts = classroom.split('-');
+          if (parts.length > 1) {
+            // Get everything after the first dash
+            const classNumber = parts.slice(1).join('-');
+            if (classNumber) {
+              classNumbers.add(classNumber);
+            }
+          }
+        });
+        
         return {
-          // Use the actual data structure from the API
-          gradesResult: response?.data?.gradesResult || [],
-          // There's no classNumbers in the API, we'll extract them from classrooms
-          classNumbers: [],
-          classroomsResult: response?.data?.classroomsResult || []
+          gradesResult,
+          classNumbers: Array.from(classNumbers),
+          classroomsResult
         };
       } catch (error) {
         console.error("Error in useClassrooms:", error);

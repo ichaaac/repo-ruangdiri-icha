@@ -1,4 +1,4 @@
-// src/pages/organization/school/StudentListPage.jsx
+// src/pages/organization/school/StudentListPage.jsx - Removed loading state completely
 import React, { useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import useDebounce from "../../../hooks/useDebounce";
@@ -6,10 +6,11 @@ import { useStudentData, useClassrooms } from "../../../hooks/useStudentData";
 import { useStudentFilters } from "../../../hooks/useStudentFilter";
 import StudentFilters from "../../../components/organization/school/list/StudentFilter";
 import StudentTable from "../../../components/organization/school/list/StudentTable";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "../../../hooks/useAuth";
 
 const StudentListPage = () => {
-  const { data: userData } = useAuth();
+  // Use the auth hook directly for user data 
+  const { user } = useAuth();
   
   const {
     searchInput,
@@ -27,14 +28,14 @@ const StudentListPage = () => {
     setShowFilterModal
   } = useStudentFilters();
   
-  // Debounce search input to avoid excessive API calls
-  const debouncedSearchTerm = useDebounce(searchInput, 300);
+  // Very short debounce value to avoid perceived lag
+  const debouncedSearchTerm = useDebounce(searchInput, 150);
   
   const {
     students,
     totalData,
     genderCounts,
-    isLoading,
+    isLoading: isStudentsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -44,40 +45,24 @@ const StudentListPage = () => {
     updateStudent
   } = useStudentData(debouncedSearchTerm, appliedSortConfig, appliedFilters);
   
-  // Fetch classrooms data for filtering
+  // Fetch classrooms data for filtering 
   const { data: classroomsData, isLoading: isLoadingClassrooms } = useClassrooms();
   
-  // Process classroom data for filtering - adapted to match the API response
-  const { grades, classNumbers, classrooms } = useMemo(() => {
-    if (classroomsData) {
-      // Extract class numbers from classroom strings
-      const extractClassNumbers = () => {
-        if (!classroomsData.classroomsResult || !Array.isArray(classroomsData.classroomsResult)) {
-          return [];
-        }
-        
-        const numbers = new Set();
-        classroomsData.classroomsResult.forEach(classroom => {
-          const parts = classroom.split('-');
-          if (parts.length > 1 && parts[1]) {
-            numbers.add(parts[1]);
-          }
-        });
-        
-        return Array.from(numbers);
-      };
-      
+  // Get classrooms and grades data from the API response
+  const { classrooms, grades } = useMemo(() => {
+    if (!classroomsData) {
       return {
-        grades: classroomsData.gradesResult || [],
-        classNumbers: extractClassNumbers(),
-        classrooms: classroomsData.classroomsResult || []
+        classrooms: [],
+        grades: []
       };
     }
     
+    // Use exact data returned from API
     return {
-      grades: [],
-      classNumbers: [],
-      classrooms: []
+      // classroomsResult contains the classroom values (X, XI, XII)
+      classrooms: classroomsData.classroomsResult || [],
+      // gradesResult contains the grade values (A, B, C, D)
+      grades: classroomsData.gradesResult || []
     };
   }, [classroomsData]);
 
@@ -116,13 +101,9 @@ const StudentListPage = () => {
 
       <div className="flex items-start justify-between px-6 mt-[44px]">
         <div className="mt-2">
-        {isLoading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
-        ) : (
           <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
-            Halo, {userData?.fullName || ""}
+            Halo, {user?.fullName || ""}
           </h1>
-        )}
         </div>
 
         {/* Stats cards */}
@@ -201,43 +182,38 @@ const StudentListPage = () => {
               <span>Filter</span>
             </button>
             
-            {hasActiveFilters && (
-              <button 
-                className="flex items-center justify-center px-4 py-2 rounded-full text-[#488bbe] hover:bg-[#e8f5ff] transition-colors"
-                onClick={clearFilters}
-              >
-                <span className="material-icons mr-1 text-sm">close</span>
-                <span>Clear all</span>
-              </button>
-            )}
+            {/* Always show clear filters button but disable when inactive */}
+            <button 
+              className={`flex items-center justify-center px-4 py-2 rounded-full ${
+                hasActiveFilters 
+                  ? 'text-[#488bbe] hover:bg-[#e8f5ff] cursor-pointer' 
+                  : 'text-gray-400 cursor-not-allowed'
+              } transition-colors`}
+              onClick={hasActiveFilters ? clearFilters : undefined}
+              disabled={!hasActiveFilters}
+            >
+              <span className="material-icons mr-1 text-sm">close</span>
+              <span>Clear all</span>
+            </button>
           </div>
         </div>
 
-        {/* Student table with loading state */}
-        {isLoading && students.length === 0 ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="flex flex-col items-center">
-              <span className="material-icons animate-spin text-[#488BBE] text-3xl mb-4">sync</span>
-              <p className="text-[#488BBE]">Memuat data siswa...</p>
-            </div>
-          </div>
-        ) : (
-          <StudentTable
-            students={students || []}
-            searchInput={debouncedSearchTerm}
-            getSortIcon={getSortIcon}
-            requestSort={requestSort}
-            fetchNextPage={fetchNextPage}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            updateStudent={updateStudent}
-            classroomOptions={classrooms}
-            isLoading={isLoading}
-          />
-        )}
+        {/* Student table - no loading state */}
+        <StudentTable
+          students={students || []}
+          searchInput={debouncedSearchTerm}
+          getSortIcon={getSortIcon}
+          requestSort={requestSort}
+          fetchNextPage={fetchNextPage}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          updateStudent={updateStudent}
+          classroomOptions={classrooms}
+          isLoading={false} // Always set to false to never show loading state
+        />
       </div>
 
-      {/* Filter modal */}
+      {/* Filter modal - now passing correct props */}
       <AnimatePresence>
         {showFilterModal && (
           <StudentFilters
@@ -247,8 +223,7 @@ const StudentListPage = () => {
             handleFilterSelect={handleFilterSelect}
             applyFilters={applyFilters}
             grades={grades}
-            classNumbers={classNumbers}
-            students={students}
+            classrooms={classrooms}
           />
         )}
       </AnimatePresence>

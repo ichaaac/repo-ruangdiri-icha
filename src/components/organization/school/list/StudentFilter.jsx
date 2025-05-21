@@ -1,4 +1,4 @@
-// src/components/organization/school/list/StudentFilter.jsx - API Integration
+// src/components/organization/school/list/StudentFilter.jsx - Fixed to match API parameters correctly
 import React from "react";
 import { motion } from "framer-motion";
 
@@ -9,8 +9,7 @@ const StudentFilters = ({
   handleFilterSelect,
   applyFilters,
   grades,
-  classNumbers,
-  students
+  classrooms,
 }) => {
   if (!showModal) return null;
 
@@ -22,14 +21,6 @@ const StudentFilters = ({
     applyFilters();
     setShowModal(false);
   };
-
-  // Ensure we have valid array data for filters
-  // Using actual API data from the backend as provided in gradesResult
-  const validGrades = Array.isArray(grades) && grades.length > 0 ? 
-    grades : ["X", "XI", "XII", "10", "11", "12"];
-
-  const validClassNumbers = Array.isArray(classNumbers) && classNumbers.length > 0 ? 
-    classNumbers : ["1", "2", "3", "4", "5", "A", "B", "C"];
 
   return (
     <div className="fixed inset-0 bg-[#55555580] flex items-center justify-center z-50 p-4">
@@ -53,42 +44,42 @@ const StudentFilters = ({
             </div>
             
             <div className="flex flex-col justify-start items-start gap-6 w-full">
-              {/* Grade Selection */}
+              {/* Classroom Selection */}
               <div className="w-full flex flex-col justify-start items-start gap-3">
-                <div className="text-[#488bbe] text-sm font-normal">Kelas</div>
+                <div className="text-[#488bbe] text-sm font-normal">Classroom</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {validGrades.map((grade) => (
+                  {classrooms && classrooms.map((classroom) => (
                     <button
-                      key={grade}
-                      className={`h-7 px-2.5 py-1 ${filtersInput.grade === grade ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
+                      key={classroom}
+                      className={`h-7 px-2.5 py-1 ${filtersInput.classroom === classroom ? 'bg-[#488bbe] text-white' : 'bg-[#eaecee] text-gray-700'} rounded-[5px] flex justify-center items-center transition-colors`}
                       onClick={() => {
-                        handleFilterSelect('grade', grade);
+                        handleFilterSelect('classroom', classroom);
                       }}
                     >
-                      <div className="text-center text-xs font-normal">{grade}</div>
+                      <div className="text-center text-xs font-normal">{classroom}</div>
                     </button>
                   ))}
                 </div>
               </div>
               
-              {/* Class Number Selection */}
+              {/* Grade Selection */}
               <div className="w-full flex flex-col justify-start items-start gap-3">
-                <div className="text-[#488bbe] text-sm font-normal">Nomor Kelas</div>
+                <div className="text-[#488bbe] text-sm font-normal">Grade</div>
                 <div className="inline-flex justify-start items-center gap-2 flex-wrap">
-                  {validClassNumbers.map((num) => (
+                  {grades && grades.map((grade) => (
                     <button
-                      key={num}
+                      key={grade}
                       className={`h-7 px-2.5 py-1 ${
-                        !filtersInput.grade 
+                        !filtersInput.classroom 
                           ? 'bg-[#eaecee] text-gray-400 cursor-not-allowed' 
-                          : filtersInput.classNumber === num 
+                          : filtersInput.grade === grade 
                             ? 'bg-[#488bbe] text-white' 
                             : 'bg-[#eaecee] text-gray-700'
                       } rounded-[5px] flex justify-center items-center transition-colors`}
-                      onClick={() => handleFilterSelect('classNumber', num)}
-                      disabled={!filtersInput.grade}
+                      onClick={() => handleFilterSelect('grade', grade)}
+                      disabled={!filtersInput.classroom}
                     >
-                      <div className="text-center text-xs font-normal">{num}</div>
+                      <div className="text-center text-xs font-normal">{grade}</div>
                     </button>
                   ))}
                 </div>

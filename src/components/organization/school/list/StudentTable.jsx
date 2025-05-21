@@ -1,4 +1,4 @@
-// src/components/organization/school/list/StudentTable.jsx
+// src/components/organization/school/list/StudentTable.jsx - Fixed to format classroom display and remove loading message
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -183,6 +183,13 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   );
 };
 
+// Helper to format the classroom display (adding dash between classroom and grade)
+const formatClassroomDisplay = (classroom, grade) => {
+  if (!classroom) return "-";
+  if (!grade) return classroom;
+  return `${classroom} - ${grade}`;
+};
+
 const StudentTable = ({ 
   students, 
   searchInput,
@@ -238,6 +245,7 @@ const StudentTable = ({
     setEditData({
       fullName: student.fullName || "",
       classroom: student.classroom || "",
+      grade: student.grade || "",
       gender: student.gender || "",
       nis: student.nis || "",
       iqScore: student.iqScore || 0
@@ -262,12 +270,11 @@ const StudentTable = ({
       const data = {
         fullName: editData.fullName,
         classroom: editData.classroom,
+        grade: editData.grade,
         gender: editData.gender,
         nis: editData.nis,
         iqScore: parseInt(editData.iqScore) || 0
       };
-      
-      console.log("Saving student data:", data, "for ID:", id);
       
       // Call the updateStudent mutation
       updateStudent.mutate({ 
@@ -281,6 +288,7 @@ const StudentTable = ({
       console.error("Error saving student:", error);
     }
   };
+
   // Handle edit change
   const handleEditChange = (e) => {
     // Handle both custom dropdown and regular events
@@ -325,17 +333,7 @@ const StudentTable = ({
 
   const hasChanges = editingId && editData.fullName?.trim();
 
-  if (isLoading && students.length === 0) {
-    return (
-      <div className="w-full flex justify-center items-center py-12">
-        <div className="flex flex-col items-center">
-          <span className="material-icons animate-spin text-[#488BBE] text-3xl mb-4">sync</span>
-          <p className="text-[#488BBE]">Memuat data siswa...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Don't show loading message - simply return the table structure
   return (
     <div className="relative">
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
@@ -427,201 +425,220 @@ const StudentTable = ({
             </tr>
           </thead>
           <tbody>
-            {students.map((student, index) => {
-              const statusUI = getScreeningStatusUI(student.screeningStatus || 'stable');
-              const isLastElement = index === students.length - 1;
-              const isEditing = editingId === student.id;
-              
-              return (
-                <React.Fragment key={student.id}>
-                  <tr 
-                    className={clsx(
-                      "bg-white hover:bg-gray-50 transition-colors",
-                      isEditing ? "cursor-default" : "cursor-pointer"
-                    )}
-                    ref={isLastElement ? lastStudentElementRef : null}
-                    onClick={() => !isEditing && handleViewStudentDetail(student.id)}
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          name="fullName"
-                          value={editData.fullName}
-                          onChange={handleEditChange}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                        />
-                      ) : (
-                        <div className="text-sm font-medium text-gray-900 hover:text-[#488BBE] hover:underline" title={student.fullName}>
-                          {highlightText(student.fullName)}
-                        </div>
+            {students.length > 0 ? (
+              students.map((student, index) => {
+                const statusUI = getScreeningStatusUI(student.screeningStatus || 'stable');
+                const isLastElement = index === students.length - 1;
+                const isEditing = editingId === student.id;
+                
+                return (
+                  <React.Fragment key={student.id}>
+                    <tr 
+                      className={clsx(
+                        "bg-white hover:bg-gray-50 transition-colors",
+                        isEditing ? "cursor-default" : "cursor-pointer"
                       )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {isEditing ? (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <CustomDropdown
-                            name="classroom"
-                            value={editData.classroom}
+                      ref={isLastElement ? lastStudentElementRef : null}
+                      onClick={() => !isEditing && handleViewStudentDetail(student.id)}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            name="fullName"
+                            value={editData.fullName}
                             onChange={handleEditChange}
-                            options={classroomOptions || [student.classroom]}
-                            className="min-w-[120px]"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                           />
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-600">{student.classroom}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {isEditing ? (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <CustomDropdown
-                            name="gender"
-                            value={editData.gender}
-                            onChange={handleEditChange}
-                            options={[
-                              { value: 'male', label: 'L' },
-                              { value: 'female', label: 'P' }
-                            ]}
-                            className="w-[110px]"
-                          />
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-600 justify-center">
-                          {student.gender === 'male' ? 'L' : 'P'}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          name="nis"
-                          value={editData.nis}
-                          onChange={handleEditChange}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-sm text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 w-full hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                        />
-                      ) : (
-                        <div className="text-sm text-gray-600">
-                          {highlightText(student.nis)}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span
-                        className={clsx(
-                          "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
-                          statusUI.bg
+                        ) : (
+                          <div className="text-sm font-medium text-gray-900 hover:text-[#488BBE] hover:underline" title={student.fullName}>
+                            {highlightText(student.fullName)}
+                          </div>
                         )}
-                        onClick={(e) => e.stopPropagation()}
-                        onMouseEnter={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setHoveredStatus({
-                            status: student.screeningStatus || 'stable',
-                            x: rect.right + 10,
-                            y: rect.top + rect.height / 2
-                          });
-                        }}
-                        onMouseLeave={() => setHoveredStatus(null)}
-                      >
-                        <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span className={clsx("text-sm", student.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
-                        {student.counselingStatus ? "Sudah" : "Belum"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {isEditing ? (
-                        <input
-                          type="text"
-                          name="iqScore"
-                          value={editData.iqScore}
-                          onChange={handleEditChange}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-16 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                          maxLength="3"
-                          inputMode="numeric"
-                        />
-                      ) : (
-                        <div className="text-sm text-gray-600">
-                          {student.iqScore || "-"}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {isEditing ? (
-                        <div 
-                          className="flex space-x-2 justify-center" 
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {/* Cancel button first */}
-                          <button 
-                            className="text-[#EE4266] hover:text-red-700 transition-colors" 
-                            onClick={(e) => cancelEditing(e)}
-                            aria-label="Cancel"
-                          >
-                            <span className="material-icons">cancel</span>
-                          </button>
-                          {/* Save button second */}
-                          <button
-                            type="button"
-                            className={clsx(
-                              "text-[#87C054] hover:text-[#6DAF31] transition-colors",
-                              (!hasChanges || updateStudent.isPending) && "opacity-50 cursor-not-allowed"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (hasChanges) {
-                                saveEditing(student.id);
-                              }
-                            }}
-                            disabled={!hasChanges || updateStudent.isPending}
-                            aria-label="Save"
-                          >
-                            <span className="material-icons">
-                              {updateStudent.isPending ? "hourglass_empty" : "check_circle"}
-                            </span>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
-                          onClick={(e) => startEditing(student.id, e)}
-                          disabled={editingId !== null}
-                          onMouseEnter={() => setShowEditTooltip(student.id)}
-                          onMouseLeave={() => setShowEditTooltip(null)}
-                          aria-label="Edit student"
-                        >
-                          <span className="material-icons">edit</span>
-                          {showEditTooltip === student.id && (
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg">
-                              Edit
-                            </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {isEditing ? (
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <CustomDropdown
+                              name="classroom"
+                              value={editData.classroom}
+                              onChange={handleEditChange}
+                              options={classroomOptions || [student.classroom]}
+                              className="min-w-[80px]"
+                            />
+                            <div className="flex items-center">-</div>
+                            <CustomDropdown
+                              name="grade"
+                              value={editData.grade}
+                              onChange={handleEditChange}
+                              options={["A", "B", "C", "D"]}
+                              className="min-w-[60px]"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-600">
+                            {formatClassroomDisplay(student.classroom, student.grade)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {isEditing ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <CustomDropdown
+                              name="gender"
+                              value={editData.gender}
+                              onChange={handleEditChange}
+                              options={[
+                                { value: 'male', label: 'L' },
+                                { value: 'female', label: 'P' }
+                              ]}
+                              className="w-[110px]"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-sm text-gray-600 justify-center">
+                            {student.gender === 'male' ? 'L' : 'P'}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            name="nis"
+                            value={editData.nis}
+                            onChange={handleEditChange}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 w-full hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-600">
+                            {highlightText(student.nis)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
+                            statusUI.bg
                           )}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                  {!isLastElement && (
-                  <tr style={{ height: '1px' }}>
-                    <td colSpan={8} className="p-0">
-                      <div 
-                        style={{
-                          height: '1px',
-                          backgroundImage: 'linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)'
-                        }}
-                      />
-                    </td>
-                  </tr>
-                )}
-                </React.Fragment>
-              );
-            })}
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseEnter={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setHoveredStatus({
+                              status: student.screeningStatus || 'stable',
+                              x: rect.right + 10,
+                              y: rect.top + rect.height / 2
+                            });
+                          }}
+                          onMouseLeave={() => setHoveredStatus(null)}
+                        >
+                          <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className={clsx("text-sm", student.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
+                          {student.counselingStatus ? "Sudah" : "Belum"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            name="iqScore"
+                            value={editData.iqScore}
+                            onChange={handleEditChange}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-16 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            maxLength="3"
+                            inputMode="numeric"
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-600">
+                            {student.iqScore || "-"}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {isEditing ? (
+                          <div 
+                            className="flex space-x-2 justify-center" 
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Cancel button first */}
+                            <button 
+                              className="text-[#EE4266] hover:text-red-700 transition-colors" 
+                              onClick={(e) => cancelEditing(e)}
+                              aria-label="Cancel"
+                            >
+                              <span className="material-icons">cancel</span>
+                            </button>
+                            {/* Save button second */}
+                            <button
+                              type="button"
+                              className={clsx(
+                                "text-[#87C054] hover:text-[#6DAF31] transition-colors",
+                                (!hasChanges || updateStudent.isPending) && "opacity-50 cursor-not-allowed"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (hasChanges) {
+                                  saveEditing(student.id);
+                                }
+                              }}
+                              disabled={!hasChanges || updateStudent.isPending}
+                              aria-label="Save"
+                            >
+                              <span className="material-icons">
+                                {updateStudent.isPending ? "hourglass_empty" : "check_circle"}
+                              </span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
+                            onClick={(e) => startEditing(student.id, e)}
+                            disabled={editingId !== null}
+                            onMouseEnter={() => setShowEditTooltip(student.id)}
+                            onMouseLeave={() => setShowEditTooltip(null)}
+                            aria-label="Edit student"
+                          >
+                            <span className="material-icons">edit</span>
+                            {showEditTooltip === student.id && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg">
+                                Edit
+                              </div>
+                            )}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {!isLastElement && (
+                      <tr style={{ height: '1px' }}>
+                        <td colSpan={8} className="p-0">
+                          <div 
+                            style={{
+                              height: '1px',
+                              backgroundImage: 'linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)'
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={8} className="text-center py-8">
+                  <span className="material-icons text-gray-400 text-5xl">school</span>
+                  <p className="text-gray-500 mt-2">Tidak ada data siswa.</p>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -643,17 +660,11 @@ const StudentTable = ({
         )}
       </AnimatePresence>
 
+      {/* Keep pagination loading indicator */}
       {isFetchingNextPage && (
         <div className="py-4 text-center">
           <span className="material-icons animate-spin text-[#488BBE]">refresh</span>
           <span className="text-[#488BBE] text-sm ml-2">Loading...</span>
-        </div>
-      )}
-
-      {students.length === 0 && !isFetchingNextPage && !isLoading && (
-        <div className="text-center py-8">
-          <span className="material-icons text-gray-400 text-5xl">school</span>
-          <p className="text-gray-500 mt-2">Tidak ada data siswa.</p>
         </div>
       )}
     </div>

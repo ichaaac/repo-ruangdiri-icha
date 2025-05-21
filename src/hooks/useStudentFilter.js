@@ -1,4 +1,4 @@
-// src/hooks/useStudentFilter.js
+// src/hooks/useStudentFilter.js - Updated to match API parameter names
 import { useState, useEffect } from 'react';
 
 /**
@@ -11,17 +11,17 @@ export const useStudentFilters = () => {
   
   // Sorting configuration state
   const [appliedSortConfig, setAppliedSortConfig] = useState({ key: null, direction: null });
-  
+
   // Filter states - temp input and applied values
   const [filtersInput, setFiltersInput] = useState({
+    classroom: null,
     grade: null,
-    classNumber: null,
     gender: null,
     screeningStatus: null,
     counselingStatus: null
   });
   const [appliedFilters, setAppliedFilters] = useState({...filtersInput});
-  
+
   // Modal visibility state
   const [showFilterModal, setShowFilterModal] = useState(false);
 
@@ -38,7 +38,7 @@ export const useStudentFilters = () => {
    */
   const requestSort = (key) => {
     let newConfig = { key: null, direction: null };
-    
+
     if (appliedSortConfig.key === key) {
       // Cycle through: none -> ascending -> descending -> none
       if (!appliedSortConfig.direction) {
@@ -52,7 +52,7 @@ export const useStudentFilters = () => {
       // New column, start with ascending
       newConfig = { key, direction: "ascending" };
     }
-    
+
     setAppliedSortConfig(newConfig);
   };
 
@@ -69,12 +69,12 @@ export const useStudentFilters = () => {
 
   /**
    * Handle filter selection in the modal
-   * @param {string} filterType - Filter type (grade, gender, etc.)
+   * @param {string} filterType - Filter type (classroom, gender, etc.)
    * @param {any} value - Filter value
    */
   const handleFilterSelect = (filterType, value) => {
-    // Special case: can't select class number without grade
-    if (filterType === 'classNumber' && !filtersInput.grade) {
+    // Special case: can't select grade without classroom
+    if (filterType === 'grade' && !filtersInput.classroom) {
       return;
     }
 
@@ -82,8 +82,8 @@ export const useStudentFilters = () => {
     setFiltersInput(prev => ({
       ...prev,
       [filterType]: prev[filterType] === value ? null : value,
-      // Special case: reset class number when grade changes
-      ...(filterType === 'grade' && prev.grade !== value ? { classNumber: null } : {})
+      // Special case: reset grade when classroom changes
+      ...(filterType === 'classroom' && prev.classroom !== value ? { grade: null } : {})
     }));
   };
 
@@ -99,8 +99,8 @@ export const useStudentFilters = () => {
    */
   const clearFilters = () => {
     const emptyFilters = {
+      classroom: null,
       grade: null,
-      classNumber: null,
       gender: null,
       screeningStatus: null,
       counselingStatus: null
@@ -119,7 +119,7 @@ export const useStudentFilters = () => {
     requestSort,
     getSortIcon,
     filtersInput,
-    setFiltersInput,  // Added to allow direct manipulation if needed
+    setFiltersInput,
     appliedFilters,
     handleFilterSelect,
     applyFilters,

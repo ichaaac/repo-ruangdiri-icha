@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js
+// src/hooks/useAuth.js - Fixed to correctly handle the API response
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -25,9 +25,11 @@ export const useAuth = () => {
         // Use the consolidated getMe function
         const response = await getMe();
         
-        if (response.data?.status === "success") {
-          const userData = response.data.data;
-          // Cache the same data for different query keys to prevent duplicate API calls
+        // Directly access the response structure as shown in the API example
+        if (response?.status === "success") {
+          const userData = response.data;
+          
+          // Save user type to localStorage and query cache
           const orgType = userData?.organization?.type || localStorage.getItem("organizationType");
           
           if (orgType) {
