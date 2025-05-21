@@ -134,18 +134,16 @@ const Login = () => {
 				});
 
 				if (error.response.data && error.response.data.status === "fail") {
-					// TODO : VALIDATION ERROR BUG
 					if (error.response.data.errors && error.response.data.errors.length > 0) {
-						// Handle specific field errors
-						error.response.data.errors.forEach(err => {
-							if (err.field === "email") {
-								setEmailError(true);
-								setErrorMessage(err.message);
-							} else if (err.field === "password") {
-								setPasswordError(true);
-								setErrorMessage(err.message);
-							}
-						});
+						// error.response.data.errors.forEach(err => {
+						// 	if (err.field === "email") {
+						// 		setEmailError(true);
+						// 		setErrorMessage(err.message);
+						// 	} else if (err.field === "password") {
+						// 		setPasswordError(true);
+						// 		setErrorMessage(err.message);
+						// 	}
+						// });
 					} else {
 						// General error message
 						setErrorMessage(error.response.data.message || "Validation failed");

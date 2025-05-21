@@ -2,13 +2,12 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import useDebounce from "../../../hooks/useDebounce";
-import { useEmployeeData, useUserProfile, useDepartments } from "../../../hooks/useEmployeeData";
+import { useEmployeeData, useDepartments } from "../../../hooks/useEmployeeData";
 import { useEmployeeFilters } from "../../../hooks/useEmployeeFilter";
 import EmployeeTable from "../../../components/organization/company/list/EmployeeTable";
 import EmployeeFilters from "../../../components/organization/company/list/EmployeeFilters";
 
 const EmployeeListPage = () => {
-  const { data: userData } = useUserProfile();
   const resetEditModeRef = useRef(null);
   const [filtersChanged, setFiltersChanged] = useState(false);
   
@@ -141,7 +140,6 @@ const EmployeeListPage = () => {
       <div className="flex items-start justify-between px-6 mt-[44px]">
         <div className="mt-2">
           <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
-            Halo, {userData?.fullName || 'Pengguna'}
           </h1>
         </div>
 

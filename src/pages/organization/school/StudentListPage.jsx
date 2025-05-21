@@ -94,7 +94,7 @@ const StudentListPage = () => {
       <div className="flex items-start justify-between px-6 mt-[44px]">
         <div className="mt-2">
           <h1 className="text-xl md:text-3xl font-extrabold text-[#488BBE]">
-            Halo, {userData?.fullName || 'Pengguna'}
+            Halo, {userData?.fullName || '-'}
           </h1>
         </div>
 

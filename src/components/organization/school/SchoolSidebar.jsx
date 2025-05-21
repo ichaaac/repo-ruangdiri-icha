@@ -7,9 +7,9 @@ import { useAuth } from "../../../hooks/useAuth";
 const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user: userData } = useAuth(); // Gunakan user dari useAuth
+  const { logout, user: userData } = useAuth();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showDashboardDropdown, setShowDashboardDropdown] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null); // Ubah ke tracking item spesifik
   const [hovered, setHovered] = useState(false);
   const [toggleHovered, setToggleHovered] = useState(false);
   const expandTimeoutRef = useRef(null);
@@ -37,7 +37,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
       collapseTimeoutRef.current = setTimeout(() => {
         setHovered(false);
         setShowProfileDropdown(false);
-        setShowDashboardDropdown(false);
+        setActiveDropdown(null); // Reset active dropdown
         onHoverChange?.(false);
       }, 300);
     }
@@ -47,7 +47,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   useEffect(() => {
     if (!expanded && !hovered) {
       setShowProfileDropdown(false);
-      setShowDashboardDropdown(false);
+      setActiveDropdown(null); // Reset active dropdown
     }
   }, [expanded, hovered]);
 
@@ -56,7 +56,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
     setExpanded(!expanded);
     onHoverChange?.(!expanded);
     setShowProfileDropdown(false);
-    setShowDashboardDropdown(false);
+    setActiveDropdown(null); // Reset active dropdown
   };
 
   // Handle logout
@@ -73,7 +73,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
         setShowProfileDropdown(false);
-        setShowDashboardDropdown(false);
+        setActiveDropdown(null); // Reset active dropdown
       }
     };
 
@@ -118,6 +118,11 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
       return true;
     }
     return location.pathname === path;
+  };
+
+  // Handle dropdown toggle untuk item spesifik
+  const toggleDropdown = (path) => {
+    setActiveDropdown(activeDropdown === path ? null : path);
   };
 
   return (
@@ -197,7 +202,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
           >
             <div className="text-sm font-medium text-[#488BBE]">Admin</div>
             <div className="text-sm font-medium text-[#488BBE]">
-              {userData?.fullName || "Nama Sekolah"}
+              {userData?.fullName || "-"}
               <span className="material-icons text-sm ml-1 text-[#488BBE]">
                 {showProfileDropdown ? 'expand_less' : 'expand_more'}
               </span>
@@ -233,7 +238,6 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
         </AnimatePresence>
       </div>
 
-      {/* Sisa komponen tetap sama */}
       {/* Divider */}
       <div className="mt-6 px-2">
         <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
@@ -255,7 +259,8 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
               }`}
               onClick={() => {
                 if (item.hasDropdown) {
-                  setShowDashboardDropdown(!showDashboardDropdown);
+                  // Toggle dropdown untuk item ini
+                  toggleDropdown(item.path);
                 } else {
                   navigate(item.path);
                 }
@@ -274,7 +279,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
                 {item.label}
                 {item.hasDropdown && (
                   <span className="material-icons text-sm ml-2">
-                    {showDashboardDropdown ? 'expand_less' : 'expand_more'}
+                    {activeDropdown === item.path ? 'expand_less' : 'expand_more'}
                   </span>
                 )}
               </motion.span>
@@ -282,7 +287,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
             
             {/* Dashboard Dropdown */}
             <AnimatePresence>
-              {item.hasDropdown && showDashboardDropdown && (expanded || hovered) && (
+              {item.hasDropdown && activeDropdown === item.path && (expanded || hovered) && (
                 <motion.div
                   className="pl-12 overflow-hidden"
                   initial={{ opacity: 0, height: 0 }}
@@ -295,7 +300,7 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
                       key={dropdownIndex}
                       to={dropdownItem.path}
                       className="block py-2 pl-4 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
-                      onClick={() => setShowDashboardDropdown(false)}
+                      onClick={() => setActiveDropdown(null)}
                     >
                       {dropdownItem.label}
                     </Link>

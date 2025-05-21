@@ -11,7 +11,12 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   const displayValue = currentOption?.label || currentOption || value;
 
   const handleSelect = (optionValue) => {
-    onChange({ target: { name, value: optionValue } });
+    // Create a custom object instead of trying to simulate a DOM event
+    onChange({ 
+      target: { name, value: optionValue },
+      // Skip the e.stopPropagation() call in the parent
+      synthetic: true
+    });
   };
 
   return (
@@ -27,6 +32,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
             : "bg-white hover:border-[#488BBE] border-gray-300 focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]",
           className
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         <span className="truncate">{displayValue}</span>
         <span className="material-icons text-gray-400 text-sm">expand_more</span>
@@ -55,7 +61,10 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                 {({ active }) => (
                   <button
                     type="button"
-                    onClick={() => handleSelect(optionValue)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelect(optionValue);
+                    }}
                     className={clsx(
                       "w-full text-left px-3 py-2 text-sm flex items-center justify-between",
                       "transition-colors duration-100",
@@ -214,7 +223,12 @@ const StudentTable = ({
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
   // Start editing
-  const startEditing = (id) => {
+  const startEditing = (id, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (editingId) return;
     const student = students.find(s => s.id === id);
     if (!student) return;
@@ -230,7 +244,11 @@ const StudentTable = ({
   };
 
   // Cancel editing
-  const cancelEditing = () => {
+  const cancelEditing = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setEditingId(null);
     setEditData({});
   };
@@ -239,32 +257,46 @@ const StudentTable = ({
   const saveEditing = (id) => {
     if (!editData.fullName?.trim()) return;
     
-    const changedFields = {};
-    const original = students.find(s => s.id === id);
-    
-    if (!original) return;
-    
-    Object.keys(editData).forEach(key => {
-      if (editData[key] !== original[key]) {
-        changedFields[key] = editData[key];
+    try {
+      const data = {
+        fullName: editData.fullName,
+        classroom: editData.classroom,
+        gender: editData.gender,
+        nis: editData.nis,
+        iqScore: parseInt(editData.iqScore) || 0
+      };
+      
+      console.log("Saving student data:", data, "for ID:", id);
+      
+      // Direct call to updateStudent function
+      if (typeof updateStudent === 'function') {
+        updateStudent({ id, data });
+      } else if (updateStudent && typeof updateStudent.mutate === 'function') {
+        updateStudent.mutate({ id, data });
+      } else {
+        console.error("updateStudent is not valid:", updateStudent);
       }
-    });
-    
-    if (!Object.keys(changedFields).length) return;
-    
-    if (changedFields.iqScore !== undefined) {
-      changedFields.iqScore = parseInt(changedFields.iqScore) || 0;
+      
+      // Reset editing state
+      setEditingId(null);
+    } catch (error) {
+      console.error("Error saving student:", error);
     }
-    
-    updateStudent.mutate(
-      { id, data: changedFields },
-      { onSuccess: cancelEditing }
-    );
   };
 
   // Handle edit change
   const handleEditChange = (e) => {
-    const { name, value } = e.target;
+    // Handle both custom dropdown and regular events
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+    
+    // Get name and value whether it's from dropdown or regular input
+    const name = e.target?.name;
+    const value = e.target?.value;
+    
+    if (!name) return; // Safety check
+    
     let processedValue = value;
     
     if (name === 'iqScore') {
@@ -294,11 +326,7 @@ const StudentTable = ({
     );
   };
 
-  const hasChanges = editingId && editData.fullName?.trim() && 
-    Object.keys(editData).some(key => {
-      const original = students.find(s => s.id === editingId);
-      return original && editData[key] !== original[key];
-    });
+  const hasChanges = editingId && editData.fullName?.trim(); // Simplified condition - just check for valid name
 
   return (
     <div className="relative">
@@ -387,7 +415,7 @@ const StudentTable = ({
                   <span className="material-icons text-sm">{getSortIcon("iqScore")}</span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center whitespace-nowrap"></th>
+              <th className="px-4 py-3 text-center whitespace-nowrap w-20"></th>
             </tr>
           </thead>
           <tbody>
@@ -399,7 +427,10 @@ const StudentTable = ({
               return (
                 <React.Fragment key={student.id}>
                   <tr 
-                    className="bg-white hover:bg-gray-50 transition-colors cursor-pointer"
+                    className={clsx(
+                      "bg-white hover:bg-gray-50 transition-colors",
+                      isEditing ? "cursor-default" : "cursor-pointer"
+                    )}
                     ref={isLastElement ? lastStudentElementRef : null}
                     onClick={() => !isEditing && handleViewStudentDetail(student.id)}
                   >
@@ -421,31 +452,33 @@ const StudentTable = ({
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <CustomDropdown
-                          name="classroom"
-                          value={editData.classroom}
-                          onChange={handleEditChange}
-                          options={classroomOptions || [student.classroom]}
-                          className="min-w-[120px]"
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <CustomDropdown
+                            name="classroom"
+                            value={editData.classroom}
+                            onChange={handleEditChange}
+                            options={classroomOptions || [student.classroom]}
+                            className="min-w-[120px]"
+                          />
+                        </div>
                       ) : (
                         <div className="text-sm text-gray-600">{student.classroom}</div>
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isEditing ? (
-                        <CustomDropdown
-                          name="gender"
-                          value={editData.gender}
-                          onChange={handleEditChange}
-                          options={[
-                            { value: 'male', label: 'Laki-laki' },
-                            { value: 'female', label: 'Perempuan' }
-                          ]}
-                          className="w-[110px]"
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <CustomDropdown
+                            name="gender"
+                            value={editData.gender}
+                            onChange={handleEditChange}
+                            options={[
+                              { value: 'male', label: 'Laki-laki' },
+                              { value: 'female', label: 'Perempuan' }
+                            ]}
+                            className="w-[110px]"
+                          />
+                        </div>
                       ) : (
                         <div className="text-sm text-gray-600">
                           {student.gender === 'male' ? 'Laki-laki' : 'Perempuan'}
@@ -474,6 +507,7 @@ const StudentTable = ({
                           "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
                           statusUI.bg
                         )}
+                        onClick={(e) => e.stopPropagation()}
                         onMouseEnter={(e) => {
                           e.stopPropagation();
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -511,33 +545,49 @@ const StudentTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center relative whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      {isEditing ? (
-                        <div className="flex space-x-2 justify-center">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                                              {isEditing ? (
+                        <div 
+                          className="flex space-x-2 justify-center" 
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Cancel button first */}
+                          <button 
+                            className="text-[#EE4266] hover:text-red-700 transition-colors" 
+                            onClick={(e) => cancelEditing(e)}
+                            aria-label="Cancel"
+                          >
+                            <span className="material-icons">cancel</span>
+                          </button>
+                          {/* Save button second */}
                           <button
+                            type="button"
                             className={clsx(
                               "text-[#87C054] hover:text-[#6DAF31] transition-colors",
                               (!hasChanges || updateStudent.isPending) && "opacity-50 cursor-not-allowed"
                             )}
-                            onClick={() => hasChanges && saveEditing(student.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (hasChanges) {
+                                saveEditing(student.id);
+                              }
+                            }}
                             disabled={!hasChanges || updateStudent.isPending}
+                            aria-label="Save"
                           >
-                            <span className="material-icons">check_circle</span>
-                          </button>
-                          <button 
-                            className="text-[#EE4266] hover:text-red-700 transition-colors" 
-                            onClick={cancelEditing}
-                          >
-                            <span className="material-icons">cancel</span>
+                            <span className="material-icons">
+                              {updateStudent.isPending ? "hourglass_empty" : "check_circle"}
+                            </span>
                           </button>
                         </div>
                       ) : (
                         <button
                           className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
-                          onClick={() => startEditing(student.id)}
+                          onClick={(e) => startEditing(student.id, e)}
                           disabled={editingId !== null}
                           onMouseEnter={() => setShowEditTooltip(student.id)}
                           onMouseLeave={() => setShowEditTooltip(null)}
+                          aria-label="Edit student"
                         >
                           <span className="material-icons">edit</span>
                           {showEditTooltip === student.id && (

@@ -242,19 +242,3 @@ export const useClassrooms = () => {
 /**
  * Hook to fetch user profile data
  */
-export const useUserProfile = () => {
-  return useQuery({
-    queryKey: ['userProfile'],
-    queryFn: async () => {
-      try {
-        const response = await api.user.getMe();
-        return response?.data?.data || { fullName: "Pengguna" };
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        return { fullName: "Pengguna" };
-      }
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1
-  });
-};
