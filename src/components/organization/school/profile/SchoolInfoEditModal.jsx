@@ -7,12 +7,7 @@ import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import ConfirmationModal from "../../company/profile/ConfirmationModal";
-
-const extractDigits = (phone) => phone?.replace(/[^\d]/g, '') || '';
-const isEmptyPhone = (phone) => {
-  const digits = extractDigits(phone);
-  return !digits || digits.length <= 3; // Just country code
-};
+import { isEmptyPhone } from "@/lib/phoneUtils";
 
 const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -101,6 +96,17 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     );
   }
 
+  // Format untuk nomor telepon di display
+  const formatPhoneForDisplay = (value, data) => {
+    // Jika nomor kosong, kembalikan string kosong
+    if (!value || value === "+" || isEmptyPhone(value)) {
+      return '';
+    }
+    
+    // Store the raw value from PhoneInput
+    return value;
+  };
+
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[520px] max-w-full">
       <div className="p-6">
@@ -168,12 +174,15 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                   <PhoneInput
                     defaultCountry="id"
                     value={field.value || ''}
-                    onChange={(value) => {
-                      if (isEmptyPhone(value)) {
+                    onChange={(value, data) => {
+                      const formattedValue = formatPhoneForDisplay(value, data);
+                      
+                      if (!formattedValue) {
                         field.onChange('');
                         return;
                       }
-                      field.onChange(value);
+                      
+                      field.onChange(formattedValue);
                     }}
                     onBlur={() => {
                       if (isEmptyPhone(field.value)) field.onChange('');
@@ -186,6 +195,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                     international
                     withCountryCallingCode
                     forceDialCode
+                    preserveCountryCallingCode
                   />
                 )}
               />
