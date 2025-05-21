@@ -10,7 +10,7 @@ const StudentFilters = ({
   handleFilterSelect,
   applyFilters,
   grades,
-  classNumbers,
+classNumbers,
   students
 }) => {
   if (!showModal) return null;

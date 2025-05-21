@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import SchoolInfoEditModal from "../../../components/organization/school/profile/SchoolInfoEditModal";
 import SchoolAccountEditModal from "../../../components/organization/school/profile/SchoolAccountEditModal";
 import ProfilePictureUpload from "../../../components/organization/school/profile/ProfilePictureUpload";
-import { getMe } from "../../../lib/api";
 import { parsePhoneNumber } from 'libphonenumber-js';
 
 // Helper function to format phone number with clear country code separation

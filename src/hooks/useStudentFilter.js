@@ -12,7 +12,7 @@ export const useStudentFilters = () => {
     counselingStatus: null
   });
   const [appliedFilters, setAppliedFilters] = useState(filtersInput);
-  const [showFilterModal, setShowFilterModal] = useState(false);
+const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Reset filters input when modal closes
   useEffect(() => {
