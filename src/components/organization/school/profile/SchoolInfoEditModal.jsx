@@ -211,7 +211,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
             {/* Nomor Telepon dengan validasi per negara - OPTIONAL */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
-                Nomor Telepon (opsional)
+                Nomor Telepon
               </label>
               <Controller
                 name="phone"
