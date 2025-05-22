@@ -1,6 +1,7 @@
 // src/hooks/useStudentData.js - Fixed to properly handle API response structure
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
+import { QueryClient } from "@tanstack/react-query";
 
 /**
  * Hook for fetching user profile data

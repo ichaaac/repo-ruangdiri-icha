@@ -41,7 +41,7 @@ const SuccessModal = ({ isOpen, message, onClose }) => {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="relative z-10 bg-white rounded-xl p-6 w-[320px] flex flex-col items-center"
+          className="relative z-10 bg-white rounded-xl p-6 w-80 flex flex-col items-center"
         >
           <span
             className="material-icons text-green-500"
@@ -56,7 +56,6 @@ const SuccessModal = ({ isOpen, message, onClose }) => {
   );
 };
 
-// Error Modal component
 const ErrorModal = ({ isOpen, message, onClose }) => {
   if (!isOpen) return null;
 
@@ -69,7 +68,7 @@ const ErrorModal = ({ isOpen, message, onClose }) => {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="relative z-10 bg-white rounded-xl p-6 w-[320px] flex flex-col items-center"
+          className="relative z-10 bg-white rounded-xl p-6 w-80 flex flex-col items-center"
         >
           <span
             className="material-icons text-red-500"
@@ -98,6 +97,7 @@ const SchoolProfilePage = () => {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
 
+  // Menggunakan useAuth hook yang sudah ada - tidak perlu fetch 2 kali
   const { user: userData, isLoading, error, refetchUser } = useAuth();
 
   const handleModalClose = (success) => {
@@ -143,11 +143,8 @@ const SchoolProfilePage = () => {
     );
   }
 
-  // Format phoneNumber untuk display
-  let displayPhone = '-';
-  if (userData?.organization?.phone) {
-    displayPhone = formatPhoneDisplay(userData.organization.phone);
-  }
+  // Format phoneNumber untuk display menggunakan libphonenumber-js
+  const displayPhone = formatPhoneDisplay(userData?.organization?.phone);
 
   return (
     <div className="box-border w-full min-h-screen bg-white">
@@ -160,14 +157,14 @@ const SchoolProfilePage = () => {
           Profil
         </h1>
         <div
-          className="absolute h-[0.5px] bg-[#D9D9D9]"
+          className="absolute h-0.5 bg-gray-300"
           style={{ top: "99px", left: "76px", right: "20px" }}
         ></div>
       </div>
 
       {/* ID/EN and Notification with absolute positioning */}
       <div
-        className="absolute flex items-center gap-[23px]"
+        className="absolute flex items-center gap-6"
         style={{ top: "29px", right: "20px", width: "101px" }}
       >
         <div className="flex items-center">
@@ -184,16 +181,16 @@ const SchoolProfilePage = () => {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center items-center h-64 mt-[180px]">
+        <div className="flex justify-center items-center h-64 mt-44">
           <span className="material-icons animate-spin text-primary text-3xl">
             refresh
           </span>
         </div>
       ) : (
-        <div className="pt-[180px] px-[12px]">
+        <div className="pt-44 px-3">
           {/* Profile section */}
-          <section className="mb-[20px]">
-            <div className="flex gap-5 items-center p-5 bg-white rounded-xl border-solid border-[0.3px] border-[#8B8B8B] max-md:flex-col max-md:items-start max-sm:p-2.5">
+          <section className="mb-5">
+            <div className="flex gap-5 items-center p-5 bg-white rounded-xl border border-gray-300 max-md:flex-col max-md:items-start max-sm:p-2.5">
               <ProfilePictureUpload
                 currentProfilePicture={
                   userData?.organization?.profilePicture || null
@@ -204,15 +201,13 @@ const SchoolProfilePage = () => {
                   {userData?.fullName || "-"}
                 </h2>
                 <p className="text-xs text-neutral-600">Admin</p>
-                <p className="text-xs text-neutral-600">
-                </p>
               </div>
             </div>
           </section>
 
           {/* School Information section */}
-          <section className="mb-[20px]">
-            <div className="p-5 bg-white rounded-xl border-solid border-[0.3px] border-[#8B8B8B] max-md:flex-col max-md:items-start max-sm:p-2.5">
+          <section className="mb-5">
+            <div className="p-5 bg-white rounded-xl border border-gray-300 max-md:flex-col max-md:items-start max-sm:p-2.5">
               <div className="flex justify-between items-center mb-2.5">
                 <h3 className="text-xl font-semibold text-primary">
                   Informasi Sekolah
@@ -226,7 +221,7 @@ const SchoolProfilePage = () => {
               </div>
 
               {/* Gradient divider */}
-              <div className="relative h-[1px] w-full mb-4">
+              <div className="relative h-px w-full mb-4">
                 <div
                   className="absolute inset-0"
                   style={{
@@ -237,17 +232,17 @@ const SchoolProfilePage = () => {
               </div>
 
               <div className="flex flex-wrap">
-                <div className="w-full md:w-[270px] mb-4 md:mb-0">
+                <div className="w-full md:w-64 mb-4 md:mb-0">
                   <span className="block text-xs text-zinc-500">
                     Nama Sekolah
                   </span>
-                  <span className="block text-base text-neutral-600 mt-1 pl-0">
+                  <span className="block text-base text-neutral-600 mt-1">
                     {userData?.fullName || "-"}
                   </span>
                 </div>
-                <div className="w-full md:w-[369px] mb-4 md:mb-0">
+                <div className="w-full md:w-80 mb-4 md:mb-0">
                   <span className="block text-xs text-zinc-500">Alamat</span>
-                  <span className="block text-base text-neutral-600 mt-1 pl-0">
+                  <span className="block text-base text-neutral-600 mt-1">
                     {userData?.organization?.address || "-"}
                   </span>
                 </div>
@@ -255,7 +250,7 @@ const SchoolProfilePage = () => {
                   <span className="block text-xs text-zinc-500">
                     Nomor Telepon
                   </span>
-                  <span className="block text-base text-neutral-600 mt-1 pl-0">
+                  <span className="block text-base text-neutral-600 mt-1">
                     {displayPhone}
                   </span>
                 </div>
@@ -265,7 +260,7 @@ const SchoolProfilePage = () => {
 
           {/* Account Settings section */}
           <section>
-            <div className="p-5 bg-white rounded-xl border-solid border-[0.3px] border-[#8B8B8B] max-md:flex-col max-md:items-start max-sm:p-2.5">
+            <div className="p-5 bg-white rounded-xl border border-gray-300 max-md:flex-col max-md:items-start max-sm:p-2.5">
               <div className="flex justify-between items-center mb-2.5">
                 <h3 className="text-xl font-semibold text-primary">
                   Pengaturan Akun
@@ -279,7 +274,7 @@ const SchoolProfilePage = () => {
               </div>
 
               {/* Gradient divider */}
-              <div className="relative h-[1px] w-full mb-4">
+              <div className="relative h-px w-full mb-4">
                 <div
                   className="absolute inset-0"
                   style={{
@@ -290,15 +285,15 @@ const SchoolProfilePage = () => {
               </div>
 
               <div className="flex flex-wrap">
-                <div className="w-full md:w-[320px] mb-4 md:mb-0">
+                <div className="w-full md:w-80 mb-4 md:mb-0">
                   <span className="block text-xs text-zinc-500">Email</span>
-                  <span className="block text-base text-neutral-600 mt-1 pl-0">
+                  <span className="block text-base text-neutral-600 mt-1">
                     {userData?.email || "Belum diisi"}
                   </span>
                 </div>
                 <div className="w-full md:w-auto">
                   <span className="block text-xs text-zinc-500">Password</span>
-                  <span className="block text-base text-neutral-600 mt-1 pl-0">
+                  <span className="block text-base text-neutral-600 mt-1">
                     ********
                   </span>
                 </div>

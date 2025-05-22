@@ -1,88 +1,127 @@
 // src/components/organization/school/profile/SchoolInfoEditModal.jsx
-import React, { useState } from "react";
-import { useForm, Controller, useWatch } from "react-hook-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
+import ConfirmationModal from "../../company/profile/ConfirmationModal";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
-import ConfirmationModal from "../../company/profile/ConfirmationModal";
-import { isEmptyPhone } from "@/lib/phoneUtils";
+import { validatePhoneNumber, isEmptyPhone, extractDigits } from "../../../../lib/phoneUtils";
+
+// Validation schema dengan custom phone validation
+const schoolInfoSchema = z.object({
+  fullName: z.string().min(1, "Nama sekolah wajib diisi"),
+  address: z.string().min(1, "Alamat wajib diisi"),
+  phone: z.string().refine((phone) => {
+    const error = validatePhoneNumber(phone);
+    return error === null;
+  }, {
+    message: "Format nomor telepon tidak valid",
+  }),
+});
 
 const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const queryClient = useQueryClient();
+  const [phoneValidationError, setPhoneValidationError] = useState("");
 
   const {
     register,
     handleSubmit,
     control,
-    formState: { isSubmitting, isDirty },
-    watch
+    setValue,
+    trigger,
+    formState: { errors, isSubmitting, isDirty },
   } = useForm({
+    resolver: zodResolver(schoolInfoSchema),
     defaultValues: {
       fullName: userData?.fullName || "",
       address: userData?.organization?.address || "",
-      phone: isEmptyPhone(userData?.organization?.phone) ? "" : userData?.organization?.phone || "",
-    }
+      phone: userData?.organization?.phone || "",
+    },
+    mode: "onBlur",
   });
 
-  const fullName = watch("fullName");
-  const address = watch("address");
-  const phone = watch("phone");
-  const hasMeaningfulChanges = () => {
-    if (!isDirty) return false;
-    
-    const originalName = (userData?.fullName || "").trim();
-    const originalAddress = (userData?.organization?.address || "").trim();
-    const originalPhone = (userData?.organization?.phone || "").trim();
-    
-    const currentName = (fullName || "").trim();
-    const currentAddress = (address || "").trim();
-    const currentPhone = (phone || "").trim();
-    
-    return (
-      originalName !== currentName || 
-      originalAddress !== currentAddress || 
-      originalPhone !== currentPhone
-    );
-  };
+  // Update form when userData changes
+  useEffect(() => {
+    if (userData) {
+      setValue("fullName", userData.fullName || "");
+      setValue("address", userData.organization?.address || "");
+      setValue("phone", userData.organization?.phone || "");
+    }
+  }, [userData, setValue]);
 
-  const updateProfileMutation = useMutation({
+  const updateSchoolInfoMutation = useMutation({
     mutationFn: async (data) => {
       setErrorMessage("");
       
-      const processedData = {
-        ...data,
-        phone: isEmptyPhone(data.phone) ? "" : data.phone
-      };
-      
-      return apiClient.patch('/organizations/profile', processedData);
+      return apiClient.patch('/organizations/profile', {
+        fullName: data.fullName,
+        address: data.address,
+        phone: data.phone,
+      });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      queryClient.invalidateQueries({ queryKey: ['school-profile'] });
-      onClose(true);
-    },
+    onSuccess: () => onClose(true),
     onError: (error) => {
-      setErrorMessage(error.response?.data?.message || "Terjadi kesalahan");
+      console.error("School info update error:", error);
+      setErrorMessage(
+        error.response?.data?.message || 
+        "Terjadi kesalahan saat mengubah informasi sekolah"
+      );
     },
   });
 
   const onSubmit = (data) => {
-    updateProfileMutation.mutate(data);
+    setErrorMessage("");
+    
+    // Double check phone validation before submit
+    const phoneError = validatePhoneNumber(data.phone);
+    if (phoneError) {
+      setPhoneValidationError(phoneError);
+      return;
+    }
+    
+    updateSchoolInfoMutation.mutate(data);
   };
 
   const handleCloseClick = () => {
-    if (isDirty && hasMeaningfulChanges()) {
-      setShowConfirmationModal(true);
-    } else {
-      onClose(false);
+    isDirty ? setShowConfirmationModal(true) : onClose(false);
+  };
+
+  const handlePhoneChange = (value, field) => {
+    if (isEmptyPhone(value)) {
+      field.onChange('');
+      setPhoneValidationError('');
+      return;
+    }
+    
+    const digits = extractDigits(value);
+    if (digits.length <= 15) {
+      field.onChange(value);
+      
+      // Real-time validation
+      const error = validatePhoneNumber(value);
+      setPhoneValidationError(error || '');
+      
+      // Trigger form validation
+      setTimeout(() => trigger('phone'), 100);
     }
   };
 
-  const addressValue = useWatch({ control, name: "address" }); 
+  const handlePhoneBlur = (field) => {
+    if (isEmptyPhone(field.value)) {
+      field.onChange('');
+      setPhoneValidationError('');
+    } else {
+      // Final validation on blur
+      const error = validatePhoneNumber(field.value);
+      setPhoneValidationError(error || '');
+    }
+    field.onBlur();
+  };
 
   if (showConfirmationModal) {
     return (
@@ -96,22 +135,13 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     );
   }
 
-  // Format untuk nomor telepon di display
-  const formatPhoneForDisplay = (value, data) => {
-    // Jika nomor kosong, kembalikan string kosong
-    if (!value || value === "+" || isEmptyPhone(value)) {
-      return '';
-    }
-    
-    // Store the raw value from PhoneInput
-    return value;
-  };
-
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[520px] max-w-full">
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-primary">Edit Informasi Sekolah</h2>
+          <h2 className="text-xl font-semibold text-primary">
+            Edit Informasi Sekolah
+          </h2>
           <button 
             type="button" 
             onClick={handleCloseClick}
@@ -123,46 +153,51 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-5">
+            {/* Nama Sekolah */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 Nama Sekolah
               </label>
-              <div className="relative">
-                <input
-                  id="fullName"
-                  {...register("fullName")}
-                  className="w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary border-gray-300"
-                />
-              </div>
+              <input
+                type="text"
+                {...register("fullName")}
+                className={clsx(
+                  "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
+                  errors.fullName ? "border-red-500" : "border-gray-300"
+                )}
+                placeholder="Masukkan nama sekolah"
+                autoComplete="organization"
+              />
+              {errors.fullName && (
+                <span className="text-xs text-red-500 mt-1 block">
+                  {errors.fullName.message}
+                </span>
+              )}
             </div>
 
-     
-            <div className="relative">
+            {/* Alamat */}
+            <div>
               <label className="block text-sm text-gray-500 mb-1">
-                Alamat Sekolah
+                Alamat
               </label>
               <textarea
-                {...register("address", {
-                  maxLength: 255,
-                  onChange: (e) => {
-                    const trimmed = e.target.value.slice(0, 255);
-                    e.target.value = trimmed; // langsung potong di tempat
-                  },
-                })}
-                maxLength={255}
-                className="w-full rounded-md px-4 py-3 focus:outline-none focus:border-primary border-[1.5px] border-gray-300 resize-none min-h-[48px] pr-12"
-              />
-
-              <span
+                {...register("address")}
+                rows={3}
                 className={clsx(
-                  "absolute bottom-2 right-3 text-[11px] pointer-events-none",
-                  (addressValue?.length || 0) >= 255 ? "text-red-500 font-semibold" : "text-gray-400"
+                  "w-full rounded-md border-[1.5px] px-4 py-3 focus:outline-none focus:border-primary resize-none",
+                  errors.address ? "border-red-500" : "border-gray-300"
                 )}
-              >
-                {(addressValue?.length || 0)}/255
-              </span>
+                placeholder="Masukkan alamat lengkap sekolah"
+                autoComplete="street-address"
+              />
+              {errors.address && (
+                <span className="text-xs text-red-500 mt-1 block">
+                  {errors.address.message}
+                </span>
+              )}
             </div>
 
+            {/* Nomor Telepon dengan validasi per negara */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 Nomor Telepon
@@ -174,31 +209,29 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                   <PhoneInput
                     defaultCountry="id"
                     value={field.value || ''}
-                    onChange={(value, data) => {
-                      const formattedValue = formatPhoneForDisplay(value, data);
-                      
-                      if (!formattedValue) {
-                        field.onChange('');
-                        return;
-                      }
-                      
-                      field.onChange(formattedValue);
-                    }}
-                    onBlur={() => {
-                      if (isEmptyPhone(field.value)) field.onChange('');
-                      field.onBlur();
-                    }}
-                    inputClassName="w-full h-12 border-[1.5px] text-base px-4 focus:outline-none focus:border-primary border-gray-300"
+                    onChange={(value) => handlePhoneChange(value, field)}
+                    onBlur={() => handlePhoneBlur(field)}
+                    inputClassName={clsx(
+                      "w-full h-12 border-[1.5px] text-base px-4 focus:outline-none focus:border-primary",
+                      (errors.phone || phoneValidationError) ? "border-red-500" : "border-gray-300"
+                    )}
                     containerClassName="rounded-md overflow-hidden"
                     buttonClassName="h-12 px-3 flex items-center justify-center border-r border-gray-300"
-                    placeholder="Masukkan nomor telepon (opsional)"
+                    placeholder="Masukkan nomor telepon"
+                    inputProps={{
+                      maxLength: 20,
+                    }}
                     international
                     withCountryCallingCode
                     forceDialCode
-                    preserveCountryCallingCode
                   />
                 )}
               />
+              {(errors.phone || phoneValidationError) && (
+                <span className="text-xs text-red-500 mt-1 block">
+                  {phoneValidationError || errors.phone?.message}
+                </span>
+              )}
             </div>
 
             <div className="flex justify-between items-center pt-2">
@@ -217,15 +250,25 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               {/* Submit button on the right */}
               <button
                 type="submit"
-                disabled={isSubmitting || updateProfileMutation.isPending || !hasMeaningfulChanges()}
+                disabled={
+                  isSubmitting || 
+                  !isDirty || 
+                  Object.keys(errors).length > 0 || 
+                  phoneValidationError || 
+                  updateSchoolInfoMutation.isPending
+                }
                 className={clsx(
                   "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                  hasMeaningfulChanges() && !isSubmitting && !updateProfileMutation.isPending
+                  isDirty && 
+                  !isSubmitting && 
+                  Object.keys(errors).length === 0 && 
+                  !phoneValidationError && 
+                  !updateSchoolInfoMutation.isPending
                     ? "bg-primary hover:bg-primary-variant1"
                     : "bg-gray-400 cursor-not-allowed"
                 )}
               >
-                {isSubmitting || updateProfileMutation.isPending ? (
+                {isSubmitting || updateSchoolInfoMutation.isPending ? (
                   <span className="flex items-center">
                     <span className="material-icons animate-spin text-sm mr-1">refresh</span>
                     Menyimpan...
