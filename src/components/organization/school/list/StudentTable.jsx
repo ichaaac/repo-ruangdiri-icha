@@ -380,7 +380,7 @@ const StudentTable = ({
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
       
       <div ref={contentRef} className="overflow-x-auto scrollbar-hide">
-        <table className="w-full" style={{ minWidth: '1500px' }}>
+        <table className="w-full" style={{ minWidth: '1200px' }}>
           <thead className="bg-[#E2F9FF]">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
@@ -487,7 +487,7 @@ const StudentTable = ({
                       )}
                       ref={isLastElement ? lastStudentElementRef : null}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap min-w-[250px]">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {isEditing ? (
                           <input
                             type="text"
@@ -506,7 +506,7 @@ const StudentTable = ({
                         ) : (
                           <div 
                             className={clsx(
-                              "text-sm font-medium cursor-pointer transition-colors min-w-[200px]",
+                              "text-sm font-medium cursor-pointer transition-colors",
                               activatedNames.has(student.id) 
                                 ? "text-[#488BBE] underline" 
                                 : "text-gray-900 hover:text-[#488BBE] hover:underline"
@@ -518,7 +518,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center min-w-[120px]">
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
                         {isEditing ? (
                           <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
                             <CustomDropdown
@@ -543,7 +543,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center min-w-[120px]">
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
                         {isEditing ? (
                           <div onClick={(e) => e.stopPropagation()}>
                             <CustomDropdown
@@ -563,7 +563,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <input
                             type="text"
@@ -585,7 +585,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span
                           className={clsx(
                             "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
@@ -606,12 +606,12 @@ const StudentTable = ({
                           <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className={clsx("text-sm", student.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
                           {student.counselingStatus ? "Sudah" : "Belum"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <input
                             type="text"
@@ -635,7 +635,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[80px]">
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <div 
                             className="flex space-x-2 justify-center" 
