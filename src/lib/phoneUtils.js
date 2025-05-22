@@ -39,16 +39,12 @@ export const formatPhoneDisplay = (phoneNumber, defaultCountry = 'ID') => {
 
 /**
  * Validasi phone number pake libphonenumber-js
- * Ini yang handle beda negara
+ * Sekarang optional - bisa kosong
  */
 export const validatePhoneNumber = (phoneNumber) => {
-  if (!phoneNumber || phoneNumber.trim() === '') {
-    return "Nomor telepon wajib diisi";
-  }
-
-  // Handle empty phone format dari react-international-phone
-  if (phoneNumber === '+62' || phoneNumber.length < 4) {
-    return "Nomor telepon tidak valid";
+  // Kalau kosong, skip validasi (optional)
+  if (!phoneNumber || phoneNumber.trim() === '' || isEmptyPhone(phoneNumber)) {
+    return null; // Valid (kosong diperbolehkan)
   }
 
   try {

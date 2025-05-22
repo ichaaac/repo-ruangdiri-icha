@@ -11,11 +11,16 @@ import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { validatePhoneNumber, isEmptyPhone, extractDigits } from "../../../../lib/phoneUtils";
 
-// Validation schema dengan custom phone validation
+// Validation schema dengan phone optional
 const schoolInfoSchema = z.object({
   fullName: z.string().min(1, "Nama sekolah wajib diisi"),
   address: z.string().min(1, "Alamat wajib diisi"),
-  phone: z.string().refine((phone) => {
+  phone: z.string().optional().refine((phone) => {
+    // Kalau kosong, valid
+    if (!phone || phone.trim() === '' || isEmptyPhone(phone)) {
+      return true;
+    }
+    // Kalau ada isi, harus valid
     const error = validatePhoneNumber(phone);
     return error === null;
   }, {
@@ -77,11 +82,13 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   const onSubmit = (data) => {
     setErrorMessage("");
     
-    // Double check phone validation before submit
-    const phoneError = validatePhoneNumber(data.phone);
-    if (phoneError) {
-      setPhoneValidationError(phoneError);
-      return;
+    // Double check phone validation before submit hanya kalau ada isi
+    if (data.phone && !isEmptyPhone(data.phone)) {
+      const phoneError = validatePhoneNumber(data.phone);
+      if (phoneError) {
+        setPhoneValidationError(phoneError);
+        return;
+      }
     }
     
     updateSchoolInfoMutation.mutate(data);
@@ -102,9 +109,13 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
     if (digits.length <= 15) {
       field.onChange(value);
       
-      // Real-time validation
-      const error = validatePhoneNumber(value);
-      setPhoneValidationError(error || '');
+      // Real-time validation hanya kalau ada isi
+      if (value && !isEmptyPhone(value)) {
+        const error = validatePhoneNumber(value);
+        setPhoneValidationError(error || '');
+      } else {
+        setPhoneValidationError('');
+      }
       
       // Trigger form validation
       setTimeout(() => trigger('phone'), 100);
@@ -116,7 +127,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
       field.onChange('');
       setPhoneValidationError('');
     } else {
-      // Final validation on blur
+      // Final validation on blur hanya kalau ada isi
       const error = validatePhoneNumber(field.value);
       setPhoneValidationError(error || '');
     }
@@ -197,10 +208,10 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               )}
             </div>
 
-            {/* Nomor Telepon dengan validasi per negara */}
+            {/* Nomor Telepon dengan validasi per negara - OPTIONAL */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
-                Nomor Telepon
+                Nomor Telepon (opsional)
               </label>
               <Controller
                 name="phone"
@@ -217,7 +228,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                     )}
                     containerClassName="rounded-md overflow-hidden"
                     buttonClassName="h-12 px-3 flex items-center justify-center border-r border-gray-300"
-                    placeholder="Masukkan nomor telepon"
+                    placeholder="Masukkan nomor telepon (opsional)"
                     inputProps={{
                       maxLength: 20,
                     }}
