@@ -1,4 +1,4 @@
-// src/components/organization/school/list/StudentTable.jsx - Fixed to format classroom display and remove loading message
+// src/components/organization/school/list/StudentTable.jsx - Fixed sort icons, gender alignment, and refetch
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -208,9 +208,37 @@ const StudentTable = ({
   const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   const [hoveredStatus, setHoveredStatus] = useState(null);
   const [showEditTooltip, setShowEditTooltip] = useState(null);
+  const [activatedNames, setActivatedNames] = useState(new Set());
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Function to handle name click (double-click mechanism)
+  const handleNameClick = (id, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    if (editingId !== null) return; // Don't activate while editing
+    
+    if (activatedNames.has(id)) {
+      // Second click - redirect
+      navigate(`/organization/school/student/${id}`);
+      setActivatedNames(new Set()); // Clear activated names
+    } else {
+      // First click - activate hyperlink
+      setActivatedNames(new Set([id]));
+      // Auto-deactivate after 3 seconds if no second click
+      setTimeout(() => {
+        setActivatedNames(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(id);
+          return newSet;
+        });
+      }, 3000);
+    }
+  };
 
   // Function to navigate to student detail
   const handleViewStudentDetail = (id) => {
@@ -263,16 +291,29 @@ const StudentTable = ({
   };
 
   const saveEditing = (id) => {
-    if (!editData.fullName?.trim()) return;
+    if (!editData.fullName?.trim()) {
+      alert('Nama tidak boleh kosong!');
+      return;
+    }
+    
+    if (!editData.nis?.trim()) {
+      alert('NIS tidak boleh kosong!');
+      return;
+    }
+    
+    if (!editData.iqScore || editData.iqScore.toString().trim() === '' || parseInt(editData.iqScore) <= 0) {
+      alert('Skor IQ tidak boleh kosong dan harus lebih dari 0!');
+      return;
+    }
     
     try {
       // API expects a flat structure with only the fields to update
       const data = {
-        fullName: editData.fullName,
+        fullName: editData.fullName.trim(),
         classroom: editData.classroom,
         grade: editData.grade,
         gender: editData.gender,
-        nis: editData.nis,
+        nis: editData.nis.trim(),
         iqScore: parseInt(editData.iqScore) || 0
       };
       
@@ -331,35 +372,39 @@ const StudentTable = ({
     );
   };
 
-  const hasChanges = editingId && editData.fullName?.trim();
+  const hasChanges = editingId && editData.fullName?.trim() && editData.nis?.trim() && editData.iqScore && parseInt(editData.iqScore) > 0;
 
   // Don't show loading message - simply return the table structure
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
       
       <div ref={contentRef} className="overflow-x-auto scrollbar-hide">
-        <table className="w-full" style={{ minWidth: '1200px' }}>
+        <table className="w-full" style={{ minWidth: '1500px' }}>
           <thead className="bg-[#E2F9FF]">
             <tr>
-              <th 
-                className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                onClick={() => requestSort("fullName")}
-              >
+              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center gap-1">
                   NAMA
-                  <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
+                  <span 
+                    className="material-icons text-sm cursor-pointer hover:text-[#3399e9]"
+                    onClick={() => requestSort("fullName")}
+                  >
+                    {getSortIcon("fullName")}
+                  </span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KELAS</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
-              <th 
-                className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                onClick={() => requestSort("nis")}
-              >
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KELAS</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center gap-1">
                   NIS
-                  <span className="material-icons text-sm">{getSortIcon("nis")}</span>
+                  <span 
+                    className="material-icons text-sm cursor-pointer hover:text-[#3399e9]"
+                    onClick={() => requestSort("nis")}
+                  >
+                    {getSortIcon("nis")}
+                  </span>
                 </div>
               </th>
               <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
@@ -412,13 +457,15 @@ const StudentTable = ({
                 </div>
               </th>
               <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KONSELING</th>
-              <th 
-                className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
-                onClick={() => requestSort("iqScore")}
-              >
+              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center gap-1">
                   SKOR IQ
-                  <span className="material-icons text-sm">{getSortIcon("iqScore")}</span>
+                  <span 
+                    className="material-icons text-sm cursor-pointer hover:text-[#3399e9]"
+                    onClick={() => requestSort("iqScore")}
+                  >
+                    {getSortIcon("iqScore")}
+                  </span>
                 </div>
               </th>
               <th className="px-4 py-3 text-center whitespace-nowrap w-20"></th>
@@ -436,12 +483,11 @@ const StudentTable = ({
                     <tr 
                       className={clsx(
                         "bg-white hover:bg-gray-50 transition-colors",
-                        isEditing ? "cursor-default" : "cursor-pointer"
+                        isEditing ? "cursor-default" : "cursor-default"
                       )}
                       ref={isLastElement ? lastStudentElementRef : null}
-                      onClick={() => !isEditing && handleViewStudentDetail(student.id)}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap min-w-[250px]">
                         {isEditing ? (
                           <input
                             type="text"
@@ -449,17 +495,32 @@ const StudentTable = ({
                             value={editData.fullName}
                             onChange={handleEditChange}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className={clsx(
+                              "text-sm font-medium border rounded-md px-3 py-1.5 w-full min-w-[200px] transition-[border-color,box-shadow] duration-150 focus:outline-none",
+                              editData.fullName?.trim() 
+                                ? "text-gray-900 border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]" 
+                                : "text-gray-900 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
+                            )}
+                            required
                           />
                         ) : (
-                          <div className="text-sm font-medium text-gray-900 hover:text-[#488BBE] hover:underline" title={student.fullName}>
+                          <div 
+                            className={clsx(
+                              "text-sm font-medium cursor-pointer transition-colors min-w-[200px]",
+                              activatedNames.has(student.id) 
+                                ? "text-[#488BBE] underline" 
+                                : "text-gray-900 hover:text-[#488BBE] hover:underline"
+                            )}
+                            title={student.fullName}
+                            onClick={(e) => handleNameClick(student.id, e)}
+                          >
                             {highlightText(student.fullName)}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap text-center min-w-[120px]">
                         {isEditing ? (
-                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
                             <CustomDropdown
                               name="classroom"
                               value={editData.classroom}
@@ -477,12 +538,12 @@ const StudentTable = ({
                             />
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 text-center">
                             {formatClassroomDisplay(student.classroom, student.grade)}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap text-center min-w-[120px]">
                         {isEditing ? (
                           <div onClick={(e) => e.stopPropagation()}>
                             <CustomDropdown
@@ -493,16 +554,16 @@ const StudentTable = ({
                                 { value: 'male', label: 'L' },
                                 { value: 'female', label: 'P' }
                               ]}
-                              className="w-[110px]"
+                              className="w-[110px] mx-auto"
                             />
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-600 justify-center">
+                          <div className="text-sm text-gray-600 text-center">
                             {student.gender === 'male' ? 'L' : 'P'}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
                         {isEditing ? (
                           <input
                             type="text"
@@ -510,7 +571,13 @@ const StudentTable = ({
                             value={editData.nis}
                             onChange={handleEditChange}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-3 py-1.5 w-full hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className={clsx(
+                              "text-sm border rounded-md px-3 py-1.5 w-full transition-[border-color,box-shadow] duration-150 focus:outline-none",
+                              editData.nis?.trim()
+                                ? "text-gray-600 border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]"
+                                : "text-gray-600 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
+                            )}
+                            required
                           />
                         ) : (
                           <div className="text-sm text-gray-600">
@@ -518,7 +585,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
                         <span
                           className={clsx(
                             "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
@@ -539,12 +606,12 @@ const StudentTable = ({
                           <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
                         <span className={clsx("text-sm", student.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
                           {student.counselingStatus ? "Sudah" : "Belum"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[100px]">
                         {isEditing ? (
                           <input
                             type="text"
@@ -552,9 +619,15 @@ const StudentTable = ({
                             value={editData.iqScore}
                             onChange={handleEditChange}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-16 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className={clsx(
+                              "text-sm border rounded-md px-2 py-1 w-16 text-center transition-[border-color,box-shadow] duration-150 focus:outline-none",
+                              (editData.iqScore && parseInt(editData.iqScore) > 0)
+                                ? "text-gray-600 border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]"
+                                : "text-gray-600 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
+                            )}
                             maxLength="3"
                             inputMode="numeric"
+                            required
                           />
                         ) : (
                           <div className="text-sm text-gray-600">
@@ -562,7 +635,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 text-center whitespace-nowrap min-w-[80px]">
                         {isEditing ? (
                           <div 
                             className="flex space-x-2 justify-center" 

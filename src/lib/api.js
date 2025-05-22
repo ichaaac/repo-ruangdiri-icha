@@ -10,7 +10,7 @@ const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
-    // "ngrok-skip-browser-warning": "true",
+    "ngrok-skip-browser-warning": "true",
     'Bypass-Tunnel-Reminder': 'yup',
   },
 });
@@ -360,7 +360,7 @@ const api = {
         const formData = new FormData();
         formData.append("profilePicture", file);
 
-        const response = await apiClient.put("/organizations/profile-picture", formData, {
+        const response = await apiClient.patch("/organizations/profile", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },

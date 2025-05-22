@@ -11,7 +11,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const queryClient = useQueryClient();
   
   // Fix the API_URL definition by providing a fallback
-  const API_URL = import.meta.env.VITE_API_URL || "";
+  // const API_URL = import.meta.env.VITE_API_URL || "";
 
   // Update preview when currentProfilePicture changes
   useEffect(() => {
@@ -35,8 +35,8 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       console.log("Uploading profile picture...");
       
       // Use apiClient directly instead of constructing URL
-      return apiClient.put(
-        "/organizations/profile-picture",
+      return apiClient.patch(
+        "/organizations/profile",
         formData,
         {
           headers: {

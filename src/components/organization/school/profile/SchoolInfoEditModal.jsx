@@ -11,16 +11,14 @@ import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { validatePhoneNumber, isEmptyPhone, extractDigits } from "../../../../lib/phoneUtils";
 
-// Validation schema dengan phone optional
+// Schema validasi - semua field optional, cuma validasi format kalau ada isi
 const schoolInfoSchema = z.object({
-  fullName: z.string().min(1, "Nama sekolah wajib diisi"),
-  address: z.string().min(1, "Alamat wajib diisi"),
+  fullName: z.string().optional(),
+  address: z.string().max(255, "Alamat maksimal 255 karakter").optional(),
   phone: z.string().optional().refine((phone) => {
-    // Kalau kosong, valid
     if (!phone || phone.trim() === '' || isEmptyPhone(phone)) {
       return true;
     }
-    // Kalau ada isi, harus valid
     const error = validatePhoneNumber(phone);
     return error === null;
   }, {
@@ -33,24 +31,36 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [phoneValidationError, setPhoneValidationError] = useState("");
 
+  // Default values dari userData
+  const defaultValues = {
+    fullName: userData?.fullName || "",
+    address: userData?.organization?.address || "",
+    phone: userData?.organization?.phone || "",
+  };
+
   const {
     register,
     handleSubmit,
     control,
     setValue,
     trigger,
-    formState: { errors, isSubmitting, isDirty },
+    watch,
+    formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(schoolInfoSchema),
-    defaultValues: {
-      fullName: userData?.fullName || "",
-      address: userData?.organization?.address || "",
-      phone: userData?.organization?.phone || "",
-    },
+    defaultValues,
     mode: "onBlur",
   });
 
-  // Update form when userData changes
+  const watchedFields = watch();
+  const addressLength = watchedFields.address?.length || 0;
+
+  // Cek apakah ada perubahan dari nilai awal
+  const hasChanges = 
+    watchedFields.fullName !== defaultValues.fullName ||
+    watchedFields.address !== defaultValues.address ||
+    watchedFields.phone !== defaultValues.phone;
+
   useEffect(() => {
     if (userData) {
       setValue("fullName", userData.fullName || "");
@@ -64,9 +74,9 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
       setErrorMessage("");
       
       return apiClient.patch('/organizations/profile', {
-        fullName: data.fullName,
-        address: data.address,
-        phone: data.phone,
+        fullName: data.fullName || "", // Kirim string kosong kalau undefined
+        address: data.address || "",
+        phone: data.phone || "",
       });
     },
     onSuccess: () => onClose(true),
@@ -95,7 +105,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
   };
 
   const handleCloseClick = () => {
-    isDirty ? setShowConfirmationModal(true) : onClose(false);
+    hasChanges ? setShowConfirmationModal(true) : onClose(false);
   };
 
   const handlePhoneChange = (value, field) => {
@@ -164,7 +174,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-5">
-            {/* Nama Sekolah */}
+            {/* Nama Sekolah - Optional */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 Nama Sekolah
@@ -186,21 +196,30 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               )}
             </div>
 
-            {/* Alamat */}
-            <div>
-              <label className="block text-sm text-gray-500 mb-1">
-                Alamat
-              </label>
+            {/* Alamat - Optional dengan character counter */}
+            <div className="relative">
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm text-gray-500">
+                  Alamat
+                </label>
+              </div>
+
               <textarea
                 {...register("address")}
                 rows={3}
+                maxLength={255}
                 className={clsx(
-                  "w-full rounded-md border-[1.5px] px-4 py-3 focus:outline-none focus:border-primary resize-none",
+                  "w-full rounded-md border-[1.5px] px-4 py-3 focus:outline-none focus:border-primary resize-none pr-14",
                   errors.address ? "border-red-500" : "border-gray-300"
                 )}
                 placeholder="Masukkan alamat lengkap sekolah"
                 autoComplete="street-address"
               />
+
+              <span className="absolute bottom-2 right-3 text-xs text-gray-400 pointer-events-none select-none">
+                {addressLength}/255
+              </span>
+
               {errors.address && (
                 <span className="text-xs text-red-500 mt-1 block">
                   {errors.address.message}
@@ -208,7 +227,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
               )}
             </div>
 
-            {/* Nomor Telepon dengan validasi per negara - OPTIONAL */}
+            {/* Nomor Telepon - Optional */}
             <div>
               <label className="block text-sm text-gray-500 mb-1">
                 Nomor Telepon
@@ -228,7 +247,7 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                     )}
                     containerClassName="rounded-md overflow-hidden"
                     buttonClassName="h-12 px-3 flex items-center justify-center border-r border-gray-300"
-                    placeholder="Masukkan nomor telepon (opsional)"
+                    placeholder="Masukkan nomor telepon"
                     inputProps={{
                       maxLength: 20,
                     }}
@@ -258,19 +277,19 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                 )}
               </div>
               
-              {/* Submit button on the right */}
+              {/* Submit button - disabled kalau gak ada perubahan */}
               <button
                 type="submit"
                 disabled={
+                  !hasChanges || 
                   isSubmitting || 
-                  !isDirty || 
                   Object.keys(errors).length > 0 || 
                   phoneValidationError || 
                   updateSchoolInfoMutation.isPending
                 }
                 className={clsx(
                   "h-12 px-6 rounded-md text-white font-semibold transition-colors",
-                  isDirty && 
+                  hasChanges && 
                   !isSubmitting && 
                   Object.keys(errors).length === 0 && 
                   !phoneValidationError && 

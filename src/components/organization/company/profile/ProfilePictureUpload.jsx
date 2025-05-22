@@ -33,8 +33,8 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       
       console.log("Uploading profile picture...");
       
-      return apiClient.put(
-        `/organizations/profile-picture`,
+      return apiClient.patch(
+        `/organizations/profile`,
         formData,
         {
           headers: {

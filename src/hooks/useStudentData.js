@@ -1,7 +1,6 @@
-// src/hooks/useStudentData.js - Fixed to properly handle API response structure
+// src/hooks/useStudentData.js - Fixed to properly handle API response structure and refetch
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
-import { QueryClient } from "@tanstack/react-query";
 
 /**
  * Hook for fetching user profile data
@@ -22,6 +21,8 @@ export const useUserProfile = () => {
 };
 
 export const useStudentData = (searchTerm, sortConfig, filters) => {
+  const queryClient = useQueryClient();
+  
   const buildFilterParams = () => {
     const params = { 
       page: 1, 
@@ -202,7 +203,6 @@ export const useClassrooms = () => {
         throw error;
       }
     },
-    staleTime: 1000 * 60 * 30, // 30 minutes
     retry: 2
   });
 };
