@@ -6,22 +6,18 @@ import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { apiClient } from "../../../../lib/api";
 import clsx from "clsx";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import ConfirmationModal from "../../company/profile/ConfirmationModal";
 
-// Validation schema
+// Simple validation schema
 const passwordSchema = z.object({
   email: z.string().email("Email tidak valid"),
   oldPassword: z.string().min(1, "Password lama wajib diisi"),
-  newPassword: z
-    .string()
-    .min(8, "Password minimal 8 karakter")
-    .regex(/\d/, "Password harus minimal 1 angka")
-    .regex(/[A-Z]/, "Password harus minimal 1 huruf kapital")
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password harus minimal 1 karakter khusus"),
+  newPassword: z.string().min(8, "Password minimal 8 karakter"),
   confirmPassword: z.string().min(1, "Konfirmasi password wajib diisi"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Konfirmasi password tidak cocok",
+  message: "Konfirmasi password tidak sesuai",
   path: ["confirmPassword"],
 });
 
@@ -75,9 +71,9 @@ const PasswordField = ({ label, name, register, error, placeholder, showForgotLi
   );
 };
 
-// Password Requirements Component
-const PasswordRequirements = ({ password }) => {
-  const requirements = [
+// Password Checker - cuma visual feedback doang
+const PasswordChecker = ({ password }) => {
+  const checks = [
     { test: (pwd) => pwd.length >= 8, text: "Minimal 8 karakter" },
     { test: (pwd) => /\d/.test(pwd), text: "Minimal 1 angka" },
     { test: (pwd) => /[A-Z]/.test(pwd), text: "Minimal 1 huruf kapital" },
@@ -90,18 +86,20 @@ const PasswordRequirements = ({ password }) => {
         Password harus terdiri dari:
       </span>
       <div className="grid grid-cols-2 gap-x-5 gap-y-2">
-        {requirements.map((req, index) => {
-          const isValid = req.test(password || '');
+        {checks.map((check, index) => {
+          const isValid = check.test(password || '');
           return (
             <div key={index} className="flex items-center gap-2">
-              <span 
+              <motion.span 
+                animate={isValid ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+                transition={{ duration: 0.3 }}
                 className="material-icons text-sm"
                 style={{ color: isValid ? "#0EAD69" : "#71717A" }}
               >
                 {isValid ? "check_circle" : "cancel"}
-              </span>
+              </motion.span>
               <span className={`text-xs ${isValid ? "text-green-600" : "text-zinc-500"}`}>
-                {req.text}
+                {check.text}
               </span>
             </div>
           );
@@ -129,7 +127,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
       newPassword: "",
       confirmPassword: "",
     },
-    mode: "onChange", // Real-time validation
+    mode: "onChange",
   });
 
   const watchedFields = watch();
@@ -143,7 +141,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
   }, [userData, setValue]);
 
   // Check if form is dirty and valid
-  const isDirty = watchedFields.oldPassword || watchedFields.newPassword || watchedFields.confirmPassword;
+  const isDirty = !!(watchedFields.oldPassword || watchedFields.newPassword || watchedFields.confirmPassword);
   const isFormValid = !Object.keys(errors).length && isDirty && 
                      watchedFields.oldPassword && 
                      watchedFields.newPassword && 
@@ -226,7 +224,7 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
               showForgotLink={true}
             />
 
-            {/* New Password */}
+            {/* New Password - tanpa validasi ribet */}
             <PasswordField
               label="Password Baru"
               name="newPassword"
@@ -235,8 +233,8 @@ const SchoolAccountEditModal = ({ onClose, userData }) => {
               placeholder="Masukkan password baru"
             />
 
-            {/* Password Requirements */}
-            <PasswordRequirements password={newPassword} />
+            {/* Password Checker - cuma visual feedback */}
+            <PasswordChecker password={newPassword} />
 
             {/* Confirm Password */}
             <PasswordField
