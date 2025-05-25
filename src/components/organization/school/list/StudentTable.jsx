@@ -5,7 +5,6 @@ import { Menu, Transition } from '@headlessui/react';
 import { useNavigate } from "react-router-dom";
 import clsx from 'clsx';
 
-// Custom Dropdown Component with smooth animation
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
   const currentOption = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value);
   const displayValue = currentOption?.label || currentOption || value;

@@ -1,3 +1,4 @@
+// src/components/organization/company/profile/confirmationmodal.jsx
 import React from "react";
 
 const ConfirmationModal = ({ onCancel, onConfirm }) => (

@@ -17,7 +17,7 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? '1' : '0';
 
     return params;
-  };
+};
 
   const sortData = (data, config) => {
     if (!config.key || !config.direction) return data;

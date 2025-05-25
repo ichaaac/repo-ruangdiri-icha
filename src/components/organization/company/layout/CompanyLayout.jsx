@@ -1,3 +1,4 @@
+// src/components/organization/company/layout/CompanyLayout.jsx
 import React, { useState, useEffect } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
