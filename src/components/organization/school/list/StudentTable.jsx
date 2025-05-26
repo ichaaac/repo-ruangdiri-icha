@@ -1,4 +1,4 @@
-// src/components/organization/school/list/StudentTable.jsx - Updated with horizontal scrollbar and responsive design
+// src/components/organization/school/list/StudentTable.jsx - Fixed for ListPage integration
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -84,7 +84,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   );
 };
 
-// Custom Scrollbar Component (from EmployeeTable)
+// Custom Scrollbar Component
 const CustomScrollbar = ({ contentRef, className = "" }) => {
   const scrollbarRef = useRef(null);
   const thumbRef = useRef(null);
@@ -180,7 +180,7 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   );
 };
 
-// Helper to format the classroom display (adding dash between classroom and grade)
+// Helper to format the classroom display
 const formatClassroomDisplay = (classroom, grade) => {
   if (!classroom) return "-";
   if (!grade) return classroom;
@@ -188,30 +188,21 @@ const formatClassroomDisplay = (classroom, grade) => {
 };
 
 /**
- * Student Table Component with horizontal scrollbar
- * @param {Object} props
- * @param {Array} props.data - Array of students (renamed from students)
- * @param {string} props.searchInput - Current search term
- * @param {Function} props.getSortIcon - Function to get sort icon
- * @param {Function} props.requestSort - Function to handle sorting
- * @param {Function} props.fetchNextPage - Function to fetch next page
- * @param {boolean} props.hasNextPage - Whether there are more pages
- * @param {boolean} props.isFetchingNextPage - Whether currently fetching next page
- * @param {Object} props.updateItem - Mutation for updating student (renamed from updateStudent)
- * @param {Object} props.optionsData - Options for dropdowns (renamed from classroomOptions)
- * @param {boolean} props.isLoading - Loading state
+ * Student Table Component - Fixed for ListPage integration
  */
 const StudentTable = ({ 
-  data: students = [], // Renamed from students prop
-  searchInput,
+  data = [], // Students data from ListPage
+  searchInput = "",
   getSortIcon,
   requestSort,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
-  updateItem: updateStudent, // Renamed from updateStudent prop
-  optionsData = {}, // Renamed from classroomOptions prop
-  isLoading
+  updateItem, // Update function from ListPage
+  optionsData = {}, // Options data from ListPage
+  resetEditMode, // Reset edit mode ref from ListPage
+  filtersChanged, // Filters changed flag from ListPage
+  isLoading = false
 }) => {
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState(null);
@@ -224,8 +215,30 @@ const StudentTable = ({
   const observerRef = useRef(null);
   const contentRef = useRef(null);
 
+  // Get students from data
+  const students = data || [];
+
   // Extract classroom options from optionsData
   const classroomOptions = optionsData.classrooms || [];
+
+  // Reset edit mode when filters change
+  useEffect(() => {
+    if (filtersChanged && editingId) {
+      setEditingId(null);
+      setEditData({});
+    }
+  }, [filtersChanged, editingId]);
+
+  // Expose reset function to parent via ref
+  useEffect(() => {
+    if (resetEditMode && resetEditMode.current !== null) {
+      resetEditMode.current = () => {
+        setEditingId(null);
+        setEditData({});
+        setActivatedNames(new Set());
+      };
+    }
+  }, [resetEditMode]);
 
   // Function to handle name click (double-click mechanism)
   const handleNameClick = (id, e) => {
@@ -324,7 +337,7 @@ const StudentTable = ({
         iqScore: parseInt(editData.iqScore) || 0
       };
       
-      updateStudent.mutate({ 
+      updateItem.mutate({ 
         id, 
         data 
       });
@@ -654,7 +667,7 @@ const StudentTable = ({
                               type="button"
                               className={clsx(
                                 "text-[#87C054] hover:text-[#6DAF31] transition-colors",
-                                (!hasChanges || updateStudent.isPending) && "opacity-50 cursor-not-allowed"
+                                (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed"
                               )}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -662,11 +675,11 @@ const StudentTable = ({
                                   saveEditing(student.id);
                                 }
                               }}
-                              disabled={!hasChanges || updateStudent.isPending}
+                              disabled={!hasChanges || updateItem.isPending}
                               aria-label="Save"
                             >
                               <span className="material-icons text-lg sm:text-xl">
-                                {updateStudent.isPending ? "hourglass_empty" : "check_circle"}
+                                {updateItem.isPending ? "hourglass_empty" : "check_circle"}
                               </span>
                             </button>
                           </div>

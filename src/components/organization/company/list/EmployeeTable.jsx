@@ -1,4 +1,4 @@
-// src/components/organization/company/list/EmployeeTable.jsx - Updated for reusable ListPage
+// src/components/organization/company/list/EmployeeTable.jsx - Fixed update logic
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -190,44 +190,16 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   );
 };
 
-// CSS untuk animasi mode edit
-const editModeStyles = `
-@keyframes pulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-.edit-mode-icon {
-  animation: pulse 1.5s infinite ease-in-out;
-}
-`;
-
-/**
- * Employee Table Component - Updated to work with reusable ListPage
- * @param {Object} props
- * @param {Array} props.data - Array of employees (renamed from employees)
- * @param {string} props.searchInput - Current search term
- * @param {Function} props.getSortIcon - Function to get sort icon
- * @param {Function} props.requestSort - Function to handle sorting
- * @param {Function} props.fetchNextPage - Function to fetch next page
- * @param {boolean} props.hasNextPage - Whether there are more pages
- * @param {boolean} props.isFetchingNextPage - Whether currently fetching next page
- * @param {Object} props.updateItem - Mutation for updating employee (renamed from updateEmployee)
- * @param {Object} props.optionsData - Options for dropdowns
- * @param {Object} props.resetEditMode - Ref for resetting edit mode
- * @param {boolean} props.filtersChanged - Whether filters have changed
- */
 const EmployeeTable = ({ 
-  data: employees = [], // Renamed from employees prop
+  data: employees = [],
   searchInput,
   getSortIcon,
   requestSort,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
-  updateItem: updateEmployee, // Renamed from updateEmployee prop
-  optionsData = {}, // Renamed and restructured
+  updateItem: updateEmployee,
+  optionsData = {},
   resetEditMode,
   filtersChanged
 }) => {
@@ -240,36 +212,21 @@ const EmployeeTable = ({
   const observerRef = useRef(null);
   const contentRef = useRef(null);
 
-  // Extract options from optionsData
   const departmentOptions = optionsData.departments || [];
   const positionOptions = optionsData.positions || [];
 
-  // Tambahkan style animasi ke document
-  useEffect(() => {
-    const styleTag = document.createElement('style');
-    styleTag.innerHTML = editModeStyles;
-    document.head.appendChild(styleTag);
-    
-    return () => {
-      document.head.removeChild(styleTag);
-    };
-  }, []);
-
-  // Reset editing mode when filters change
   useEffect(() => {
     if (filtersChanged) {
       cancelEditing();
     }
   }, [filtersChanged]);
 
-  // Expose reset method to parent
   useEffect(() => {
     if (resetEditMode) {
       resetEditMode.current = cancelEditing;
     }
   }, [resetEditMode]);
 
-  // Infinite scroll observer
   const lastEmployeeElementRef = useCallback(node => {
     if (observerRef.current) observerRef.current.disconnect();
     if (isFetchingNextPage || !hasNextPage) return;
@@ -281,7 +238,6 @@ const EmployeeTable = ({
     if (node) observerRef.current.observe(node);
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  // Start editing
   const startEditing = (id) => {
     if (editingId) return;
     const employee = employees.find(emp => emp.id === id);
@@ -298,36 +254,55 @@ const EmployeeTable = ({
     });
   };
 
-  // Cancel editing
   const cancelEditing = () => {
     setEditingId(null);
     setEditData({});
   };
 
-  // Save editing
+  // FIXED: Only send changed fields
   const saveEditing = (id) => {
     if (!editData.fullName?.trim()) return;
     
-    const changedFields = {};
     const original = employees.find(emp => emp.id === id);
-    
     if (!original) return;
     
-    Object.keys(editData).forEach(key => {
-      if (editData[key] !== original[key]) {
-        changedFields[key] = editData[key];
-      }
-    });
+    // Build object with ONLY changed fields
+    const changedFields = {};
     
-    if (!Object.keys(changedFields).length) return;
-    
-    if (changedFields.age !== undefined) {
-      changedFields.age = parseInt(changedFields.age) || 0;
+    if (editData.fullName !== original.fullName) {
+      changedFields.fullName = editData.fullName.trim();
     }
     
-    if (changedFields.yearsOfService !== undefined) {
-      changedFields.yearsOfService = parseInt(changedFields.yearsOfService) || 0;
+    if (editData.department !== original.department) {
+      changedFields.department = editData.department;
     }
+    
+    if (editData.position !== original.position) {
+      changedFields.position = editData.position;
+    }
+    
+    if (editData.gender !== original.gender) {
+      changedFields.gender = editData.gender;
+    }
+    
+    const newAge = parseInt(editData.age) || 0;
+    if (newAge !== original.age) {
+      changedFields.age = newAge;
+    }
+    
+    const newYearsOfService = parseInt(editData.yearsOfService) || 0;
+    if (newYearsOfService !== original.yearsOfService) {
+      changedFields.yearsOfService = newYearsOfService;
+    }
+    
+    // Only send if there are actual changes
+    if (Object.keys(changedFields).length === 0) {
+      console.log("No changes detected");
+      cancelEditing();
+      return;
+    }
+    
+    console.log("Sending only changed fields:", changedFields);
     
     updateEmployee.mutate(
       { id, data: changedFields },
@@ -335,7 +310,6 @@ const EmployeeTable = ({
     );
   };
 
-  // Handle edit change
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     let processedValue = value;
@@ -347,7 +321,6 @@ const EmployeeTable = ({
     setEditData(prev => ({ ...prev, [name]: processedValue }));
   };
 
-  // Helper functions
   const getScreeningStatusUI = (status) => {
     const statusMap = {
       'at_risk': { bg: 'bg-red-100', icon: 'warning', color: 'text-red-500', text: 'Berisiko' },
@@ -367,13 +340,19 @@ const EmployeeTable = ({
     );
   };
 
-  const hasChanges = editingId && editData.fullName?.trim() && 
-    Object.keys(editData).some(key => {
-      const original = employees.find(emp => emp.id === editingId);
-      return original && editData[key] !== original[key];
-    });
+  // Check if there are any changes from original
+  const hasChanges = editingId && editData.fullName?.trim() && (() => {
+    const original = employees.find(emp => emp.id === editingId);
+    if (!original) return false;
+    
+    return editData.fullName !== original.fullName ||
+           editData.department !== original.department ||
+           editData.position !== original.position ||
+           editData.gender !== original.gender ||
+           parseInt(editData.age) !== original.age ||
+           parseInt(editData.yearsOfService) !== original.yearsOfService;
+  })();
 
-  // Linear gradient divider element
   const LinearGradientDivider = () => (
     <tr style={{ height: '1px' }}>
       <td colSpan={9} className="p-0">
@@ -463,9 +442,7 @@ const EmployeeTable = ({
                           <span>Stabil</span>
                         </div>
                         <div className="flex items-center">
-                          <span 
-                            className="material-icons text-sm font-bold text-[#535353] mr-2"
-                          >remove</span>
+                          <span className="material-icons text-sm font-bold text-[#535353] mr-2">remove</span>
                           <span>Belum Skrining</span>
                         </div>
                       </div>
@@ -649,8 +626,7 @@ const EmployeeTable = ({
                       ) : (
                         <button
                           className={clsx(
-                            "text-gray-400 hover:text-[#488BBE] transition-colors relative",
-                            editingId && editingId !== employee.id && "edit-mode-icon text-[#488BBE]"
+                            "text-gray-400 hover:text-[#488BBE] transition-colors relative"
                           )}
                           onClick={() => startEditing(employee.id)}
                           disabled={editingId !== null}

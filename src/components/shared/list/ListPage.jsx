@@ -1,11 +1,11 @@
-// src/components/shared/ListPage.jsx
+// src/components/shared/ListPage.jsx - Fixed to match existing hooks
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import useDebounce from "@/hooks/useDebounce";
 
 /**
- * Reusable List Page Component
+ * Reusable List Page Component - Adapted to work with existing hooks
  * @param {Object} props
  * @param {string} props.type - "student" or "employee"
  * @param {string} props.title - Page title (e.g., "Halo, [Name]")
@@ -53,19 +53,39 @@ const ListPage = ({
   
   const debouncedSearchTerm = useDebounce(searchInput, 150);
   
+  
+  // Call the data hook - this returns different properties based on type
+  const hookResult = useDataHook(debouncedSearchTerm, appliedSortConfig, appliedFilters);
+  
+  
+  // Extract data based on hook structure - adapt to your existing hooks
+  let listData, totalData, genderCounts, updateFunction;
+  
+  if (type === "student") {
+    // For student hook that returns { students, totalData, genderCounts, updateStudent, ... }
+    listData = hookResult.students || [];
+    totalData = hookResult.totalData || 0;
+    genderCounts = hookResult.genderCounts || { male: 0, female: 0 };
+    updateFunction = hookResult.updateStudent;
+  } else {
+    // For employee hook that might return { data, totalData, genderCounts, updateItem, ... }
+    listData = hookResult.data || hookResult.employees || [];
+    totalData = hookResult.totalData || 0;
+    genderCounts = hookResult.genderCounts || { male: 0, female: 0 };
+    updateFunction = hookResult.updateItem || hookResult.updateEmployee;
+  }
+  
   const {
-    data: listData,
-    totalData,
-    genderCounts,
     isLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
     isError,
     error,
-    refetch,
-    updateItem: updateFunction
-  } = useDataHook(debouncedSearchTerm, appliedSortConfig, appliedFilters);
+    refetch
+  } = hookResult;
+  
+
   
   const { data: optionsData } = useOptionsHook ? useOptionsHook() : { data: null };
 
@@ -102,9 +122,10 @@ const ListPage = ({
         positions: optionsData.positions || []
       };
     } else if (type === "student" && optionsData) {
+      // Adapt to your classrooms hook structure
       return {
-        classrooms: optionsData.classroomsResult || [],
-        grades: optionsData.gradesResult || []
+        classrooms: optionsData.classroomsResult || optionsData.classNumbers || [],
+        grades: optionsData.gradesResult || ['A', 'B', 'C', 'D']
       };
     }
     
@@ -149,6 +170,7 @@ const ListPage = ({
     );
   }
 
+
   return (
     <>
       {/* Top bar with language and notifications */}
@@ -178,7 +200,7 @@ const ListPage = ({
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-2 sm:pl-3">
                 <span className="material-icons text-[#3399E9] text-base sm:text-lg pb-3 sm:pb-4">{icons.total || "groups"}</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#488BBE]">{totalData}</div>
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#488BBE]">{totalData || 0}</div>
                   <div className="text-[10px] sm:text-xs text-[#488BBE]">{statsConfig?.totalLabel || "Total"}</div>
                 </div>
               </div>
@@ -191,7 +213,7 @@ const ListPage = ({
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-2 sm:pl-3">
                 <span className="material-icons text-[#FF86E1] text-base sm:text-lg pb-3 sm:pb-4">{icons.female || "face_2"}</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts.female}</div>
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts?.female || 0}</div>
                   <div className="text-[10px] sm:text-xs text-[#488BBE]">Perempuan</div>
                 </div>
               </div>
@@ -204,7 +226,7 @@ const ListPage = ({
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-2 sm:pl-3">
                 <span className="material-icons text-[#FF7173] text-base sm:text-lg pb-3 sm:pb-4">{icons.male || "face"}</span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
-                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts.male}</div>
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-[#488BBE]">{genderCounts?.male || 0}</div>
                   <div className="text-[10px] sm:text-xs text-[#488BBE]">Laki-laki</div>
                 </div>
               </div>
@@ -257,20 +279,27 @@ const ListPage = ({
 
         {/* Data table */}
         <div className="relative" style={{ zIndex: 1 }}>
-          <TableComponent
-            data={listData || []}
-            searchInput={debouncedSearchTerm}
-            getSortIcon={getSortIcon}
-            requestSort={requestSort}
-            fetchNextPage={fetchNextPage}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            updateItem={updateFunction}
-            optionsData={optionsForFilters}
-            resetEditMode={resetEditModeRef}
-            filtersChanged={filtersChanged}
-            isLoading={false}
-          />
+          {isLoading ? (
+            <div className="py-8 text-center">
+              <span className="material-icons animate-spin text-[#488BBE] text-2xl">refresh</span>
+              <p className="text-[#488BBE] text-sm mt-2">Loading...</p>
+            </div>
+          ) : (
+            <TableComponent
+              data={listData}
+              searchInput={debouncedSearchTerm}
+              getSortIcon={getSortIcon}
+              requestSort={requestSort}
+              fetchNextPage={fetchNextPage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              updateItem={updateFunction}
+              optionsData={optionsForFilters}
+              resetEditMode={resetEditModeRef}
+              filtersChanged={filtersChanged}
+              isLoading={isLoading}
+            />
+          )}
         </div>
       </div>
 

@@ -1,14 +1,14 @@
-// src/pages/organization/school/StudentListPage.jsx - Updated to use reusable components
+// src/pages/organization/school/StudentListPage.jsx - Fixed implementation
 import React from "react";
 import ListPage from "@/components/shared/list/ListPage";
-import { useStudentData, useClassrooms } from "../../../hooks/useStudentData";
-import { useStudentFilters } from "../../../hooks/useStudentFilter";
-import StudentFilters from "../../../components/organization/school/list/StudentFilter";
-import StudentTable from "../../../components/organization/school/list/StudentTable";
-import { useAuth } from "../../../hooks/useAuth";
+import { useStudentData, useClassrooms } from "@/hooks/useStudentData";
+import { useStudentFilters } from "@/hooks/useStudentFilter";
+import StudentFilters from "@/components/organization/school/list/StudentFilter";
+import StudentTable from "@/components/organization/school/list/StudentTable";
+import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Student List Page - Now uses reusable ListPage component
+ * Student List Page - Uses reusable ListPage component with proper integration
  */
 const StudentListPage = () => {
   const { user } = useAuth();
