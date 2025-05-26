@@ -1,10 +1,19 @@
-// src/components/shared/organization/ProfilePictureUpload.jsx
+// src/components/shared/profile/ProfilePictureUpload.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { apiClient } from "../../../lib/api";
 
-const ProfilePictureUpload = ({ currentProfilePicture }) => {
+/**
+ * Reusable Profile Picture Upload Component
+ * @param {Object} props
+ * @param {string} props.currentProfilePicture - Current profile picture URL
+ * @param {string} props.organizationType - "school" or "company" for different icons
+ */
+const ProfilePictureUpload = ({ 
+  currentProfilePicture, 
+  organizationType = "school" 
+}) => {
   const fileInputRef = useRef(null);
   const [previewImage, setPreviewImage] = useState(currentProfilePicture);
   const [isHovering, setIsHovering] = useState(false);
@@ -16,14 +25,23 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
     setPreviewImage(currentProfilePicture);
   }, [currentProfilePicture]);
 
-  // Upload profile picture mutation using the new endpoint
+  // Upload profile picture mutation
   const uploadProfilePicture = useMutation({
     mutationFn: async (file) => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Clear any previous errors
       setUploadError(null);
       
       const formData = new FormData();
       formData.append("profilePicture", file);
       
+      console.log("Uploading profile picture...");
+      
+      // Use the new organizations/profile endpoint
       return apiClient.patch(
         "/organizations/profile",
         formData,
@@ -35,18 +53,32 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       );
     },
     onSuccess: (response) => {
-      // Invalidate user queries to refetch
+      console.log("Profile picture upload success:", response.data);
+      
+      // Invalidate the consistent query key used across the app
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       
-      // Update preview with new image
+      // Set preview image from response
       if (response.data?.data?.organization?.profilePicture) {
         setPreviewImage(response.data.data.organization.profilePicture);
+      } else if (response.data?.data?.profilePicture) {
+        setPreviewImage(response.data.data.profilePicture);
       }
     },
     onError: (error) => {
-      const message = error.response?.data?.message || "Gagal mengupload foto profil. Silakan coba lagi.";
-      setUploadError(message);
-      setTimeout(() => setUploadError(null), 3000);
+      console.error("Error uploading profile picture:", error);
+      
+      // Set user-friendly error message
+      if (error.response?.data?.message) {
+        setUploadError(error.response.data.message);
+      } else {
+        setUploadError("Gagal mengupload foto profil. Silakan coba lagi.");
+      }
+      
+      // Show error for 3 seconds
+      setTimeout(() => {
+        setUploadError(null);
+      }, 3000);
     },
   });
 
@@ -62,7 +94,6 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
       return;
     }
 
-    // Validate file size (max 2MB)
     const maxSize = 2 * 1024 * 1024; // 2MB
     if (file.size > maxSize) {
       setUploadError("Ukuran file terlalu besar. Maksimal 2MB.");
@@ -85,6 +116,11 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
     fileInputRef.current.click();
   };
 
+  // Get appropriate fallback icon based on organization type
+  const getFallbackIcon = () => {
+    return organizationType === "company" ? "business" : "person";
+  };
+
   return (
     <div className="relative">
       <div
@@ -92,20 +128,30 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
-        <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden">
           {previewImage ? (
             <img
               src={previewImage}
               alt="Profile"
               className="w-full h-full object-cover"
-              onError={() => {
-                setPreviewImage(null);
+              onError={(e) => {
+                console.error("Profile image failed to load:", e);
+                e.target.onerror = null; // Prevent infinite loops
+                // Set fallback
+                e.target.parentNode.innerHTML = `
+                  <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <span class="material-icons text-gray-400" style="font-size: 2.5rem;">${getFallbackIcon()}</span>
+                  </div>
+                `;
               }}
             />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-              <span className="material-icons text-gray-400" style={{ fontSize: "2.5rem" }}>
-                business
+              <span 
+                className="material-icons text-gray-400" 
+                style={{ fontSize: "2.5rem" }}
+              >
+                {getFallbackIcon()}
               </span>
             </div>
           )}
@@ -116,7 +162,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
           onClick={handleButtonClick}
           disabled={uploadProfilePicture.isPending}
           className={clsx(
-            "absolute right-0 bottom-0 w-7 h-7 md:w-8 md:h-8 bg-primary rounded-full flex items-center justify-center",
+            "absolute right-0 bottom-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center",
             "transition-opacity duration-200",
             isHovering || uploadProfilePicture.isPending ? "opacity-100" : "opacity-75 hover:opacity-100",
             uploadProfilePicture.isPending ? "cursor-not-allowed" : "cursor-pointer"
@@ -124,9 +170,9 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
           aria-label="Upload profile picture"
         >
           {uploadProfilePicture.isPending ? (
-            <span className="material-icons text-white animate-spin text-xs md:text-sm">refresh</span>
+            <span className="material-icons text-white animate-spin text-xs sm:text-sm">refresh</span>
           ) : (
-            <span className="material-icons text-white text-xs md:text-sm">photo_camera</span>
+            <span className="material-icons text-white text-xs sm:text-sm">photo_camera</span>
           )}
         </button>
         
@@ -139,9 +185,9 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
         />
       </div>
       
-      {/* Error message display - Responsive */}
+      {/* Error message display */}
       {uploadError && (
-        <div className="absolute -bottom-10 md:-bottom-12 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-2 md:px-3 py-1 rounded-md text-[10px] md:text-xs whitespace-nowrap z-[9999] shadow-lg">
+        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs whitespace-nowrap z-[9999] shadow-lg max-w-48 text-center">
           {uploadError}
         </div>
       )}

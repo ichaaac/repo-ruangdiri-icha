@@ -1,4 +1,4 @@
-// src/components/organization/company/list/EmployeeTable.jsx
+// src/components/organization/company/list/EmployeeTable.jsx - Updated for reusable ListPage
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -31,7 +31,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         ref={menuButtonRef}
         disabled={disabled}
         className={clsx(
-          "w-full text-left px-3 py-1.5 text-sm border rounded-md",
+          "w-full text-left px-2 sm:px-3 py-1.5 text-sm border rounded-md",
           "flex items-center justify-between gap-2",
           "transition-[border-color,box-shadow] duration-150 ease-in-out",
           disabled
@@ -62,7 +62,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         >
           {options.map((option) => {
             const optionValue = option.value !== undefined ? option.value : option;
-          const optionLabel = option.label || option;
+            const optionLabel = option.label || option;
             const isSelected = optionValue === value;
 
             return (
@@ -203,17 +203,31 @@ const editModeStyles = `
 }
 `;
 
+/**
+ * Employee Table Component - Updated to work with reusable ListPage
+ * @param {Object} props
+ * @param {Array} props.data - Array of employees (renamed from employees)
+ * @param {string} props.searchInput - Current search term
+ * @param {Function} props.getSortIcon - Function to get sort icon
+ * @param {Function} props.requestSort - Function to handle sorting
+ * @param {Function} props.fetchNextPage - Function to fetch next page
+ * @param {boolean} props.hasNextPage - Whether there are more pages
+ * @param {boolean} props.isFetchingNextPage - Whether currently fetching next page
+ * @param {Object} props.updateItem - Mutation for updating employee (renamed from updateEmployee)
+ * @param {Object} props.optionsData - Options for dropdowns
+ * @param {Object} props.resetEditMode - Ref for resetting edit mode
+ * @param {boolean} props.filtersChanged - Whether filters have changed
+ */
 const EmployeeTable = ({ 
-  employees, 
+  data: employees = [], // Renamed from employees prop
   searchInput,
   getSortIcon,
   requestSort,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
-  updateEmployee,
-  departmentOptions,
-  positionOptions,
+  updateItem: updateEmployee, // Renamed from updateEmployee prop
+  optionsData = {}, // Renamed and restructured
   resetEditMode,
   filtersChanged
 }) => {
@@ -225,6 +239,10 @@ const EmployeeTable = ({
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Extract options from optionsData
+  const departmentOptions = optionsData.departments || [];
+  const positionOptions = optionsData.positions || [];
 
   // Tambahkan style animasi ke document
   useEffect(() => {
@@ -378,7 +396,7 @@ const EmployeeTable = ({
           <thead className="bg-[#E2F9FF]">
             <tr>
               <th 
-                className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-2 sm:px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("fullName")}
               >
                 <div className="flex items-center gap-1">
@@ -386,11 +404,11 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("fullName")}</span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JABATAN</th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">DEPARTEMEN</th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JABATAN</th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
               <th 
-                className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("age")}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -399,7 +417,7 @@ const EmployeeTable = ({
                 </div>
               </th>
               <th 
-                className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
+                className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap"
                 onClick={() => requestSort("yearsOfService")}
               >
                 <div className="flex items-center justify-center gap-1">
@@ -407,7 +425,7 @@ const EmployeeTable = ({
                   <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center">
                   SKRINING
                   <span 
@@ -456,11 +474,10 @@ const EmployeeTable = ({
                   </AnimatePresence>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KONSELING</th>
-              <th className="px-4 py-3 text-center whitespace-nowrap"></th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KONSELING</th>
+              <th className="px-2 sm:px-4 py-3 text-center whitespace-nowrap"></th>
             </tr>
           </thead>
-          {/* Add divider after header */}
           <tbody>
             <LinearGradientDivider />
             
@@ -475,14 +492,14 @@ const EmployeeTable = ({
                     className="bg-white hover:bg-gray-50 transition-colors"
                     ref={isLastElement ? lastEmployeeElementRef : null}
                   >
-                    <td className="px-4 py-3 text-left whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-left whitespace-nowrap">
                       {isEditing ? (
                         <input
                           type="text"
                           name="fullName"
                           value={editData.fullName}
                           onChange={handleEditChange}
-                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                          className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-2 sm:px-3 py-1.5 w-full min-w-[150px] sm:min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                         />
                       ) : (
                         <div className="text-sm font-medium text-gray-900" title={employee.fullName}>
@@ -490,7 +507,7 @@ const EmployeeTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="relative" style={{ zIndex: 9000 }}>
                           <CustomDropdown
@@ -498,14 +515,14 @@ const EmployeeTable = ({
                             value={editData.department}
                             onChange={handleEditChange}
                             options={departmentOptions}
-                            className="min-w-[150px]"
+                            className="min-w-[120px] sm:min-w-[150px]"
                           />
                         </div>
                       ) : (
                         <div className="text-sm text-gray-600">{employee.department}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="relative" style={{ zIndex: 9000 }}>
                           <CustomDropdown
@@ -513,14 +530,14 @@ const EmployeeTable = ({
                             value={editData.position}
                             onChange={handleEditChange}
                             options={positionOptions}
-                            className="min-w-[120px]"
+                            className="min-w-[100px] sm:min-w-[120px]"
                           />
                         </div>
                       ) : (
                         <div className="text-sm text-gray-600">{employee.position}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="relative" style={{ zIndex: 9000 }}>
                           <CustomDropdown
@@ -531,7 +548,7 @@ const EmployeeTable = ({
                               { value: 'male', label: 'L' },
                               { value: 'female', label: 'P' }
                             ]}
-                            className="w-16"
+                            className="w-12 sm:w-16"
                           />
                         </div>
                       ) : (
@@ -540,7 +557,7 @@ const EmployeeTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex items-center justify-center gap-1">
                           <input
@@ -548,11 +565,11 @@ const EmployeeTable = ({
                             name="age"
                             value={editData.age}
                             onChange={handleEditChange}
-                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-1 sm:px-2 py-1 w-8 sm:w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                             maxLength="2"
                             inputMode="numeric"
                           />
-                          <span className="text-sm text-gray-600">Tahun</span>
+                          <span className="text-xs sm:text-sm text-gray-600">Tahun</span>
                         </div>
                       ) : (
                         <div className="text-sm text-gray-600">
@@ -560,7 +577,7 @@ const EmployeeTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       {isEditing ? (
                         <div className="flex items-center justify-center gap-1">
                           <input
@@ -568,11 +585,11 @@ const EmployeeTable = ({
                             name="yearsOfService"
                             value={editData.yearsOfService}
                             onChange={handleEditChange}
-                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className="text-sm text-gray-600 border border-gray-300 rounded-md px-1 sm:px-2 py-1 w-8 sm:w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                             maxLength="2"
                             inputMode="numeric"
                           />
-                          <span className="text-sm text-gray-600">Tahun</span>
+                          <span className="text-xs sm:text-sm text-gray-600">Tahun</span>
                         </div>
                       ) : (
                         <div className="text-sm text-gray-600">
@@ -580,10 +597,10 @@ const EmployeeTable = ({
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       <span
                         className={clsx(
-                          "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
+                          "inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer",
                           statusUI.bg
                         )}
                         onMouseEnter={(e) => {
@@ -596,17 +613,17 @@ const EmployeeTable = ({
                         }}
                         onMouseLeave={() => setHoveredStatus(null)}
                       >
-                        <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
+                        <span className={clsx("material-icons text-sm sm:text-base", statusUI.color)}>{statusUI.icon}</span>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                       <span className={clsx("text-sm", employee.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
                         {employee.counselingStatus ? "Sudah" : "Belum"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center relative whitespace-nowrap">
+                    <td className="px-2 sm:px-4 py-3 text-center relative whitespace-nowrap">
                       {isEditing ? (
-                        <div className="flex space-x-2 pr-5 justify-center">
+                        <div className="flex space-x-1 sm:space-x-2 pr-2 sm:pr-5 justify-center">
                           <button
                             className={clsx(
                               "text-[#EE4266] hover:text-[#b53434] transition-colors",
@@ -615,7 +632,7 @@ const EmployeeTable = ({
                             onClick={() => cancelEditing(employee.id)}
                             disabled={updateEmployee.isPending}
                           >
-                            <span className="material-icons">cancel</span>
+                            <span className="material-icons text-lg sm:text-xl">cancel</span>
                           </button>
 
                           <button 
@@ -626,7 +643,7 @@ const EmployeeTable = ({
                             onClick={() => hasChanges && saveEditing(employee.id)}
                             disabled={!hasChanges || updateEmployee.isPending}
                           >
-                            <span className="material-icons">check_circle</span>
+                            <span className="material-icons text-lg sm:text-xl">check_circle</span>
                           </button>
                         </div>
                       ) : (
@@ -640,7 +657,7 @@ const EmployeeTable = ({
                           onMouseEnter={() => setShowEditTooltip(employee.id)}
                           onMouseLeave={() => setShowEditTooltip(null)}
                         >
-                          <span className="material-icons">edit</span>
+                          <span className="material-icons text-lg sm:text-xl">edit</span>
                           {showEditTooltip === employee.id && (
                             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
                               Edit
@@ -650,7 +667,6 @@ const EmployeeTable = ({
                       )}
                     </td>
                   </tr>
-                  {/* Add divider after each row */}
                   <LinearGradientDivider />
                 </React.Fragment>
               );
@@ -685,8 +701,8 @@ const EmployeeTable = ({
 
       {employees.length === 0 && !isFetchingNextPage && (
         <div className="text-center py-8">
-          <span className="material-icons text-gray-400 text-5xl">business_center</span>
-          <p className="text-gray-500 mt-2">Tidak ada data karyawan.</p>
+          <span className="material-icons text-gray-400 text-4xl sm:text-5xl">business_center</span>
+          <p className="text-gray-500 mt-2 text-sm sm:text-base">Tidak ada data karyawan.</p>
         </div>
       )}
     </div>

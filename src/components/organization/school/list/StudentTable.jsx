@@ -1,4 +1,4 @@
-// src/components/organization/school/list/StudentTable.jsx - Fixed sort icons, gender alignment, and refetch
+// src/components/organization/school/list/StudentTable.jsx - Updated with horizontal scrollbar and responsive design
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -10,10 +10,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   const displayValue = currentOption?.label || currentOption || value;
 
   const handleSelect = (optionValue) => {
-    // Create a custom object instead of trying to simulate a DOM event
     onChange({ 
       target: { name, value: optionValue },
-      // Skip the e.stopPropagation() call in the parent
       synthetic: true
     });
   };
@@ -86,7 +84,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   );
 };
 
-// Custom Scrollbar Component
+// Custom Scrollbar Component (from EmployeeTable)
 const CustomScrollbar = ({ contentRef, className = "" }) => {
   const scrollbarRef = useRef(null);
   const thumbRef = useRef(null);
@@ -189,16 +187,30 @@ const formatClassroomDisplay = (classroom, grade) => {
   return `${classroom} - ${grade}`;
 };
 
+/**
+ * Student Table Component with horizontal scrollbar
+ * @param {Object} props
+ * @param {Array} props.data - Array of students (renamed from students)
+ * @param {string} props.searchInput - Current search term
+ * @param {Function} props.getSortIcon - Function to get sort icon
+ * @param {Function} props.requestSort - Function to handle sorting
+ * @param {Function} props.fetchNextPage - Function to fetch next page
+ * @param {boolean} props.hasNextPage - Whether there are more pages
+ * @param {boolean} props.isFetchingNextPage - Whether currently fetching next page
+ * @param {Object} props.updateItem - Mutation for updating student (renamed from updateStudent)
+ * @param {Object} props.optionsData - Options for dropdowns (renamed from classroomOptions)
+ * @param {boolean} props.isLoading - Loading state
+ */
 const StudentTable = ({ 
-  students, 
+  data: students = [], // Renamed from students prop
   searchInput,
   getSortIcon,
   requestSort,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
-  updateStudent,
-  classroomOptions,
+  updateItem: updateStudent, // Renamed from updateStudent prop
+  optionsData = {}, // Renamed from classroomOptions prop
   isLoading
 }) => {
   const navigate = useNavigate();
@@ -211,6 +223,9 @@ const StudentTable = ({
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
+
+  // Extract classroom options from optionsData
+  const classroomOptions = optionsData.classrooms || [];
 
   // Function to handle name click (double-click mechanism)
   const handleNameClick = (id, e) => {
@@ -237,12 +252,6 @@ const StudentTable = ({
         });
       }, 3000);
     }
-  };
-
-  // Function to navigate to student detail
-  const handleViewStudentDetail = (id) => {
-    if (editingId !== null) return; // Don't navigate while editing
-    navigate(`/organization/school/student/${id}`);
   };
 
   // Infinite scroll observer
@@ -306,7 +315,6 @@ const StudentTable = ({
     }
     
     try {
-      // API expects a flat structure with only the fields to update
       const data = {
         fullName: editData.fullName.trim(),
         classroom: editData.classroom,
@@ -316,13 +324,11 @@ const StudentTable = ({
         iqScore: parseInt(editData.iqScore) || 0
       };
       
-      // Call the updateStudent mutation
       updateStudent.mutate({ 
         id, 
         data 
       });
       
-      // Reset editing state
       setEditingId(null);
     } catch (error) {
       console.error("Error saving student:", error);
@@ -331,16 +337,14 @@ const StudentTable = ({
 
   // Handle edit change
   const handleEditChange = (e) => {
-    // Handle both custom dropdown and regular events
     if (e.stopPropagation && !e.synthetic) {
       e.stopPropagation();
     }
     
-    // Get name and value whether it's from dropdown or regular input
     const name = e.target?.name;
     const value = e.target?.value;
     
-    if (!name) return; // Safety check
+    if (!name) return;
     
     let processedValue = value;
     
@@ -373,7 +377,6 @@ const StudentTable = ({
 
   const hasChanges = editingId && editData.fullName?.trim() && editData.nis?.trim() && editData.iqScore && parseInt(editData.iqScore) > 0;
 
-  // Don't show loading message - simply return the table structure
   return (
     <div className="relative w-full">
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
@@ -382,7 +385,7 @@ const StudentTable = ({
         <table className="w-full" style={{ minWidth: '1200px' }}>
           <thead className="bg-[#E2F9FF]">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
+              <th className="px-2 sm:px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center gap-1">
                   NAMA
                   <span 
@@ -393,9 +396,9 @@ const StudentTable = ({
                   </span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KELAS</th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KELAS</th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">JENIS KELAMIN</th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center gap-1">
                   NIS
                   <span 
@@ -406,7 +409,7 @@ const StudentTable = ({
                   </span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center">
                   SKRINING
                   <span 
@@ -455,8 +458,8 @@ const StudentTable = ({
                   </AnimatePresence>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KONSELING</th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">KONSELING</th>
+              <th className="px-2 sm:px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
                 <div className="flex items-center justify-center gap-1">
                   SKOR IQ
                   <span 
@@ -467,7 +470,7 @@ const StudentTable = ({
                   </span>
                 </div>
               </th>
-              <th className="px-4 py-3 text-center whitespace-nowrap w-20"></th>
+              <th className="px-2 sm:px-4 py-3 text-center whitespace-nowrap w-20"></th>
             </tr>
           </thead>
           <tbody>
@@ -486,7 +489,7 @@ const StudentTable = ({
                       )}
                       ref={isLastElement ? lastStudentElementRef : null}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">
                         {isEditing ? (
                           <input
                             type="text"
@@ -495,7 +498,7 @@ const StudentTable = ({
                             onChange={handleEditChange}
                             onClick={(e) => e.stopPropagation()}
                             className={clsx(
-                              "text-sm font-medium border rounded-md px-3 py-1.5 w-full min-w-[200px] transition-[border-color,box-shadow] duration-150 focus:outline-none",
+                              "text-sm font-medium border rounded-md px-3 py-1.5 w-full min-w-[150px] sm:min-w-[200px] transition-[border-color,box-shadow] duration-150 focus:outline-none",
                               editData.fullName?.trim() 
                                 ? "text-gray-900 border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]" 
                                 : "text-gray-900 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
@@ -517,23 +520,23 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-center">
                         {isEditing ? (
-                          <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1 sm:gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
                             <CustomDropdown
                               name="classroom"
                               value={editData.classroom}
                               onChange={handleEditChange}
                               options={classroomOptions || [student.classroom]}
-                              className="min-w-[80px]"
+                              className="min-w-[60px] sm:min-w-[80px]"
                             />
-                            <div className="flex items-center">-</div>
+                            <div className="flex items-center text-xs sm:text-sm">-</div>
                             <CustomDropdown
                               name="grade"
                               value={editData.grade}
                               onChange={handleEditChange}
                               options={["A", "B", "C", "D"]}
-                              className="min-w-[60px]"
+                              className="min-w-[45px] sm:min-w-[60px]"
                             />
                           </div>
                         ) : (
@@ -542,7 +545,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap text-center">
                         {isEditing ? (
                           <div onClick={(e) => e.stopPropagation()}>
                             <CustomDropdown
@@ -553,7 +556,7 @@ const StudentTable = ({
                                 { value: 'male', label: 'L' },
                                 { value: 'female', label: 'P' }
                               ]}
-                              className="w-[110px] mx-auto"
+                              className="w-[80px] sm:w-[110px] mx-auto"
                             />
                           </div>
                         ) : (
@@ -562,7 +565,7 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <input
                             type="text"
@@ -571,7 +574,7 @@ const StudentTable = ({
                             onChange={handleEditChange}
                             onClick={(e) => e.stopPropagation()}
                             className={clsx(
-                              "text-sm border rounded-md px-3 py-1.5 w-full transition-[border-color,box-shadow] duration-150 focus:outline-none",
+                              "text-sm border rounded-md px-2 sm:px-3 py-1.5 w-full transition-[border-color,box-shadow] duration-150 focus:outline-none",
                               editData.nis?.trim()
                                 ? "text-gray-600 border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]"
                                 : "text-gray-600 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
@@ -584,10 +587,10 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                         <span
                           className={clsx(
-                            "inline-flex items-center justify-center w-8 h-8 rounded-full cursor-pointer",
+                            "inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer",
                             statusUI.bg
                           )}
                           onClick={(e) => e.stopPropagation()}
@@ -602,15 +605,15 @@ const StudentTable = ({
                           }}
                           onMouseLeave={() => setHoveredStatus(null)}
                         >
-                          <span className={clsx("material-icons", statusUI.color)}>{statusUI.icon}</span>
+                          <span className={clsx("material-icons text-sm sm:text-base", statusUI.color)}>{statusUI.icon}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                         <span className={clsx("text-sm", student.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
                           {student.counselingStatus ? "Sudah" : "Belum"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <input
                             type="text"
@@ -619,7 +622,7 @@ const StudentTable = ({
                             onChange={handleEditChange}
                             onClick={(e) => e.stopPropagation()}
                             className={clsx(
-                              "text-sm border rounded-md px-2 py-1 w-16 text-center transition-[border-color,box-shadow] duration-150 focus:outline-none",
+                              "text-sm border rounded-md px-2 py-1 w-12 sm:w-16 text-center transition-[border-color,box-shadow] duration-150 focus:outline-none",
                               (editData.iqScore && parseInt(editData.iqScore) > 0)
                                 ? "text-gray-600 border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]"
                                 : "text-gray-600 border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
@@ -634,21 +637,19 @@ const StudentTable = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <div 
-                            className="flex space-x-2 justify-center" 
+                            className="flex space-x-1 sm:space-x-2 justify-center" 
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {/* Cancel button first */}
                             <button 
                               className="text-[#EE4266] hover:text-red-700 transition-colors" 
                               onClick={(e) => cancelEditing(e)}
                               aria-label="Cancel"
                             >
-                              <span className="material-icons">cancel</span>
+                              <span className="material-icons text-lg sm:text-xl">cancel</span>
                             </button>
-                            {/* Save button second */}
                             <button
                               type="button"
                               className={clsx(
@@ -664,7 +665,7 @@ const StudentTable = ({
                               disabled={!hasChanges || updateStudent.isPending}
                               aria-label="Save"
                             >
-                              <span className="material-icons">
+                              <span className="material-icons text-lg sm:text-xl">
                                 {updateStudent.isPending ? "hourglass_empty" : "check_circle"}
                               </span>
                             </button>
@@ -678,7 +679,7 @@ const StudentTable = ({
                             onMouseLeave={() => setShowEditTooltip(null)}
                             aria-label="Edit student"
                           >
-                            <span className="material-icons">edit</span>
+                            <span className="material-icons text-lg sm:text-xl">edit</span>
                             {showEditTooltip === student.id && (
                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg">
                                 Edit
@@ -706,8 +707,8 @@ const StudentTable = ({
             ) : (
               <tr>
                 <td colSpan={8} className="text-center py-8">
-                  <span className="material-icons text-gray-400 text-5xl">school</span>
-                  <p className="text-gray-500 mt-2">Tidak ada data siswa.</p>
+                  <span className="material-icons text-gray-400 text-4xl sm:text-5xl">school</span>
+                  <p className="text-gray-500 mt-2 text-sm sm:text-base">Tidak ada data siswa.</p>
                 </td>
               </tr>
             )}
@@ -732,7 +733,6 @@ const StudentTable = ({
         )}
       </AnimatePresence>
 
-      {/* Keep pagination loading indicator */}
       {isFetchingNextPage && (
         <div className="py-4 text-center">
           <span className="material-icons animate-spin text-[#488BBE]">refresh</span>
