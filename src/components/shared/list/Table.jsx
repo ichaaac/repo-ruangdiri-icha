@@ -1,3 +1,4 @@
+"use client"
 
 // src/components/shared/list/Table.jsx - Enhanced Shared Table Component
 import React, { useState, useRef, useCallback, useEffect } from "react"
@@ -90,6 +91,7 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   const [isDragging, setIsDragging] = useState(false)
   const [scrollRatio, setScrollRatio] = useState(0)
   const [thumbWidth, setThumbWidth] = useState(20)
+  const [showScrollbar, setShowScrollbar] = useState(false)
 
   const updateScrollbar = useCallback(() => {
     if (!contentRef.current) return
@@ -98,10 +100,12 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     const maxScroll = scrollWidth - clientWidth
 
     if (maxScroll > 0) {
+      setShowScrollbar(true)
       setScrollRatio(scrollLeft / maxScroll)
       const visibleRatio = clientWidth / scrollWidth
-      setThumbWidth(Math.max(visibleRatio * 100, 10)) // Minimum 10% width
+      setThumbWidth(Math.max(visibleRatio * 100, 10))
     } else {
+      setShowScrollbar(false)
       setScrollRatio(0)
       setThumbWidth(20)
     }
@@ -123,17 +127,22 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   const handleMouseDown = useCallback(
     (e) => {
       e.preventDefault()
+      e.stopPropagation()
       setIsDragging(true)
 
       const startX = e.clientX
-      const startScrollLeft = contentRef.current.scrollLeft
-      const scrollbarWidth = scrollbarRef.current.offsetWidth
-      const maxScroll = contentRef.current.scrollWidth - contentRef.current.clientWidth
+      const startScrollLeft = contentRef.current?.scrollLeft || 0
+      const scrollbarWidth = scrollbarRef.current?.offsetWidth || 1
+      const maxScroll = (contentRef.current?.scrollWidth || 0) - (contentRef.current?.clientWidth || 0)
 
-      const handleMouseMove = (e) => {
-        const deltaX = e.clientX - startX
+      const handleMouseMove = (moveEvent) => {
+        if (!contentRef.current) return
+
+        const deltaX = moveEvent.clientX - startX
         const percentage = deltaX / scrollbarWidth
-        contentRef.current.scrollLeft = startScrollLeft + percentage * maxScroll
+        const newScrollLeft = startScrollLeft + percentage * maxScroll
+
+        contentRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, maxScroll))
       }
 
       const handleMouseUp = () => {
@@ -152,23 +161,17 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     const content = contentRef.current
     if (!content) return
 
-    // Initial update
     updateScrollbar()
-
-    // Add scroll listener
     content.addEventListener("scroll", updateScrollbar)
 
-    // Add resize observer
     const resizeObserver = new ResizeObserver(updateScrollbar)
     resizeObserver.observe(content)
 
-    // Also observe the table inside the content
     const table = content.querySelector("table")
     if (table) {
       resizeObserver.observe(table)
     }
 
-    // Force update after a short delay to catch dynamic content
     const timeoutId = setTimeout(updateScrollbar, 100)
 
     return () => {
@@ -177,6 +180,8 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
       clearTimeout(timeoutId)
     }
   }, [contentRef, updateScrollbar])
+
+  if (!showScrollbar) return null
 
   return (
     <div className={clsx("relative w-full h-3 px-4 mb-2", className)}>
@@ -188,7 +193,7 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
         <div
           ref={thumbRef}
           className={clsx(
-            "absolute h-full bg-[#488BBE] rounded-full transition-opacity",
+            "absolute h-full bg-[#488BBE] rounded-full transition-opacity select-none",
             isDragging ? "opacity-100" : "opacity-80 hover:opacity-100",
           )}
           style={{
@@ -274,7 +279,7 @@ const SharedTable = ({
   // Configure table based on type
   const tableConfig = {
     student: {
-      minWidth: 1400, // Increased to force overflow
+      minWidth: 1400,
       emptyIcon: "school",
       emptyText: "Tidak ada data siswa.",
       detailPath: "/organization/school/student",
@@ -289,7 +294,7 @@ const SharedTable = ({
       ],
     },
     employee: {
-      minWidth: 1500, // Increased to force overflow
+      minWidth: 1500,
       emptyIcon: "business_center",
       emptyText: "Tidak ada data karyawan.",
       detailPath: "/organization/company/employee",
@@ -316,6 +321,40 @@ const SharedTable = ({
 
   const config = tableConfig[type]
 
+  // Add wheel scroll support for table
+  useEffect(() => {
+    const content = contentRef.current
+    if (!content) return
+
+    const handleWheel = (e) => {
+      // Check if there's horizontal overflow
+      const { scrollWidth, clientWidth, scrollLeft } = content
+      const maxScroll = scrollWidth - clientWidth
+
+      if (maxScroll > 0) {
+        // Prevent default vertical scroll when we can scroll horizontally
+        if (
+          e.deltaX !== 0 ||
+          (e.deltaY !== 0 && ((scrollLeft > 0 && e.deltaY < 0) || (scrollLeft < maxScroll && e.deltaY > 0)))
+        ) {
+          e.preventDefault()
+
+          // Use deltaX if available (horizontal scroll), otherwise use deltaY
+          const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY
+          const newScrollLeft = Math.max(0, Math.min(scrollLeft + delta, maxScroll))
+
+          content.scrollLeft = newScrollLeft
+        }
+      }
+    }
+
+    content.addEventListener("wheel", handleWheel, { passive: false })
+
+    return () => {
+      content.removeEventListener("wheel", handleWheel)
+    }
+  }, [])
+
   // Reset edit mode when filters change
   useEffect(() => {
     if (filtersChanged && editingId) {
@@ -331,7 +370,6 @@ const SharedTable = ({
         setEditingId(null)
         setEditData({})
         setActivatedNames(new Set())
-        // Clear all timeouts
         clickTimeouts.forEach((timeout) => clearTimeout(timeout))
         setClickTimeouts(new Map())
       }
@@ -365,11 +403,9 @@ const SharedTable = ({
 
     if (editingId !== null) return
 
-    // Check if there's already a timeout for this ID (first click)
     const existingTimeout = clickTimeouts.get(id)
 
     if (existingTimeout) {
-      // This is the second click - clear timeout and navigate
       clearTimeout(existingTimeout)
       setClickTimeouts((prev) => {
         const newMap = new Map(prev)
@@ -377,15 +413,12 @@ const SharedTable = ({
         return newMap
       })
 
-      // Navigate to detail page
       navigate(`${config.detailPath}/${id}`)
       setActivatedNames(new Set())
     } else {
-      // This is the first click - set visual feedback and timeout
       setActivatedNames(new Set([id]))
 
       const timeout = setTimeout(() => {
-        // Single click timeout - remove visual feedback
         setActivatedNames((prev) => {
           const newSet = new Set(prev)
           newSet.delete(id)
@@ -396,7 +429,7 @@ const SharedTable = ({
           newMap.delete(id)
           return newMap
         })
-      }, 500) // 500ms window for double-click
+      }, 500)
 
       setClickTimeouts((prev) => new Map(prev).set(id, timeout))
     }
@@ -415,7 +448,6 @@ const SharedTable = ({
 
     setEditingId(id)
 
-    // Initialize edit data based on type
     if (type === "student") {
       setEditData({
         fullName: item.fullName || "",
@@ -449,7 +481,6 @@ const SharedTable = ({
 
   // Save editing
   const saveEditing = (id) => {
-    // Validation based on type
     if (type === "student") {
       if (!editData.fullName?.trim()) {
         alert("Nama tidak boleh kosong!")
@@ -473,7 +504,6 @@ const SharedTable = ({
     try {
       const processedData = { ...editData }
 
-      // Process numeric fields
       if (type === "student") {
         processedData.fullName = processedData.fullName.trim()
         processedData.nis = processedData.nis.trim()
@@ -505,7 +535,6 @@ const SharedTable = ({
 
     let processedValue = value
 
-    // Process numeric fields
     if (
       (type === "student" && name === "iqScore") ||
       (type === "employee" && (name === "age" || name === "yearsOfService"))
@@ -548,7 +577,6 @@ const SharedTable = ({
     return `${classroom} - ${grade}`
   }
 
-  // Check if there are changes
   const hasChanges =
     editingId &&
     Object.keys(editData).some((key) => {
@@ -562,7 +590,6 @@ const SharedTable = ({
 
     if (isEditing) {
       if (column.compound && type === "student") {
-        // Classroom-Grade compound field
         return (
           <div className="flex gap-1 justify-center" onClick={(e) => e.stopPropagation()}>
             <CustomDropdown
@@ -630,7 +657,6 @@ const SharedTable = ({
           </div>
         )
       } else {
-        // Regular text input
         return (
           <input
             type="text"
@@ -740,7 +766,21 @@ const SharedTable = ({
     <div className="relative w-full">
       <CustomScrollbar contentRef={contentRef} className="mb-2" />
 
-      <div ref={contentRef} className="overflow-x-auto scrollbar-hide">
+      <div
+        ref={contentRef}
+        className="overflow-x-auto scrollbar-hide"
+        style={{ cursor: "grab" }}
+        onMouseDown={(e) => {
+          if (e.target === contentRef.current) {
+            e.target.style.cursor = "grabbing"
+          }
+        }}
+        onMouseUp={(e) => {
+          if (e.target === contentRef.current) {
+            e.target.style.cursor = "grab"
+          }
+        }}
+      >
         <table className="w-full table-fixed" style={{ minWidth: `${config.minWidth}px` }}>
           <thead className="bg-[#E2F9FF]">
             <tr>
@@ -814,7 +854,6 @@ const SharedTable = ({
                         </td>
                       ))}
 
-                      {/* Action column */}
                       <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
                         {isEditing ? (
                           <div className="flex space-x-1 justify-center" onClick={(e) => e.stopPropagation()}>
@@ -865,7 +904,6 @@ const SharedTable = ({
                       </td>
                     </tr>
 
-                    {/* Row divider */}
                     {!isLastElement && (
                       <tr style={{ height: "1px" }}>
                         <td colSpan={config.columns.length + 1} className="p-0">
@@ -895,7 +933,6 @@ const SharedTable = ({
         </table>
       </div>
 
-      {/* Status tooltip */}
       <AnimatePresence>
         {hoveredStatus && (
           <motion.div
@@ -917,7 +954,6 @@ const SharedTable = ({
         )}
       </AnimatePresence>
 
-      {/* Loading indicator */}
       {isFetchingNextPage && (
         <div className="py-4 text-center">
           <span className="material-icons animate-spin text-[#488BBE]">refresh</span>
