@@ -166,7 +166,7 @@ const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOpti
   }
 
   return (
-    <div className="w-full min-h-screen">
+    <div className="w-full min-h-screen overflow-x-hidden">
       {/* Top bar with language and notifications - Responsive */}
       <div className="flex items-center justify-end px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 md:pt-8">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
@@ -294,8 +294,8 @@ const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOpti
         </div>
       </div>
 
-      {/* Data table - Table.jsx handles its own scrollbar and responsiveness */}
-      <div className="px-3 sm:px-4 md:px-6">
+      {/* Data table - COMPLETELY ISOLATED SCROLL CONTAINER */}
+      <div className="px-3 sm:px-4 md:px-6 w-full">
         {isLoading ? (
           <div className="py-6 sm:py-8 text-center">
             <span className="material-icons animate-spin text-[#488BBE] text-xl sm:text-2xl">refresh</span>

@@ -1,4 +1,4 @@
-// src/components/organization/school/student-detail/StudentProfileEditModal.jsx
+// src/components/organization/company/employee-detail/EmployeeProfileEditModal.jsx
 import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +8,7 @@ import clsx from "clsx";
 import { PhoneInput } from 'react-international-phone';
 import { format } from "date-fns";
 import { id as indonesianLocale } from "date-fns/locale";
-import { useClassrooms } from "@/hooks/useStudentData";
+import { useDepartments } from "@/hooks/useEmployeeData";
 import 'react-international-phone/style.css';
 
 // Phone validation helpers
@@ -39,12 +39,12 @@ const formatBirthDisplay = (birthPlace, birthDate) => {
 };
 
 // Validation schema
-const studentProfileSchema = z.object({
+const employeeProfileSchema = z.object({
   fullName: z.string().min(1, "Nama lengkap wajib diisi"),
   birthPlace: z.string().optional(),
   birthDate: z.string().optional(),
-  nis: z.string().min(1, "NIS wajib diisi"),
-  guardianContact: z.string()
+  employeeId: z.string().min(1, "ID Karyawan wajib diisi"),
+  contact: z.string()
     .optional()
     .refine((value) => {
       if (isEmptyPhone(value)) return true;
@@ -53,110 +53,19 @@ const studentProfileSchema = z.object({
     }, {
       message: "Nomor telepon harus 7-15 digit"
     }),
-  classroom: z.string().min(1, "Kelas wajib diisi"),
-  grade: z.string().min(1, "Grade wajib diisi"),
+  department: z.string().min(1, "Departemen wajib diisi"),
+  position: z.string().min(1, "Jabatan wajib diisi"),
   gender: z.enum(["male", "female"], {
     required_error: "Jenis kelamin wajib dipilih"
   }),
-  iqScore: z.string()
+  yearsOfService: z.string()
     .optional()
     .refine((val) => {
       if (!val) return true;
       const num = parseInt(val);
-      return !isNaN(num) && num >= 0 && num <= 200;
-    }, { message: "Skor IQ harus antara 0-200" }),
-  iqCategory: z.string().optional()
+      return !isNaN(num) && num >= 0 && num <= 50;
+    }, { message: "Lama bekerja harus antara 0-50 tahun" })
 });
-
-// Cascading Classroom Dropdown Component
-const CascadingClassroomDropdown = ({ classroomValue, gradeValue, onClassroomChange, onGradeChange, classrooms, grades, error }) => {
-  const [isClassroomOpen, setIsClassroomOpen] = useState(false);
-  const [isGradeOpen, setIsGradeOpen] = useState(false);
-
-  const handleClassroomSelect = (classroom) => {
-    onClassroomChange(classroom);
-    setIsClassroomOpen(false);
-    setIsGradeOpen(true);
-  };
-
-  const handleGradeSelect = (grade) => {
-    onGradeChange(grade);
-    setIsGradeOpen(false);
-  };
-
-  const displayValue = classroomValue && gradeValue ? `${classroomValue}-${gradeValue}` : classroomValue || "Pilih Kelas";
-
-  return (
-    <div className="relative">
-      {/* Main Dropdown Button */}
-      <button
-        type="button"
-        className={clsx(
-          "w-full h-10 px-3 border rounded-md bg-white flex items-center justify-between focus:outline-none focus:border-[#488BBE] transition-colors text-sm",
-          error ? "border-red-500" : "border-gray-300"
-        )}
-        onClick={() => {
-          setIsClassroomOpen(!isClassroomOpen);
-          setIsGradeOpen(false);
-        }}
-      >
-        <span className={classroomValue ? "text-gray-900" : "text-gray-400"}>
-          {displayValue}
-        </span>
-        <span className="material-icons text-gray-400 text-sm">
-          {isClassroomOpen ? 'expand_less' : 'expand_more'}
-        </span>
-      </button>
-
-      {/* Classroom Dropdown */}
-      {isClassroomOpen && (
-        <div className="absolute z-50 mt-1 bg-white shadow-lg border border-gray-200 rounded-md py-1 w-fit min-w-16">
-          {classrooms.map((classroom) => (
-            <button
-              key={classroom}
-              type="button"
-              className={clsx(
-                "w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors whitespace-nowrap",
-                classroomValue === classroom && "bg-blue-100 text-blue-600"
-              )}
-              onClick={() => handleClassroomSelect(classroom)}
-            >
-              {classroom}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Grade Dropdown - appears next to selected classroom */}
-      {isGradeOpen && classroomValue && (
-        <div className="absolute z-50 mt-1 bg-white shadow-lg border border-gray-200 rounded-md py-1 w-fit min-w-12" 
-             style={{ left: '70px' }}>
-          {grades.map((grade) => (
-            <button
-              key={grade}
-              type="button"
-              className="w-full text-center px-3 py-2 text-sm hover:bg-blue-50 transition-colors"
-              onClick={() => handleGradeSelect(grade)}
-            >
-              {grade}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Backdrop to close dropdowns */}
-      {(isClassroomOpen || isGradeOpen) && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => {
-            setIsClassroomOpen(false);
-            setIsGradeOpen(false);
-          }}
-        />
-      )}
-    </div>
-  );
-};
 
 // Compact dropdown component with external overflow
 const CompactDropdown = ({ value, onChange, options, placeholder, error, allowOverflow = false }) => {
@@ -243,15 +152,15 @@ const FormField = ({ label, error, children, required = false }) => (
   </div>
 );
 
-const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStudentMutation }) => {
+const EmployeeProfileEditModal = ({ employeeData, onClose, onSuccess, updateEmployeeMutation }) => {
   const [errorMessage, setErrorMessage] = useState("");
   
-  const profile = studentData?.studentProfile || {};
+  const profile = employeeData?.employeeProfile || employeeData || {};
   
-  // Fetch classroom data
-  const { data: classroomData } = useClassrooms();
-  const classrooms = classroomData?.classrooms || ['X', 'XI', 'XII'];
-  const grades = classroomData?.gradesResult || ['A', 'B', 'C', 'D', 'E', 'F'];
+  // Fetch departments and positions data
+  const { data: departmentData } = useDepartments();
+  const departments = departmentData?.departments || ['Human Resources', 'Finance', 'Marketing', 'IT', 'Operations'];
+  const positions = departmentData?.positions || ['Head', 'Manager', 'Staff', 'Specialist', 'Developer', 'Analyst'];
   
   // Format birth date to YYYY-MM-DD for input
   const formatDateForInput = (dateString) => {
@@ -264,7 +173,7 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
     }
   };
 
-  // Initialize form with student data
+  // Initialize form with employee data
   const {
     register,
     handleSubmit,
@@ -274,43 +183,37 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
     reset,
     formState: { errors, isSubmitting, dirtyFields }
   } = useForm({
-    resolver: zodResolver(studentProfileSchema),
+    resolver: zodResolver(employeeProfileSchema),
     defaultValues: {
-      fullName: studentData?.fullName || '',
+      fullName: employeeData?.fullName || '',
       birthPlace: profile?.birthPlace || '',
       birthDate: formatDateForInput(profile?.birthDate),
-      nis: profile?.nis || '',
-      guardianContact: profile?.guardianContact || '',
-      classroom: profile?.classroom || '',
-      grade: profile?.grade || '',
+      employeeId: profile?.employeeId || profile?.id || '',
+      contact: profile?.contact || profile?.phone || '',
+      department: profile?.department || '',
+      position: profile?.position || '',
       gender: profile?.gender || 'male',
-      iqScore: profile?.iqScore?.toString() || '',
-      iqCategory: profile?.iqCategory || ''
+      yearsOfService: profile?.yearsOfService?.toString() || ''
     },
     mode: "onChange"
   });
 
-  // Watch classroom and grade values
-  const watchedClassroom = watch('classroom');
-  const watchedGrade = watch('grade');
-
-  // Reset form when student data changes
+  // Reset form when employee data changes
   useEffect(() => {
-    if (studentData) {
+    if (employeeData) {
       reset({
-        fullName: studentData?.fullName || '',
+        fullName: employeeData?.fullName || '',
         birthPlace: profile?.birthPlace || '',
         birthDate: formatDateForInput(profile?.birthDate),
-        nis: profile?.nis || '',
-        guardianContact: profile?.guardianContact || '',
-        classroom: profile?.classroom || '',
-        grade: profile?.grade || '',
+        employeeId: profile?.employeeId || profile?.id || '',
+        contact: profile?.contact || profile?.phone || '',
+        department: profile?.department || '',
+        position: profile?.position || '',
         gender: profile?.gender || 'male',
-        iqScore: profile?.iqScore?.toString() || '',
-        iqCategory: profile?.iqCategory || ''
+        yearsOfService: profile?.yearsOfService?.toString() || ''
       });
     }
-  }, [studentData, profile, reset]);
+  }, [employeeData, profile, reset]);
 
   const onSubmit = (data) => {
     setErrorMessage("");
@@ -318,50 +221,46 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
     // Build payload with only changed fields
     const payload = {};
     
-    if (dirtyFields.fullName && data.fullName !== studentData?.fullName) {
+    if (dirtyFields.fullName && data.fullName !== employeeData?.fullName) {
       payload.fullName = data.fullName.trim();
     }
     
-    const studentProfilePayload = {};
+    const employeeProfilePayload = {};
     
     if (dirtyFields.birthPlace && data.birthPlace !== profile?.birthPlace) {
-      studentProfilePayload.birthPlace = data.birthPlace?.trim() || null;
+      employeeProfilePayload.birthPlace = data.birthPlace?.trim() || null;
     }
     
     if (dirtyFields.birthDate && data.birthDate !== formatDateForInput(profile?.birthDate)) {
-      studentProfilePayload.birthDate = data.birthDate || null;
+      employeeProfilePayload.birthDate = data.birthDate || null;
     }
     
-    if (dirtyFields.nis && data.nis !== profile?.nis) {
-      studentProfilePayload.nis = data.nis.trim();
+    if (dirtyFields.employeeId && data.employeeId !== (profile?.employeeId || profile?.id)) {
+      employeeProfilePayload.employeeId = data.employeeId.trim();
     }
     
-    if (dirtyFields.guardianContact && data.guardianContact !== profile?.guardianContact) {
-      studentProfilePayload.guardianContact = isEmptyPhone(data.guardianContact) ? null : data.guardianContact;
+    if (dirtyFields.contact && data.contact !== (profile?.contact || profile?.phone)) {
+      employeeProfilePayload.contact = isEmptyPhone(data.contact) ? null : data.contact;
     }
     
-    if (dirtyFields.classroom && data.classroom !== profile?.classroom) {
-      studentProfilePayload.classroom = data.classroom;
+    if (dirtyFields.department && data.department !== profile?.department) {
+      employeeProfilePayload.department = data.department;
     }
     
-    if (dirtyFields.grade && data.grade !== profile?.grade) {
-      studentProfilePayload.grade = data.grade;
+    if (dirtyFields.position && data.position !== profile?.position) {
+      employeeProfilePayload.position = data.position;
     }
     
     if (dirtyFields.gender && data.gender !== profile?.gender) {
-      studentProfilePayload.gender = data.gender;
+      employeeProfilePayload.gender = data.gender;
     }
     
-    if (dirtyFields.iqScore && data.iqScore !== profile?.iqScore?.toString()) {
-      studentProfilePayload.iqScore = data.iqScore?.trim() ? parseInt(data.iqScore) : null;
+    if (dirtyFields.yearsOfService && data.yearsOfService !== profile?.yearsOfService?.toString()) {
+      employeeProfilePayload.yearsOfService = data.yearsOfService?.trim() ? parseInt(data.yearsOfService) : null;
     }
     
-    if (dirtyFields.iqCategory && data.iqCategory !== profile?.iqCategory) {
-      studentProfilePayload.iqCategory = data.iqCategory || null;
-    }
-    
-    if (Object.keys(studentProfilePayload).length > 0) {
-      payload.studentProfile = studentProfilePayload;
+    if (Object.keys(employeeProfilePayload).length > 0) {
+      payload.employeeProfile = employeeProfilePayload;
     }
     
     if (Object.keys(payload).length === 0) {
@@ -371,13 +270,13 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
 
     console.log('📝 Submitting only changed fields:', payload);
 
-    updateStudentMutation.mutate(payload, {
+    updateEmployeeMutation.mutate(payload, {
       onSuccess: () => {
         onSuccess("Profil berhasil diubah!");
       },
       onError: (error) => {
         setErrorMessage(error.response?.data?.message || "Terjadi kesalahan saat memperbarui data");
-        console.error("Error updating student profile:", error);
+        console.error("Error updating employee profile:", error);
       }
     });
   };
@@ -387,20 +286,11 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
     { value: 'female', label: 'P' }
   ];
 
-  const iqCategories = [
-    { value: 'very_below_average', label: 'Sangat Di Bawah Rata-rata' },
-    { value: 'below_average', label: 'Di Bawah Rata-rata' },
-    { value: 'average', label: 'Rata-rata' },
-    { value: 'above_average', label: 'Di Atas Rata-rata' },
-    { value: 'very_above_average', label: 'Jauh di atas Rata-rata' },
-    { value: 'genius', label: 'Jenius' }
-  ];
-
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[778px] h-[500px] flex flex-col">
       <div className="flex-1 p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold text-[#488BBE]">Edit Profil Siswa</h2>
+          <h2 className="text-lg font-semibold text-[#488BBE]">Edit Profil Karyawan</h2>
           <button 
             type="button" 
             onClick={onClose}
@@ -457,29 +347,29 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
             </FormField>
           </div>
 
-          {/* Row 2: NIS | Kontak Wali */}
+          {/* Row 2: Employee ID | Kontak */}
           <div className="grid grid-cols-2 gap-6">
             <FormField 
-              label="NIS"
-              error={errors.nis}
+              label="ID Karyawan"
+              error={errors.employeeId}
               required
             >
               <input
-                {...register("nis")}
+                {...register("employeeId")}
                 className={clsx(
                   "w-full rounded-md h-10 border px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors",
-                  errors.nis ? "border-red-500" : "border-gray-300"
+                  errors.employeeId ? "border-red-500" : "border-gray-300"
                 )}
-                placeholder="NIS"
+                placeholder="ID Karyawan"
               />
             </FormField>
 
             <FormField 
-              label="Kontak Wali"
-              error={errors.guardianContact}
+              label="Kontak"
+              error={errors.contact}
             >
               <Controller
-                name="guardianContact"
+                name="contact"
                 control={control}
                 render={({ field }) => (
                   <PhoneInput
@@ -499,11 +389,11 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
                     }}
                     inputClassName={clsx(
                       "w-full h-10 border text-sm px-3 focus:outline-none focus:border-[#488BBE] transition-colors",
-                      errors.guardianContact ? "border-red-500" : "border-gray-300"
+                      errors.contact ? "border-red-500" : "border-gray-300"
                     )}
                     containerClassName="rounded-md overflow-hidden"
                     buttonClassName="h-10 px-3 flex items-center justify-center border-r border-gray-300"
-                    placeholder="Kontak wali"
+                    placeholder="Kontak"
                     inputProps={{ maxLength: 20 }}
                     international
                     withCountryCallingCode
@@ -514,40 +404,50 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
             </FormField>
           </div>
 
-          {/* Row 3: Kelas | Skor IQ */}
+          {/* Row 3: Department | Position */}
           <div className="grid grid-cols-2 gap-6">
             <FormField 
-              label="Kelas"
-              error={errors.classroom || errors.grade}
+              label="Departemen"
+              error={errors.department}
               required
             >
-              <CascadingClassroomDropdown
-                classroomValue={watchedClassroom}
-                gradeValue={watchedGrade}
-                onClassroomChange={(value) => setValue('classroom', value, { shouldDirty: true })}
-                onGradeChange={(value) => setValue('grade', value, { shouldDirty: true })}
-                classrooms={classrooms}
-                grades={grades}
-                error={errors.classroom || errors.grade}
+              <Controller
+                name="department"
+                control={control}
+                render={({ field }) => (
+                  <CompactDropdown
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={departments}
+                    placeholder="Pilih departemen"
+                    error={errors.department}
+                  />
+                )}
               />
             </FormField>
 
             <FormField 
-              label="Skor IQ"
-              error={errors.iqScore}
+              label="Jabatan"
+              error={errors.position}
+              required
             >
-              <input
-                type="number"
-                {...register("iqScore")}
-                className="w-full rounded-md h-10 border border-gray-300 px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors"
-                placeholder="Skor IQ"
-                min="0"
-                max="200"
+              <Controller
+                name="position"
+                control={control}
+                render={({ field }) => (
+                  <CompactDropdown
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={positions}
+                    placeholder="Pilih jabatan"
+                    error={errors.position}
+                  />
+                )}
               />
             </FormField>
           </div>
 
-          {/* Row 4: Jenis Kelamin | Kategori */}
+          {/* Row 4: Jenis Kelamin | Lama Bekerja */}
           <div className="grid grid-cols-2 gap-6">
             <FormField 
               label="Jenis Kelamin"
@@ -570,22 +470,16 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
             </FormField>
 
             <FormField 
-              label="Kategori"
-              error={errors.iqCategory}
+              label="Lama Bekerja (Tahun)"
+              error={errors.yearsOfService}
             >
-              <Controller
-                name="iqCategory"
-                control={control}
-                render={({ field }) => (
-                  <CompactDropdown
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={iqCategories}
-                    placeholder="Pilih kategori"
-                    error={errors.iqCategory}
-                    allowOverflow={true}
-                  />
-                )}
+              <input
+                type="number"
+                {...register("yearsOfService")}
+                className="w-full rounded-md h-10 border border-gray-300 px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors"
+                placeholder="Lama bekerja"
+                min="0"
+                max="50"
               />
             </FormField>
           </div>
@@ -597,15 +491,15 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
         <button
           type="submit"
           onClick={handleSubmit(onSubmit)}
-          disabled={isSubmitting || updateStudentMutation.isPending}
+          disabled={isSubmitting || updateEmployeeMutation.isPending}
           className={clsx(
             "h-10 px-6 rounded-md text-white font-semibold transition-colors text-sm",
-            isSubmitting || updateStudentMutation.isPending
+            isSubmitting || updateEmployeeMutation.isPending
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-[#488BBE] hover:bg-[#3399E9]"
           )}
         >
-          {isSubmitting || updateStudentMutation.isPending ? (
+          {isSubmitting || updateEmployeeMutation.isPending ? (
             <span className="flex items-center">
               <span className="material-icons animate-spin text-sm mr-1">refresh</span>
               Menyimpan...
@@ -619,4 +513,4 @@ const StudentProfileEditModal = ({ studentData, onClose, onSuccess, updateStuden
   );
 };
 
-export default StudentProfileEditModal;
+export { EmployeeProfileEditModal };

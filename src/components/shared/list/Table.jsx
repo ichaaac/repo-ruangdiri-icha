@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useCallback, useEffect, forwardRef } from "react"
+import React, { useState, useRef, useCallback, forwardRef } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"
 import clsx from "clsx"
@@ -94,129 +94,6 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   )
 }
 
-// SIMPLE Custom Scrollbar Component - GUARANTEED TO WORK
-const SimpleScrollbar = ({ contentRef, className = "" }) => {
-  const scrollbarRef = useRef(null)
-  const thumbRef = useRef(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [scrollRatio, setScrollRatio] = useState(0)
-  const [isVisible, setIsVisible] = useState(false)
-
-  const updateScrollbar = useCallback(() => {
-    if (!contentRef.current) return
-
-    const { scrollLeft, scrollWidth, clientWidth } = contentRef.current
-    const maxScroll = scrollWidth - clientWidth
-
-    console.log("Scrollbar update:", { scrollLeft, scrollWidth, clientWidth, maxScroll })
-
-    // Show scrollbar if there's any overflow
-    setIsVisible(maxScroll > 5)
-    if (maxScroll > 0) {
-      setScrollRatio(scrollLeft / maxScroll)
-    }
-  }, [contentRef])
-
-  const handleScrollbarClick = useCallback(
-    (e) => {
-      if (!contentRef.current || !scrollbarRef.current || e.target === thumbRef.current) return
-
-      const rect = scrollbarRef.current.getBoundingClientRect()
-      const percentage = (e.clientX - rect.left) / rect.width
-      const maxScroll = contentRef.current.scrollWidth - contentRef.current.clientWidth
-
-      contentRef.current.scrollLeft = percentage * maxScroll
-    },
-    [contentRef],
-  )
-
-  const handleMouseDown = useCallback(
-    (e) => {
-      e.preventDefault()
-      setIsDragging(true)
-
-      const startX = e.clientX
-      const startScrollLeft = contentRef.current.scrollLeft
-      const scrollbarWidth = scrollbarRef.current.offsetWidth
-      const maxScroll = contentRef.current.scrollWidth - contentRef.current.clientWidth
-
-      const handleMouseMove = (e) => {
-        const deltaX = e.clientX - startX
-        const percentage = deltaX / scrollbarWidth
-        contentRef.current.scrollLeft = startScrollLeft + percentage * maxScroll
-      }
-
-      const handleMouseUp = () => {
-        setIsDragging(false)
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
-      }
-
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-    },
-    [contentRef],
-  )
-
-  useEffect(() => {
-    const content = contentRef.current
-    if (!content) return
-
-    // Add scroll listener
-    content.addEventListener("scroll", updateScrollbar)
-
-    // Initial update
-    setTimeout(updateScrollbar, 100)
-
-    // Add resize observer
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateScrollbar, 50)
-    })
-    resizeObserver.observe(content)
-
-    // Also observe the table inside
-    const table = content.querySelector("table")
-    if (table) {
-      resizeObserver.observe(table)
-    }
-
-    return () => {
-      content.removeEventListener("scroll", updateScrollbar)
-      resizeObserver.disconnect()
-    }
-  }, [contentRef, updateScrollbar])
-
-  // ALWAYS show for debugging - remove this later
-  // if (!isVisible) return null
-
-  return (
-    <div className={clsx("relative w-full h-4 px-3 sm:px-4 mb-2 bg-gray-50 rounded", className)}>
-      <div className="text-xs text-gray-500 mb-1">
-        Custom Scrollbar {isVisible ? "(Active)" : "(Hidden)"} - Ratio: {scrollRatio.toFixed(2)}
-      </div>
-      <div
-        ref={scrollbarRef}
-        className="relative h-2 bg-gray-200 rounded-full cursor-pointer hover:bg-gray-300 transition-colors"
-        onClick={handleScrollbarClick}
-      >
-        <div
-          ref={thumbRef}
-          className={clsx(
-            "absolute h-full bg-[#488BBE] rounded-full transition-opacity",
-            isDragging ? "opacity-100" : "opacity-80 hover:opacity-100",
-          )}
-          style={{
-            width: "20%",
-            left: `${scrollRatio * 80}%`,
-            cursor: isDragging ? "grabbing" : "grab",
-          }}
-          onMouseDown={handleMouseDown}
-        />
-      </div>
-    </div>
-  )
-}
-
 // Help Tooltip Component
 const HelpTooltip = ({ helpIconRef, showHelpTooltip }) => (
   <AnimatePresence>
@@ -256,7 +133,7 @@ const HelpTooltip = ({ helpIconRef, showHelpTooltip }) => (
 )
 
 /**
- * SIMPLE Responsive Shared Table Component with GUARANTEED Working Scrollbar
+ * FIXED CONTAINER WIDTH - Force Table Overflow
  */
 const SharedTable = forwardRef(
   (
@@ -275,7 +152,7 @@ const SharedTable = forwardRef(
       filtersChanged,
       isLoading = false,
     },
-    ref,
+  ref,
   ) => {
     const [editingId, setEditingId] = useState(null)
     const [editData, setEditData] = useState({})
@@ -285,18 +162,19 @@ const SharedTable = forwardRef(
     const [clickedNames, setClickedNames] = useState(new Set())
     const helpIconRef = useRef(null)
     const observerRef = useRef(null)
-    const contentRef = useRef(null) // Internal ref for scrollbar
+    const contentRef = useRef(null)
+    const [scrollRatio, setScrollRatio] = useState(0)
 
-    // Configure table based on type with VERY LARGE minWidth to GUARANTEE scrollbar
+    // Configure table based on type
     const tableConfig = {
       student: {
-        minWidth: 2500, // VERY LARGE to guarantee overflow
+        minWidth: 1600,
         emptyIcon: "school",
         emptyText: "Tidak ada data siswa.",
         detailPath: "/organization/school/student",
       },
       employee: {
-        minWidth: 2800, // VERY LARGE to guarantee overflow
+        minWidth: 1800,
         emptyIcon: "business_center",
         emptyText: "Tidak ada data karyawan.",
         detailPath: "/organization/company/employee",
@@ -305,8 +183,96 @@ const SharedTable = forwardRef(
 
     const config = tableConfig[type]
 
+    // ACCURATE scroll progress update
+    const updateScrollProgress = useCallback(() => {
+      if (!contentRef.current) return
+
+      const { scrollLeft, scrollWidth, clientWidth } = contentRef.current
+      const maxScroll = scrollWidth - clientWidth
+
+      if (maxScroll > 0) {
+        const ratio = scrollLeft / maxScroll
+        setScrollRatio(ratio)
+      } else {
+        setScrollRatio(0)
+      }
+    }, [])
+
+    // DOUBLE CLICK scroll behavior
+    const handleDoubleClick = useCallback((e) => {
+      // Don't trigger on fullName column or interactive elements
+      const target = e.target
+      if (
+        target.closest("[data-name-column]") ||
+        target.tagName === "BUTTON" ||
+        target.tagName === "INPUT" ||
+        target.tagName === "SELECT" ||
+        target.closest("button") ||
+        target.closest("input") ||
+        target.closest('[role="button"]') ||
+        target.closest(".dropdown")
+      ) {
+        return
+      }
+
+      if (!contentRef.current) return
+
+      const { scrollLeft, scrollWidth, clientWidth } = contentRef.current
+      const maxScroll = scrollWidth - clientWidth
+
+      if (maxScroll <= 0) return
+
+      // If at the end, scroll back to start. Otherwise, scroll to end.
+      const targetScroll = scrollLeft >= maxScroll - 10 ? 0 : maxScroll
+
+      contentRef.current.scrollTo({
+        left: targetScroll,
+        behavior: "smooth",
+      })
+    }, [])
+
+    // Setup scroll listener
+    const setupScrollListener = useCallback(
+      (element) => {
+        if (!element) return
+
+        const handleScroll = () => {
+          updateScrollProgress()
+        }
+
+        element.addEventListener("scroll", handleScroll, { passive: true })
+
+        // Initial update after DOM settles
+        setTimeout(() => {
+          if (element) {
+            updateScrollProgress()
+          }
+        }, 100)
+
+        // Return cleanup function
+        return () => {
+          element.removeEventListener("scroll", handleScroll)
+        }
+      },
+      [updateScrollProgress],
+    )
+
+    // Ref callback to setup listeners
+    const tableContainerRef = useCallback(
+      (node) => {
+        contentRef.current = node
+
+        if (node) {
+          // Setup scroll listener
+          const cleanup = setupScrollListener(node)
+          node._scrollCleanup = cleanup
+        }
+      },
+      [setupScrollListener],
+    )
+
     // Reset editing when filters change
-    useEffect(() => {
+    React.useEffect(() => {
       if (filtersChanged && editingId) {
         setEditingId(null)
         setEditData({})
@@ -314,7 +280,7 @@ const SharedTable = forwardRef(
     }, [filtersChanged, editingId])
 
     // Expose reset method to parent
-    useEffect(() => {
+    React.useEffect(() => {
       if (resetEditMode && resetEditMode.current !== null) {
         resetEditMode.current = () => {
           setEditingId(null)
@@ -496,481 +462,489 @@ const SharedTable = forwardRef(
 
     return (
       <div className="relative w-full">
-        {/* Simple Custom Scrollbar positioned above table */}
-        <SimpleScrollbar contentRef={contentRef} className="mb-2" />
-
-        {/* GUARANTEED OVERFLOW Table container */}
-        <div
-          ref={contentRef}
-          className="w-full border-2 border-red-300 rounded-lg bg-blue-50"
-          style={{
-            overflowX: "scroll", // FORCE scroll always
-            overflowY: "hidden",
-            maxWidth: "100%",
-            height: "auto",
-          }}
-        >
-          {/* Debug info */}
-          <div className="text-xs text-red-600 p-2 bg-yellow-100">
-            Container Debug: This should ALWAYS have horizontal scroll. Table minWidth: {config.minWidth}px
+        {/* VISUAL ONLY Custom Scrollbar - shows accurate progress */}
+        <div className="relative w-full h-3 mb-2">
+          <div className="relative h-1 bg-gray-200 rounded-full">
+            <div
+              className="absolute h-full bg-[#488BBE] rounded-full opacity-80"
+              style={{
+                width: "20%",
+                left: `${scrollRatio * 80}%`,
+              }}
+            />
           </div>
+        </div>
 
-          {/* Inner wrapper to FORCE horizontal scroll */}
-          <div style={{ minWidth: "3000px", width: "max-content", backgroundColor: "#f0f9ff" }}>
-            <table className="w-full border-separate border-spacing-0" style={{ minWidth: `${config.minWidth}px` }}>
-              <thead className="bg-[#E2F9FF]">
-                <tr>
-                  {/* Name Column - ONLY icon is clickable, not the whole header */}
-                  <th className="px-2 sm:px-4 py-3 text-left text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <span>NAMA</span>
-                      <span
-                        className="material-icons text-xs sm:text-sm cursor-pointer hover:text-[#3399e9] transition-colors"
-                        onClick={() => requestSort("fullName")}
+        {/* AGGRESSIVE FIXED WIDTH CONTAINER - FORCE OVERFLOW */}
+        <div
+          ref={tableContainerRef}
+          className="cursor-pointer select-none"
+          style={{
+            // WIDER CONTAINER - show more columns initially but still enable scroll
+            width: "100%",
+            maxWidth: type === "student" ? "1400px" : "1600px", // LARGER container
+            overflowX: "auto",
+            overflowY: "hidden",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+          onDoubleClick={handleDoubleClick}
+        >
+          {/* Hide webkit scrollbar */}
+          <style jsx>{`
+            div::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
+
+          {/* GUARANTEED WIDE TABLE */}
+          <table
+            className="border-separate border-spacing-0 bg-white"
+            style={{
+              // FORCE table to be much wider than container
+              width: `${config.minWidth}px`,
+              minWidth: `${config.minWidth}px`,
+              tableLayout: "fixed", // Force fixed layout
+            }}
+          >
+            <thead className="bg-[#E2F9FF]">
+              <tr>
+                {/* Name Column */}
+                <th
+                  className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                  data-name-column="true"
+                  style={{ minWidth: "200px" }}
+                >
+                  <div className="flex items-center gap-1">
+                    <span>NAMA</span>
+                    <span
+                      className="material-icons text-sm cursor-pointer hover:text-[#3399e9] transition-colors"
+                      onClick={() => requestSort("fullName")}
+                    >
+                      {getSortIcon("fullName")}
+                    </span>
+                  </div>
+                </th>
+
+                {/* Type-specific columns */}
+                {type === "student" ? (
+                  <>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ minWidth: "120px" }}
+                    >
+                      KELAS
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ minWidth: "120px" }}
+                    >
+                      JENIS KELAMIN
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      onClick={() => requestSort("nis")}
+                      style={{ minWidth: "120px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        NIS
+                        <span className="material-icons text-sm">{getSortIcon("nis")}</span>
+                      </div>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      onClick={() => requestSort("iqScore")}
+                      style={{ minWidth: "120px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        SKOR IQ
+                        <span className="material-icons text-sm">{getSortIcon("iqScore")}</span>
+                      </div>
+                    </th>
+                  </>
+                ) : (
+                  <>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ minWidth: "150px" }}
+                    >
+                      DEPARTEMEN
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ minWidth: "150px" }}
+                    >
+                      JABATAN
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      style={{ minWidth: "120px" }}
+                    >
+                      JENIS KELAMIN
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      onClick={() => requestSort("age")}
+                      style={{ minWidth: "100px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        USIA
+                        <span className="material-icons text-sm">{getSortIcon("age")}</span>
+                      </div>
+                    </th>
+                    <th
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      onClick={() => requestSort("yearsOfService")}
+                      style={{ minWidth: "150px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        LAMA BEKERJA
+                        <span className="material-icons text-sm">{getSortIcon("yearsOfService")}</span>
+                      </div>
+                    </th>
+                  </>
+                )}
+
+                {/* Common columns */}
+                <th
+                  className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                  style={{ minWidth: "120px" }}
+                >
+                  <div className="flex items-center justify-center">
+                    SKRINING
+                    <span
+                      className="material-icons text-sm ml-1 text-gray-400 cursor-help opacity-70 hover:opacity-100 transition-opacity"
+                      ref={helpIconRef}
+                      onMouseEnter={() => setShowHelpTooltip(true)}
+                      onMouseLeave={() => setShowHelpTooltip(false)}
+                    >
+                      help_outline
+                    </span>
+                    <HelpTooltip helpIconRef={helpIconRef} showHelpTooltip={showHelpTooltip} />
+                  </div>
+                </th>
+                <th
+                  className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                  style={{ minWidth: "120px" }}
+                >
+                  KONSELING
+                </th>
+                <th className="px-4 py-3 text-center whitespace-nowrap" style={{ minWidth: "80px" }}></th>
+              </tr>
+            </thead>
+
+            <tbody className="bg-white">
+              <LinearGradientDivider />
+
+              {data.map((item, index) => {
+                const statusUI = getScreeningStatusUI(item.screeningStatus || "stable")
+                const isLastElement = index === data.length - 1
+                const isEditing = editingId === item.id
+                const isClicked = clickedNames.has(item.id)
+
+                return (
+                  <React.Fragment key={item.id}>
+                    <tr
+                      className="bg-white hover:bg-gray-50 transition-colors"
+                      ref={isLastElement ? lastItemElementRef : null}
+                    >
+                      {/* Name */}
+                      <td
+                        className="px-4 py-3 text-left whitespace-nowrap border-r border-gray-100"
+                        data-name-column="true"
                       >
-                        {getSortIcon("fullName")}
-                      </span>
-                    </div>
-                  </th>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            name="fullName"
+                            value={editData.fullName}
+                            onChange={handleEditChange}
+                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                          />
+                        ) : (
+                          <div
+                            className={clsx(
+                              "text-sm font-medium cursor-pointer truncate",
+                              isClicked ? "text-[#488BBE] underline" : "text-gray-900",
+                            )}
+                            onClick={(e) => handleNameClick(item.id, e)}
+                            title={item.fullName}
+                          >
+                            {highlightText(item.fullName)}
+                          </div>
+                        )}
+                      </td>
 
-                  {/* Type-specific columns with responsive text */}
-                  {type === "student" ? (
-                    <>
-                      <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                        KELAS
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                        <span className="hidden sm:inline">JENIS KELAMIN</span>
-                        <span className="sm:hidden">GENDER</span>
-                      </th>
-                      <th
-                        className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
-                        onClick={() => requestSort("nis")}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          NIS
-                          <span className="material-icons text-xs sm:text-sm">{getSortIcon("nis")}</span>
-                        </div>
-                      </th>
-                      <th
-                        className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
-                        onClick={() => requestSort("iqScore")}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="hidden sm:inline">SKOR IQ</span>
-                          <span className="sm:hidden">IQ</span>
-                          <span className="material-icons text-xs sm:text-sm">{getSortIcon("iqScore")}</span>
-                        </div>
-                      </th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                        <span className="hidden sm:inline">DEPARTEMEN</span>
-                        <span className="sm:hidden">DEPT</span>
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                        JABATAN
-                      </th>
-                      <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                        <span className="hidden sm:inline">JENIS KELAMIN</span>
-                        <span className="sm:hidden">GENDER</span>
-                      </th>
-                      <th
-                        className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
-                        onClick={() => requestSort("age")}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          USIA
-                          <span className="material-icons text-xs sm:text-sm">{getSortIcon("age")}</span>
-                        </div>
-                      </th>
-                      <th
-                        className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
-                        onClick={() => requestSort("yearsOfService")}
-                      >
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="hidden sm:inline">LAMA BEKERJA</span>
-                          <span className="sm:hidden">MASA KERJA</span>
-                          <span className="material-icons text-xs sm:text-sm">{getSortIcon("yearsOfService")}</span>
-                        </div>
-                      </th>
-                    </>
-                  )}
-
-                  {/* Common columns */}
-                  <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    <div className="flex items-center justify-center">
-                      SKRINING
-                      <span
-                        className="material-icons text-xs sm:text-sm ml-1 text-gray-400 cursor-help opacity-70 hover:opacity-100 transition-opacity"
-                        ref={helpIconRef}
-                        onMouseEnter={() => setShowHelpTooltip(true)}
-                        onMouseLeave={() => setShowHelpTooltip(false)}
-                      >
-                        help_outline
-                      </span>
-                      <HelpTooltip helpIconRef={helpIconRef} showHelpTooltip={showHelpTooltip} />
-                    </div>
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 text-center text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    KONSELING
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 text-center whitespace-nowrap w-12 sm:w-16"></th>
-
-                  {/* EXTRA COLUMNS TO FORCE OVERFLOW */}
-                  <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    EXTRA COL 1
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    EXTRA COL 2
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    EXTRA COL 3
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    EXTRA COL 4
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap">
-                    EXTRA COL 5
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <LinearGradientDivider />
-
-                {data.map((item, index) => {
-                  const statusUI = getScreeningStatusUI(item.screeningStatus || "stable")
-                  const isLastElement = index === data.length - 1
-                  const isEditing = editingId === item.id
-                  const isClicked = clickedNames.has(item.id)
-
-                  return (
-                    <React.Fragment key={item.id}>
-                      <tr
-                        className="bg-white hover:bg-gray-50 transition-colors"
-                        ref={isLastElement ? lastItemElementRef : null}
-                      >
-                        {/* Name - Responsive */}
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-left whitespace-nowrap">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              name="fullName"
-                              value={editData.fullName}
-                              onChange={handleEditChange}
-                              className="text-xs sm:text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-2 sm:px-3 py-1 sm:py-1.5 w-full min-w-[120px] sm:min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                            />
-                          ) : (
-                            <div
-                              className={clsx(
-                                "text-xs sm:text-sm font-medium cursor-pointer max-w-[120px] sm:max-w-none truncate",
-                                isClicked ? "text-[#488BBE] underline" : "text-gray-900",
-                              )}
-                              onClick={(e) => handleNameClick(item.id, e)}
-                              title={item.fullName}
-                            >
-                              {highlightText(item.fullName)}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Type-specific columns with responsive design */}
-                        {type === "student" ? (
-                          <>
-                            {/* Classroom - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="flex gap-1 justify-center" style={{ zIndex: 9000 }}>
-                                  <CustomDropdown
-                                    name="classroom"
-                                    value={editData.classroom}
-                                    onChange={handleEditChange}
-                                    options={optionsData.classrooms || []}
-                                    className="min-w-[50px] sm:min-w-[70px]"
-                                  />
-                                  <div className="flex items-center text-xs">-</div>
-                                  <CustomDropdown
-                                    name="grade"
-                                    value={editData.grade}
-                                    onChange={handleEditChange}
-                                    options={["A", "B", "C", "D"]}
-                                    className="min-w-[35px] sm:min-w-[50px]"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">
-                                  {item.classroom && item.grade
-                                    ? `${item.classroom} - ${item.grade}`
-                                    : item.classroom || "-"}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Gender - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="relative" style={{ zIndex: 9000 }}>
-                                  <CustomDropdown
-                                    name="gender"
-                                    value={editData.gender}
-                                    onChange={handleEditChange}
-                                    options={[
-                                      { value: "male", label: "L" },
-                                      { value: "female", label: "P" },
-                                    ]}
-                                    className="w-12 sm:w-16"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">
-                                  {item.gender === "male" ? "L" : "P"}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* NIS - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  name="nis"
-                                  value={editData.nis}
+                      {/* Rest of the columns with consistent styling... */}
+                      {type === "student" ? (
+                        <>
+                          {/* Classroom - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="flex gap-1 justify-center" style={{ zIndex: 9000 }}>
+                                <CustomDropdown
+                                  name="classroom"
+                                  value={editData.classroom}
                                   onChange={handleEditChange}
-                                  className="text-xs sm:text-sm text-gray-600 border border-gray-300 rounded-md px-1 sm:px-2 py-1 w-16 sm:w-24 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                                  options={optionsData.classrooms || []}
+                                  className="min-w-[50px] sm:min-w-[70px]"
                                 />
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">{highlightText(item.nis)}</div>
-                              )}
-                            </td>
+                                <div className="flex items-center text-xs">-</div>
+                                <CustomDropdown
+                                  name="grade"
+                                  value={editData.grade}
+                                  onChange={handleEditChange}
+                                  options={["A", "B", "C", "D"]}
+                                  className="min-w-[35px] sm:min-w-[50px]"
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600">
+                                {item.classroom && item.grade
+                                  ? `${item.classroom} - ${item.grade}`
+                                  : item.classroom || "-"}
+                              </div>
+                            )}
+                          </td>
 
-                            {/* IQ Score - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
+                          {/* Gender - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="relative" style={{ zIndex: 9000 }}>
+                                <CustomDropdown
+                                  name="gender"
+                                  value={editData.gender}
+                                  onChange={handleEditChange}
+                                  options={[
+                                    { value: "male", label: "L" },
+                                    { value: "female", label: "P" },
+                                  ]}
+                                  className="w-12 sm:w-16"
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600">{item.gender === "male" ? "L" : "P"}</div>
+                            )}
+                          </td>
+
+                          {/* NIS - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                name="nis"
+                                value={editData.nis}
+                                onChange={handleEditChange}
+                                className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-16 sm:w-24 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                              />
+                            ) : (
+                              <div className="text-sm text-gray-600">{highlightText(item.nis)}</div>
+                            )}
+                          </td>
+
+                          {/* IQ Score - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                name="iqScore"
+                                value={editData.iqScore}
+                                onChange={handleEditChange}
+                                className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-12 sm:w-16 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                                maxLength="3"
+                                inputMode="numeric"
+                              />
+                            ) : (
+                              <div className="text-sm text-gray-600">{item.iqScore || "-"}</div>
+                            )}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          {/* Department - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="relative" style={{ zIndex: 9000 }}>
+                                <CustomDropdown
+                                  name="department"
+                                  value={editData.department}
+                                  onChange={handleEditChange}
+                                  options={optionsData.departments || []}
+                                  className="min-w-[80px] sm:min-w-[150px]"
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600 truncate" title={item.department}>
+                                {item.department}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Position - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="relative" style={{ zIndex: 9000 }}>
+                                <CustomDropdown
+                                  name="position"
+                                  value={editData.position}
+                                  onChange={handleEditChange}
+                                  options={optionsData.positions || []}
+                                  className="min-w-[80px] sm:min-w-[120px]"
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600 truncate" title={item.position}>
+                                {item.position}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Gender - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="relative" style={{ zIndex: 9000 }}>
+                                <CustomDropdown
+                                  name="gender"
+                                  value={editData.gender}
+                                  onChange={handleEditChange}
+                                  options={[
+                                    { value: "male", label: "L" },
+                                    { value: "female", label: "P" },
+                                  ]}
+                                  className="w-12 sm:w-16"
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600">{item.gender === "male" ? "L" : "P"}</div>
+                            )}
+                          </td>
+
+                          {/* Age - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="flex items-center justify-center gap-1">
                                 <input
                                   type="text"
-                                  name="iqScore"
-                                  value={editData.iqScore}
+                                  name="age"
+                                  value={editData.age}
                                   onChange={handleEditChange}
-                                  className="text-xs sm:text-sm text-gray-600 border border-gray-300 rounded-md px-1 sm:px-2 py-1 w-12 sm:w-16 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                                  maxLength="3"
+                                  className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-8 sm:w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                                  maxLength="2"
                                   inputMode="numeric"
                                 />
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">{item.iqScore || "-"}</div>
-                              )}
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            {/* Department - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="relative" style={{ zIndex: 9000 }}>
-                                  <CustomDropdown
-                                    name="department"
-                                    value={editData.department}
-                                    onChange={handleEditChange}
-                                    options={optionsData.departments || []}
-                                    className="min-w-[80px] sm:min-w-[150px]"
-                                  />
-                                </div>
-                              ) : (
-                                <div
-                                  className="text-xs sm:text-sm text-gray-600 max-w-[80px] sm:max-w-none truncate"
-                                  title={item.department}
-                                >
-                                  {item.department}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Position - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="relative" style={{ zIndex: 9000 }}>
-                                  <CustomDropdown
-                                    name="position"
-                                    value={editData.position}
-                                    onChange={handleEditChange}
-                                    options={optionsData.positions || []}
-                                    className="min-w-[80px] sm:min-w-[120px]"
-                                  />
-                                </div>
-                              ) : (
-                                <div
-                                  className="text-xs sm:text-sm text-gray-600 max-w-[80px] sm:max-w-none truncate"
-                                  title={item.position}
-                                >
-                                  {item.position}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Gender - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="relative" style={{ zIndex: 9000 }}>
-                                  <CustomDropdown
-                                    name="gender"
-                                    value={editData.gender}
-                                    onChange={handleEditChange}
-                                    options={[
-                                      { value: "male", label: "L" },
-                                      { value: "female", label: "P" },
-                                    ]}
-                                    className="w-12 sm:w-16"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">
-                                  {item.gender === "male" ? "L" : "P"}
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Age - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input
-                                    type="text"
-                                    name="age"
-                                    value={editData.age}
-                                    onChange={handleEditChange}
-                                    className="text-xs sm:text-sm text-gray-600 border border-gray-300 rounded-md px-1 sm:px-2 py-1 w-8 sm:w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                                    maxLength="2"
-                                    inputMode="numeric"
-                                  />
-                                  <span className="text-[10px] sm:text-sm text-gray-600">Thn</span>
-                                </div>
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">
-                                  {item.age} <span className="hidden sm:inline">Tahun</span>
-                                  <span className="sm:hidden">Thn</span>
-                                </div>
-                              )}
-                            </td>
-
-                            {/* Years of Service - Responsive */}
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                              {isEditing ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input
-                                    type="text"
-                                    name="yearsOfService"
-                                    value={editData.yearsOfService}
-                                    onChange={handleEditChange}
-                                    className="text-xs sm:text-sm text-gray-600 border border-gray-300 rounded-md px-1 sm:px-2 py-1 w-8 sm:w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
-                                    maxLength="2"
-                                    inputMode="numeric"
-                                  />
-                                  <span className="text-[10px] sm:text-sm text-gray-600">Thn</span>
-                                </div>
-                              ) : (
-                                <div className="text-xs sm:text-sm text-gray-600">
-                                  {item.yearsOfService} <span className="hidden sm:inline">Tahun</span>
-                                  <span className="sm:hidden">Thn</span>
-                                </div>
-                              )}
-                            </td>
-                          </>
-                        )}
-
-                        {/* Screening Status - Responsive */}
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                          <span
-                            className={clsx(
-                              "inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer",
-                              statusUI.bg,
+                                <span className="text-[10px] sm:text-sm text-gray-600">Thn</span>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600">
+                                {item.age} <span className="hidden sm:inline">Tahun</span>
+                                <span className="sm:hidden">Thn</span>
+                              </div>
                             )}
-                            onMouseEnter={(e) => {
-                              const rect = e.currentTarget.getBoundingClientRect()
-                              setHoveredStatus({
-                                status: item.screeningStatus || "stable",
-                                x: rect.right + 10,
-                                y: rect.top + rect.height / 2,
-                              })
-                            }}
-                            onMouseLeave={() => setHoveredStatus(null)}
-                          >
-                            <span className={clsx("material-icons text-xs sm:text-base", statusUI.color)}>
-                              {statusUI.icon}
-                            </span>
-                          </span>
-                        </td>
+                          </td>
 
-                        {/* Counseling Status - Responsive */}
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-center whitespace-nowrap">
-                          <span
-                            className={clsx(
-                              "text-xs sm:text-sm",
-                              item.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]",
+                          {/* Years of Service - Responsive */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                            {isEditing ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <input
+                                  type="text"
+                                  name="yearsOfService"
+                                  value={editData.yearsOfService}
+                                  onChange={handleEditChange}
+                                  className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-8 sm:w-12 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                                  maxLength="2"
+                                  inputMode="numeric"
+                                />
+                                <span className="text-[10px] sm:text-sm text-gray-600">Thn</span>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600">
+                                {item.yearsOfService} <span className="hidden sm:inline">Tahun</span>
+                                <span className="sm:hidden">Thn</span>
+                              </div>
                             )}
-                          >
-                            {item.counselingStatus ? "Sudah" : "Belum"}
-                          </span>
-                        </td>
+                          </td>
+                        </>
+                      )}
 
-                        {/* Actions - Responsive */}
-                        <td className="px-2 sm:px-4 py-2 sm:py-3 text-center relative whitespace-nowrap">
-                          {isEditing ? (
-                            <div className="flex space-x-1 sm:space-x-2 justify-center">
-                              <button
-                                className={clsx(
-                                  "text-[#EE4266] hover:text-[#b53434] transition-colors",
-                                  updateItem.isPending && "opacity-50 cursor-not-allowed",
-                                )}
-                                onClick={() => cancelEditing()}
-                                disabled={updateItem.isPending}
-                              >
-                                <span className="material-icons text-sm sm:text-base">cancel</span>
-                              </button>
-
-                              <button
-                                className={clsx(
-                                  "text-[#9BCA61] hover:text-[#6DAF31] transition-colors",
-                                  (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
-                                )}
-                                onClick={() => hasChanges && saveEditing(item.id)}
-                                disabled={!hasChanges || updateItem.isPending}
-                              >
-                                <span className="material-icons text-sm sm:text-base">check_circle</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
-                              onClick={() => startEditing(item.id)}
-                              disabled={editingId !== null}
-                              onMouseEnter={() => setShowEditTooltip(item.id)}
-                              onMouseLeave={() => setShowEditTooltip(null)}
-                            >
-                              <span className="material-icons text-sm sm:text-base">edit</span>
-                              {showEditTooltip === item.id && (
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
-                                  Edit
-                                </div>
-                              )}
-                            </button>
+                      {/* Screening Status - Responsive */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                        <span
+                          className={clsx(
+                            "inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer",
+                            statusUI.bg,
                           )}
-                        </td>
+                          onMouseEnter={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            setHoveredStatus({
+                              status: item.screeningStatus || "stable",
+                              x: rect.right + 10,
+                              y: rect.top + rect.height / 2,
+                            })
+                          }}
+                          onMouseLeave={() => setHoveredStatus(null)}
+                        >
+                          <span className={clsx("material-icons text-sm", statusUI.color)}>{statusUI.icon}</span>
+                        </span>
+                      </td>
 
-                        {/* EXTRA COLUMNS TO FORCE OVERFLOW */}
-                        <td className="px-4 py-3 text-center text-xs text-gray-500">Extra 1</td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-500">Extra 2</td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-500">Extra 3</td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-500">Extra 4</td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-500">Extra 5</td>
-                      </tr>
-                      <LinearGradientDivider />
-                    </React.Fragment>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {/* Counseling Status - Responsive */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                        <span className={clsx("text-sm", item.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
+                          {item.counselingStatus ? "Sudah" : "Belum"}
+                        </span>
+                      </td>
+
+                      {/* Actions - Responsive */}
+                      <td className="px-4 py-3 text-center relative whitespace-nowrap">
+                        {isEditing ? (
+                          <div className="flex space-x-2 justify-center">
+                            <button
+                              className={clsx(
+                                "text-[#EE4266] hover:text-[#b53434] transition-colors",
+                                updateItem.isPending && "opacity-50 cursor-not-allowed",
+                              )}
+                              onClick={() => cancelEditing()}
+                              disabled={updateItem.isPending}
+                            >
+                              <span className="material-icons text-base">cancel</span>
+                            </button>
+
+                            <button
+                              className={clsx(
+                                "text-[#9BCA61] hover:text-[#6DAF31] transition-colors",
+                                (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
+                              )}
+                              onClick={() => hasChanges && saveEditing(item.id)}
+                              disabled={!hasChanges || updateItem.isPending}
+                            >
+                              <span className="material-icons text-base">check_circle</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
+                            onClick={() => startEditing(item.id)}
+                            disabled={editingId !== null}
+                            onMouseEnter={() => setShowEditTooltip(item.id)}
+                            onMouseLeave={() => setShowEditTooltip(null)}
+                          >
+                            <span className="material-icons text-base">edit</span>
+                            {showEditTooltip === item.id && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
+                                Edit
+                              </div>
+                            )}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    <LinearGradientDivider />
+                  </React.Fragment>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
 
         {/* Status tooltip */}
@@ -994,16 +968,16 @@ const SharedTable = forwardRef(
         {/* Loading indicator */}
         {isFetchingNextPage && (
           <div className="py-4 text-center">
-            <span className="material-icons animate-spin text-[#488BBE] text-sm sm:text-base">refresh</span>
-            <span className="text-[#488BBE] text-xs sm:text-sm ml-2">Loading...</span>
+            <span className="material-icons animate-spin text-[#488BBE] text-base">refresh</span>
+            <span className="text-[#488BBE] text-sm ml-2">Loading...</span>
           </div>
         )}
 
         {/* Empty state */}
         {data.length === 0 && !isFetchingNextPage && (
-          <div className="text-center py-6 sm:py-8">
-            <span className="material-icons text-gray-400 text-3xl sm:text-5xl">{config.emptyIcon}</span>
-            <p className="text-gray-500 mt-2 text-sm sm:text-base">{config.emptyText}</p>
+          <div className="text-center py-8">
+            <span className="material-icons text-gray-400 text-5xl">{config.emptyIcon}</span>
+            <p className="text-gray-500 mt-2 text-base">{config.emptyText}</p>
           </div>
         )}
       </div>

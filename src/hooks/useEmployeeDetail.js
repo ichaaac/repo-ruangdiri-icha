@@ -1,4 +1,4 @@
-// src/hooks/useEmployeeDetail.js - Employee detail hook
+// src/hooks/useEmployeeDetail.js - Clean employee detail hook
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
 
@@ -46,10 +46,7 @@ export const useEmployeeDetail = (employeeId) => {
       }
     },
     onSuccess: () => {
-      // Invalidate the employee detail query to refetch
       queryClient.invalidateQueries(['employee', employeeId]);
-      
-      // Also invalidate the employee list if it exists
       queryClient.invalidateQueries(['infiniteEmployees']);
     }
   });
@@ -90,13 +87,6 @@ export const useEmployeeDetail = (employeeId) => {
   // Extract data from API structure
   const employee = employeeData?.data || null;
   const mentalHealthHistory = employee?.mentalHealthHistories || [];
-
-  console.log('📋 useEmployeeDetail processed data:', { 
-    employee, 
-    mentalHealthHistory,
-    isLoading,
-    isError 
-  });
 
   return {
     employee,

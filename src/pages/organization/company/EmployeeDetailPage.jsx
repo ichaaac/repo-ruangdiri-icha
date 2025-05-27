@@ -1,8 +1,8 @@
-// src/pages/organization/school/StudentDetailPage.jsx - Updated to use shared components
+// src/pages/organization/company/EmployeeDetailPage.jsx
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import { useStudentDetail } from "@/hooks/useStudentDetail";
+import { useEmployeeDetail } from "@/hooks/useEmployeeDetail";
 import { 
   DetailPageLayout, 
   SharedProfile, 
@@ -10,30 +10,30 @@ import {
   Divider, 
   Modal, 
   SuccessModal 
-} from "@/components/shared/detail/DetailComponents";
-import StudentProfileEditModal from "../../../components/organization/school/student-detail/StudentProfileEditModal";
+} from "@/components/shared/detail/SharedDetailComponents";
+import EmployeeProfileEditModal from "../../../components/organization/company/employee-detail/EmployeeProfileEditModal";
 
-const StudentDetailPage = () => {
-  const { studentId } = useParams();
+const EmployeeDetailPage = () => {
+  const { employeeId } = useParams();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   
-  // Use the custom hook to fetch student data
+  // Use the employee detail hook
   const { 
-    student,
+    employee,
     mentalHealthHistory,
     isLoading,
     isLoadingHistory,
     isError,
     error,
     refetch,
-    updateStudent
-  } = useStudentDetail(studentId);
+    updateEmployee
+  } = useEmployeeDetail(employeeId);
 
   const handleEditSuccess = (message) => {
     setShowEditModal(false);
-    setSuccessMessage(message || "Data siswa berhasil diperbarui!");
+    setSuccessMessage(message || "Data karyawan berhasil diperbarui!");
     setShowSuccessModal(true);
     
     // Auto-hide success message after 2 seconds
@@ -47,7 +47,7 @@ const StudentDetailPage = () => {
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex items-center space-x-2">
           <span className="material-icons animate-spin text-[#488BBE]">sync</span>
-          <span className="text-[#488BBE]">Memuat data siswa...</span>
+          <span className="text-[#488BBE]">Memuat data karyawan...</span>
         </div>
       </div>
     );
@@ -66,7 +66,7 @@ const StudentDetailPage = () => {
             Gagal Memuat Data
           </h1>
           <p className="text-gray-600 mb-6 max-w-md">
-            {error?.message || "Gagal memuat data siswa. Silakan coba beberapa saat lagi."}
+            {error?.message || "Gagal memuat data karyawan. Silakan coba beberapa saat lagi."}
           </p>
           <button
             onClick={() => refetch()}
@@ -81,33 +81,33 @@ const StudentDetailPage = () => {
   
   return (
     <DetailPageLayout>
-      {/* Left Section - Student Profile */}
+      {/* Left Section - Employee Profile */}
       <SharedProfile 
-        data={student} 
-        type="student"
+        data={employee} 
+        type="employee"
         onEdit={() => setShowEditModal(true)}
-        title="Profil Siswa"
+        title="Profil Karyawan"
       />
       
       {/* Divider */}
       <Divider />
       
-      {/* Right Section - Student Development */}
+      {/* Right Section - Employee Development */}
       <SharedDevelopment 
-        data={student}
+        data={employee}
         mentalHealthHistory={mentalHealthHistory}
-        type="student"
+        type="employee"
       />
       
       {/* Edit Modal */}
       <AnimatePresence>
         {showEditModal && (
           <Modal isOpen={true} onClose={() => setShowEditModal(false)}>
-            <StudentProfileEditModal
-              studentData={student}
+            <EmployeeProfileEditModal
+              employeeData={employee}
               onClose={() => setShowEditModal(false)}
               onSuccess={handleEditSuccess}
-              updateStudentMutation={updateStudent}
+              updateEmployeeMutation={updateEmployee}
             />
           </Modal>
         )}
@@ -127,4 +127,5 @@ const StudentDetailPage = () => {
   );
 };
 
-export default StudentDetailPage;
+export default EmployeeDetailPage;
+
