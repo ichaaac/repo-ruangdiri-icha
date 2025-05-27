@@ -1,9 +1,11 @@
+"use client"
+
 // src/components/shared/ListPage.jsx - Fixed List Page with Horizontal Scrollbar
-import React, { useMemo, useRef, useState, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
-import { useAuth } from "@/hooks/useAuth";
-import useDebounce from "@/hooks/useDebounce";
-import SharedTable from "./Table";
+import { useMemo, useRef, useState, useEffect } from "react"
+import { AnimatePresence } from "framer-motion"
+import { useAuth } from "@/hooks/useAuth"
+import useDebounce from "@/hooks/useDebounce"
+import SharedTable from "./Table"
 
 /**
  * Complete Shared List Page Component with Fixed Horizontal Scrollbar
@@ -14,17 +16,11 @@ import SharedTable from "./Table";
  * @param {Function} props.useOptionsHook - Custom hook for getting filter options
  * @param {React.Component} props.FiltersComponent - Filters modal component
  */
-const SharedListPage = ({
-  type = "student",
-  useDataHook,
-  useFiltersHook, 
-  useOptionsHook,
-  FiltersComponent
-}) => {
-  const { user } = useAuth();
-  const resetEditModeRef = useRef(null);
-  const [filtersChanged, setFiltersChanged] = useState(false);
-  
+const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOptionsHook, FiltersComponent }) => {
+  const { user } = useAuth()
+  const resetEditModeRef = useRef(null)
+  const [filtersChanged, setFiltersChanged] = useState(false)
+
   const {
     searchInput,
     setSearchInput,
@@ -39,102 +35,95 @@ const SharedListPage = ({
     clearFilters,
     hasActiveFilters,
     showFilterModal,
-    setShowFilterModal
-  } = useFiltersHook();
-  
-  const debouncedSearchTerm = useDebounce(searchInput, 150);
-  
-  // Call the data hook
-  const hookResult = useDataHook(debouncedSearchTerm, appliedSortConfig, appliedFilters);
-  
-  // Extract data based on hook structure
-  let listData, totalData, genderCounts, updateFunction;
-  
-  if (type === "student") {
-    listData = hookResult.students || [];
-    totalData = hookResult.totalData || 0;
-    genderCounts = hookResult.genderCounts || { male: 0, female: 0 };
-    updateFunction = hookResult.updateStudent;
-  } else {
-    listData = hookResult.data || hookResult.employees || [];
-    totalData = hookResult.totalData || 0;
-    genderCounts = hookResult.genderCounts || { male: 0, female: 0 };
-    updateFunction = hookResult.updateItem || hookResult.updateEmployee;
-  }
-  
-  const {
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    fetchNextPage,
-    isError,
-    error,
-    refetch
-  } = hookResult;
+    setShowFilterModal,
+  } = useFiltersHook()
 
-  const { data: optionsData } = useOptionsHook ? useOptionsHook() : { data: null };
+  const debouncedSearchTerm = useDebounce(searchInput, 150)
+
+  // Call the data hook
+  const hookResult = useDataHook(debouncedSearchTerm, appliedSortConfig, appliedFilters)
+
+  // Extract data based on hook structure
+  let listData, totalData, genderCounts, updateFunction
+
+  if (type === "student") {
+    listData = hookResult.students || []
+    totalData = hookResult.totalData || 0
+    genderCounts = hookResult.genderCounts || { male: 0, female: 0 }
+    updateFunction = hookResult.updateStudent
+  } else {
+    listData = hookResult.data || hookResult.employees || []
+    totalData = hookResult.totalData || 0
+    genderCounts = hookResult.genderCounts || { male: 0, female: 0 }
+    updateFunction = hookResult.updateItem || hookResult.updateEmployee
+  }
+
+  const { isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, isError, error, refetch } = hookResult
+
+  const optionsHookResult = useOptionsHook ? useOptionsHook() : { data: null }
+  const { data: optionsData } = optionsHookResult
 
   // Reset filters tracking effect
   useEffect(() => {
     if (filtersChanged) {
-      setTimeout(() => setFiltersChanged(false), 100);
+      setTimeout(() => setFiltersChanged(false), 100)
     }
-  }, [filtersChanged]);
-  
+  }, [filtersChanged])
+
   // Enhanced clearFilters function
   const handleClearFilters = () => {
     if (resetEditModeRef.current) {
-      resetEditModeRef.current();
+      resetEditModeRef.current()
     }
-    clearFilters();
-    setFiltersChanged(true);
-  };
-  
+    clearFilters()
+    setFiltersChanged(true)
+  }
+
   // Enhanced apply filters function
   const handleApplyFilters = () => {
     if (resetEditModeRef.current) {
-      resetEditModeRef.current();
+      resetEditModeRef.current()
     }
-    applyFilters();
-    setFiltersChanged(true);
-  };
-  
+    applyFilters()
+    setFiltersChanged(true)
+  }
+
   // Process options data based on type
   const optionsForFilters = useMemo(() => {
     if (type === "employee" && optionsData) {
       return {
         departments: optionsData.departments || [],
-        positions: optionsData.positions || []
-      };
+        positions: optionsData.positions || [],
+      }
     } else if (type === "student" && optionsData) {
       return {
         classrooms: optionsData.classroomsResult || optionsData.classNumbers || [],
-        grades: optionsData.gradesResult || ['A', 'B', 'C', 'D']
-      };
+        grades: optionsData.gradesResult || ["A", "B", "C", "D"],
+      }
     }
-    
+
     // Fallback to extracting from data
-    const uniqueOptions = { departments: new Set(), positions: new Set(), classrooms: new Set(), grades: new Set() };
-    
+    const uniqueOptions = { departments: new Set(), positions: new Set(), classrooms: new Set(), grades: new Set() }
+
     if (listData && listData.length > 0) {
-      listData.forEach(item => {
+      listData.forEach((item) => {
         if (type === "employee") {
-          if (item.department) uniqueOptions.departments.add(item.department);
-          if (item.position) uniqueOptions.positions.add(item.position);
+          if (item.department) uniqueOptions.departments.add(item.department)
+          if (item.position) uniqueOptions.positions.add(item.position)
         } else if (type === "student") {
-          if (item.classroom) uniqueOptions.classrooms.add(item.classroom);
-          if (item.grade) uniqueOptions.grades.add(item.grade);
+          if (item.classroom) uniqueOptions.classrooms.add(item.classroom)
+          if (item.grade) uniqueOptions.grades.add(item.grade)
         }
-      });
+      })
     }
-    
+
     return {
       departments: Array.from(uniqueOptions.departments).sort(),
       positions: Array.from(uniqueOptions.positions).sort(),
       classrooms: Array.from(uniqueOptions.classrooms).sort(),
-      grades: Array.from(uniqueOptions.grades).sort()
-    };
-  }, [optionsData, listData, type]);
+      grades: Array.from(uniqueOptions.grades).sort(),
+    }
+  }, [optionsData, listData, type])
 
   // Configure based on type
   const config = useMemo(() => {
@@ -145,10 +134,10 @@ const SharedListPage = ({
         totalLabel: "Siswa",
         icons: {
           total: "groups",
-          female: "face_2", 
-          male: "face"
-        }
-      };
+          female: "face_2",
+          male: "face",
+        },
+      }
     } else {
       return {
         title: `Halo, ${user?.fullName || ""}`, // Company juga dapat greeting
@@ -157,11 +146,11 @@ const SharedListPage = ({
         icons: {
           total: "groups",
           female: "face_2",
-          male: "face"
-        }
-      };
+          male: "face",
+        },
+      }
     }
-  }, [type, user]);
+  }, [type, user])
 
   if (isError) {
     return (
@@ -171,8 +160,10 @@ const SharedListPage = ({
           <p className="text-red-500 font-semibold mb-2 text-sm sm:text-base">
             Gagal memuat data {type === "student" ? "siswa" : "karyawan"}
           </p>
-          <p className="text-gray-600 mb-4 text-xs sm:text-sm">{error?.message || 'Terjadi kesalahan saat mengambil data.'}</p>
-          <button 
+          <p className="text-gray-600 mb-4 text-xs sm:text-sm">
+            {error?.message || "Terjadi kesalahan saat mengambil data."}
+          </p>
+          <button
             onClick={() => refetch()}
             className="px-4 py-2 bg-[#488bbe] text-white rounded-full hover:bg-[#3399e9] text-xs sm:text-sm"
           >
@@ -180,7 +171,7 @@ const SharedListPage = ({
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -210,11 +201,18 @@ const SharedListPage = ({
         <div className="flex flex-wrap gap-2 sm:gap-3 w-full lg:w-auto justify-center lg:justify-end">
           {/* Total card */}
           <div className="relative w-[80px] sm:w-[90px] md:w-[100px] lg:w-[120px] h-[50px] sm:h-[60px] md:h-[70px] lg:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px] w-full h-[40px] sm:h-[50px] md:h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div
+              className="absolute inset-0 rounded-lg p-[1px] w-full h-[40px] sm:h-[50px] md:h-[60px]"
+              style={{ background: "linear-gradient(to bottom, #FFFFFF, #488BBE)" }}
+            >
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-1 sm:pl-2 md:pl-3">
-                <span className="material-icons text-[#3399E9] text-sm sm:text-base md:text-lg pb-2 sm:pb-3 md:pb-4">{config.icons.total}</span>
+                <span className="material-icons text-[#3399E9] text-sm sm:text-base md:text-lg pb-2 sm:pb-3 md:pb-4">
+                  {config.icons.total}
+                </span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
-                  <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-[#488BBE]">{totalData || 0}</div>
+                  <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-[#488BBE]">
+                    {totalData || 0}
+                  </div>
                   <div className="text-[8px] sm:text-[10px] md:text-xs text-[#488BBE]">{config.totalLabel}</div>
                 </div>
               </div>
@@ -223,11 +221,18 @@ const SharedListPage = ({
 
           {/* Female card */}
           <div className="relative w-[80px] sm:w-[90px] md:w-[100px] lg:w-[120px] h-[50px] sm:h-[60px] md:h-[70px] lg:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px] w-full h-[40px] sm:h-[50px] md:h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div
+              className="absolute inset-0 rounded-lg p-[1px] w-full h-[40px] sm:h-[50px] md:h-[60px]"
+              style={{ background: "linear-gradient(to bottom, #FFFFFF, #488BBE)" }}
+            >
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-1 sm:pl-2 md:pl-3">
-                <span className="material-icons text-[#FF86E1] text-sm sm:text-base md:text-lg pb-2 sm:pb-3 md:pb-4">{config.icons.female}</span>
+                <span className="material-icons text-[#FF86E1] text-sm sm:text-base md:text-lg pb-2 sm:pb-3 md:pb-4">
+                  {config.icons.female}
+                </span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
-                  <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-[#488BBE]">{genderCounts?.female || 0}</div>
+                  <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-[#488BBE]">
+                    {genderCounts?.female || 0}
+                  </div>
                   <div className="text-[8px] sm:text-[10px] md:text-xs text-[#488BBE]">Perempuan</div>
                 </div>
               </div>
@@ -236,11 +241,18 @@ const SharedListPage = ({
 
           {/* Male card */}
           <div className="relative w-[80px] sm:w-[90px] md:w-[100px] lg:w-[120px] h-[50px] sm:h-[60px] md:h-[70px] lg:h-[80px]">
-            <div className="absolute inset-0 rounded-lg p-[1px] w-full h-[40px] sm:h-[50px] md:h-[60px]" style={{ background: 'linear-gradient(to bottom, #FFFFFF, #488BBE)' }}>
+            <div
+              className="absolute inset-0 rounded-lg p-[1px] w-full h-[40px] sm:h-[50px] md:h-[60px]"
+              style={{ background: "linear-gradient(to bottom, #FFFFFF, #488BBE)" }}
+            >
               <div className="bg-white rounded-lg w-full h-full flex items-center pl-1 sm:pl-2 md:pl-3">
-                <span className="material-icons text-[#FF7173] text-sm sm:text-base md:text-lg pb-2 sm:pb-3 md:pb-4">{config.icons.male}</span>
+                <span className="material-icons text-[#FF7173] text-sm sm:text-base md:text-lg pb-2 sm:pb-3 md:pb-4">
+                  {config.icons.male}
+                </span>
                 <div className="flex flex-col items-center ml-auto mr-auto">
-                  <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-[#488BBE]">{genderCounts?.male || 0}</div>
+                  <div className="text-sm sm:text-lg md:text-xl lg:text-2xl font-bold text-[#488BBE]">
+                    {genderCounts?.male || 0}
+                  </div>
                   <div className="text-[8px] sm:text-[10px] md:text-xs text-[#488BBE]">Laki-laki</div>
                 </div>
               </div>
@@ -275,12 +287,12 @@ const SharedListPage = ({
               <span className="material-icons mr-1 sm:mr-2 text-sm sm:text-base md:text-lg">filter_alt</span>
               <span>Filter</span>
             </button>
-            
-            <button 
+
+            <button
               className={`flex items-center justify-center px-3 sm:px-4 py-2 rounded-full ${
-                hasActiveFilters 
-                  ? 'text-[#488bbe] hover:bg-[#e8f5ff] cursor-pointer' 
-                  : 'text-gray-400 cursor-not-allowed'
+                hasActiveFilters
+                  ? "text-[#488bbe] hover:bg-[#e8f5ff] cursor-pointer"
+                  : "text-gray-400 cursor-not-allowed"
               } transition-colors text-xs sm:text-sm md:text-base flex-1 sm:flex-none`}
               onClick={hasActiveFilters ? handleClearFilters : undefined}
               disabled={!hasActiveFilters}
@@ -292,8 +304,8 @@ const SharedListPage = ({
         </div>
       </div>
 
-      {/* Data table container - FIXED: No horizontal padding to allow full-width scrolling */}
-      <div className="w-full overflow-hidden">
+      {/* Data table container - FIXED: Remove overflow-hidden to allow horizontal scrolling */}
+      <div className="w-full">
         {isLoading ? (
           <div className="py-6 sm:py-8 text-center">
             <span className="material-icons animate-spin text-[#488BBE] text-xl sm:text-2xl">refresh</span>
@@ -334,7 +346,7 @@ const SharedListPage = ({
         )}
       </AnimatePresence>
     </div>
-  );
-};
+  )
+}
 
-export default SharedListPage;
+export default SharedListPage

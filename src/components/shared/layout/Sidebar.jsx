@@ -98,6 +98,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
 
   // Fixed image error handler that won't cause infinite renders
   const handleImageError = () => {
+    console.log("Sidebar profile image failed to load:", userData?.profilePicture)
     setFallbackProfileImage(true)
   }
 
@@ -190,6 +191,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
                 alt="Organization"
                 className="w-full h-full object-cover"
                 onError={handleImageError}
+                onLoad={() => console.log("Sidebar profile image loaded:", userData.profilePicture)}
                 crossOrigin="anonymous"
               />
             ) : (

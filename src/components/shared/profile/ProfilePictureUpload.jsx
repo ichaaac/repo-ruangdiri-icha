@@ -126,9 +126,16 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
 
   // Handle image load error
   const handleImageError = () => {
-    console.log("Profile image failed to load")
+    console.log("Profile image failed to load:", previewImage)
+    // console.log("Current userData:", userData) // userData is not defined in this scope
     setImageError(true)
   }
+
+  // Add useEffect to debug when previewImage changes
+  useEffect(() => {
+    console.log("Preview image updated:", previewImage)
+    console.log("Image error state:", imageError)
+  }, [previewImage, imageError])
 
   return (
     <div className="relative">
@@ -140,6 +147,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
               alt="Profile"
               className="w-full h-full object-cover"
               onError={handleImageError}
+              onLoad={() => console.log("Profile image loaded successfully:", previewImage)}
               crossOrigin="anonymous"
             />
           ) : (
