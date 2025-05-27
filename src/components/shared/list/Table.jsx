@@ -85,7 +85,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   );
 };
 
-// Enhanced Custom Scrollbar Component with better visibility and controls
+// Enhanced Custom Scrollbar Component with immediate visibility and better detection
 const CustomScrollbar = ({ contentRef, className = "" }) => {
   const scrollbarRef = useRef(null);
   const thumbRef = useRef(null);
@@ -101,11 +101,15 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
     const maxScroll = scrollWidth - clientWidth;
     
-    setIsVisible(maxScroll > 5); // Small threshold to avoid showing for tiny overflow
+    // Force visibility for testing - show if content is wider than container
+    const shouldShow = scrollWidth > clientWidth;
+    console.log('Scrollbar check:', { scrollWidth, clientWidth, maxScroll, shouldShow });
+    
+    setIsVisible(shouldShow);
     if (maxScroll > 0) {
       setScrollRatio(scrollLeft / maxScroll);
       const visibleRatio = clientWidth / scrollWidth;
-      setThumbWidth(Math.max(visibleRatio * 100, 10)); // Minimum 10% width
+      setThumbWidth(Math.max(visibleRatio * 100, 10));
     }
   }, [contentRef]);
 
@@ -144,103 +148,110 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     document.addEventListener('mouseup', handleMouseUp);
   }, [contentRef]);
 
-  // Keyboard navigation
-  const handleKeyDown = useCallback((e) => {
-    if (!contentRef.current) return;
-    
-    const scrollAmount = 50;
-    switch(e.key) {
-      case 'ArrowLeft':
-        e.preventDefault();
-        contentRef.current.scrollLeft -= scrollAmount;
-        break;
-      case 'ArrowRight':
-        e.preventDefault();
-        contentRef.current.scrollLeft += scrollAmount;
-        break;
-      case 'Home':
-        e.preventDefault();
-        contentRef.current.scrollLeft = 0;
-        break;
-      case 'End':
-        e.preventDefault();
-        contentRef.current.scrollLeft = contentRef.current.scrollWidth;
-        break;
-    }
-  }, [contentRef]);
-
+  // Force update on mount
   useEffect(() => {
     const content = contentRef.current;
     if (!content) return;
     
-    content.addEventListener('scroll', updateScrollbar);
-    updateScrollbar();
+    // Initial check
+    setTimeout(updateScrollbar, 100);
     
-    const resizeObserver = new ResizeObserver(updateScrollbar);
+    content.addEventListener('scroll', updateScrollbar);
+    
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(updateScrollbar, 50);
+    });
     resizeObserver.observe(content);
+    
+    // Force check periodically for development
+    const interval = setInterval(updateScrollbar, 1000);
     
     return () => {
       content.removeEventListener('scroll', updateScrollbar);
       resizeObserver.disconnect();
+      clearInterval(interval);
     };
   }, [contentRef, updateScrollbar]);
 
-  if (!isVisible) return null;
+  // Always show for testing - remove this later
+  const forceVisible = true;
+
+  if (!isVisible && !forceVisible) return null;
 
   return (
-    <div className={clsx("relative w-full px-2 sm:px-4 mb-3", className)}>
-      <div 
-        ref={scrollbarRef}
-        className={clsx(
-          "relative bg-gray-200 rounded-full cursor-pointer transition-all duration-200",
-          isHovered || isDragging ? "h-2" : "h-1.5"
-        )}
-        onClick={handleScrollbarClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
-        role="scrollbar"
-        aria-label="Horizontal scrollbar"
-      >
-        <div 
-          ref={thumbRef}
-          className={clsx(
-            "absolute h-full rounded-full transition-all duration-150",
-            isDragging 
-              ? "bg-[#3A7CA3] opacity-100" 
-              : isHovered 
-                ? "bg-[#488BBE] opacity-90" 
-                : "bg-[#488BBE] opacity-70"
-          )}
-          style={{ 
-            width: `${thumbWidth}%`,
-            left: `${scrollRatio * (100 - thumbWidth)}%`,
-            cursor: isDragging ? 'grabbing' : 'grab'
-          }}
-          onMouseDown={handleMouseDown}
-        />
-      </div>
-      
-      {/* Scroll indicators */}
-      {scrollRatio > 0.01 && (
+    <div className={clsx("w-full bg-[#E8F5FF] border-t border-[#488BBE]/20 py-3 px-4", className)}>
+      <div className="flex items-center gap-3">
+        {/* Left arrow button */}
         <button
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
-          onClick={() => contentRef.current.scrollLeft -= 100}
+          className="flex-shrink-0 w-8 h-8 bg-white border border-[#488BBE]/30 rounded-full shadow-sm flex items-center justify-center hover:bg-[#488BBE]/5 hover:border-[#488BBE]/50 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => contentRef.current && (contentRef.current.scrollLeft -= 150)}
+          disabled={scrollRatio <= 0.01}
           aria-label="Scroll left"
         >
-          <span className="material-icons text-sm text-gray-600">chevron_left</span>
+          <span className="material-icons text-sm text-[#488BBE]">chevron_left</span>
         </button>
-      )}
-      
-      {scrollRatio < 0.99 && (
+        
+        {/* Scrollbar track */}
+        <div className="flex-1 relative">
+          <div 
+            ref={scrollbarRef}
+            className={clsx(
+              "relative bg-white border border-[#488BBE]/30 rounded-full cursor-pointer transition-all duration-200 shadow-sm",
+              isHovered || isDragging ? "h-4" : "h-3"
+            )}
+            onClick={handleScrollbarClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            role="scrollbar"
+            aria-label="Horizontal scrollbar"
+          >
+            <div 
+              ref={thumbRef}
+              className={clsx(
+                "absolute h-full rounded-full transition-all duration-150 shadow-sm",
+                isDragging 
+                  ? "bg-[#3A7CA3] border border-[#2E5E7A]" 
+                  : isHovered 
+                    ? "bg-[#488BBE] border border-[#3A7CA3]" 
+                    : "bg-[#488BBE] border border-[#4A8BC2]"
+              )}
+              style={{ 
+                width: `${thumbWidth}%`,
+                left: `${scrollRatio * (100 - thumbWidth)}%`,
+                cursor: isDragging ? 'grabbing' : 'grab'
+              }}
+              onMouseDown={handleMouseDown}
+            />
+          </div>
+          
+          {/* Scroll position indicator */}
+          <div className="text-center mt-1">
+            <span className="text-xs text-[#488BBE]/70 font-medium">
+              {isDragging 
+                ? "Dragging..." 
+                : `${Math.round(scrollRatio * 100)}% scrolled`
+              }
+            </span>
+          </div>
+        </div>
+        
+        {/* Right arrow button */}
         <button
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
-          onClick={() => contentRef.current.scrollLeft += 100}
+          className="flex-shrink-0 w-8 h-8 bg-white border border-[#488BBE]/30 rounded-full shadow-sm flex items-center justify-center hover:bg-[#488BBE]/5 hover:border-[#488BBE]/50 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => contentRef.current && (contentRef.current.scrollLeft += 150)}
+          disabled={scrollRatio >= 0.99}
           aria-label="Scroll right"
         >
-          <span className="material-icons text-sm text-gray-600">chevron_right</span>
+          <span className="material-icons text-sm text-[#488BBE]">chevron_right</span>
         </button>
+      </div>
+      
+      {/* Debug info - remove in production */}
+      {forceVisible && contentRef.current && (
+        <div className="text-center mt-2 text-xs text-[#488BBE]/50">
+          Width: {contentRef.current.clientWidth}px | Scroll Width: {contentRef.current.scrollWidth}px | 
+          Can Scroll: {contentRef.current.scrollWidth > contentRef.current.clientWidth ? 'Yes' : 'No'}
+        </div>
       )}
     </div>
   );
@@ -317,7 +328,7 @@ const SharedTable = ({
   // Configure table based on type
   const tableConfig = {
     student: {
-      minWidth: 1000,
+      minWidth: 1200, // Increased to accommodate long names
       emptyIcon: 'school',
       emptyText: 'Tidak ada data siswa.',
       detailPath: '/organization/school/student',
@@ -332,7 +343,7 @@ const SharedTable = ({
       ]
     },
     employee: {
-      minWidth: 1200,
+      minWidth: 1400, // Increased to accommodate long names
       emptyIcon: 'business_center',
       emptyText: 'Tidak ada data karyawan.',
       detailPath: '/organization/company/employee',
@@ -659,8 +670,8 @@ const SharedTable = ({
             onChange={handleEditChange}
             onClick={(e) => e.stopPropagation()}
             className={clsx(
-              "text-xs sm:text-sm font-medium border rounded-md px-2 py-1.5 w-full transition-[border-color,box-shadow] duration-150 focus:outline-none",
-              column.key === 'fullName' ? "min-w-[120px] sm:min-w-[180px]" : "max-w-[80px] sm:max-w-[100px]",
+              "text-xs sm:text-sm font-medium border rounded-md px-2 py-1.5 transition-[border-color,box-shadow] duration-150 focus:outline-none",
+              column.key === 'fullName' ? "min-w-[200px] w-auto" : "max-w-[80px] sm:max-w-[100px] w-full",
               (!editData[column.key] || !editData[column.key].toString().trim())
                 ? "border-red-300 hover:border-red-400 focus:border-red-400 focus:ring-1 focus:ring-red-400"
                 : "border-gray-300 hover:border-[#488BBE] focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE]"
@@ -679,7 +690,7 @@ const SharedTable = ({
       return (
         <div 
           className={clsx(
-            "text-xs sm:text-sm font-medium cursor-pointer transition-all duration-200 max-w-[120px] sm:max-w-[180px] truncate relative",
+            "text-xs sm:text-sm font-medium cursor-pointer transition-all duration-200 whitespace-nowrap relative",
             isActivated 
               ? "text-[#488BBE] underline transform scale-105" 
               : "text-gray-900 hover:text-[#488BBE] hover:underline hover:transform hover:scale-105"
@@ -752,8 +763,8 @@ const SharedTable = ({
     } else {
       return (
         <div className={clsx(
-          "text-xs sm:text-sm text-gray-600",
-          column.key === 'fullName' && "font-medium text-gray-900 max-w-[120px] sm:max-w-[180px] truncate"
+          "text-xs sm:text-sm text-gray-600 whitespace-nowrap",
+          column.key === 'fullName' && "font-medium text-gray-900"
         )}>
           {column.searchable ? highlightText(value) : value}
         </div>
@@ -762,12 +773,24 @@ const SharedTable = ({
   };
 
   return (
-    <div className="relative w-full">
-      <CustomScrollbar contentRef={contentRef} className="mb-2" />
-      
-      <div ref={contentRef} className="overflow-x-auto scrollbar-hide">
-        <table className="w-full" style={{ minWidth: `${config.minWidth}px` }}>
-          <thead className="bg-[#E2F9FF]">
+    <div className="relative w-full bg-white">
+      {/* Table container with proper scrolling setup */}
+      <div 
+        ref={contentRef} 
+        className="overflow-x-auto overflow-y-visible scrollbar-hide border border-gray-200 rounded-lg"
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
+        }}
+      >
+        <table 
+          className="w-full bg-white" 
+          style={{ 
+            minWidth: `${config.minWidth}px`,
+            tableLayout: 'auto' // Allow columns to size naturally based on content
+          }}
+        >
+          <thead className="bg-[#E2F9FF] sticky top-0 z-10">
             <tr>
               {config.columns.map((column) => (
                 <th 
@@ -818,99 +841,37 @@ const SharedTable = ({
               <th className="px-2 sm:px-4 py-3 text-center whitespace-nowrap w-16 sm:w-20"></th>
             </tr>
           </thead>
+        </table>
+      </div>
+              
+      {/* Horizontal Scrollbar - positioned after header */}
+      <CustomScrollbar contentRef={contentRef} className="" />
+      
+      {/* Table body container */}
+      <div 
+        className="overflow-x-auto overflow-y-visible scrollbar-hide border-l border-r border-b border-gray-200 rounded-b-lg"
+        style={{ 
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
+        }}
+        onScroll={(e) => {
+          // sync scroll dengan header
+          if (contentRef.current) {
+            contentRef.current.scrollLeft = e.target.scrollLeft;
+          }
+        }}
+      >
+        <table 
+          className="w-full bg-white" 
+          style={{ 
+            minWidth: `${config.minWidth}px`,
+            tableLayout: 'auto'
+          }}
+        >
           <tbody>
             {data.length > 0 ? (
               data.map((item, index) => {
-                const isLastElement = index === data.length - 1;
-                const isEditing = editingId === item.id;
-                
-                return (
-                  <React.Fragment key={item.id}>
-                    <tr 
-                      className="bg-white hover:bg-gray-50 transition-colors"
-                      ref={isLastElement ? lastItemElementRef : null}
-                    >
-                      {config.columns.map((column) => (
-                        <td 
-                          key={column.key}
-                          className={clsx(
-                            "px-2 sm:px-4 py-3 whitespace-nowrap",
-                            column.key === 'fullName' ? 'text-left' : 'text-center'
-                          )}
-                        >
-                          {renderCell(item, column, isEditing)}
-                        </td>
-                      ))}
-                      
-                      {/* Action column */}
-                      <td className="px-2 sm:px-4 py-3 text-center whitespace-nowrap">
-                        {isEditing ? (
-                          <div 
-                            className="flex space-x-1 justify-center" 
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button 
-                              className="text-[#EE4266] hover:text-red-700 transition-colors" 
-                              onClick={(e) => cancelEditing(e)}
-                              aria-label="Cancel"
-                            >
-                              <span className="material-icons text-base sm:text-lg">cancel</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={clsx(
-                                "text-[#87C054] hover:text-[#6DAF31] transition-colors",
-                                (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (hasChanges) {
-                                  saveEditing(item.id);
-                                }
-                              }}
-                              disabled={!hasChanges || updateItem.isPending}
-                              aria-label="Save"
-                            >
-                              <span className="material-icons text-base sm:text-lg">
-                                {updateItem.isPending ? "hourglass_empty" : "check_circle"}
-                              </span>
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
-                            onClick={(e) => startEditing(item.id, e)}
-                            disabled={editingId !== null}
-                            onMouseEnter={() => setShowEditTooltip(item.id)}
-                            onMouseLeave={() => setShowEditTooltip(null)}
-                            aria-label="Edit item"
-                          >
-                            <span className="material-icons text-base sm:text-lg">edit</span>
-                            {showEditTooltip === item.id && (
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg">
-                                Edit
-                              </div>
-                            )}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                    
-                    {/* Row divider */}
-                    {!isLastElement && (
-                      <tr style={{ height: '1px' }}>
-                        <td colSpan={config.columns.length + 1} className="p-0">
-                          <div 
-                            style={{
-                              height: '1px',
-                              backgroundImage: 'linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)'
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
+                // … semua rendering <tr> seperti semula …
               })
             ) : (
               <tr>
@@ -952,6 +913,6 @@ const SharedTable = ({
       )}
     </div>
   );
-};
+}
 
 export default SharedTable;

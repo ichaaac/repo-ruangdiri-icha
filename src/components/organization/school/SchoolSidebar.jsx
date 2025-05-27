@@ -20,7 +20,6 @@ const SchoolSidebar = ({ expanded, setExpanded, onHoverChange }) => {
   const collapsedWidth = 59;
   const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth;
 
-  // Sidebar enter/leave handlers with whole sidebar area
   const handleSidebarMouseEnter = () => {
     if (!expanded) {
       clearTimeout(collapseTimeoutRef.current);

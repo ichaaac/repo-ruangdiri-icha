@@ -1,11 +1,12 @@
-// src/components/shared/ListPage.jsx - Complete List Page Handler
+// src/components/shared/ListPage.jsx - Fixed List Page with Horizontal Scrollbar
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import useDebounce from "@/hooks/useDebounce";
 import SharedTable from "./Table";
+
 /**
- * Complete Shared List Page Component
+ * Complete Shared List Page Component with Fixed Horizontal Scrollbar
  * @param {Object} props
  * @param {string} props.type - "student" or "employee"
  * @param {Function} props.useDataHook - Custom hook for fetching data
@@ -183,7 +184,7 @@ const SharedListPage = ({
   }
 
   return (
-    <>
+    <div className="w-full">
       {/* Top bar with language and notifications */}
       <div className="flex items-center justify-end px-3 sm:px-4 md:px-6 pt-4 sm:pt-6 md:pt-8">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
@@ -248,8 +249,8 @@ const SharedListPage = ({
         </div>
       </div>
 
-      {/* Search and filter section */}
-      <div className="px-3 sm:px-4 md:px-6 lg:px-8 pb-6 sm:pb-8 mt-4 sm:mt-6 md:mt-8">
+      {/* Search and filter section - with proper padding */}
+      <div className="px-3 sm:px-4 md:px-6 mt-4 sm:mt-6 md:mt-8 mb-4 sm:mb-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-[21px]">
           {/* Search input */}
           <div className="relative w-full sm:max-w-xs md:max-w-sm lg:max-w-md">
@@ -289,32 +290,32 @@ const SharedListPage = ({
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Data table */}
-        <div className="relative" style={{ zIndex: 1 }}>
-          {isLoading ? (
-            <div className="py-6 sm:py-8 text-center">
-              <span className="material-icons animate-spin text-[#488BBE] text-xl sm:text-2xl">refresh</span>
-              <p className="text-[#488BBE] text-xs sm:text-sm mt-2">Loading...</p>
-            </div>
-          ) : (
-            <SharedTable
-              type={type}
-              data={listData}
-              searchInput={debouncedSearchTerm}
-              getSortIcon={getSortIcon}
-              requestSort={requestSort}
-              fetchNextPage={fetchNextPage}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              updateItem={updateFunction}
-              optionsData={optionsForFilters}
-              resetEditMode={resetEditModeRef}
-              filtersChanged={filtersChanged}
-              isLoading={isLoading}
-            />
-          )}
-        </div>
+      {/* Data table container - FIXED: No horizontal padding to allow full-width scrolling */}
+      <div className="w-full overflow-hidden">
+        {isLoading ? (
+          <div className="py-6 sm:py-8 text-center">
+            <span className="material-icons animate-spin text-[#488BBE] text-xl sm:text-2xl">refresh</span>
+            <p className="text-[#488BBE] text-xs sm:text-sm mt-2">Loading...</p>
+          </div>
+        ) : (
+          <SharedTable
+            type={type}
+            data={listData}
+            searchInput={debouncedSearchTerm}
+            getSortIcon={getSortIcon}
+            requestSort={requestSort}
+            fetchNextPage={fetchNextPage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            updateItem={updateFunction}
+            optionsData={optionsForFilters}
+            resetEditMode={resetEditModeRef}
+            filtersChanged={filtersChanged}
+            isLoading={isLoading}
+          />
+        )}
       </div>
 
       {/* Filter modal */}
@@ -332,7 +333,7 @@ const SharedListPage = ({
           />
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 };
 
