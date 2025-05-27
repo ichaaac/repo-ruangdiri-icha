@@ -202,7 +202,7 @@ const ProfilePage = ({
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center p-4 sm:p-5 bg-white rounded-xl border border-gray-300">
               <div className="flex-shrink-0 mx-auto sm:mx-0">
                 <ProfilePictureUpload
-                  currentProfilePicture={userData?.profilePicture || userData?.organization?.profilePicture || null}
+                  currentProfilePicture={userData?.profilePicture || null}
                   organizationType={organizationType}
                 />
               </div>

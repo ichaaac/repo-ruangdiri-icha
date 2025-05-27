@@ -99,7 +99,30 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
   // Fixed image error handler that won't cause infinite renders
   const handleImageError = () => {
     console.log("Sidebar profile image failed to load:", userData?.profilePicture)
-    setFallbackProfileImage(true)
+
+    // If it's an ngrok URL, try to load it differently
+    if (userData?.profilePicture && userData.profilePicture.includes("ngrok-free.app")) {
+      console.log("Detected ngrok URL in sidebar, trying alternative loading method")
+
+      // Try to fetch the image as blob and create object URL
+      fetch(userData.profilePicture, {
+        mode: "no-cors",
+        method: "GET",
+      })
+        .then((response) => response.blob())
+        .then((blob) => {
+          const objectUrl = URL.createObjectURL(blob)
+          // We need to update the userData or use a local state for the image
+          // For now, just set fallback to true
+          setFallbackProfileImage(true)
+        })
+        .catch((err) => {
+          console.log("Alternative loading also failed in sidebar:", err)
+          setFallbackProfileImage(true)
+        })
+    } else {
+      setFallbackProfileImage(true)
+    }
   }
 
   // Check if organization name is long

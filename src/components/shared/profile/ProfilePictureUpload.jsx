@@ -127,14 +127,42 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   // Handle image load error
   const handleImageError = () => {
     console.log("Profile image failed to load:", previewImage)
-    // console.log("Current userData:", userData) // userData is not defined in this scope
-    setImageError(true)
+
+    // If it's an ngrok URL, try to load it differently
+    if (previewImage && previewImage.includes("ngrok-free.app")) {
+      console.log("Detected ngrok URL, trying alternative loading method")
+
+      // Try to fetch the image as blob and create object URL
+      fetch(previewImage, {
+        mode: "no-cors",
+        method: "GET",
+      })
+        .then((response) => response.blob())
+        .then((blob) => {
+          const objectUrl = URL.createObjectURL(blob)
+          setPreviewImage(objectUrl)
+          setImageError(false)
+        })
+        .catch((err) => {
+          console.log("Alternative loading also failed:", err)
+          setImageError(true)
+        })
+    } else {
+      setImageError(true)
+    }
   }
 
   // Add useEffect to debug when previewImage changes
   useEffect(() => {
     console.log("Preview image updated:", previewImage)
     console.log("Image error state:", imageError)
+
+    // Cleanup object URLs when component unmounts
+    return () => {
+      if (previewImage && previewImage.startsWith("blob:")) {
+        URL.revokeObjectURL(previewImage)
+      }
+    }
   }, [previewImage, imageError])
 
   return (

@@ -177,12 +177,12 @@ export const useClassrooms = () => {
         const response = await api.students.getAcademicInfo();
         
         // Parse the classroom data exactly as returned from API
-        const classroomsResult = response?.data?.classroomsResult || [];
-        const gradesResult = response?.data?.gradesResult || [];
+        const classrooms = response?.data?.classrooms || [];
+        const gradesResult = response?.data?.grades || [];
         
         // Extract class numbers from classroom strings
         const classNumbers = new Set();
-        classroomsResult.forEach(classroom => {
+        classrooms.forEach(classroom => {
           const parts = classroom.split('-');
           if (parts.length > 1) {
             // Get everything after the first dash
@@ -196,7 +196,7 @@ export const useClassrooms = () => {
         return {
           gradesResult,
           classNumbers: Array.from(classNumbers),
-          classroomsResult
+          classrooms
         };
       } catch (error) {
         console.error("Error in useClassrooms:", error);

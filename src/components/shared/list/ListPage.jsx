@@ -1,14 +1,130 @@
-"use client"
-
 // src/components/shared/ListPage.jsx - Fixed List Page with Horizontal Scrollbar
-import { useMemo, useRef, useState, useEffect } from "react"
+import { useMemo, useRef, useState, useEffect, useCallback } from "react"
 import { AnimatePresence } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"
 import useDebounce from "@/hooks/useDebounce"
 import SharedTable from "./Table"
+import clsx from "clsx"
+
+// Custom Scrollbar Component for ListPage
+const ListPageScrollbar = ({ tableRef }) => {
+  const scrollbarRef = useRef(null)
+  const thumbRef = useRef(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [scrollInfo, setScrollInfo] = useState({ scrollRatio: 0, thumbWidth: 100, maxScroll: 0, needsScrollbar: false })
+
+  const updateScrollInfo = useCallback(() => {
+    if (!tableRef.current) {
+      setScrollInfo({ scrollRatio: 0, thumbWidth: 100, maxScroll: 0, needsScrollbar: false })
+      return
+    }
+
+    const { scrollLeft, scrollWidth, clientWidth } = tableRef.current
+    const maxScroll = scrollWidth - clientWidth
+    const needsScrollbar = maxScroll > 10
+
+    if (!needsScrollbar) {
+      setScrollInfo({ scrollRatio: 0, thumbWidth: 100, maxScroll: 0, needsScrollbar: false })
+      return
+    }
+
+    const scrollRatio = scrollLeft / maxScroll
+    const visibleRatio = clientWidth / scrollWidth
+    const thumbWidth = Math.max(visibleRatio * 100, 15)
+
+    setScrollInfo({ scrollRatio, thumbWidth, maxScroll, needsScrollbar })
+  }, [tableRef])
+
+  useEffect(() => {
+    const element = tableRef.current
+    if (!element) return
+
+    const handleScroll = () => updateScrollInfo()
+    updateScrollInfo()
+
+    element.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', updateScrollInfo)
+
+    // Observer for content changes
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(updateScrollInfo, 10)
+    })
+    resizeObserver.observe(element)
+
+    return () => {
+      element.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', updateScrollInfo)
+      resizeObserver.disconnect()
+    }
+  }, [updateScrollInfo])
+
+  const handleScrollbarClick = useCallback((e) => {
+    if (!tableRef.current || !scrollbarRef.current || e.target === thumbRef.current) return
+
+    const rect = scrollbarRef.current.getBoundingClientRect()
+    const percentage = (e.clientX - rect.left) / rect.width
+    const newScrollLeft = percentage * scrollInfo.maxScroll
+
+    tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, scrollInfo.maxScroll))
+  }, [scrollInfo.maxScroll, tableRef])
+
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(true)
+
+    const startX = e.clientX
+    const startScrollLeft = tableRef.current?.scrollLeft || 0
+    const scrollbarWidth = scrollbarRef.current?.offsetWidth || 1
+
+    const handleMouseMove = (moveEvent) => {
+      if (!tableRef.current) return
+
+      const deltaX = moveEvent.clientX - startX
+      const percentage = deltaX / scrollbarWidth
+      const newScrollLeft = startScrollLeft + percentage * scrollInfo.maxScroll
+
+      tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, scrollInfo.maxScroll))
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    document.addEventListener("mousemove", handleMouseMove)
+    document.addEventListener("mouseup", handleMouseUp)
+  }, [scrollInfo.maxScroll, tableRef])
+
+  if (!scrollInfo.needsScrollbar) return null
+
+  return (
+    <div className="w-full h-4 px-3 sm:px-4 md:px-6 mb-2">
+      <div
+        ref={scrollbarRef}
+        className="relative h-2 bg-gray-200 rounded-full cursor-pointer hover:bg-gray-300 transition-colors"
+        onClick={handleScrollbarClick}
+      >
+        <div
+          ref={thumbRef}
+          className={clsx(
+            "absolute h-full bg-[#488BBE] rounded-full transition-all duration-150",
+            isDragging ? "opacity-100 bg-[#3399e9]" : "opacity-80 hover:opacity-100 hover:bg-[#3399e9]"
+          )}
+          style={{
+            width: `${scrollInfo.thumbWidth}%`,
+            left: `${scrollInfo.scrollRatio * (100 - scrollInfo.thumbWidth)}%`,
+            cursor: isDragging ? "grabbing" : "grab",
+          }}
+          onMouseDown={handleMouseDown}
+        />
+      </div>
+    </div>
+  )
+}
 
 /**
- * Complete Shared List Page Component with Fixed Horizontal Scrollbar
+ * Complete Shared List Page Component with Horizontal Scrollbar
  * @param {Object} props
  * @param {string} props.type - "student" or "employee"
  * @param {Function} props.useDataHook - Custom hook for fetching data
@@ -19,6 +135,7 @@ import SharedTable from "./Table"
 const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOptionsHook, FiltersComponent }) => {
   const { user } = useAuth()
   const resetEditModeRef = useRef(null)
+  const tableRef = useRef(null)
   const [filtersChanged, setFiltersChanged] = useState(false)
 
   const {
@@ -97,7 +214,7 @@ const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOpti
       }
     } else if (type === "student" && optionsData) {
       return {
-        classrooms: optionsData.classroomsResult || optionsData.classNumbers || [],
+        classrooms: optionsData.classrooms || optionsData.classNumbers || [],
         grades: optionsData.gradesResult || ["A", "B", "C", "D"],
       }
     }
@@ -304,8 +421,11 @@ const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOpti
         </div>
       </div>
 
-      {/* Data table container - FIXED: Remove overflow-hidden to allow horizontal scrolling */}
-      <div className="w-full">
+      {/* Horizontal Scrollbar - positioned above table */}
+      <ListPageScrollbar tableRef={tableRef} />
+
+      {/* Data table container with proper padding */}
+      <div className="px-3 sm:px-4 md:px-6">
         {isLoading ? (
           <div className="py-6 sm:py-8 text-center">
             <span className="material-icons animate-spin text-[#488BBE] text-xl sm:text-2xl">refresh</span>
@@ -313,6 +433,7 @@ const SharedListPage = ({ type = "student", useDataHook, useFiltersHook, useOpti
           </div>
         ) : (
           <SharedTable
+            ref={tableRef}
             type={type}
             data={listData}
             searchInput={debouncedSearchTerm}
