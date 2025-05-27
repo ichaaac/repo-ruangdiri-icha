@@ -184,12 +184,13 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
         >
           {/* Profile Picture - Fixed Position */}
           <motion.div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-            {(userData?.profilePicture || userData?.organization?.profilePicture) && !fallbackProfileImage ? (
+            {userData?.profilePicture && !fallbackProfileImage ? (
               <img
-                src={userData?.profilePicture || userData?.organization?.profilePicture}
+                src={userData.profilePicture || "/placeholder.svg"}
                 alt="Organization"
                 className="w-full h-full object-cover"
                 onError={handleImageError}
+                crossOrigin="anonymous"
               />
             ) : (
               <motion.div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">

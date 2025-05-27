@@ -91,7 +91,6 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   const [isDragging, setIsDragging] = useState(false)
   const [scrollRatio, setScrollRatio] = useState(0)
   const [thumbWidth, setThumbWidth] = useState(20)
-  const [showScrollbar, setShowScrollbar] = useState(false)
 
   const updateScrollbar = useCallback(() => {
     if (!contentRef.current) return
@@ -100,12 +99,10 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     const maxScroll = scrollWidth - clientWidth
 
     if (maxScroll > 0) {
-      setShowScrollbar(true)
       setScrollRatio(scrollLeft / maxScroll)
       const visibleRatio = clientWidth / scrollWidth
       setThumbWidth(Math.max(visibleRatio * 100, 10))
     } else {
-      setShowScrollbar(false)
       setScrollRatio(0)
       setThumbWidth(20)
     }
@@ -181,8 +178,7 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     }
   }, [contentRef, updateScrollbar])
 
-  if (!showScrollbar) return null
-
+  // Always show scrollbar, let CSS handle visibility
   return (
     <div className={clsx("relative w-full h-3 px-4 mb-2", className)}>
       <div

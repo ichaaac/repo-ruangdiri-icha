@@ -45,18 +45,21 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
     onSuccess: (response) => {
       console.log("Profile picture upload success:", response)
 
-      // Force refetch user data
+      // Force refetch user data immediately and after delay
       queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+      queryClient.refetchQueries({ queryKey: ["currentUser"] })
 
-      // Also refetch after a short delay to ensure backend is updated
+      // Also refetch after a longer delay to ensure backend is updated
       setTimeout(() => {
         queryClient.refetchQueries({ queryKey: ["currentUser"] })
-      }, 500)
+      }, 1000)
 
       // Set preview image from response - check both locations
       let newImageUrl = null
       if (response?.data?.profilePicture) {
         newImageUrl = response.data.profilePicture
+      } else if (response?.data?.organization?.profilePicture) {
+        newImageUrl = response.data.organization.profilePicture
       }
 
       if (newImageUrl) {
@@ -116,13 +119,14 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
     fileInputRef.current.click()
   }
 
+  // Get appropriate fallback icon based on organization type
   const getFallbackIcon = () => {
-    return organizationType === "company" 
+    return organizationType === "company" ? "business" : "person"
   }
 
   // Handle image load error
   const handleImageError = () => {
-    console.error("Profile image failed to load")
+    console.log("Profile image failed to load")
     setImageError(true)
   }
 
@@ -136,6 +140,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
               alt="Profile"
               className="w-full h-full object-cover"
               onError={handleImageError}
+              crossOrigin="anonymous"
             />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
