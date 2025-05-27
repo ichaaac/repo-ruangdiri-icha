@@ -1,4 +1,3 @@
-"use client"
 
 // src/components/shared/layout/Sidebar.jsx
 import { useState, useEffect, useRef } from "react"
@@ -89,7 +88,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
     }
 
     document.addEventListener("mousedown", handleClickOutside)
-    return () => {
+    return () => {``
       document.removeEventListener("mousedown", handleClickOutside)
       clearTimeout(expandTimeoutRef.current)
       clearTimeout(collapseTimeoutRef.current)
@@ -210,13 +209,12 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
           <motion.div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
             {userData?.profilePicture && !fallbackProfileImage ? (
               <img
-                src={userData.profilePicture || "/placeholder.svg"}
-                alt="Organization"
-                className="w-full h-full object-cover"
-                onError={handleImageError}
-                onLoad={() => console.log("Sidebar profile image loaded:", userData.profilePicture)}
-                crossOrigin="anonymous"
-              />
+              src={userData.profilePicture}
+              alt="Organization"
+              className="w-full h-full object-cover"
+              onError={() => setFallbackProfileImage(true)}
+            />
+            
             ) : (
               <motion.div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
                 {getInitial()}

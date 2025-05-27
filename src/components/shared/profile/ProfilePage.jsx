@@ -1,4 +1,3 @@
-"use client"
 
 // src/components/shared/profile/ProfilePage.jsx
 import { useState } from "react"
@@ -201,10 +200,10 @@ const ProfilePage = ({
           <section className="mb-5">
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center p-4 sm:p-5 bg-white rounded-xl border border-gray-300">
               <div className="flex-shrink-0 mx-auto sm:mx-0">
-                <ProfilePictureUpload
-                  currentProfilePicture={userData?.profilePicture || null}
-                  organizationType={organizationType}
-                />
+              <ProfilePictureUpload
+                currentProfilePicture={userData?.profilePicture || null}
+                organizationType={organizationType}
+              />
               </div>
               <div className="flex flex-col gap-1.5 text-center sm:text-left w-full sm:w-auto">
                 <h2 className="text-base font-bold text-neutral-600">{userData?.fullName || "-"}</h2>

@@ -198,13 +198,13 @@ export const SharedProfile = ({
       </h1>
       
       {/* Profile Picture */}
-      <div className="flex justify-center mb-8 sm:mb-12">
+      <div className="flex justify-start mb-8 sm:mb-12">
         <div className="w-[180px] sm:w-[202px] h-[180px] sm:h-[202px] rounded-full overflow-hidden shadow-sm bg-gray-100 border flex items-center justify-center">
           {data?.profilePicture ? (
             <img 
               src={data.profilePicture} 
               alt={`${type} profile`}
-              className="object-cover w-full h-full"
+              className="object-cover w-full h-full justify-start"
             />
           ) : (
             <span 

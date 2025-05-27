@@ -128,28 +128,8 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   const handleImageError = () => {
     console.log("Profile image failed to load:", previewImage)
 
-    // If it's an ngrok URL, try to load it differently
-    if (previewImage && previewImage.includes("ngrok-free.app")) {
-      console.log("Detected ngrok URL, trying alternative loading method")
+    setImageError(true)
 
-      // Try to fetch the image as blob and create object URL
-      fetch(previewImage, {
-        mode: "no-cors",
-        method: "GET",
-      })
-        .then((response) => response.blob())
-        .then((blob) => {
-          const objectUrl = URL.createObjectURL(blob)
-          setPreviewImage(objectUrl)
-          setImageError(false)
-        })
-        .catch((err) => {
-          console.log("Alternative loading also failed:", err)
-          setImageError(true)
-        })
-    } else {
-      setImageError(true)
-    }
   }
 
   // Add useEffect to debug when previewImage changes
@@ -176,7 +156,6 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
               className="w-full h-full object-cover"
               onError={handleImageError}
               onLoad={() => console.log("Profile image loaded successfully:", previewImage)}
-              crossOrigin="anonymous"
             />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
