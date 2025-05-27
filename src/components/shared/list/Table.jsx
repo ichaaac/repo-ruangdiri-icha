@@ -1,4 +1,4 @@
-// src/components/shared/list/Table.jsx - Complete Shared Table Component
+// src/components/shared/list/Table.jsx - Enhanced Shared Table Component
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, Transition } from '@headlessui/react';
@@ -85,7 +85,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   );
 };
 
-// Enhanced Custom Scrollbar Component
+// Enhanced Custom Scrollbar Component with better visibility and controls
 const CustomScrollbar = ({ contentRef, className = "" }) => {
   const scrollbarRef = useRef(null);
   const thumbRef = useRef(null);
@@ -93,6 +93,7 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   const [scrollRatio, setScrollRatio] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [thumbWidth, setThumbWidth] = useState(20);
+  const [isHovered, setIsHovered] = useState(false);
 
   const updateScrollbar = useCallback(() => {
     if (!contentRef.current) return;
@@ -100,11 +101,11 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     const { scrollLeft, scrollWidth, clientWidth } = contentRef.current;
     const maxScroll = scrollWidth - clientWidth;
     
-    setIsVisible(maxScroll > 0);
+    setIsVisible(maxScroll > 5); // Small threshold to avoid showing for tiny overflow
     if (maxScroll > 0) {
       setScrollRatio(scrollLeft / maxScroll);
       const visibleRatio = clientWidth / scrollWidth;
-      setThumbWidth(Math.max(visibleRatio * 100, 15));
+      setThumbWidth(Math.max(visibleRatio * 100, 10)); // Minimum 10% width
     }
   }, [contentRef]);
 
@@ -143,6 +144,31 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
     document.addEventListener('mouseup', handleMouseUp);
   }, [contentRef]);
 
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e) => {
+    if (!contentRef.current) return;
+    
+    const scrollAmount = 50;
+    switch(e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        contentRef.current.scrollLeft -= scrollAmount;
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        contentRef.current.scrollLeft += scrollAmount;
+        break;
+      case 'Home':
+        e.preventDefault();
+        contentRef.current.scrollLeft = 0;
+        break;
+      case 'End':
+        e.preventDefault();
+        contentRef.current.scrollLeft = contentRef.current.scrollWidth;
+        break;
+    }
+  }, [contentRef]);
+
   useEffect(() => {
     const content = contentRef.current;
     if (!content) return;
@@ -162,17 +188,30 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
   if (!isVisible) return null;
 
   return (
-    <div className={clsx("relative w-full h-3 px-2 sm:px-4 mb-2", className)}>
+    <div className={clsx("relative w-full px-2 sm:px-4 mb-3", className)}>
       <div 
         ref={scrollbarRef}
-        className="relative h-1 bg-gray-200 rounded-full cursor-pointer"
+        className={clsx(
+          "relative bg-gray-200 rounded-full cursor-pointer transition-all duration-200",
+          isHovered || isDragging ? "h-2" : "h-1.5"
+        )}
         onClick={handleScrollbarClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="scrollbar"
+        aria-label="Horizontal scrollbar"
       >
         <div 
           ref={thumbRef}
           className={clsx(
-            "absolute h-full bg-[#488BBE] rounded-full transition-opacity",
-            isDragging ? "opacity-100" : "opacity-80 hover:opacity-100"
+            "absolute h-full rounded-full transition-all duration-150",
+            isDragging 
+              ? "bg-[#3A7CA3] opacity-100" 
+              : isHovered 
+                ? "bg-[#488BBE] opacity-90" 
+                : "bg-[#488BBE] opacity-70"
           )}
           style={{ 
             width: `${thumbWidth}%`,
@@ -182,6 +221,27 @@ const CustomScrollbar = ({ contentRef, className = "" }) => {
           onMouseDown={handleMouseDown}
         />
       </div>
+      
+      {/* Scroll indicators */}
+      {scrollRatio > 0.01 && (
+        <button
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+          onClick={() => contentRef.current.scrollLeft -= 100}
+          aria-label="Scroll left"
+        >
+          <span className="material-icons text-sm text-gray-600">chevron_left</span>
+        </button>
+      )}
+      
+      {scrollRatio < 0.99 && (
+        <button
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-gray-300 rounded-full shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+          onClick={() => contentRef.current.scrollLeft += 100}
+          aria-label="Scroll right"
+        >
+          <span className="material-icons text-sm text-gray-600">chevron_right</span>
+        </button>
+      )}
     </div>
   );
 };
@@ -249,6 +309,7 @@ const SharedTable = ({
   const [hoveredStatus, setHoveredStatus] = useState(null);
   const [showEditTooltip, setShowEditTooltip] = useState(null);
   const [activatedNames, setActivatedNames] = useState(new Set());
+  const [clickTimeouts, setClickTimeouts] = useState(new Map());
   const helpIconRef = useRef(null);
   const observerRef = useRef(null);
   const contentRef = useRef(null);
@@ -259,6 +320,7 @@ const SharedTable = ({
       minWidth: 1000,
       emptyIcon: 'school',
       emptyText: 'Tidak ada data siswa.',
+      detailPath: '/organization/school/student',
       columns: [
         { key: 'fullName', label: 'NAMA', sortable: true, searchable: true, clickable: true },
         { key: 'classroom', label: 'KELAS', compound: true },
@@ -270,11 +332,12 @@ const SharedTable = ({
       ]
     },
     employee: {
-      minWidth: 1000,
+      minWidth: 1200,
       emptyIcon: 'business_center',
       emptyText: 'Tidak ada data karyawan.',
+      detailPath: '/organization/company/employee',
       columns: [
-        { key: 'fullName', label: 'NAMA', sortable: true, searchable: true },
+        { key: 'fullName', label: 'NAMA', sortable: true, searchable: true, clickable: true },
         { key: 'department', label: 'DEPARTEMEN', dropdown: true },
         { key: 'position', label: 'JABATAN', dropdown: true },
         { key: 'gender', label: 'JENIS KELAMIN', mobileLabel: 'GENDER', dropdown: true },
@@ -303,9 +366,12 @@ const SharedTable = ({
         setEditingId(null);
         setEditData({});
         setActivatedNames(new Set());
+        // Clear all timeouts
+        clickTimeouts.forEach(timeout => clearTimeout(timeout));
+        setClickTimeouts(new Map());
       };
     }
-  }, [resetEditMode]);
+  }, [resetEditMode, clickTimeouts]);
 
   // Infinite scroll observer
   const lastItemElementRef = useCallback(node => {
@@ -319,10 +385,8 @@ const SharedTable = ({
     if (node) observerRef.current.observe(node);
   }, [isFetchingNextPage, hasNextPage, fetchNextPage]);
 
-  // Handle name click for navigation (students only)
+  // Enhanced name click handler for both student and employee with double-click detection
   const handleNameClick = (id, e) => {
-    if (type !== "student") return;
-    
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -330,18 +394,41 @@ const SharedTable = ({
     
     if (editingId !== null) return;
     
-    if (activatedNames.has(id)) {
-      navigate(`/organization/school/student/${id}`);
+    // Check if there's already a timeout for this ID (first click)
+    const existingTimeout = clickTimeouts.get(id);
+    
+    if (existingTimeout) {
+      // This is the second click - clear timeout and navigate
+      clearTimeout(existingTimeout);
+      setClickTimeouts(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(id);
+        return newMap;
+      });
+      
+      // Navigate to detail page
+      navigate(`${config.detailPath}/${id}`);
       setActivatedNames(new Set());
+      
     } else {
+      // This is the first click - set visual feedback and timeout
       setActivatedNames(new Set([id]));
-      setTimeout(() => {
+      
+      const timeout = setTimeout(() => {
+        // Single click timeout - remove visual feedback
         setActivatedNames(prev => {
           const newSet = new Set(prev);
           newSet.delete(id);
           return newSet;
         });
-      }, 3000);
+        setClickTimeouts(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(id);
+          return newMap;
+        });
+      }, 500); // 500ms window for double-click
+      
+      setClickTimeouts(prev => new Map(prev).set(id, timeout));
     }
   };
 
@@ -585,19 +672,32 @@ const SharedTable = ({
     }
     
     // Display mode
-    if (column.clickable && type === "student") {
+    if (column.clickable) {
+      const isActivated = activatedNames.has(item.id);
+      const hasTimeout = clickTimeouts.has(item.id);
+      
       return (
         <div 
           className={clsx(
-            "text-xs sm:text-sm font-medium cursor-pointer transition-colors max-w-[120px] sm:max-w-[180px] truncate",
-            activatedNames.has(item.id) 
-              ? "text-[#488BBE] underline" 
-              : "text-gray-900 hover:text-[#488BBE] hover:underline"
+            "text-xs sm:text-sm font-medium cursor-pointer transition-all duration-200 max-w-[120px] sm:max-w-[180px] truncate relative",
+            isActivated 
+              ? "text-[#488BBE] underline transform scale-105" 
+              : "text-gray-900 hover:text-[#488BBE] hover:underline hover:transform hover:scale-105"
           )}
-          title={value}
+          title={`${value} - Double-click to view details`}
           onClick={(e) => handleNameClick(item.id, e)}
         >
           {column.searchable ? highlightText(value) : value}
+          {hasTimeout && (
+            <motion.div
+              className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-[#488BBE] text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+            >
+              Click again to view details
+            </motion.div>
+          )}
         </div>
       );
     } else if (column.compound && type === "student") {
@@ -675,7 +775,7 @@ const SharedTable = ({
                   className={clsx(
                     "px-2 sm:px-4 py-3 text-[10px] sm:text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap",
                     column.key === 'fullName' ? 'text-left' : 'text-center',
-                    column.sortable && 'cursor-pointer'
+                    column.sortable && 'cursor-pointer hover:bg-[#D1F4FF] transition-colors'
                   )}
                   onClick={column.sortable ? () => requestSort(column.key) : undefined}
                 >
