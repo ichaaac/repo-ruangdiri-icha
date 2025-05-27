@@ -152,7 +152,7 @@ const SharedTable = forwardRef(
       filtersChanged,
       isLoading = false,
     },
-  ref,
+    ref,
   ) => {
     const [editingId, setEditingId] = useState(null)
     const [editData, setEditData] = useState({})
@@ -513,7 +513,7 @@ const SharedTable = forwardRef(
                 <th
                   className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
                   data-name-column="true"
-                  style={{ minWidth: "200px" }}
+                  style={{ minWidth: "300px", width: "300px", maxWidth: "none" }}
                 >
                   <div className="flex items-center gap-1">
                     <span>NAMA</span>
@@ -659,12 +659,12 @@ const SharedTable = forwardRef(
                             name="fullName"
                             value={editData.fullName}
                             onChange={handleEditChange}
-                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[300px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                           />
                         ) : (
                           <div
                             className={clsx(
-                              "text-sm font-medium cursor-pointer truncate",
+                              "text-sm font-medium cursor-pointer break-words",
                               isClicked ? "text-[#488BBE] underline" : "text-gray-900",
                             )}
                             onClick={(e) => handleNameClick(item.id, e)}
