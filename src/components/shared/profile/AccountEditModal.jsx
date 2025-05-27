@@ -1,5 +1,5 @@
-// src/components/shared/AccountEditModal.jsx
-import React, { useState, useEffect } from "react";
+// src/components/shared/AccountEditModal.jsx - Fixed button enable logic
+import React, { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,11 +10,15 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import ConfirmationModal from "./ConfirmationModal";
 
-// Simple validation schema
+// Enhanced validation schema with proper password requirements
 const passwordSchema = z.object({
   email: z.string().email("Email tidak valid"),
   oldPassword: z.string().min(1, "Password lama wajib diisi"),
-  newPassword: z.string().min(8, "Password minimal 8 karakter"),
+  newPassword: z.string()
+    .min(8, "Password minimal 8 karakter")
+    .regex(/\d/, "Password harus mengandung minimal 1 angka")
+    .regex(/[A-Z]/, "Password harus mengandung minimal 1 huruf kapital")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password harus mengandung minimal 1 karakter khusus"),
   confirmPassword: z.string().min(1, "Konfirmasi password wajib diisi"),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: "Konfirmasi password tidak sesuai",
@@ -71,14 +75,22 @@ const PasswordField = ({ label, name, register, error, placeholder, showForgotLi
   );
 };
 
-// Password Checker - cuma visual feedback doang
-const PasswordChecker = ({ password }) => {
+// Simplified Password Checker
+const PasswordChecker = ({ password, onValidityChange }) => {
   const checks = [
-    { test: (pwd) => pwd.length >= 8, text: "Minimal 8 karakter" },
-    { test: (pwd) => /\d/.test(pwd), text: "Minimal 1 angka" },
-    { test: (pwd) => /[A-Z]/.test(pwd), text: "Minimal 1 huruf kapital" },
-    { test: (pwd) => /[!@#$%^&*(),.?":{}|<>]/.test(pwd), text: "Minimal 1 karakter khusus" },
+    { test: (pwd) => pwd && pwd.length >= 8, text: "Minimal 8 karakter" },
+    { test: (pwd) => pwd && /\d/.test(pwd), text: "Minimal 1 angka" },
+    { test: (pwd) => pwd && /[A-Z]/.test(pwd), text: "Minimal 1 huruf kapital" },
+    { test: (pwd) => pwd && /[!@#$%^&*(),.?":{}|<>]/.test(pwd), text: "Minimal 1 karakter khusus" },
   ];
+
+  // Check if all requirements are met
+  const allValid = password && password.trim() && checks.every(check => check.test(password));
+  
+  // Notify parent component about validation status
+  useEffect(() => {
+    onValidityChange?.(allValid);
+  }, [allValid, onValidityChange]);
 
   return (
     <div>
@@ -87,7 +99,7 @@ const PasswordChecker = ({ password }) => {
       </span>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2">
         {checks.map((check, index) => {
-          const isValid = check.test(password || '');
+          const isValid = password && password.trim() && check.test(password);
           return (
             <div key={index} className="flex items-center gap-2">
               <motion.span 
@@ -110,7 +122,7 @@ const PasswordChecker = ({ password }) => {
 };
 
 /**
- * Reusable Account Edit Modal Component
+ * Reusable Account Edit Modal Component - Fixed validation logic
  * @param {Object} props
  * @param {Function} props.onClose - Callback when modal closes
  * @param {Object} props.userData - Current user data
@@ -119,13 +131,14 @@ const PasswordChecker = ({ password }) => {
 const AccountEditModal = ({ onClose, userData, organizationType = "school" }) => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [passwordRequirementsMet, setPasswordRequirementsMet] = useState(false);
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting }
   } = useForm({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -139,6 +152,8 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
 
   const watchedFields = watch();
   const newPassword = watch("newPassword");
+  const confirmPassword = watch("confirmPassword");
+  const oldPassword = watch("oldPassword");
 
   // Update email when userData changes
   useEffect(() => {
@@ -147,12 +162,30 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
     }
   }, [userData, setValue]);
 
-  // Check if form is dirty and valid
-  const isDirty = !!(watchedFields.oldPassword || watchedFields.newPassword || watchedFields.confirmPassword);
-  const isFormValid = !Object.keys(errors).length && isDirty && 
-                     watchedFields.oldPassword && 
-                     watchedFields.newPassword && 
-                     watchedFields.confirmPassword;
+  // Stabilized password validity change handler
+  const handlePasswordValidityChange = useCallback((isValid) => {
+    setPasswordRequirementsMet(isValid);
+  }, []);
+
+  // Check if form is dirty
+  const isDirty = !!(oldPassword || newPassword || confirmPassword);
+  
+  // Simple and reliable form validation
+  const isFormValid = 
+    // All required fields filled
+    !!(oldPassword?.trim()) &&
+    !!(newPassword?.trim()) &&
+    !!(confirmPassword?.trim()) &&
+    // Password requirements met
+    passwordRequirementsMet &&
+    // Passwords match
+    newPassword === confirmPassword &&
+    // New password is different from old password
+    newPassword !== oldPassword &&
+    // No form validation errors
+    Object.keys(errors).length === 0 &&
+    // Form has been modified
+    isDirty;
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data) => {
@@ -231,7 +264,7 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
               showForgotLink={true}
             />
 
-            {/* New Password - tanpa validasi ribet */}
+            {/* New Password */}
             <PasswordField
               label="Password Baru"
               name="newPassword"
@@ -240,8 +273,11 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
               placeholder="Masukkan password baru"
             />
 
-            {/* Password Checker - cuma visual feedback */}
-            <PasswordChecker password={newPassword} />
+            {/* Password Checker with stabilized callback */}
+            <PasswordChecker 
+              password={newPassword} 
+              onValidityChange={handlePasswordValidityChange}
+            />
 
             {/* Confirm Password */}
             <PasswordField

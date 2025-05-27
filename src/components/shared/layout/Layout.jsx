@@ -1,4 +1,4 @@
-// src/components/shared/layout/Layout.jsx
+// src/components/shared/layout/Layout.jsx - Simple reusable layout
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
