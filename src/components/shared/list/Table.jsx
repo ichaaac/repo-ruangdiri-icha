@@ -969,20 +969,22 @@ const SharedTable = forwardRef(
                             </button>
                           </div>
                         ) : (
-                          <button
-                            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors relative"
-                            onClick={() => startEditing(item.id)}
-                            disabled={editingId !== null}
-                            onMouseEnter={() => setShowEditTooltip(item.id)}
-                            onMouseLeave={() => setShowEditTooltip(null)}
-                          >
-                            <span className="material-icons text-lg">edit</span>
-                            {showEditTooltip === item.id && (
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
-                                Edit
-                              </div>
-                            )}
-                          </button>
+                          <div className="flex items-center justify-center">
+                            <button
+                              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors relative"
+                              onClick={() => startEditing(item.id)}
+                              disabled={editingId !== null}
+                              onMouseEnter={() => setShowEditTooltip(item.id)}
+                              onMouseLeave={() => setShowEditTooltip(null)}
+                            >
+                              <span className="material-icons text-lg">edit</span>
+                              {showEditTooltip === item.id && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
+                                  Edit
+                                </div>
+                              )}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

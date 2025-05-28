@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../hooks/useAuth"
 
 /**
- * FIXED: Responsive Sidebar Component with proper isolation and alignment
+ * FIXED: Responsive Sidebar Component with COMPLETELY STABLE profile picture
  */
 const Sidebar = ({
   expanded,
@@ -198,18 +198,18 @@ const Sidebar = ({
         </motion.div>
       </div>
 
-      {/* FIXED: Profile Section with ABSOLUTE positioning */}
+      {/* FIXED: Profile Section with COMPLETELY STABLE positioning */}
       <div className={`${isMobile ? "px-3 mt-6" : "px-4 mt-8"} relative`}>
-        <motion.div
-          className="flex items-center cursor-pointer"
+        <div
+          className="flex items-center cursor-pointer relative"
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
-          {/* FIXED: Profile Picture with FIXED positioning */}
-          <motion.div
-            className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0`}
+          {/* FIXED: Profile Picture - COMPLETELY STABLE, NO MOVEMENT */}
+          <div
+            className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0 absolute left-0`}
             style={{
-              marginLeft: expanded || hovered ? 0 : "auto",
-              marginRight: expanded || hovered ? 0 : "auto",
+              left: expanded || hovered ? 0 : isMobile ? "6px" : "8px",
+              transition: "left 0.3s ease-in-out",
             }}
           >
             {userData?.profilePicture && !fallbackProfileImage ? (
@@ -224,15 +224,14 @@ const Sidebar = ({
                 <span className={`${isMobile ? "text-xs" : "text-sm"} font-medium`}>{getInitial()}</span>
               </div>
             )}
-          </motion.div>
+          </div>
 
-          {/* Profile Text - Fixed positioning */}
-          <motion.div
-            className={`${isMobile ? "ml-2" : "ml-3"} overflow-hidden`}
+          {/* Profile Text - positioned to the right of profile picture */}
+          <div
+            className={`${isMobile ? "ml-10" : "ml-12"} overflow-hidden transition-all duration-300 ease-in-out`}
             style={{
               width: expanded || hovered ? "auto" : 0,
               opacity: expanded || hovered ? 1 : 0,
-              display: expanded || hovered ? "block" : "none",
             }}
           >
             <div className={`${isMobile ? "text-xs" : "text-sm"} font-medium text-[#488BBE]`}>Admin</div>
@@ -244,8 +243,8 @@ const Sidebar = ({
                 {showProfileDropdown ? "expand_less" : "expand_more"}
               </span>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
 
         {/* Profile Dropdown */}
         <AnimatePresence>
