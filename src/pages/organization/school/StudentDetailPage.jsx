@@ -1,47 +1,40 @@
-// src/pages/organization/school/StudentDetailPage.jsx - Updated to use shared components
-import React, { useState } from "react";
-import { useParams } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import { useStudentDetail } from "@/hooks/useStudentDetail";
-import { 
-  DetailPageLayout, 
-  SharedProfile, 
-  SharedDevelopment, 
-  Divider, 
-  Modal, 
-  SuccessModal 
-} from "@/components/shared/detail/DetailComponents";
-import StudentProfileEditModal from "../../../components/organization/school/student-detail/StudentProfileEditModal";
+"use client"
+
+// src/pages/organization/school/StudentDetailPage.jsx - Clean responsive student detail page
+import { useState } from "react"
+import { useParams } from "react-router-dom"
+import { AnimatePresence } from "framer-motion"
+import { useStudentDetail } from "@/hooks/useStudentDetail"
+import {
+  DetailPageLayout,
+  SharedProfile,
+  SharedDevelopment,
+  Divider,
+  Modal,
+  SuccessModal,
+} from "@/components/shared/detail/DetailComponents"
+import EditModal from "@/components/shared/detail/EditModal"
 
 const StudentDetailPage = () => {
-  const { studentId } = useParams();
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  
-  // Use the custom hook to fetch student data
-  const { 
-    student,
-    mentalHealthHistory,
-    isLoading,
-    isLoadingHistory,
-    isError,
-    error,
-    refetch,
-    updateStudent
-  } = useStudentDetail(studentId);
+  const { studentId } = useParams()
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+
+  // Use the original student hook
+  const { student, mentalHealthHistory, isLoading, isError, error, refetch, updateStudent } =
+    useStudentDetail(studentId)
 
   const handleEditSuccess = (message) => {
-    setShowEditModal(false);
-    setSuccessMessage(message || "Data siswa berhasil diperbarui!");
-    setShowSuccessModal(true);
-    
-    // Auto-hide success message after 2 seconds
+    setShowEditModal(false)
+    setSuccessMessage(message || "Data siswa berhasil diperbarui!")
+    setShowSuccessModal(true)
+
     setTimeout(() => {
-      setShowSuccessModal(false);
-    }, 2000);
-  };
-  
+      setShowSuccessModal(false)
+    }, 2000)
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -50,7 +43,7 @@ const StudentDetailPage = () => {
           <span className="text-[#488BBE]">Memuat data siswa...</span>
         </div>
       </div>
-    );
+    )
   }
 
   if (isError) {
@@ -62,9 +55,7 @@ const StudentDetailPage = () => {
               error_outline
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-red-600 mb-2">
-            Gagal Memuat Data
-          </h1>
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Gagal Memuat Data</h1>
           <p className="text-gray-600 mb-6 max-w-md">
             {error?.message || "Gagal memuat data siswa. Silakan coba beberapa saat lagi."}
           </p>
@@ -76,55 +67,43 @@ const StudentDetailPage = () => {
           </button>
         </div>
       </div>
-    );
+    )
   }
-  
+
   return (
     <DetailPageLayout>
       {/* Left Section - Student Profile */}
-      <SharedProfile 
-        data={student} 
-        type="student"
-        onEdit={() => setShowEditModal(true)}
-        title="Profil Siswa"
-      />
-      
+      <SharedProfile data={student} type="student" onEdit={() => setShowEditModal(true)} title="Profil Siswa" />
+
       {/* Divider */}
       <Divider />
-      
+
       {/* Right Section - Student Development */}
-      <SharedDevelopment 
-        data={student}
-        mentalHealthHistory={mentalHealthHistory}
-        type="student"
-      />
-      
+      <SharedDevelopment data={student} mentalHealthHistory={mentalHealthHistory} type="student" />
+
       {/* Edit Modal */}
       <AnimatePresence>
         {showEditModal && (
           <Modal isOpen={true} onClose={() => setShowEditModal(false)}>
-            <StudentProfileEditModal
-              studentData={student}
+            <EditModal
+              data={student}
+              type="student"
               onClose={() => setShowEditModal(false)}
               onSuccess={handleEditSuccess}
-              updateStudentMutation={updateStudent}
+              updateMutation={updateStudent}
             />
           </Modal>
         )}
       </AnimatePresence>
-      
+
       {/* Success Modal */}
       <AnimatePresence>
         {showSuccessModal && (
-          <SuccessModal
-            isOpen={true}
-            message={successMessage}
-            onClose={() => setShowSuccessModal(false)}
-          />
+          <SuccessModal isOpen={true} message={successMessage} onClose={() => setShowSuccessModal(false)} />
         )}
       </AnimatePresence>
     </DetailPageLayout>
-  );
-};
+  )
+}
 
-export default StudentDetailPage;
+export default StudentDetailPage

@@ -1,47 +1,40 @@
-// src/pages/organization/company/EmployeeDetailPage.jsx
-import React, { useState } from "react";
-import { useParams } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import { useEmployeeDetail } from "@/hooks/useEmployeeDetail";
-import { 
-  DetailPageLayout, 
-  SharedProfile, 
-  SharedDevelopment, 
-  Divider, 
-  Modal, 
-  SuccessModal 
-} from "@/components/shared/detail/SharedDetailComponents";
-import EmployeeProfileEditModal from "../../../components/organization/company/employee-detail/EmployeeProfileEditModal";
+"use client"
+
+// src/pages/organization/company/EmployeeDetailPage.jsx - Clean responsive employee detail page
+import { useState } from "react"
+import { useParams } from "react-router-dom"
+import { AnimatePresence } from "framer-motion"
+import { useEmployeeDetail } from "@/hooks/useEmployeeDetail"
+import {
+  DetailPageLayout,
+  SharedProfile,
+  SharedDevelopment,
+  Divider,
+  Modal,
+  SuccessModal,
+} from "@/components/shared/detail/DetailComponents"
+import EditModal from "@/components/shared/detail/EditModal"
 
 const EmployeeDetailPage = () => {
-  const { employeeId } = useParams();
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-  
-  // Use the employee detail hook
-  const { 
-    employee,
-    mentalHealthHistory,
-    isLoading,
-    isLoadingHistory,
-    isError,
-    error,
-    refetch,
-    updateEmployee
-  } = useEmployeeDetail(employeeId);
+  const { employeeId } = useParams()
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+
+  // Use the original employee hook
+  const { employee, mentalHealthHistory, isLoading, isError, error, refetch, updateEmployee } =
+    useEmployeeDetail(employeeId)
 
   const handleEditSuccess = (message) => {
-    setShowEditModal(false);
-    setSuccessMessage(message || "Data karyawan berhasil diperbarui!");
-    setShowSuccessModal(true);
-    
-    // Auto-hide success message after 2 seconds
+    setShowEditModal(false)
+    setSuccessMessage(message || "Data karyawan berhasil diperbarui!")
+    setShowSuccessModal(true)
+
     setTimeout(() => {
-      setShowSuccessModal(false);
-    }, 2000);
-  };
-  
+      setShowSuccessModal(false)
+    }, 2000)
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -50,7 +43,7 @@ const EmployeeDetailPage = () => {
           <span className="text-[#488BBE]">Memuat data karyawan...</span>
         </div>
       </div>
-    );
+    )
   }
 
   if (isError) {
@@ -62,9 +55,7 @@ const EmployeeDetailPage = () => {
               error_outline
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-red-600 mb-2">
-            Gagal Memuat Data
-          </h1>
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Gagal Memuat Data</h1>
           <p className="text-gray-600 mb-6 max-w-md">
             {error?.message || "Gagal memuat data karyawan. Silakan coba beberapa saat lagi."}
           </p>
@@ -76,56 +67,43 @@ const EmployeeDetailPage = () => {
           </button>
         </div>
       </div>
-    );
+    )
   }
-  
+
   return (
     <DetailPageLayout>
       {/* Left Section - Employee Profile */}
-      <SharedProfile 
-        data={employee} 
-        type="employee"
-        onEdit={() => setShowEditModal(true)}
-        title="Profil Karyawan"
-      />
-      
+      <SharedProfile data={employee} type="employee" onEdit={() => setShowEditModal(true)} title="Profil Karyawan" />
+
       {/* Divider */}
       <Divider />
-      
+
       {/* Right Section - Employee Development */}
-      <SharedDevelopment 
-        data={employee}
-        mentalHealthHistory={mentalHealthHistory}
-        type="employee"
-      />
-      
+      <SharedDevelopment data={employee} mentalHealthHistory={mentalHealthHistory} type="employee" />
+
       {/* Edit Modal */}
       <AnimatePresence>
         {showEditModal && (
           <Modal isOpen={true} onClose={() => setShowEditModal(false)}>
-            <EmployeeProfileEditModal
-              employeeData={employee}
+            <EditModal
+              data={employee}
+              type="employee"
               onClose={() => setShowEditModal(false)}
               onSuccess={handleEditSuccess}
-              updateEmployeeMutation={updateEmployee}
+              updateMutation={updateEmployee}
             />
           </Modal>
         )}
       </AnimatePresence>
-      
+
       {/* Success Modal */}
       <AnimatePresence>
         {showSuccessModal && (
-          <SuccessModal
-            isOpen={true}
-            message={successMessage}
-            onClose={() => setShowSuccessModal(false)}
-          />
+          <SuccessModal isOpen={true} message={successMessage} onClose={() => setShowSuccessModal(false)} />
         )}
       </AnimatePresence>
     </DetailPageLayout>
-  );
-};
+  )
+}
 
-export default EmployeeDetailPage;
-
+export default EmployeeDetailPage
