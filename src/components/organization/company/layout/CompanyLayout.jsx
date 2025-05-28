@@ -1,14 +1,14 @@
-// src/components/organization/company/layout/CompanyLayout.jsx - Simple configuration
+// src/components/organization/company/layout/CompanyLayout.jsx - Responsive Company Layout
 import React from "react";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../shared/layout/Layout";
 
 const CompanyLayout = () => {
   const location = useLocation();
-  
+
   // Check if this is a development route
   const isDev = location.pathname.startsWith('/dev/company');
-  
+
   // Configure menu items based on route type
   const basePath = isDev ? '/dev/company' : '/organization/company';
 
@@ -44,7 +44,7 @@ const CompanyLayout = () => {
     <Layout
       organizationType="company"
       menuItems={menuItems}
-      startExpanded={false} // Company starts collapsed
+      startExpanded={false} // Responsive: start collapsed
     />
   );
 };

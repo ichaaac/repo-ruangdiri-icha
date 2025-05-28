@@ -1,14 +1,10 @@
-// src/components/shared/layout/Layout.jsx - Simple reusable layout
-import React, { useState } from "react";
+// src/components/shared/layout/Layout.jsx - Responsive Layout Component
+import React, { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
 /**
- * Reusable Layout Component for both School and Company
- * @param {Object} props
- * @param {string} props.organizationType - "school" or "company"
- * @param {Array} props.menuItems - Array of menu items for the sidebar
- * @param {boolean} props.startExpanded - Whether to start with expanded sidebar (default: false)
+ * Responsive Layout Component for both School and Company
  */
 const Layout = ({ 
   organizationType = "school", 
@@ -17,29 +13,65 @@ const Layout = ({
 }) => {
   const [expanded, setExpanded] = useState(startExpanded);
   const [sidebarHovered, setSidebarHovered] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Calculate content margin - responsive design
+  // Check if mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-collapse on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setExpanded(false);
+    }
+  }, [isMobile]);
+
+  // Calculate content margin - responsive design with forced re-render
   const getContentMargin = () => {
+    if (isMobile) {
+      return "60px"; // Always collapsed on mobile
+    }
+    
     if (expanded || sidebarHovered) {
       return "237px";
     }
-    return "59px";
+    return "60px";
   };
+
+  // Force window resize event when sidebar state changes
+  useEffect(() => {
+    const dispatchResize = () => {
+      window.dispatchEvent(new Event('resize'));
+    };
+
+    // Dispatch resize event after sidebar animation completes
+    const timeoutId = setTimeout(dispatchResize, 350);
+    
+    return () => clearTimeout(timeoutId);
+  }, [expanded, sidebarHovered]);
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
-      {/* Sidebar component with expansion controls */}
+      {/* Responsive Sidebar */}
       <Sidebar 
         expanded={expanded} 
         setExpanded={setExpanded} 
         onHoverChange={setSidebarHovered}
         organizationType={organizationType}
         menuItems={menuItems}
+        isMobile={isMobile}
       />
-      
-      {/* Main content area with responsive margin based on sidebar state */}
+
+      {/* Main content area with responsive margin */}
       <div 
-        className="flex-1 transition-all duration-300 min-h-screen bg-white"
+        className="flex-1 transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
         style={{ 
           marginLeft: getContentMargin()
         }}
@@ -47,7 +79,7 @@ const Layout = ({
         <Outlet />
       </div>
     </div>
-  );
+);
 };
 
 export default Layout;

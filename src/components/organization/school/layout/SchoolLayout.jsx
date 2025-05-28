@@ -1,17 +1,17 @@
-// src/components/organization/school/layout/SchoolLayout.jsx - Simple configuration
+// src/components/organization/school/layout/SchoolLayout.jsx - Responsive School Layout
 import React from "react";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../shared/layout/Layout";
 
 const SchoolLayout = () => {
   const location = useLocation();
-  
+
   // Check if this is a development route
   const isDev = location.pathname.startsWith('/dev/school');
-  
+
   // Configure menu items based on route type
   const basePath = isDev ? '/dev/school' : '/organization/school';
-  
+
   const menuItems = [
     {
       icon: "bar_chart",
@@ -44,7 +44,7 @@ const SchoolLayout = () => {
     <Layout
       organizationType="school"
       menuItems={menuItems}
-      startExpanded={true} // School starts expanded
+      startExpanded={false} // Responsive: start collapsed
     />
   );
 };

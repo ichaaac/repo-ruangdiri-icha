@@ -1,9 +1,12 @@
 "use client"
 
-import React, { useState, useRef, useCallback, forwardRef } from "react"
+import React, { useState, useRef, useCallback, forwardRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"
 import clsx from "clsx"
+
+// Filter modal z-index needs to be higher than any other elements
+const FILTER_MODAL_Z_INDEX = 9999
 
 // Custom Dropdown Component
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
@@ -133,7 +136,7 @@ const HelpTooltip = ({ helpIconRef, showHelpTooltip }) => (
 )
 
 /**
- * FIXED CONTAINER WIDTH - Force Table Overflow
+ * FIXED: Responsive table that adapts to sidebar state and removes excessive whitespace
  */
 const SharedTable = forwardRef(
   (
@@ -151,6 +154,7 @@ const SharedTable = forwardRef(
       resetEditMode,
       filtersChanged,
       isLoading = false,
+      sidebarExpanded = false,
     },
     ref,
   ) => {
@@ -160,6 +164,7 @@ const SharedTable = forwardRef(
     const [hoveredStatus, setHoveredStatus] = useState(null)
     const [showEditTooltip, setShowEditTooltip] = useState(null)
     const [clickedNames, setClickedNames] = useState(new Set())
+    const [containerWidth, setContainerWidth] = useState(0)
     const helpIconRef = useRef(null)
     const observerRef = useRef(null)
     const contentRef = useRef(null)
@@ -168,13 +173,11 @@ const SharedTable = forwardRef(
     // Configure table based on type
     const tableConfig = {
       student: {
-        minWidth: 1600,
         emptyIcon: "school",
         emptyText: "Tidak ada data siswa.",
         detailPath: "/organization/school/student",
       },
       employee: {
-        minWidth: 1800,
         emptyIcon: "business_center",
         emptyText: "Tidak ada data karyawan.",
         detailPath: "/organization/company/employee",
@@ -182,6 +185,38 @@ const SharedTable = forwardRef(
     }
 
     const config = tableConfig[type]
+
+    // FIXED: Dynamic width calculation based on sidebar state
+    useEffect(() => {
+      const updateContainerWidth = () => {
+        if (contentRef.current) {
+          // Calculate available width based on sidebar state
+          const sidebarWidth = sidebarExpanded ? 237 : 60
+          const windowWidth = window.innerWidth
+          const availableWidth = windowWidth - sidebarWidth - 48 // 48px for padding
+
+          setContainerWidth(availableWidth)
+
+          // Force table to recalculate layout
+          if (contentRef.current) {
+            contentRef.current.style.width = `${Math.max(availableWidth, 800)}px`
+          }
+        }
+      }
+
+      updateContainerWidth()
+
+      // Listen for window resize
+      window.addEventListener("resize", updateContainerWidth)
+
+      // Force update after sidebar animation completes
+      const timeoutId = setTimeout(updateContainerWidth, 350)
+
+      return () => {
+        window.removeEventListener("resize", updateContainerWidth)
+        clearTimeout(timeoutId)
+      }
+    }, [sidebarExpanded])
 
     // ACCURATE scroll progress update
     const updateScrollProgress = useCallback(() => {
@@ -404,7 +439,9 @@ const SharedTable = forwardRef(
       const { name, value } = e.target
       let processedValue = value
 
-      if (type === "student" && name === "iqScore") {
+      if (name === "fullName") {
+        processedValue = value.substring(0, 70) // Limit to 70 characters
+      } else if (type === "student" && name === "iqScore") {
         processedValue = value.replace(/[^0-9]/g, "").substring(0, 3)
       } else if (type === "employee" && (name === "age" || name === "yearsOfService")) {
         processedValue = value.replace(/[^0-9]/g, "").substring(0, 2)
@@ -446,14 +483,28 @@ const SharedTable = forwardRef(
         return original && editData[key] !== original[key]
       })
 
+    // FIXED: Calculate responsive table width based on sidebar state
+    const getTableWidth = () => {
+      const sidebarWidth = sidebarExpanded ? 237 : 60
+      const availableWidth = window.innerWidth - sidebarWidth - 48
+
+      if (availableWidth <= 768) return "100%" // Mobile
+      if (availableWidth <= 1024) return "100%" // Tablet
+
+      // Use available width but ensure minimum
+      return `${Math.max(availableWidth, type === "student" ? 800 : 900)}px`
+    }
+
     // Linear gradient divider
     const LinearGradientDivider = () => (
-      <tr style={{ height: "1px" }}>
+      <tr style={{ height: "2px" }}>
         <td colSpan={type === "student" ? 8 : 9} className="p-0">
           <div
             style={{
-              height: "1px",
-              backgroundImage: "linear-gradient(to right, #FFFFFF, #488BBE40, #FFFFFF)",
+              height: "2px",
+              background:
+                "linear-gradient(to right, rgba(255,255,255,0), rgba(72,139,190,0.3) 20%, rgba(72,139,190,0.6) 50%, rgba(72,139,190,0.3) 80%, rgba(255,255,255,0))",
+              margin: "0",
             }}
           />
         </td>
@@ -475,18 +526,18 @@ const SharedTable = forwardRef(
           </div>
         </div>
 
-        {/* AGGRESSIVE FIXED WIDTH CONTAINER - FORCE OVERFLOW */}
+        {/* FIXED: Responsive container that reacts to sidebar changes */}
         <div
           ref={tableContainerRef}
-          className="cursor-pointer select-none"
+          className="cursor-pointer select-none w-full"
           style={{
-            // WIDER CONTAINER - show more columns initially but still enable scroll
-            width: "100%",
-            maxWidth: type === "student" ? "1400px" : "1600px", // LARGER container
+            width: getTableWidth(),
+            maxWidth: "100%",
             overflowX: "auto",
             overflowY: "hidden",
             scrollbarWidth: "none",
             msOverflowStyle: "none",
+            transition: "width 0.3s ease-in-out", // Add smooth transition
           }}
           onDoubleClick={handleDoubleClick}
         >
@@ -497,23 +548,22 @@ const SharedTable = forwardRef(
             }
           `}</style>
 
-          {/* GUARANTEED WIDE TABLE */}
+          {/* FIXED: Responsive table with proper width calculation */}
           <table
-            className="border-separate border-spacing-0 bg-white"
+            className="border-separate border-spacing-0 bg-white w-full"
             style={{
-              // FORCE table to be much wider than container
-              width: `${config.minWidth}px`,
-              minWidth: `${config.minWidth}px`,
-              tableLayout: "fixed", // Force fixed layout
+              width: getTableWidth(),
+              minWidth: type === "student" ? "800px" : "900px", // Reduced minimum widths
+              tableLayout: "auto", // Changed to auto for better responsiveness
             }}
           >
             <thead className="bg-[#E2F9FF]">
               <tr>
-                {/* Name Column */}
+                {/* Name Column - REMOVED border-r */}
                 <th
-                  className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                  className="px-4 py-3 text-left text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                   data-name-column="true"
-                  style={{ minWidth: "300px", width: "300px", maxWidth: "none" }}
+                  style={{ minWidth: "200px" }}
                 >
                   <div className="flex items-center gap-1">
                     <span>NAMA</span>
@@ -526,23 +576,23 @@ const SharedTable = forwardRef(
                   </div>
                 </th>
 
-                {/* Type-specific columns */}
+                {/* Type-specific columns - REMOVED all border-r */}
                 {type === "student" ? (
                   <>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                       style={{ minWidth: "120px" }}
                     >
                       KELAS
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                       style={{ minWidth: "120px" }}
                     >
                       JENIS KELAMIN
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
                       onClick={() => requestSort("nis")}
                       style={{ minWidth: "120px" }}
                     >
@@ -552,7 +602,7 @@ const SharedTable = forwardRef(
                       </div>
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
                       onClick={() => requestSort("iqScore")}
                       style={{ minWidth: "120px" }}
                     >
@@ -565,25 +615,25 @@ const SharedTable = forwardRef(
                 ) : (
                   <>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                       style={{ minWidth: "150px" }}
                     >
                       DEPARTEMEN
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                       style={{ minWidth: "150px" }}
                     >
                       JABATAN
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                       style={{ minWidth: "120px" }}
                     >
                       JENIS KELAMIN
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
                       onClick={() => requestSort("age")}
                       style={{ minWidth: "100px" }}
                     >
@@ -593,7 +643,7 @@ const SharedTable = forwardRef(
                       </div>
                     </th>
                     <th
-                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors border-r border-gray-200"
+                      className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-[#D1F4FF] transition-colors"
                       onClick={() => requestSort("yearsOfService")}
                       style={{ minWidth: "150px" }}
                     >
@@ -605,9 +655,9 @@ const SharedTable = forwardRef(
                   </>
                 )}
 
-                {/* Common columns */}
+                {/* Common columns - REMOVED all border-r */}
                 <th
-                  className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                  className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                   style={{ minWidth: "120px" }}
                 >
                   <div className="flex items-center justify-center">
@@ -624,7 +674,7 @@ const SharedTable = forwardRef(
                   </div>
                 </th>
                 <th
-                  className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap border-r border-gray-200"
+                  className="px-4 py-3 text-center text-xs font-bold text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
                   style={{ minWidth: "120px" }}
                 >
                   KONSELING
@@ -648,23 +698,20 @@ const SharedTable = forwardRef(
                       className="bg-white hover:bg-gray-50 transition-colors"
                       ref={isLastElement ? lastItemElementRef : null}
                     >
-                      {/* Name */}
-                      <td
-                        className="px-4 py-3 text-left whitespace-nowrap border-r border-gray-100"
-                        data-name-column="true"
-                      >
+                      {/* Name - REMOVED border-r */}
+                      <td className="px-4 py-3 text-left whitespace-nowrap" data-name-column="true">
                         {isEditing ? (
                           <input
                             type="text"
                             name="fullName"
                             value={editData.fullName}
                             onChange={handleEditChange}
-                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[300px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
+                            className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-3 py-1.5 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                           />
                         ) : (
                           <div
                             className={clsx(
-                              "text-sm font-medium cursor-pointer break-words",
+                              "text-sm font-medium cursor-pointer truncate",
                               isClicked ? "text-[#488BBE] underline" : "text-gray-900",
                             )}
                             onClick={(e) => handleNameClick(item.id, e)}
@@ -675,11 +722,11 @@ const SharedTable = forwardRef(
                         )}
                       </td>
 
-                      {/* Rest of the columns with consistent styling... */}
+                      {/* Rest of the columns with REMOVED border-r classes */}
                       {type === "student" ? (
                         <>
-                          {/* Classroom - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Classroom - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex gap-1 justify-center" style={{ zIndex: 9000 }}>
                                 <CustomDropdown
@@ -707,8 +754,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* Gender - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Gender - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 9000 }}>
                                 <CustomDropdown
@@ -727,8 +774,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* NIS - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* NIS - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <input
                                 type="text"
@@ -742,8 +789,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* IQ Score - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* IQ Score - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <input
                                 type="text"
@@ -761,8 +808,8 @@ const SharedTable = forwardRef(
                         </>
                       ) : (
                         <>
-                          {/* Department - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Department - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 9000 }}>
                                 <CustomDropdown
@@ -780,8 +827,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* Position - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Position - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 9000 }}>
                                 <CustomDropdown
@@ -799,8 +846,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* Gender - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Gender - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 9000 }}>
                                 <CustomDropdown
@@ -819,8 +866,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* Age - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Age - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-1">
                                 <input
@@ -842,8 +889,8 @@ const SharedTable = forwardRef(
                             )}
                           </td>
 
-                          {/* Years of Service - Responsive */}
-                          <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                          {/* Years of Service - REMOVED border-r */}
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-1">
                                 <input
@@ -867,8 +914,8 @@ const SharedTable = forwardRef(
                         </>
                       )}
 
-                      {/* Screening Status - Responsive */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                      {/* Screening Status - REMOVED border-r */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span
                           className={clsx(
                             "inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer",
@@ -888,48 +935,48 @@ const SharedTable = forwardRef(
                         </span>
                       </td>
 
-                      {/* Counseling Status - Responsive */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap border-r border-gray-100">
+                      {/* Counseling Status - REMOVED border-r */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <span className={clsx("text-sm", item.counselingStatus ? "text-[#6DAF31]" : "text-[#EE4266]")}>
                           {item.counselingStatus ? "Sudah" : "Belum"}
                         </span>
                       </td>
 
-                      {/* Actions - Responsive */}
+                      {/* FIXED: Actions - Proper button sizing and alignment */}
                       <td className="px-4 py-3 text-center relative whitespace-nowrap">
                         {isEditing ? (
-                          <div className="flex space-x-2 justify-center">
+                          <div className="flex items-center justify-center gap-2">
                             <button
                               className={clsx(
-                                "text-[#EE4266] hover:text-[#b53434] transition-colors",
+                                "w-8 h-8 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
                                 updateItem.isPending && "opacity-50 cursor-not-allowed",
                               )}
                               onClick={() => cancelEditing()}
                               disabled={updateItem.isPending}
                             >
-                              <span className="material-icons text-base">cancel</span>
+                              <span className="material-icons text-lg">cancel</span>
                             </button>
 
                             <button
                               className={clsx(
-                                "text-[#9BCA61] hover:text-[#6DAF31] transition-colors",
+                                "w-8 h-8 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
                                 (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
                               )}
                               onClick={() => hasChanges && saveEditing(item.id)}
                               disabled={!hasChanges || updateItem.isPending}
                             >
-                              <span className="material-icons text-base">check_circle</span>
+                              <span className="material-icons text-lg">check_circle</span>
                             </button>
                           </div>
                         ) : (
                           <button
-                            className="text-gray-400 hover:text-[#488BBE] transition-colors relative"
+                            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors relative"
                             onClick={() => startEditing(item.id)}
                             disabled={editingId !== null}
                             onMouseEnter={() => setShowEditTooltip(item.id)}
                             onMouseLeave={() => setShowEditTooltip(null)}
                           >
-                            <span className="material-icons text-base">edit</span>
+                            <span className="material-icons text-lg">edit</span>
                             {showEditTooltip === item.id && (
                               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-[#00000080] text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
                                 Edit
@@ -965,13 +1012,13 @@ const SharedTable = forwardRef(
           )}
         </AnimatePresence>
 
-        {/* Loading indicator */}
-        {isFetchingNextPage && (
+        {/* Loading indicator - REMOVED */}
+        {/* {isFetchingNextPage && (
           <div className="py-4 text-center">
             <span className="material-icons animate-spin text-[#488BBE] text-base">refresh</span>
             <span className="text-[#488BBE] text-sm ml-2">Loading...</span>
           </div>
-        )}
+        )} */}
 
         {/* Empty state */}
         {data.length === 0 && !isFetchingNextPage && (

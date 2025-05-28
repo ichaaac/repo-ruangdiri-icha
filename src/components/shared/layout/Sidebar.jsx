@@ -1,20 +1,21 @@
+"use client"
 
-// src/components/shared/layout/Sidebar.jsx
 import { useState, useEffect, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../hooks/useAuth"
 
 /**
- * Reusable Sidebar Component for both School and Company
- * @param {Object} props
- * @param {boolean} props.expanded - Whether sidebar is expanded
- * @param {Function} props.setExpanded - Function to set expanded state
- * @param {Function} props.onHoverChange - Function called when hover state changes
- * @param {string} props.organizationType - "school" or "company"
- * @param {Array} props.menuItems - Array of menu items
+ * FIXED: Responsive Sidebar Component with proper isolation and alignment
  */
-const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "school", menuItems = [] }) => {
+const Sidebar = ({
+  expanded,
+  setExpanded,
+  onHoverChange,
+  organizationType = "school",
+  menuItems = [],
+  isMobile = false,
+}) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user: userData } = useAuth()
@@ -27,13 +28,14 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
   const collapseTimeoutRef = useRef(null)
   const sidebarRef = useRef(null)
 
-  const expandedWidth = 237
-  const collapsedWidth = 59
+  // Responsive sidebar widths
+  const expandedWidth = isMobile ? 200 : 237
+  const collapsedWidth = isMobile ? 50 : 60
   const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
 
-  // Sidebar enter/leave handlers with whole sidebar area
+  // Sidebar enter/leave handlers - disabled on mobile
   const handleSidebarMouseEnter = () => {
-    if (!expanded) {
+    if (!expanded && !isMobile) {
       clearTimeout(collapseTimeoutRef.current)
       expandTimeoutRef.current = setTimeout(() => {
         setHovered(true)
@@ -43,7 +45,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
   }
 
   const handleSidebarMouseLeave = () => {
-    if (!expanded) {
+    if (!expanded && !isMobile) {
       clearTimeout(expandTimeoutRef.current)
       collapseTimeoutRef.current = setTimeout(() => {
         setHovered(false)
@@ -88,22 +90,20 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
     }
 
     document.addEventListener("mousedown", handleClickOutside)
-    return () => {``
+    return () => {
       document.removeEventListener("mousedown", handleClickOutside)
       clearTimeout(expandTimeoutRef.current)
       clearTimeout(collapseTimeoutRef.current)
     }
   }, [])
 
-  // Fixed image error handler that won't cause infinite renders
+  // Image error handler
   const handleImageError = () => {
     console.log("Sidebar profile image failed to load:", userData?.profilePicture)
 
-    // If it's an ngrok URL, try to load it differently
     if (userData?.profilePicture && userData.profilePicture.includes("ngrok-free.app")) {
       console.log("Detected ngrok URL in sidebar, trying alternative loading method")
 
-      // Try to fetch the image as blob and create object URL
       fetch(userData.profilePicture, {
         mode: "no-cors",
         method: "GET",
@@ -111,8 +111,6 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
         .then((response) => response.blob())
         .then((blob) => {
           const objectUrl = URL.createObjectURL(blob)
-          // We need to update the userData or use a local state for the image
-          // For now, just set fallback to true
           setFallbackProfileImage(true)
         })
         .catch((err) => {
@@ -122,14 +120,6 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
     } else {
       setFallbackProfileImage(true)
     }
-  }
-
-  // Check if organization name is long
-  const isLongName = () => {
-    if (userData?.fullName) {
-      return userData.fullName.length > 20
-    }
-    return false
   }
 
   // Check if current path is active
@@ -146,7 +136,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
     return location.pathname === path
   }
 
-  // Handle dropdown toggle untuk item spesifik
+  // Handle dropdown toggle
   const toggleDropdown = (path) => {
     setActiveDropdown(activeDropdown === path ? null : path)
   }
@@ -167,74 +157,90 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
-      {/* Logo Container - Centered */}
-      <motion.div className="flex justify-center items-center relative h-[90px]">
-        <motion.img
-          src="/logo/ruang-diri-logo.svg"
-          alt="Ruang Diri Logo"
+      {/* FIXED: Logo Container with FIXED HEIGHT for isolation */}
+      <div className={`relative ${isMobile ? "h-[60px]" : "h-[80px]"} flex items-center justify-center`}>
+        {/* Logo - positioned absolutely to not affect other elements */}
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center"
           animate={{
-            width: expanded || hovered ? "100px" : "32px",
-            height: expanded || hovered ? "89px" : "32px",
+            paddingTop: expanded || hovered ? (isMobile ? "8px" : "12px") : isMobile ? "4px" : "6px",
           }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="object-contain"
-        />
+        >
+          <motion.img
+            src="/logo/ruang-diri-logo.svg"
+            alt="Ruang Diri Logo"
+            animate={{
+              width: expanded || hovered ? (isMobile ? "60px" : "80px") : isMobile ? "24px" : "32px",
+              height: expanded || hovered ? (isMobile ? "53px" : "71px") : isMobile ? "24px" : "32px",
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="object-contain"
+          />
+        </motion.div>
 
-        {/* Toggle Button - Always on right edge */}
+        {/* Toggle Button - positioned absolutely */}
         <motion.div
-          className="absolute right-0 top-4"
+          className="absolute right-0 top-1/2 transform -translate-y-1/2"
           onMouseEnter={() => setToggleHovered(true)}
           onMouseLeave={() => setToggleHovered(false)}
         >
           <button
             onClick={toggleSidebar}
-            className={`w-3 h-10 rounded-bl-md rounded-tl-md shadow-sm transition-colors ${
+            className={`${isMobile ? "w-2.5 h-7" : "w-3 h-9"} rounded-bl-md rounded-tl-md shadow-sm transition-colors ${
               toggleHovered ? "bg-[#488BBE] text-white" : "bg-[#D8EEFF] text-[#488BBE]"
             }`}
           >
-            <span className="material-icons" style={{ fontSize: "12px" }}>
+            <span className="material-icons" style={{ fontSize: isMobile ? "10px" : "12px" }}>
               {expanded ? "chevron_left" : "chevron_right"}
             </span>
           </button>
         </motion.div>
-      </motion.div>
+      </div>
 
-      {/* Profile Section */}
-      <motion.div className="px-4 mt-2">
+      {/* FIXED: Profile Section with ABSOLUTE positioning */}
+      <div className={`${isMobile ? "px-3 mt-6" : "px-4 mt-8"} relative`}>
         <motion.div
-          className={`flex ${isLongName() && (expanded || hovered) ? "flex-col items-center" : "items-center"} cursor-pointer`}
+          className="flex items-center cursor-pointer"
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
-          {/* Profile Picture - Fixed Position */}
-          <motion.div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+          {/* FIXED: Profile Picture with FIXED positioning */}
+          <motion.div
+            className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0`}
+            style={{
+              marginLeft: expanded || hovered ? 0 : "auto",
+              marginRight: expanded || hovered ? 0 : "auto",
+            }}
+          >
             {userData?.profilePicture && !fallbackProfileImage ? (
               <img
-              src={userData.profilePicture}
-              alt="Organization"
-              className="w-full h-full object-cover"
-              onError={() => setFallbackProfileImage(true)}
-            />
-            
+                src={userData.profilePicture || "/placeholder.svg"}
+                alt="Organization"
+                className="w-full h-full object-cover"
+                onError={() => setFallbackProfileImage(true)}
+              />
             ) : (
-              <motion.div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
-                {getInitial()}
-              </motion.div>
+              <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
+                <span className={`${isMobile ? "text-xs" : "text-sm"} font-medium`}>{getInitial()}</span>
+              </div>
             )}
           </motion.div>
 
-          {/* Profile Text */}
+          {/* Profile Text - Fixed positioning */}
           <motion.div
-            className={`${isLongName() && (expanded || hovered) ? "mt-2 text-center" : "ml-3"} overflow-hidden`}
-            animate={{
+            className={`${isMobile ? "ml-2" : "ml-3"} overflow-hidden`}
+            style={{
               width: expanded || hovered ? "auto" : 0,
               opacity: expanded || hovered ? 1 : 0,
+              display: expanded || hovered ? "block" : "none",
             }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <div className="text-sm font-medium text-[#488BBE]">Admin</div>
-            <div className="text-sm font-medium text-[#488BBE] flex items-center">
-              <span className="truncate max-w-[140px]">{userData?.fullName || "-"}</span>
-              <span className="material-icons text-sm ml-1 text-[#488BBE] flex-shrink-0">
+            <div className={`${isMobile ? "text-xs" : "text-sm"} font-medium text-[#488BBE]`}>Admin</div>
+            <div className={`${isMobile ? "text-xs" : "text-sm"} font-medium text-[#488BBE] flex items-center`}>
+              <span className={`truncate ${isMobile ? "max-w-[100px]" : "max-w-[140px]"}`}>
+                {userData?.fullName || "-"}
+              </span>
+              <span className={`material-icons ${isMobile ? "text-xs" : "text-sm"} ml-1 text-[#488BBE] flex-shrink-0`}>
                 {showProfileDropdown ? "expand_less" : "expand_more"}
               </span>
             </div>
@@ -245,7 +251,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
         <AnimatePresence>
           {showProfileDropdown && (expanded || hovered) && (
             <motion.div
-              className={`mt-2 ${isLongName() ? "pl-0 text-center" : "pl-12"} overflow-hidden`}
+              className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden`}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -253,13 +259,13 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
             >
               <Link
                 to={`/organization/${organizationType}/profile`}
-                className="block py-1 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
+                className={`block py-2 ${isMobile ? "text-xs" : "text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors`}
                 onClick={() => setShowProfileDropdown(false)}
               >
                 Profil
               </Link>
               <button
-                className="block py-1 w-full text-left text-sm text-rose-500 hover:text-rose-600 transition-colors"
+                className={`block py-2 w-full text-left ${isMobile ? "text-xs" : "text-sm"} text-rose-500 hover:text-rose-600 transition-colors`}
                 onClick={handleLogout}
               >
                 Keluar
@@ -267,23 +273,23 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
 
-      {/* Divider */}
-      <div className="mt-4 px-2">
+      {/* FIXED: Divider with FIXED spacing */}
+      <div className={`${isMobile ? "mt-6 px-2" : "mt-8 px-3"}`}>
         <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
       </div>
 
-      {/* Navigation Menu */}
-      <motion.div
-        className="flex flex-col mt-6 flex-1 overflow-y-auto gap-y-[21px]"
+      {/* FIXED: Navigation Menu with ISOLATED spacing */}
+      <div
+        className={`flex flex-col ${isMobile ? "mt-4 gap-y-2" : "mt-6 gap-y-3"} flex-1 overflow-y-auto`}
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
       >
         {menuItems.map((item, index) => (
-          <motion.div key={index}>
+          <div key={index}>
             <motion.div
-              className={`flex items-center w-full h-[47px] px-5 transition-colors cursor-pointer ${
+              className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${
                 isActive(item.path) ? "bg-[#488BBE] text-white" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
               }`}
               onClick={() => {
@@ -291,27 +297,34 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
                   toggleDropdown(item.path)
                 } else {
                   navigate(item.path)
+                  // Close sidebar on mobile after navigation
+                  if (isMobile) {
+                    setExpanded(false)
+                  }
                 }
               }}
             >
-              {/* Icon - Always Visible */}
-              <motion.span className="material-icons w-[22px] flex-shrink-0" style={{ fontSize: "22px" }}>
+              {/* Icon */}
+              <span
+                className={`material-icons ${isMobile ? "w-[16px]" : "w-[20px]"} flex-shrink-0`}
+                style={{ fontSize: isMobile ? "16px" : "20px" }}
+              >
                 {item.icon}
-              </motion.span>
+              </span>
 
-              {/* Label - Only Visible when Expanded */}
+              {/* Label */}
               <motion.span
                 animate={{
                   width: expanded || hovered ? "auto" : 0,
                   opacity: expanded || hovered ? 1 : 0,
-                  marginLeft: expanded || hovered ? "12px" : 0,
+                  marginLeft: expanded || hovered ? (isMobile ? "8px" : "10px") : 0,
                 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="whitespace-nowrap overflow-hidden flex items-center justify-between flex-1"
+                className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1`}
               >
                 {item.label}
                 {item.hasDropdown && (
-                  <span className="material-icons text-sm ml-2">
+                  <span className={`material-icons ${isMobile ? "text-xs" : "text-sm"} ml-2`}>
                     {activeDropdown === item.path ? "expand_less" : "expand_more"}
                   </span>
                 )}
@@ -322,7 +335,7 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
             <AnimatePresence>
               {item.hasDropdown && activeDropdown === item.path && (expanded || hovered) && (
                 <motion.div
-                  className="pl-12 overflow-hidden"
+                  className={`${isMobile ? "pl-7" : "pl-10"} overflow-hidden`}
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
@@ -332,8 +345,14 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
                     <Link
                       key={dropdownIndex}
                       to={dropdownItem.path}
-                      className="block py-2 pl-4 text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors"
-                      onClick={() => setActiveDropdown(null)}
+                      className={`block ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors`}
+                      onClick={() => {
+                        setActiveDropdown(null)
+                        // Close sidebar on mobile after navigation
+                        if (isMobile) {
+                          setExpanded(false)
+                        }
+                      }}
                     >
                       {dropdownItem.label}
                     </Link>
@@ -341,9 +360,20 @@ const Sidebar = ({ expanded, setExpanded, onHoverChange, organizationType = "sch
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
+
+      {/* Mobile overlay when sidebar is expanded */}
+      {isMobile && expanded && (
+        <motion.div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setExpanded(false)}
+        />
+      )}
     </motion.div>
   )
 }
