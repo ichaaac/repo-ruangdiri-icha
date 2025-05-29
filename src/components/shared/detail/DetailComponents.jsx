@@ -1,8 +1,9 @@
 "use client"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { format } from "date-fns"
 import { id as indonesianLocale } from "date-fns/locale"
 import { LineChart, Line, YAxis, ResponsiveContainer, ReferenceLine } from "recharts"
+import { useState } from "react"
 
 // Helper functions
 const formatDate = (dateString) => {
@@ -106,8 +107,8 @@ export const SuccessModal = ({ isOpen, message, onClose }) => {
 // Language Switcher Component
 export const LanguageSwitcher = () => {
   return (
-    <div className="flex items-center justify-end px-4 sm:px-6 pt-4 sm:pt-6">
-      <div className="flex items-center gap-3 sm:gap-4">
+    <div className="flex items-center justify-end pr-6 pt-6 pb-4">
+      <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <span className="text-[#488BBE] text-sm font-medium">ID / EN</span>
         </div>
@@ -120,76 +121,84 @@ export const LanguageSwitcher = () => {
 }
 
 // Profile Component for Student/Employee
-export const SharedProfile = ({ data, type = "student", onEdit, title }) => {
+export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarExpanded = false }) => {
   const profile = data?.studentProfile || data?.employeeProfile || data || {}
 
   // Student fields configuration
   const studentFields = [
-    [
-      { key: "fullName", label: "Nama Lengkap", value: data?.fullName },
-      { key: "nis", label: "NIS", value: profile.nis },
-      {
-        key: "classroom",
-        label: "Kelas",
-        value: profile.classroom && profile.grade ? `${profile.classroom}-${profile.grade}` : "-",
-      },
-      {
-        key: "gender",
-        label: "Jenis Kelamin",
-        value: profile.gender === "male" ? "Laki Laki" : profile.gender === "female" ? "Perempuan" : "-",
-      },
-    ],
-    [
-      {
-        key: "birthInfo",
-        label: "Tempat/Tanggal Lahir",
-        value: formatBirthInfo(profile.birthPlace, profile.birthDate),
-      },
-      { key: "guardianContact", label: "Kontak Wali", value: formatPhoneNumber(profile.guardianContact) },
-      { key: "iqScore", label: "Skor IQ", value: profile.iqScore || "-" },
-      { key: "iqCategory", label: "Kategori", value: getIqCategoryDisplay(profile.iqCategory) },
-    ],
+    { key: "fullName", label: "Nama Lengkap", value: data?.fullName },
+    {
+      key: "birthInfo",
+      label: "Tempat/Tanggal Lahir",
+      value: formatBirthInfo(profile.birthPlace, profile.birthDate),
+    },
+    { key: "nis", label: "NIS", value: profile.nis },
+    { key: "guardianContact", label: "Kontak Wali", value: formatPhoneNumber(profile.guardianContact) },
+    {
+      key: "classroom",
+      label: "Kelas",
+      value: profile.classroom && profile.grade ? `${profile.classroom}-${profile.grade}` : "-",
+    },
+    { key: "iqScore", label: "Skor IQ", value: profile.iqScore || "-" },
+    {
+      key: "gender",
+      label: "Jenis Kelamin",
+      value: profile.gender === "male" ? "Laki Laki" : profile.gender === "female" ? "Perempuan" : "-",
+    },
+    { key: "iqCategory", label: "Kategori", value: getIqCategoryDisplay(profile.iqCategory) },
   ]
 
   // Employee fields configuration
   const employeeFields = [
-    [
-      { key: "fullName", label: "Nama Lengkap", value: data?.fullName },
-      { key: "employeeId", label: "ID Karyawan", value: profile.employeeId || profile.id },
-      { key: "department", label: "Departemen", value: profile.department },
-      {
-        key: "gender",
-        label: "Jenis Kelamin",
-        value: profile.gender === "male" ? "Laki-laki" : profile.gender === "female" ? "Perempuan" : "-",
-      },
-    ],
-    [
-      {
-        key: "birthInfo",
-        label: "Tempat/Tanggal Lahir",
-        value: formatBirthInfo(profile.birthPlace, profile.birthDate),
-      },
-      { key: "contact", label: "Kontak", value: formatPhoneNumber(profile.contact || profile.phone) },
-      { key: "position", label: "Jabatan", value: profile.position },
-      {
-        key: "workYears",
-        label: "Lama Bekerja",
-        value: profile.yearsOfService ? `${profile.yearsOfService} Tahun` : "-",
-      },
-    ],
+    { key: "fullName", label: "Nama Lengkap", value: data?.fullName },
+    {
+      key: "birthInfo",
+      label: "Tempat/Tanggal Lahir",
+      value: formatBirthInfo(profile.birthPlace, profile.birthDate),
+    },
+    { key: "employeeId", label: "Departemen", value: profile.department },
+    {
+      key: "workYears",
+      label: "Lama Bekerja",
+      value: profile.yearsOfService ? `${profile.yearsOfService} Tahun` : "-",
+    },
+    { key: "position", label: "Jabatan", value: profile.position },
+    { key: "contact", label: "Kontak", value: formatPhoneNumber(profile.contact || profile.phone) },
+    {
+      key: "gender",
+      label: "Jenis Kelamin",
+      value: profile.gender === "male" ? "Laki-laki" : profile.gender === "female" ? "Perempuan" : "-",
+    },
+    { key: "category", label: "Kategori", value: "-" },
   ]
 
   const fields = type === "student" ? studentFields : employeeFields
 
   return (
-    <section className="w-full lg:w-[320px] flex-shrink-0">
-      <h1 className="text-lg sm:text-xl font-semibold leading-none text-[#488BBE] mb-4 sm:mb-6 text-left">
+    <motion.section
+      className="flex-shrink-0 flex flex-col"
+      style={{ width: "340px" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.h1
+        className="text-xl font-semibold leading-none text-[#488BBE] mb-6 text-left"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
         {title || `Profil ${type === "student" ? "Siswa" : "Karyawan"}`}
-      </h1>
+      </motion.h1>
 
       {/* Profile Picture */}
-      <div className="flex justify-center lg:justify-start mb-6 sm:mb-8">
-        <div className="w-[150px] h-[150px] sm:w-[180px] sm:h-[180px] rounded-full overflow-hidden shadow-sm bg-gray-100 border flex items-center justify-center">
+      <motion.div
+        className="flex justify-center lg:justify-start mb-[51px]"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <div className="w-[120px] h-[120px] rounded-full overflow-hidden shadow-sm bg-gray-100 border flex items-center justify-center">
           {data?.profilePicture ? (
             <img
               src={data.profilePicture || "/placeholder.svg"}
@@ -198,97 +207,133 @@ export const SharedProfile = ({ data, type = "student", onEdit, title }) => {
             />
           ) : (
             <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="material-icons text-gray-400 text-4xl">person</span>
+              <span className="material-icons text-gray-400 text-3xl">person</span>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Information Grid */}
-      <div className="flex flex-col w-full">
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-          {/* Left Column */}
-          <div className="flex flex-col space-y-4 sm:space-y-6 w-full sm:w-[80px] flex-shrink-0">
-            {fields[0].map((field) => (
-              <div key={field.key}>
-                <label className="text-xs leading-loose text-zinc-500 block">{field.label}</label>
-                <p className="mt-1 sm:mt-2 text-sm sm:text-base leading-none text-neutral-600 break-words">
-                  {field.value || "-"}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Right Column */}
-          <div className="flex flex-col space-y-4 sm:space-y-6 flex-1 min-w-0">
-            {fields[1].map((field) => (
-              <div key={field.key}>
-                <label className="text-xs leading-loose text-zinc-500 block">{field.label}</label>
-                <p className="mt-1 sm:mt-2 text-sm sm:text-base leading-none text-neutral-600 break-words">
-                  {field.value || "-"}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* Information Grid - TIDAK PAKAI TRUNCATE */}
+      <div className="w-full flex-grow">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-[35px]">
+          {fields.map((field, index) => (
+            <motion.div
+              key={field.key}
+              className="min-w-0"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 + index * 0.05 }}
+            >
+              <label className="text-xs leading-tight text-zinc-500 block mb-1">{field.label}</label>
+              <p className="text-sm leading-tight text-neutral-600 break-words" title={field.value || "-"}>
+                {field.value || "-"}
+              </p>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Edit Button */}
-        <button
-          onClick={onEdit}
-          className="self-center sm:self-end px-1.5 py-1 mt-6 sm:mt-8 text-xs font-semibold leading-5 text-white bg-[#488BBE] rounded-md min-h-7 w-[82px] hover:bg-[#3399E9] transition-colors"
-        >
-          Edit
-        </button>
+        {/* Edit Button - positioned at bottom to align with metrics chart */}
+        <div className="flex justify-end mt-auto pt-[80px]">
+          <motion.button
+            onClick={onEdit}
+            className="px-3 py-1.5 text-xs font-semibold leading-5 text-white bg-[#488BBE] rounded-md min-h-7 w-[82px] hover:bg-[#3399E9] transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Edit
+          </motion.button>
+        </div>
       </div>
-    </section>
+    </motion.section>
   )
 }
 
 // Development Component
 export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" }) => {
   const profile = data?.studentProfile || data?.employeeProfile || data || {}
+  const fullName = data?.fullName || "Siswa"
 
-  // Generate chart data
+  // State to track current month and month range
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(0)
+  const [monthRangeStart, setMonthRangeStart] = useState(0) // 0 = Jan-Jun, 1 = Jul-Dec
+
+  // All 12 months for metrics data
+  const allMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+  // Get notes from mental health history
+  const getMonthlyNotes = () => {
+    if (!mentalHealthHistory || mentalHealthHistory.length === 0) {
+      return allMonths.map((_, index) => "Belum ada catatan perkembangan")
+    }
+
+    // Create a map of month to notes
+    const notesMap = {}
+    mentalHealthHistory.forEach((record) => {
+      const date = new Date(record.date)
+      const month = date.getMonth()
+      if (!notesMap[month] || new Date(record.date) > new Date(notesMap[month].date)) {
+        notesMap[month] = {
+          date: record.date,
+          notes: record.notes || "Belum ada catatan perkembangan",
+        }
+      }
+    })
+
+    // Fill in missing months
+    return allMonths.map((_, index) => {
+      return notesMap[index]?.notes || "Belum ada catatan perkembangan"
+    })
+  }
+
+  const monthlyNotes = getMonthlyNotes()
+
+  // Generate chart data from mental health history
   const generateChartData = () => {
-    if (mentalHealthHistory && Array.isArray(mentalHealthHistory) && mentalHealthHistory.length > 0) {
-      const monthlyData = {}
-
+    if (mentalHealthHistory && mentalHealthHistory.length > 0) {
+      // Create a map of month to status
+      const statusMap = {}
       mentalHealthHistory.forEach((record) => {
         const date = new Date(record.date)
-        const monthKey = format(date, "yyyy-MM")
-
-        if (!monthlyData[monthKey] || new Date(record.date) > new Date(monthlyData[monthKey].date)) {
-          monthlyData[monthKey] = {
-            month: format(date, "MMM", { locale: indonesianLocale }),
-            status: record.status,
+        const month = date.getMonth()
+        if (!statusMap[month] || new Date(record.date) > new Date(statusMap[month].date)) {
+          statusMap[month] = {
             date: record.date,
+            status: record.status,
           }
         }
       })
 
-      const sortedData = Object.values(monthlyData)
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .slice(-6)
-
-      return sortedData.map((data) => ({
-        month: data.month,
-        value: getStatusValue(data.status),
-      }))
-    } else {
-      const currentStatus = profile.screeningStatus || "stable"
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-
-      return months.map((month, index) => {
-        let value
-        if (index === months.length - 1) {
-          value = getStatusValue(currentStatus)
-        } else {
-          const randomValue = Math.random() * 3 + 1
-          value = Math.round(randomValue)
+      // Convert status to value
+      return allMonths.map((month, index) => {
+        const status = statusMap[index]?.status || "stable"
+        return {
+          month,
+          value: getStatusValue(status),
+          status: status,
         }
-
-        return { month, value }
       })
+    } else {
+      // Default data if no history
+      const seedValues = [1, 2, 3, 2, 2, 3, 3, 2, 1, 2, 3, 3]
+      const seedStatus = [
+        "at_risk",
+        "monitored",
+        "stable",
+        "monitored",
+        "monitored",
+        "stable",
+        "stable",
+        "monitored",
+        "at_risk",
+        "monitored",
+        "stable",
+        "stable",
+      ]
+      return allMonths.map((month, index) => ({
+        month,
+        value: seedValues[index],
+        status: seedStatus[index],
+      }))
     }
   }
 
@@ -302,133 +347,252 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
     return statusValues[status] || 3
   }
 
-  const chartData = generateChartData()
+  const fullYearChartData = generateChartData()
+  const visibleChartData = fullYearChartData.slice(monthRangeStart * 6, monthRangeStart * 6 + 6)
 
-  // Custom dot component
+  // Handle previous month click
+  const handlePrevMonth = () => {
+    if (currentMonthIndex > 0) {
+      setCurrentMonthIndex(currentMonthIndex - 1)
+    } else if (monthRangeStart > 0) {
+      setMonthRangeStart(0)
+      setCurrentMonthIndex(5)
+    }
+  }
+
+  // Handle next month click
+  const handleNextMonth = () => {
+    if (currentMonthIndex < 5) {
+      setCurrentMonthIndex(currentMonthIndex + 1)
+    } else if (monthRangeStart === 0) {
+      setMonthRangeStart(1)
+      setCurrentMonthIndex(0)
+    }
+  }
+
+  const absoluteMonthIndex = monthRangeStart * 6 + currentMonthIndex
+  const isPrevDisabled = absoluteMonthIndex === 0
+  const isNextDisabled = absoluteMonthIndex === 11
+
+  // Custom dot component with colorful dots
   const CustomDot = (props) => {
-    const { cx, cy, payload } = props
+    const { cx, cy, payload, index } = props
+    const isActive = index === currentMonthIndex
+
     const getColor = (value) => {
-      if (value <= 1.5) return "#EE4266"
-      if (value <= 2.5) return "#FFC107"
-      return "#87C054"
+      if (value <= 1.5) return "#EE4266" // Berisiko - Red
+      if (value <= 2.5) return "#EED142" // Pengawasan - Yellow
+      return "#9BCA61" // Stabil - Green
+    }
+
+    const dotColor = getColor(payload.value)
+
+    if (isActive) {
+      return (
+        <g>
+          <circle cx={cx} cy={cy} r={8} fill="white" stroke={dotColor} strokeWidth={3} />
+          <circle cx={cx} cy={cy} r={5} fill={dotColor} />
+        </g>
+      )
     }
 
     return (
       <g>
-        <circle cx={cx} cy={cy} r={5} fill="white" stroke="#488BBE" strokeWidth={2} />
-        <circle cx={cx} cy={cy} r={3} fill={getColor(payload.value)} />
+        <circle cx={cx} cy={cy} r={6} fill="white" stroke="#3B82F6" strokeWidth={2} />
+        <circle cx={cx} cy={cy} r={4} fill={dotColor} />
       </g>
     )
   }
 
   return (
-    <section className="flex flex-col w-full">
+    <motion.section
+      className="flex flex-col w-full min-w-0 max-w-[679px]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       {/* Development Section */}
-      <h2 className="text-lg sm:text-xl font-semibold text-[#488BBE] mb-3 sm:mb-4">
+      <motion.h2
+        className="text-xl font-semibold text-[#488BBE] mb-3"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
         Perkembangan {type === "student" ? "Siswa" : "Karyawan"}
-      </h2>
+      </motion.h2>
 
-      <article className="relative flex flex-col px-8 sm:px-12 py-4 sm:py-6 w-full text-sm leading-5 rounded-xl border border-gray-300 bg-[#FCFCFC] min-h-24 sm:min-h-32 text-neutral-600 mb-4 sm:mb-6">
-        {/* Arrow Icons - larger and conditionally disabled */}
+      <motion.article
+        className="relative flex flex-col w-full h-[208px] text-sm leading-5 rounded-xl border border-gray-300 bg-[#FCFCFC] text-neutral-600 mb-8"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        {/* Arrow Icons - Fixed position */}
         <button
-          className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-300 cursor-not-allowed w-[17px] h-[10px] flex items-center justify-center"
-          disabled
+          className={`absolute left-3 top-[104px] transform -translate-y-1/2 ${
+            isPrevDisabled ? "text-gray-300 cursor-not-allowed" : "text-[#488BBE] cursor-pointer"
+          } w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
+          onClick={handlePrevMonth}
+          disabled={isPrevDisabled}
         >
-          <span className="material-icons text-base sm:text-lg">chevron_left</span>
-        </button>
-        <button
-          className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-300 cursor-not-allowed w-[17px] h-[10px] flex items-center justify-center"
-          disabled
-        >
-          <span className="material-icons text-base sm:text-lg">chevron_right</span>
+          <span className="material-icons text-2xl">chevron_left</span>
         </button>
 
-        {/* Content - only show if there's actual progress data */}
-        <div className="px-6 sm:px-8 flex items-center justify-center h-full">
-          {profile.progress ? (
-            <p className="text-center text-xs sm:text-sm">{profile.progress}</p>
-          ) : (
-            <div className="h-12 sm:h-16"></div>
-          )}
+        <button
+          className={`absolute right-3 top-[104px] transform -translate-y-1/2 ${
+            isNextDisabled ? "text-gray-300 cursor-not-allowed" : "text-[#488BBE] cursor-pointer"
+          } w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
+          onClick={handleNextMonth}
+          disabled={isNextDisabled}
+        >
+          <span className="material-icons text-2xl">chevron_right</span>
+        </button>
+
+        {/* Content - No month label as requested */}
+        <div className="px-16 flex flex-col items-center justify-center h-full py-6">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={absoluteMonthIndex}
+              className="text-center w-full"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <p className="text-base leading-relaxed">{monthlyNotes[absoluteMonthIndex]}</p>
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </article>
+      </motion.article>
 
       {/* Mental Health Chart */}
-      <h2 className="text-lg sm:text-xl font-semibold text-[#488BBE] mb-3 sm:mb-4">
-        Perkembangan Status Kesehatan Mental ({data?.fullName || (type === "student" ? "Siswa" : "Karyawan")})
-      </h2>
+      <motion.h2
+        className="text-xl font-semibold text-[#488BBE] mb-3"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        Perkembangan Status Kesehatan Mental ({fullName})
+      </motion.h2>
 
-      <div className="flex overflow-hidden gap-3 sm:gap-6 pt-6 sm:pt-8 pr-4 sm:pr-8 pb-3 sm:pb-4 pl-3 sm:pl-6 text-xs sm:text-sm rounded-xl border border-[#535353] bg-zinc-50">
-        {/* Y-axis labels */}
-        <div className="flex flex-col justify-between text-right w-16 sm:w-24 h-[150px] sm:h-[200px] py-4 sm:py-6">
-          <p className="font-bold text-lime-400 leading-none text-xs sm:text-sm">Stabil</p>
-          <p className="font-bold text-amber-500 leading-none text-xs sm:text-sm">Pengawasan</p>
-          <p className="font-bold text-rose-500 leading-none text-xs sm:text-sm">Berisiko</p>
-          <p className="text-neutral-600 leading-none text-xs sm:text-sm">0</p>
+      <motion.div
+        className="flex overflow-hidden w-full h-[291px] rounded-xl border border-[#535353] bg-[#FCFCFC]"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        {/* Y-axis labels - Correctly positioned with proper spacing */}
+        <div
+          className="flex flex-col justify-between text-right w-20 px-3"
+          style={{ paddingTop: "27.6px", paddingBottom: "72.8px" }}
+        >
+          <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <p className="font-bold text-[#9BCA61] leading-[13px] text-sm">Stabil</p>
+          </div>
+          <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <p className="font-bold text-[#EED142] leading-[13px] text-sm">Pengawasan</p>
+          </div>
+          <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            <p className="font-bold text-[#EE4266] leading-[13px] text-sm">Berisiko</p>
+          </div>
+          <div style={{ height: "27.6px", display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
+            <p className="text-[#828898] leading-[13px] text-sm">0</p>
+          </div>
         </div>
 
         {/* Chart area */}
-        <div className="flex flex-col grow text-center text-slate-500">
-          <div className="w-full h-[150px] sm:h-[200px] relative">
+        <div className="flex flex-col flex-1 text-center text-slate-500 min-w-0">
+          <div className="w-full flex-1 relative px-6" style={{ paddingTop: "27.6px", paddingBottom: "27.6px" }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <LineChart data={visibleChartData} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                 <YAxis domain={[0, 4]} hide />
 
-                {/* Horizontal dashed grid lines - properly aligned */}
-                <ReferenceLine y={3} stroke="#87C054" strokeOpacity={0.3} strokeDasharray="6 4" />
-                <ReferenceLine y={2} stroke="#FFC107" strokeOpacity={0.3} strokeDasharray="6 4" />
-                <ReferenceLine y={1} stroke="#EE4266" strokeOpacity={0.3} strokeDasharray="6 4" />
-                <ReferenceLine y={0} stroke="#828898" strokeOpacity={0.6} strokeDasharray="6 4" />
+                {/* 5 Garis putus-putus yang benar dengan warna dan jarak yang tepat */}
+                <ReferenceLine y={4} stroke="#E5E7EB" strokeWidth={1} strokeDasharray="3 3" />
+                <ReferenceLine y={3} stroke="#9BCA61" strokeWidth={1} strokeDasharray="3 3" />
+                <ReferenceLine y={2} stroke="#EED142" strokeWidth={1} strokeDasharray="3 3" />
+                <ReferenceLine y={1} stroke="#EE4266" strokeWidth={1} strokeDasharray="3 3" />
+                <ReferenceLine y={0} stroke="#828898" strokeWidth={1} strokeDasharray="3 3" />
 
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#488BBE"
-                  strokeWidth={2}
+                  stroke="#3B82F6"
+                  strokeWidth={3}
                   dot={<CustomDot />}
-                  activeDot={{ r: 6, stroke: "#488BBE", strokeWidth: 2, fill: "white" }}
+                  activeDot={false}
+                  isAnimationActive={true}
+                  animationDuration={1000}
+                  animationEasing="ease-in-out"
                 />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="flex justify-between self-center mt-2 sm:mt-3 w-full max-w-[400px] sm:max-w-[500px] px-2 sm:px-4">
-            {chartData.map((data, index) => (
-              <span key={index} className="text-xs sm:text-sm">
+          {/* Month labels */}
+          <div className="flex justify-between px-8 pb-6">
+            {visibleChartData.map((data, index) => (
+              <span
+                key={index}
+                className={`text-sm ${index === currentMonthIndex ? "text-[#488BBE] font-medium" : "text-[#828898]"}`}
+              >
                 {data.month}
               </span>
             ))}
           </div>
         </div>
-      </div>
-    </section>
+      </motion.div>
+    </motion.section>
   )
 }
 
 // Divider Component
-export const Divider = () => (
-  <div
-    className="hidden lg:block shrink-0 my-auto w-0 h-[400px] sm:h-[600px]"
+export const Divider = ({ sidebarExpanded = false }) => (
+  <motion.div
+    className="hidden lg:block shrink-0 my-auto h-[400px]"
     style={{
       background: "linear-gradient(180deg, #FFFFFF 0%, #488BBA 50%, #FFFFFF 100%)",
       width: "1px",
     }}
+    initial={{ opacity: 0, scaleY: 0.8 }}
+    animate={{
+      opacity: 1,
+      scaleY: 1,
+      marginLeft: sidebarExpanded ? "30px" : "60px",
+      marginRight: sidebarExpanded ? "30px" : "60px",
+    }}
+    transition={{ duration: 0.3, ease: "easeInOut" }}
   />
 )
 
 // Main Layout Component
-export const DetailPageLayout = ({ children }) => {
+export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
   return (
     <main className="bg-white min-h-screen">
       <LanguageSwitcher />
 
       <div className="flex flex-col lg:flex-row">
-        {/* Sidebar Space */}
-        <aside className="hidden lg:block w-[200px] flex-shrink-0" />
+        {/* Sidebar placeholder dengan lebar yang sesuai */}
+        <motion.aside
+          className="hidden lg:block flex-shrink-0"
+          initial={false}
+          animate={{ width: sidebarExpanded ? "200px" : "64px" }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        />
 
-        {/* Main Content */}
-        <div className="flex-1 px-4 sm:px-6 lg:px-4">
-          <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-8 mt-8 sm:mt-12 pb-8">{children}</div>
+        {/* Content area dengan layout yang dinamis dan responsive */}
+        <div className="flex-1 min-w-0">
+          <motion.div
+            className="flex flex-col lg:flex-row lg:items-start mt-2 pb-8 w-full"
+            initial={false}
+            animate={{
+              paddingLeft: sidebarExpanded ? "24px" : "48px",
+              paddingRight: "24px",
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="flex flex-col lg:flex-row lg:items-start w-full max-w-none">{children}</div>
+          </motion.div>
         </div>
       </div>
     </main>
