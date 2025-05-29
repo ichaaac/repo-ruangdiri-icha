@@ -1,12 +1,9 @@
-"use client"
 
 import React, { useState, useRef, useCallback, forwardRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"
 import clsx from "clsx"
 
-// Filter modal z-index needs to be higher than any other elements
-const FILTER_MODAL_Z_INDEX = 9999
 
 // Custom Dropdown Component
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
@@ -32,7 +29,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
 
   return (
     <Menu as="div" className="relative">
-      <Menu.Button
+      <Menu
         ref={menuButtonRef}
         disabled={disabled}
         className={clsx(
@@ -48,7 +45,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
       >
         <span className="truncate">{displayValue}</span>
         <span className="material-icons text-gray-400 text-xs sm:text-sm">expand_more</span>
-      </Menu.Button>
+      </Menu>
 
       <Transition
         as={React.Fragment}
@@ -59,7 +56,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         leaveFrom="transform opacity-100 scale-100 translate-y-0"
         leaveTo="transform opacity-0 scale-95 translate-y-1"
       >
-        <Menu.Items
+        <Menu
           ref={menuItemsRef}
           modal={false}
           className="absolute z-[9999] mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto"
@@ -71,7 +68,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
             const isSelected = optionValue === value
 
             return (
-              <Menu.Item key={optionValue}>
+              <Menu key={optionValue}>
                 {({ active }) => (
                   <button
                     type="button"
@@ -88,10 +85,10 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     {isSelected && <span className="material-icons text-[#488BBE] text-xs sm:text-sm">check</span>}
                   </button>
                 )}
-              </Menu.Item>
+              </Menu>
             )
           })}
-        </Menu.Items>
+        </Menu>
       </Transition>
     </Menu>
   )
@@ -170,7 +167,6 @@ const SharedTable = forwardRef(
     const contentRef = useRef(null)
     const [scrollRatio, setScrollRatio] = useState(0)
 
-    // Configure table based on type
     const tableConfig = {
       student: {
         emptyIcon: "school",
@@ -186,11 +182,9 @@ const SharedTable = forwardRef(
 
     const config = tableConfig[type]
 
-    // FIXED: Dynamic width calculation based on sidebar state
     useEffect(() => {
       const updateContainerWidth = () => {
         if (contentRef.current) {
-          // Calculate available width based on sidebar state
           const sidebarWidth = sidebarExpanded ? 237 : 60
           const windowWidth = window.innerWidth
           const availableWidth = windowWidth - sidebarWidth - 48 // 48px for padding

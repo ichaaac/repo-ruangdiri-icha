@@ -20,7 +20,7 @@ export const useEmployeeDetail = (employeeId) => {
     queryKey: ['employee', employeeId],
     queryFn: async () => {
       try {
-        const response = await api.employees.getEmployeeById(employeeId);
+        const response = await api.organization.company.getEmployeeById(employeeId);
         console.log('📊 Employee detail response:', response);
         return response;
       } catch (error) {

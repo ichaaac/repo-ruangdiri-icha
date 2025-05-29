@@ -201,17 +201,15 @@ const Sidebar = ({
       {/* FIXED: Profile Section with COMPLETELY STABLE positioning */}
       <div className={`${isMobile ? "px-3 mt-6" : "px-4 mt-8"} relative`}>
         <div
-          className="flex items-center cursor-pointer relative"
+          className="flex items-center cursor-pointer relative min-h-[40px] gap-3"
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
+
           {/* FIXED: Profile Picture - COMPLETELY STABLE, NO MOVEMENT */}
           <div
-            className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0 absolute left-0`}
-            style={{
-              left: expanded || hovered ? 0 : isMobile ? "6px" : "8px",
-              transition: "left 0.3s ease-in-out",
-            }}
+            className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0 transition-all`}
           >
+
             {userData?.profilePicture && !fallbackProfileImage ? (
               <img
                 src={userData.profilePicture || "/placeholder.svg"}
@@ -228,11 +226,12 @@ const Sidebar = ({
 
           {/* Profile Text - positioned to the right of profile picture */}
           <div
-            className={`${isMobile ? "ml-10" : "ml-12"} overflow-hidden transition-all duration-300 ease-in-out`}
-            style={{
+            className="overflow-hidden transition-all"
+            animate={{
               width: expanded || hovered ? "auto" : 0,
               opacity: expanded || hovered ? 1 : 0,
             }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             <div className={`${isMobile ? "text-xs" : "text-sm"} font-medium text-[#488BBE]`}>Admin</div>
             <div className={`${isMobile ? "text-xs" : "text-sm"} font-medium text-[#488BBE] flex items-center`}>

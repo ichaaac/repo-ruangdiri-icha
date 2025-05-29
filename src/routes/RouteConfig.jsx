@@ -17,13 +17,13 @@ import ResetPassword from "../pages/shared/auth/ResetPassword";
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
 import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
 import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage";
+import EmployeeDetailPage from "@/pages/organization/company/EmployeeDetailPage";
 
 // School pages
 import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
 import StudentListPage from "../pages/organization/school/StudentListPage";
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
 import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
-
 /**
  * Route configuration for the application
  * Enhanced with development routes using existing layouts
@@ -179,6 +179,10 @@ const routes = [
         element: <Navigate to="profile" replace />
       },
       {
+        path: "employee/:employeeId",
+        element: <EmployeeDetailPage />
+      },
+      {
         path: "candidates",
         element: (
           <div className="p-8 text-center">
@@ -264,6 +268,10 @@ const routes = [
       {
         path: "settings",
         element: <Navigate to="profile" replace />
+      },
+    {
+        path: "employee/:employeeId",
+        element: <EmployeeDetailPage />
       },
       {
         path: "candidates",
