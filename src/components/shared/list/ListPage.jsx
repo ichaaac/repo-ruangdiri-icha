@@ -172,7 +172,7 @@ const SharedListPage = ({
     setShowFilterModal,
   } = useFiltersHook()
 
-  const debouncedSearchTerm = useDebounce(searchInput, 150)
+  const debouncedSearchTerm = useDebounce(searchInput, 300)
 
   // Call the data hook
   const hookResult = useDataHook(debouncedSearchTerm, appliedSortConfig, appliedFilters)

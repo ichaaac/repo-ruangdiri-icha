@@ -186,7 +186,6 @@ const SchoolInfoEditModal = ({ onClose, userData }) => {
                   "w-full rounded-md h-12 border-[1.5px] px-4 focus:outline-none focus:border-primary",
                   errors.fullName ? "border-red-500" : "border-gray-300"
                 )}
-                placeholder="Masukkan nama sekolah"
                 autoComplete="organization"
               />
               {errors.fullName && (
