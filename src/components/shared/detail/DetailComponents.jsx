@@ -484,9 +484,9 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
         {/* Y-axis labels - Correctly positioned with proper spacing */}
         <div
           className="flex flex-col justify-between text-right w-20 px-3"
-          style={{ paddingTop: "27.6px", paddingBottom: "72.8px" }}
+          style={{ paddingTop: "20px", paddingBottom: "72.8px" }}
         >
-          <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+          <div style={{ height: "45px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
             <p className="font-bold text-[#9BCA61] leading-[13px] text-sm">Stabil</p>
           </div>
           <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
@@ -502,9 +502,12 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
 
         {/* Chart area */}
         <div className="flex flex-col flex-1 text-center text-slate-500 min-w-0">
-          <div className="w-full flex-1 relative px-6" style={{ paddingTop: "27.6px", paddingBottom: "27.6px" }}>
+          <div
+            className="w-full flex-1 relative"
+            style={{ paddingTop: "20px", paddingBottom: "27.6px", paddingLeft: "15px", paddingRight: "15px" }}
+          >
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={visibleChartData} margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+              <LineChart data={visibleChartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <YAxis domain={[0, 4]} hide />
 
                 {/* 5 Garis putus-putus yang benar dengan warna dan jarak yang tepat */}
@@ -558,8 +561,8 @@ export const Divider = ({ sidebarExpanded = false }) => (
     animate={{
       opacity: 1,
       scaleY: 1,
-      marginLeft: sidebarExpanded ? "30px" : "60px",
-      marginRight: sidebarExpanded ? "30px" : "60px",
+      marginLeft: sidebarExpanded ? "20px" : "50px",
+      marginRight: sidebarExpanded ? "20px" : "50px",
     }}
     transition={{ duration: 0.3, ease: "easeInOut" }}
   />
@@ -586,7 +589,7 @@ export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
             className="flex flex-col lg:flex-row lg:items-start mt-2 pb-8 w-full"
             initial={false}
             animate={{
-              paddingLeft: sidebarExpanded ? "24px" : "48px",
+              paddingLeft: sidebarExpanded ? "12px" : "36px",
               paddingRight: "24px",
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}

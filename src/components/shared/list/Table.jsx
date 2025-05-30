@@ -5,7 +5,6 @@ import { Menu, Transition } from "@headlessui/react"
 import clsx from "clsx"
 
 
-// Custom Dropdown Component
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
   const currentOption = options.find((opt) => (opt.value !== undefined ? opt.value : opt) === value)
   const displayValue = currentOption?.label || currentOption || value
@@ -29,7 +28,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
 
   return (
     <Menu as="div" className="relative">
-      <Menu
+      {/* Menggunakan Menu.Button alih-alih Menu lagi */}
+      <Menu.Button
         ref={menuButtonRef}
         disabled={disabled}
         className={clsx(
@@ -45,7 +45,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
       >
         <span className="truncate">{displayValue}</span>
         <span className="material-icons text-gray-400 text-xs sm:text-sm">expand_more</span>
-      </Menu>
+      </Menu.Button>
 
       <Transition
         as={React.Fragment}
@@ -56,9 +56,10 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         leaveFrom="transform opacity-100 scale-100 translate-y-0"
         leaveTo="transform opacity-0 scale-95 translate-y-1"
       >
-        <Menu
+        {/* Menggunakan Menu.Items alih-alih Menu lagi */}
+        <Menu.Items
           ref={menuItemsRef}
-          modal={false}
+          static={false}
           className="absolute z-[9999] mt-2 w-full bg-white rounded-md shadow-lg border border-gray-200 py-1 focus:outline-none max-h-60 overflow-y-auto"
           style={{ backgroundColor: "white" }}
         >
@@ -68,7 +69,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
             const isSelected = optionValue === value
 
             return (
-              <Menu key={optionValue}>
+              /* Menggunakan Menu.Item alih-alih Menu */
+              <Menu.Item key={optionValue}>
                 {({ active }) => (
                   <button
                     type="button"
@@ -76,8 +78,8 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     className={clsx(
                       "w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-between",
                       "transition-colors duration-100",
-                      active && "bg-[#E2F9FF]",
-                      isSelected && "bg-[#E2F9FF] text-[#488BBE] font-medium",
+                      active ? "bg-[#E2F9FF]" : "",
+                      isSelected ? "bg-[#E2F9FF] text-[#488BBE] font-medium" : ""
                     )}
                     style={{ backgroundColor: active ? "#E2F9FF" : "white" }}
                   >
@@ -85,10 +87,10 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     {isSelected && <span className="material-icons text-[#488BBE] text-xs sm:text-sm">check</span>}
                   </button>
                 )}
-              </Menu>
+              </Menu.Item>
             )
           })}
-        </Menu>
+        </Menu.Items>
       </Transition>
     </Menu>
   )
@@ -447,9 +449,9 @@ const SharedTable = forwardRef(
     // Helper functions
     const getScreeningStatusUI = (status) => {
       const statusMap = {
-        at_risk: { bg: "bg-red-100", icon: "warning", color: "text-red-500", text: "Berisiko" },
-        monitored: { bg: "bg-yellow-100", icon: "error", color: "text-yellow-500", text: "Pengawasan" },
-        stable: { bg: "bg-green-100", icon: "check_circle", color: "text-green-500", text: "Stabil" },
+        at_risk: {  icon: "warning", color: "text-red-500", text: "Berisiko" },
+        monitored: {  icon: "error", color: "text-yellow-500", text: "Pengawasan" },
+        stable: { icon: "check_circle", color: "text-green-500", text: "Stabil" },
       }
       return statusMap[status] || statusMap.stable
     }
@@ -722,7 +724,7 @@ const SharedTable = forwardRef(
                           {/* Classroom - REMOVED border-r */}
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="flex gap-1 justify-center" style={{ zIndex: 9000 }}>
+                              <div className="flex gap-1 justify-center" style={{ zIndex: 9999 }}>
                                 <CustomDropdown
                                   name="classroom"
                                   value={editData.classroom}
@@ -751,7 +753,7 @@ const SharedTable = forwardRef(
                           {/* Gender - REMOVED border-r */}
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="relative" style={{ zIndex: 9000 }}>
+                              <div className="relative" style={{ zIndex: 999 }}>
                                 <CustomDropdown
                                   name="gender"
                                   value={editData.gender}
@@ -805,7 +807,7 @@ const SharedTable = forwardRef(
                           {/* Department - REMOVED border-r */}
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="relative" style={{ zIndex: 9000 }}>
+                              <div className="relative" style={{ zIndex: 999 }}>
                                 <CustomDropdown
                                   name="department"
                                   value={editData.department}
@@ -824,7 +826,7 @@ const SharedTable = forwardRef(
                           {/* Position - REMOVED border-r */}
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="relative" style={{ zIndex: 9000 }}>
+                              <div className="relative" style={{ zIndex: 999 }}>
                                 <CustomDropdown
                                   name="position"
                                   value={editData.position}
@@ -843,7 +845,7 @@ const SharedTable = forwardRef(
                           {/* Gender - REMOVED border-r */}
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="relative" style={{ zIndex: 9000 }}>
+                              <div className="relative" style={{ zIndex: 999 }}>
                                 <CustomDropdown
                                   name="gender"
                                   value={editData.gender}
