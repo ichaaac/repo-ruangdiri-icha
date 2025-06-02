@@ -40,6 +40,43 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+apiClient.dashboard = {
+  async getStudentMetrics(filters = {}) {
+    const params = new URLSearchParams()
+    params.append("year", filters.year || new Date().getFullYear())
+    if (filters.classroom) params.append("classroom", filters.classroom)
+    if (filters.grade) params.append("grade", filters.grade)
+    const res = await apiClient.get(`/students/metrics?${params}`)
+    return res.data
+  },
+
+  async getEmployeeMetrics(filters = {}) {
+    const params = new URLSearchParams()
+    params.append("year", filters.year || new Date().getFullYear())
+    if (filters.department) params.append("department", filters.department)
+    const res = await apiClient.get(`/employees/metrics?${params}`)
+    return res.data
+  },
+
+  async getTabData(type = "student", tabType = "at_risk", params = {}) {
+    const queryParams = new URLSearchParams()
+    if (tabType === "at_risk") queryParams.append("screeningStatus", "at_risk")
+    else if (tabType === "not_screened") queryParams.append("screeningStatus", "not_screened")
+    else if (tabType === "not_counseled") queryParams.append("counselingStatus", "false")
+
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) queryParams.append(k, v)
+    })
+
+    const endpoint = type === "student" ? "/organizations/students" : "/organizations/employees"
+    const res = await apiClient.get(`${endpoint}?${queryParams}`)
+    return res.data
+  },
+}
+
+// Export for merging with your existing api object
+
 // Consolidated API object with all endpoints
 const api = {
   // ===== User endpoints =====
@@ -547,97 +584,16 @@ const api = {
           };
         }
       },
-
-      /**
-       * Get dashboard metrics for company
-       * @returns {Promise} API response with dashboard metrics
-       */
-      getDashboardMetrics: async () => {
-        try {
-          const response = await apiClient.get("/employees/dashboard/metrics");
-          return response.data;
-        } catch (error) {
-          console.error("Error fetching employee dashboard metrics:", error);
-          // Return fallback structure
-          return {
-            status: "fallback",
-            data: {
-              summary: {
-                atRisk: { count: 0, total: 0 },
-                notScreened: { count: 0, total: 0 },
-                notCounseled: { count: 0, total: 0 }
-              },
-              mentalHealth: {
-                overall: { atRisk: 0, monitored: 0, stable: 0 },
-                byMonth: []
-              },
-              status: {
-                screening: { completed: 0, notCompleted: 0 },
-                counseling: { completed: 0, notCompleted: 0 }
-              }
-            },
-            message: "Fallback employee dashboard metrics"
-          };
-        }
-      },
-
-      /**
-       * Get employee by ID
-       * @param {string} employeeId - The ID of the employee
-       * @returns {Promise} API response with employee data
-       */
-      getEmployeeById: async (employeeId) => {
-        try {
-          const response = await apiClient.get(`/employees/${employeeId}`);
-          return response.data;
-        } catch (error) {
-          console.error(`Error fetching employee ${employeeId}:`, error);
-          throw error;
-        }
-      },
-
-      /**
-       * Get employee mental health history
-       * @param {string} employeeId - The ID of the employee
-       * @returns {Promise} API response with mental health data
-       */
-      getEmployeeMentalHealthHistory: async (employeeId) => {
-        try {
-          const response = await apiClient.get(`/employees/${employeeId}/mental-health-history`);
-          return response.data;
-        } catch (error) {
-          console.error(`Error fetching mental health history for employee ${employeeId}:`, error);
-          throw error;
-        }
-      },
-
-      /**
-       * Update employee screening status
-       * @param {string} employeeId - The ID of the employee
-       * @param {string} status - New screening status ('at_risk', 'monitored', 'stable')
-       * @param {string} notes - Optional notes about the status change
-       * @returns {Promise} API response
-       */
-      updateEmployeeScreeningStatus: async (employeeId, status, notes = "") => {
-        try {
-          const response = await apiClient.patch(`/employees/${employeeId}/screening-status`, { 
-            status, 
-            notes 
-          });
-          return response.data;
-        } catch (error) {
-          console.error(`Error updating screening status for employee ${employeeId}:`, error);
-          throw error;
-        }
-      }
-    }
+    },
+    
   },
 };
+
+
 
 export default api;
 
 export { apiClient };
-
 export const getMe = async () => {
   try {
     const response = await apiClient.get("/users/me");

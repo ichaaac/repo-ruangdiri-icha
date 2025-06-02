@@ -1,12 +1,11 @@
-"use client"
-
+// src/components/shared/layout/Sidebar.jsx - Updated with dashboard selection
 import { useState, useEffect, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../hooks/useAuth"
 
 /**
- * FIXED: Responsive Sidebar Component with COMPLETELY STABLE profile picture
+ * Responsive Sidebar Component dengan active state untuk dashboard
  */
 const Sidebar = ({
   expanded,
@@ -15,6 +14,8 @@ const Sidebar = ({
   organizationType = "school",
   menuItems = [],
   isMobile = false,
+  selectedDashboardTab = "home", // Add this prop for dashboard tab selection
+  onDashboardTabChange = () => {}, // Add this callback
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -99,31 +100,16 @@ const Sidebar = ({
 
   // Image error handler
   const handleImageError = () => {
-    console.log("Sidebar profile image failed to load:", userData?.profilePicture)
-
-    if (userData?.profilePicture && userData.profilePicture.includes("ngrok-free.app")) {
-      console.log("Detected ngrok URL in sidebar, trying alternative loading method")
-
-      fetch(userData.profilePicture, {
-        mode: "no-cors",
-        method: "GET",
-      })
-        .then((response) => response.blob())
-        .then((blob) => {
-          const objectUrl = URL.createObjectURL(blob)
-          setFallbackProfileImage(true)
-        })
-        .catch((err) => {
-          console.log("Alternative loading also failed in sidebar:", err)
-          setFallbackProfileImage(true)
-        })
-    } else {
-      setFallbackProfileImage(true)
-    }
+    setFallbackProfileImage(true)
   }
 
-  // Check if current path is active
+  // Check if current path is active - UPDATED for dashboard
   const isActive = (path) => {
+    // If path is dashboard, check if we're on dashboard route
+    if (path.includes("/dashboard")) {
+      return location.pathname.includes("/dashboard")
+    }
+
     if (organizationType === "school") {
       if (path === "/organization/school/profile" && location.pathname === "/organization/school/settings") {
         return true
@@ -134,6 +120,30 @@ const Sidebar = ({
       }
     }
     return location.pathname === path
+  }
+
+  // Is dashboard item active
+  const isDashboardItemActive = (tabId) => {
+    if (!location.pathname.includes("/dashboard")) return false
+    
+    // If on dashboard route and this tab is selected
+    return tabId === selectedDashboardTab
+  }
+
+  // Handle dashboard item click
+  const handleDashboardItemClick = (tabId) => {
+    // Set selected tab and call the callback
+    onDashboardTabChange(tabId)
+    
+    // Navigate to dashboard if not already there
+    const dashboardPath = 
+      organizationType === "school" 
+        ? "/organization/school/dashboard" 
+        : "/organization/company/dashboard"
+    
+    if (location.pathname !== dashboardPath) {
+      navigate(dashboardPath)
+    }
   }
 
   // Handle dropdown toggle
@@ -149,6 +159,15 @@ const Sidebar = ({
     return organizationType === "company" ? "C" : "S"
   }
 
+  // Find the dashboard item in menuItems
+  const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'))
+  const dashboardDropdownItems = dashboardItem?.dropdownItems || [
+    { id: "home", label: "Dashboard Home", path: `#dashboard-home` },
+    { id: "at_risk", label: `${organizationType === 'school' ? 'Siswa' : 'Karyawan'} Beresiko`, path: `#dashboard-at_risk` },
+    { id: "not_screened", label: `${organizationType === 'school' ? 'Siswa' : 'Karyawan'} Belum Skrining`, path: `#dashboard-not_screened` },
+    { id: "not_counseled", label: `${organizationType === 'school' ? 'Siswa' : 'Karyawan'} Belum Konseling`, path: `#dashboard-not_counseled` },
+  ]
+
   return (
     <motion.div
       ref={sidebarRef}
@@ -157,9 +176,8 @@ const Sidebar = ({
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
     >
-      {/* FIXED: Logo Container with FIXED HEIGHT for isolation */}
+      {/* Logo Container */}
       <div className={`relative ${isMobile ? "h-[60px]" : "h-[80px]"} flex items-center justify-center`}>
-        {/* Logo - positioned absolutely to not affect other elements */}
         <motion.div
           className="absolute inset-0 flex items-center justify-center"
           animate={{
@@ -179,7 +197,7 @@ const Sidebar = ({
           />
         </motion.div>
 
-        {/* Toggle Button - positioned absolutely */}
+        {/* Toggle Button */}
         <motion.div
           className="absolute right-0 top-1/2 transform -translate-y-1/2"
           onMouseEnter={() => setToggleHovered(true)}
@@ -198,24 +216,22 @@ const Sidebar = ({
         </motion.div>
       </div>
 
-      {/* FIXED: Profile Section with COMPLETELY STABLE positioning */}
+      {/* Profile Section */}
       <div className={`${isMobile ? "px-3 mt-6" : "px-4 mt-8"} relative`}>
         <div
           className="flex items-center cursor-pointer relative min-h-[40px] gap-3"
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
-
-          {/* FIXED: Profile Picture - COMPLETELY STABLE, NO MOVEMENT */}
+          {/* Profile Picture */}
           <div
             className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0 transition-all`}
           >
-
             {userData?.profilePicture && !fallbackProfileImage ? (
               <img
                 src={userData.profilePicture || "/placeholder.svg"}
                 alt="Organization"
                 className="w-full h-full object-cover"
-                onError={() => setFallbackProfileImage(true)}
+                onError={handleImageError}
               />
             ) : (
               <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
@@ -224,8 +240,8 @@ const Sidebar = ({
             )}
           </div>
 
-          {/* Profile Text - positioned to the right of profile picture */}
-          <div
+          {/* Profile Text */}
+          <motion.div
             className="overflow-hidden transition-all"
             animate={{
               width: expanded || hovered ? "auto" : 0,
@@ -242,7 +258,7 @@ const Sidebar = ({
                 {showProfileDropdown ? "expand_less" : "expand_more"}
               </span>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Profile Dropdown */}
@@ -273,12 +289,12 @@ const Sidebar = ({
         </AnimatePresence>
       </div>
 
-      {/* FIXED: Divider with FIXED spacing */}
+      {/* Divider */}
       <div className={`${isMobile ? "mt-6 px-2" : "mt-8 px-3"}`}>
         <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
       </div>
 
-      {/* FIXED: Navigation Menu with ISOLATED spacing */}
+      {/* Navigation Menu */}
       <div
         className={`flex flex-col ${isMobile ? "mt-4 gap-y-2" : "mt-6 gap-y-3"} flex-1 overflow-y-auto`}
         onMouseEnter={handleSidebarMouseEnter}
@@ -288,13 +304,19 @@ const Sidebar = ({
           <div key={index}>
             <motion.div
               className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${
-                isActive(item.path) ? "bg-[#488BBE] text-white" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
+                isActive(item.path)
+                  ? "bg-[#488BBE] text-white font-bold border-b-2 border-white"
+                  : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
               }`}
               onClick={() => {
                 if (item.hasDropdown) {
                   toggleDropdown(item.path)
                 } else {
                   navigate(item.path)
+                  // For dashboard items, select home tab by default when clicking the main menu
+                  if (item.path.includes('/dashboard')) {
+                    onDashboardTabChange('home')
+                  }
                   // Close sidebar on mobile after navigation
                   if (isMobile) {
                     setExpanded(false)
@@ -318,7 +340,9 @@ const Sidebar = ({
                   marginLeft: expanded || hovered ? (isMobile ? "8px" : "10px") : 0,
                 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1`}
+                className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1 ${
+                  isActive(item.path) ? "font-bold underline" : ""
+                }`}
               >
                 {item.label}
                 {item.hasDropdown && (
@@ -329,7 +353,7 @@ const Sidebar = ({
               </motion.span>
             </motion.div>
 
-            {/* Dropdown Items */}
+            {/* Dropdown Items - Special Handling for Dashboard */}
             <AnimatePresence>
               {item.hasDropdown && activeDropdown === item.path && (expanded || hovered) && (
                 <motion.div
@@ -339,22 +363,45 @@ const Sidebar = ({
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
-                  {item.dropdownItems.map((dropdownItem, dropdownIndex) => (
-                    <Link
-                      key={dropdownIndex}
-                      to={dropdownItem.path}
-                      className={`block ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors`}
-                      onClick={() => {
-                        setActiveDropdown(null)
-                        // Close sidebar on mobile after navigation
-                        if (isMobile) {
-                          setExpanded(false)
-                        }
-                      }}
-                    >
-                      {dropdownItem.label}
-                    </Link>
-                  ))}
+                  {/* Special handling for dashboard dropdown items */}
+                  {item.path.includes('/dashboard') 
+                    ? dashboardDropdownItems.map((dropdownItem) => (
+                        <a
+                          key={dropdownItem.id}
+                          href={dropdownItem.path}
+                          className={`block ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} 
+                            ${isDashboardItemActive(dropdownItem.id) 
+                              ? "text-[#488BBE] font-bold underline" 
+                              : "text-[#488BBE] hover:text-[#3399E9]"} 
+                            transition-colors`}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            handleDashboardItemClick(dropdownItem.id)
+                            if (isMobile) setExpanded(false)
+                          }}
+                        >
+                          {dropdownItem.label}
+                        </a>
+                      ))
+                    : item.dropdownItems.map((dropdownItem, dropdownIndex) => (
+                        <Link
+                          key={dropdownIndex}
+                          to={dropdownItem.path}
+                          className={`block ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors ${
+                            isActive(dropdownItem.path) ? "font-bold underline" : ""
+                          }`}
+                          onClick={() => {
+                            setActiveDropdown(null)
+                            // Close sidebar on mobile after navigation
+                            if (isMobile) {
+                              setExpanded(false)
+                            }
+                          }}
+                        >
+                          {dropdownItem.label}
+                        </Link>
+                      ))
+                  }
                 </motion.div>
               )}
             </AnimatePresence>
