@@ -1,20 +1,13 @@
-// src/hooks/useDashboard.js - With proper error handling
+// src/hooks/useDashboard.js - Fixed tab data hook
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "./useAuth"
 import { apiClient } from "../lib/api"
-import { useState, useEffect } from "react"
 
 /**
- * Hook untuk dashboard metrics data dengan filtering dan error handling
+ * Hook untuk dashboard metrics data - with proper error handling for required parameters
  */
 export const useDashboardMetrics = (type = "student", filters = {}) => {
   const { user } = useAuth()
-  const [errorMessage, setErrorMessage] = useState(null)
-
-  // Reset error message when filters change
-  useEffect(() => {
-    setErrorMessage(null)
-  }, [filters])
 
   return useQuery({
     queryKey: ["dashboardMetrics", type, filters],
@@ -27,78 +20,40 @@ export const useDashboardMetrics = (type = "student", filters = {}) => {
 
         if (type === "student") {
           // For students, we need classroom and grade
-          if (!filters.classroom || !filters.grade) {
-            throw new Error("Classroom and grade are required for student metrics")
+          if (!filters.classroom) {
+            throw new Error("Classroom parameter is required")
+          }
+          if (!filters.grade) {
+            throw new Error("Grade parameter is required")
           }
           
           params.append("classroom", filters.classroom)
           params.append("grade", filters.grade)
           
           const res = await apiClient.get(`/students/metrics?${params}`)
-          
-          // Check for API error response
-          if (res.data.status === "fail") {
-            setErrorMessage(res.data.message)
-            throw new Error(res.data.message)
-          }
-          
           return res.data
         } else {
           // For employees, we need department
           if (!filters.department) {
-            throw new Error("Department is required for employee metrics")
+            throw new Error("Department parameter is required")
           }
           
           params.append("department", filters.department)
           
           const res = await apiClient.get(`/employees/metrics?${params}`)
-          
-          // Check for API error response
-          if (res.data.status === "fail") {
-            setErrorMessage(res.data.message)
-            throw new Error(res.data.message)
-          }
-          
           return res.data
         }
       } catch (error) {
-        // Log the error for debugging
         console.error(`Error fetching ${type} metrics:`, error)
-        
-        // Set error message
-        setErrorMessage(error.message || "Failed to fetch dashboard data")
-        
-        // Rethrow the error to be caught by React Query
         throw error
       }
     },
-    // Provide default fallback data matching expected structure
-    placeholderData: {
-      status: "success",
-      data: {
-        summary: {
-          atRisk: { count: 0, total: 0 },
-          notScreened: { count: 0, total: 0 },
-          notCounseled: { count: 0, total: 0 }
-        },
-        mentalHealth: {
-          overall: { atRisk: 0, monitored: 0, stable: 0, notScreened: 0 },
-          byMonth: []
-        },
-        status: {
-          screening: { completed: 0, notCompleted: 0 },
-          counseling: { completed: 0, notCompleted: 0 }
-        }
-      },
-      message: "Loading dashboard metrics..."
-    },
+    // Don't retry on validation errors (missing params)
     retry: (failureCount, error) => {
-      // Don't retry if we got a specific error from the API
       if (error.message?.includes("required")) {
         return false
       }
-      // Otherwise retry up to 2 times
-      return failureCount < 2
+      return failureCount < 3
     }
   })
 }
@@ -112,24 +67,11 @@ export const useAcademicInfo = () => {
     queryFn: async () => {
       try {
         const res = await apiClient.get("/students/academic-info")
-        
-        if (res.data.status === "fail") {
-          throw new Error(res.data.message)
-        }
-        
         return res.data
       } catch (error) {
         console.error("Error fetching academic info:", error)
         throw error
       }
-    },
-    placeholderData: {
-      status: "success",
-      data: {
-        classrooms: ["X", "XI", "XII"],
-        grades: ["A", "B", "C", "D"]
-      },
-      message: "Loading academic info..."
     },
     staleTime: 5 * 60 * 1000 // 5 minutes
   })
@@ -144,46 +86,38 @@ export const useEmployeeRoles = () => {
     queryFn: async () => {
       try {
         const res = await apiClient.get("/employees/roles")
-        
-        if (res.data.status === "fail") {
-          throw new Error(res.data.message)
-        }
-        
         return res.data
       } catch (error) {
         console.error("Error fetching employee roles:", error)
         throw error
       }
     },
-    placeholderData: {
-      status: "success",
-      data: {
-        departments: ["Engineering", "Marketing", "Operations", "Creative", "Finance", "Human Resources", "Sales", "IT"],
-        positions: ["Coordinator", "Engineer", "Analyst", "Manager", "Developer", "Assistant", "Specialist", "Staff", "Head"]
-      },
-      message: "Loading employee roles..."
-    },
     staleTime: 5 * 60 * 1000 // 5 minutes
   })
 }
 
 /**
- * Hook untuk dashboard tab data (student / employee)
+ * FIXED: Hook untuk dashboard tab data (student / employee)
+ * This version correctly handles the counselingStatus parameter
  */
 export const useDashboardTabData = (type = "student", tabType = "at_risk", params = {}) => {
+  // Only enable the query when tabType is valid and we're showing the tab
+  const isEnabled = !!tabType
+  
   return useQuery({
     queryKey: ["dashboardTabData", type, tabType, params],
     queryFn: async () => {
       try {
         const queryParams = new URLSearchParams()
 
-        // Map tab types to API parameters
+        // Map tab types to API parameters - FIXED string values
         if (tabType === "at_risk") {
           queryParams.append("screeningStatus", "at_risk")
         } else if (tabType === "not_screened") {
           queryParams.append("screeningStatus", "not_screened")
         } else if (tabType === "not_counseled") {
-          queryParams.append("counselingStatus", "false")
+          // FIXED: Use "0" instead of boolean "false" for API compatibility
+          queryParams.append("counselingStatus", "0")
         }
 
         // Add additional parameters
@@ -193,33 +127,20 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
 
         const endpoint = type === "student" ? "/organizations/students" : "/organizations/employees"
         const res = await apiClient.get(`${endpoint}?${queryParams}`)
-        
-        if (res.data.status === "fail") {
-          throw new Error(res.data.message)
-        }
-        
         return res.data
       } catch (error) {
         console.error(`Error fetching ${type} tab data:`, error)
         throw error
       }
     },
-    placeholderData: {
-      status: "success",
-      data: {
-        students: [],
-        employees: []
-      },
-      metadata: {
-        totalData: 0,
-        totalPage: 0,
-        page: 1,
-        limit: 10,
-        hasNextPage: false
-      },
-      message: "Loading tab data..."
-    },
-    enabled: !!tabType // Only run query when tab type is specified
+    enabled: isEnabled,
+    // Don't retry bad requests
+    retry: (failureCount, error) => {
+      if (error.response?.status === 400) {
+        return false
+      }
+      return failureCount < 2
+    }
   })
 }
 
@@ -250,7 +171,7 @@ export const useDashboard = (type = "student", filters = {}) => {
 
   // Return combined data with safe defaults
   return {
-    // Extract metrics from the response and provide fallbacks
+    // Extract metrics from the response with proper data structure
     metrics: metricsQuery.data?.data || {
       summary: { atRisk: { count: 0, total: 0 }, notScreened: { count: 0, total: 0 }, notCounseled: { count: 0, total: 0 } },
       mentalHealth: { overall: { atRisk: 0, monitored: 0, stable: 0, notScreened: 0 }, byMonth: [] },
@@ -264,14 +185,14 @@ export const useDashboard = (type = "student", filters = {}) => {
           grades: optionsQuery.data?.data?.grades || ["A", "B", "C", "D"] 
         }
       : { 
-          departments: optionsQuery.data?.data?.departments || ["Finance", "Engineering", "Marketing", "Operations", "Creative", "Human Resources", "Sales", "IT"]
+          departments: optionsQuery.data?.data?.departments || ["Finance", "Engineering", "Marketing"], 
+          positions: optionsQuery.data?.data?.positions || ["Manager", "Staff", "Coordinator"] 
         },
     
     // Pass through loading and error states
     isLoading: metricsQuery.isLoading || optionsQuery.isLoading,
     isError: metricsQuery.isError || optionsQuery.isError,
     error: metricsQuery.error || optionsQuery.error,
-    errorMessage: metricsQuery.error?.message || optionsQuery.error?.message,
     
     // Provide refetch functionality
     refetch: () => {

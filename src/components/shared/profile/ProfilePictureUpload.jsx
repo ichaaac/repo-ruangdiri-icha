@@ -1,30 +1,37 @@
-"use client"
-
 // src/components/shared/profile/ProfilePictureUpload.jsx
 import { useState, useRef, useEffect } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import clsx from "clsx"
 import api from "../../../lib/api"
+import { toast } from "sonner"
 
-/**
- * Reusable Profile Picture Upload Component
- * @param {Object} props
- * @param {string} props.currentProfilePicture - Current profile picture URL
- * @param {string} props.organizationType - "school" or "company" for different icons
- */
 const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "school" }) => {
   const fileInputRef = useRef(null)
   const [previewImage, setPreviewImage] = useState(currentProfilePicture)
   const [isHovering, setIsHovering] = useState(false)
-  const [uploadError, setUploadError] = useState(null)
   const [imageError, setImageError] = useState(false)
   const queryClient = useQueryClient()
+  
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+  const maxSize = 2 * 1024 * 1024 // 2MB
 
   // Update preview when currentProfilePicture changes
   useEffect(() => {
     setPreviewImage(currentProfilePicture)
     setImageError(false)
   }, [currentProfilePicture])
+
+  // Custom toast style
+  const toastStyle = {
+    backgroundColor: "#FEE2E2", // red-100
+    color: "#B91C1C",           // red-700
+    fontSize: "0.75rem",        // text-xs
+    textAlign: "center",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+    maxWidth: "200px",
+  }
 
   // Upload profile picture mutation
   const uploadProfilePicture = useMutation({
@@ -33,9 +40,6 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
       if (!token) {
         throw new Error("No authentication token found")
       }
-
-      // Clear any previous errors
-      setUploadError(null)
 
       console.log("Uploading profile picture...")
 
@@ -68,53 +72,55 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
       }
     },
     onError: (error) => {
-      console.error("Error uploading profile picture:", error)
-
-      // Set user-friendly error message
-      if (error.response?.data?.message) {
-        setUploadError(error.response.data.message)
-      } else {
-        setUploadError("Gagal mengupload foto profil. Silakan coba lagi.")
-      }
-
-      // Show error for 3 seconds
-      setTimeout(() => {
-        setUploadError(null)
-      }, 3000)
-    },
+      console.error("Error uploading profile picture:", error);
+    
+      const message = error.response?.data?.message || "Gagal mengupload foto profil. Silakan coba lagi.";
+    
+      toast.error(message, {
+        style: toastStyle,
+        closeButton: false, // Remove close button
+      });
+    }
   })
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0]
+    // Reset the input value to ensure the change event fires even if the same file is selected
+    const input = e.target
+    const file = input.files[0]
     if (!file) return
-
-    // Validate file type
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+  
+    // Clear the input value to allow the same file to be selected again
+    // This has to be wrapped in setTimeout to not interfere with the current selection
+    setTimeout(() => {
+      input.value = ''
+    }, 100)
+  
     if (!allowedTypes.includes(file.type)) {
-      setUploadError("Format file tidak didukung. Gunakan JPG, PNG, GIF, atau WebP.")
-      setTimeout(() => setUploadError(null), 3000)
+      toast.error("Format file tidak didukung. Gunakan JPG, PNG, GIF, atau WebP.", {
+        style: toastStyle,
+        closeButton: false, // Remove close button
+      })
       return
     }
-
-    const maxSize = 2 * 1024 * 1024 // 2MB
+  
     if (file.size > maxSize) {
-      setUploadError("Ukuran file terlalu besar. Maksimal 2MB.")
-      setTimeout(() => setUploadError(null), 3000)
+      toast.error("Ukuran file terlalu besar. Maksimal 2MB.", {
+        style: toastStyle,
+        closeButton: false, // Remove close button
+      })
       return
     }
-
-    // Create a preview
+  
     const reader = new FileReader()
     reader.onloadend = () => {
       setPreviewImage(reader.result)
       setImageError(false)
     }
     reader.readAsDataURL(file)
-
-    // Upload the file
+  
     uploadProfilePicture.mutate(file)
   }
-
+  
   const handleButtonClick = () => {
     fileInputRef.current.click()
   }
@@ -127,9 +133,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   // Handle image load error
   const handleImageError = () => {
     console.log("Profile image failed to load:", previewImage)
-
     setImageError(true)
-
   }
 
   // Add useEffect to debug when previewImage changes
@@ -146,7 +150,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   }, [previewImage, imageError])
 
   return (
-    <div className="relative">
+    <div className="relative z-50">
       <div className="relative" onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
         <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden">
           {previewImage && !imageError ? (
@@ -193,13 +197,6 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
           className="hidden"
         />
       </div>
-
-      {/* Error message display - Fixed width issue */}
-      {uploadError && (
-        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-red-100 text-red-700 px-3 py-1 rounded-md text-xs z-[9999] shadow-lg text-center min-w-max">
-          {uploadError}
-        </div>
-      )}
     </div>
   )
 }

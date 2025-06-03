@@ -6,7 +6,6 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../../lib/api";
 import clsx from "clsx";
-import ConfirmationModal from "./ConfirmationModal";
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { validatePhoneNumber, isEmptyPhone, extractDigits } from "../../../lib/phoneUtils";
@@ -50,7 +49,6 @@ const ProfileEditModal = ({
   organizationNameLabel = "Nama Sekolah",
   addressLabel = "Alamat"
 }) => {
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [phoneValidationError, setPhoneValidationError] = useState("");
   const queryClient = useQueryClient();
@@ -132,7 +130,7 @@ const ProfileEditModal = ({
   };
 
   const handleCloseClick = () => {
-    hasChanges ? setShowConfirmationModal(true) : onClose(false);
+    hasChanges ? onClose(false, true) : onClose(false);
   };
 
   const handlePhoneChange = (value, field) => {
@@ -170,18 +168,6 @@ const ProfileEditModal = ({
     }
     field.onBlur();
   };
-
-  if (showConfirmationModal) {
-    return (
-      <ConfirmationModal
-        onCancel={() => setShowConfirmationModal(false)}
-        onConfirm={() => {
-          setShowConfirmationModal(false);
-          onClose(false);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow-lg w-full max-w-lg mx-auto">

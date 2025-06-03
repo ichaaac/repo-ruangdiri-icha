@@ -1,10 +1,10 @@
-// src/components/shared/dashboard/SharedDashboard.jsx - With simplified filters
-import { useState, useEffect, useCallback } from "react"
+// src/components/shared/dashboard/SharedDashboard.jsx - Fixed for infinite loop issue
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
+import { Menu } from "@headlessui/react"
 import { motion, AnimatePresence } from "framer-motion"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
-import DashboardFilters from "./DashboardFilters"
 import { ErrorBoundary } from "../error/ErrorBoundary"
 
 // Error fallback component
@@ -34,7 +34,7 @@ const SharedDashboard = ({
   SuccessModalComponent,
   config = {},
 }) => {
-  // IMPORTANT: All useState hooks must be declared at the top level unconditionally
+  // All useState hooks must be declared at the top level
   const [showingList, setShowingList] = useState(false)
   const [activeCard, setActiveCard] = useState("at_risk")
   const [showReportModal, setShowReportModal] = useState(false)
@@ -43,29 +43,41 @@ const SharedDashboard = ({
   const [selectedGrade, setSelectedGrade] = useState(type === "student" ? "A" : "")
   const [dateDisplay, setDateDisplay] = useState("")
   const [currentSemester, setCurrentSemester] = useState("first-half")
-  
-  // Set up tabData state to avoid conditional hook calls
-  const [tabData, setTabData] = useState({ 
-    data: null, 
-    isLoading: false, 
-    hasNextPage: false,
-    fetchNextPage: () => {},
-    isFetchingNextPage: false
-  })
 
   // Gunakan hook yang diberikan dengan parameter yang tepat
-  const filters = {
+  const filters = useMemo(() => ({
     year: "2025", // Fixed year as shown in your API examples
     ...(type === "student" 
       ? { classroom: selectedFilter, grade: selectedGrade } 
       : { department: selectedFilter }),
-  }
+  }), [type, selectedFilter, selectedGrade]);
 
-  // Always call hooks regardless of showingList
+  // Always call hooks regardless of showingList - but use memoized dependencies
   const dashboardData = useDashboardHook ? useDashboardHook(type, filters) : {}
   
-  // Always call tabDataHook but control its enabled state internally
-  const tabDataQuery = useTabDataHook ? useTabDataHook(type, activeCard, { limit: 10 }) : {}
+  // FIXED: Only call tabDataHook when needed with proper dependencies
+  // Since useTabDataHook has internal 'enabled' logic, we don't need to conditionally call it
+  const tabDataParams = useMemo(() => ({ limit: 10 }), []);
+  const tabDataQuery = useTabDataHook ? useTabDataHook(type, activeCard, tabDataParams) : {};
+  
+  // FIXED: Using useMemo for tabData to avoid recreating objects
+  const tabData = useMemo(() => {
+    if (!tabDataQuery) return {
+      data: null, 
+      isLoading: false, 
+      hasNextPage: false,
+      fetchNextPage: () => {},
+      isFetchingNextPage: false
+    };
+    
+    return {
+      data: tabDataQuery.data,
+      isLoading: tabDataQuery.isLoading,
+      hasNextPage: tabDataQuery.data?.metadata?.hasNextPage || false,
+      fetchNextPage: tabDataQuery.fetchNextPage,
+      isFetchingNextPage: tabDataQuery.isFetchingNextPage
+    };
+  }, [tabDataQuery, tabDataQuery?.data, tabDataQuery?.isLoading]);
   
   // Set current date - only run once on mount
   useEffect(() => {
@@ -78,18 +90,7 @@ const SharedDashboard = ({
     setDateDisplay(`${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`)
   }, [])
   
-  // Update tabData when tabDataQuery changes
-  useEffect(() => {
-    if (showingList && tabDataQuery) {
-      setTabData({
-        data: tabDataQuery.data,
-        isLoading: tabDataQuery.isLoading,
-        hasNextPage: tabDataQuery.data?.metadata?.hasNextPage || false,
-        fetchNextPage: tabDataQuery.fetchNextPage || (() => {}),
-        isFetchingNextPage: tabDataQuery.isFetchingNextPage || false
-      })
-    }
-  }, [showingList, tabDataQuery, tabDataQuery?.data])
+  // REMOVED: The problematic useEffect that was causing infinite renders
 
   // Safely extract data from dashboardData to avoid nested optional chaining in JSX
   const { 
@@ -98,12 +99,11 @@ const SharedDashboard = ({
     isLoading = false, 
     isError = false, 
     error = null,
-    errorMessage = "",
     user = {}, 
     refetch = () => {} 
   } = dashboardData || {}
 
-  // Calculate semester data from byMonth - wrapped in useCallback to prevent rerenders
+  // Calculate semester data from byMonth
   const getSemesterData = useCallback(() => {
     if (!metrics?.mentalHealth?.byMonth || !Array.isArray(metrics.mentalHealth.byMonth) || metrics.mentalHealth.byMonth.length === 0) {
       return []
@@ -125,6 +125,62 @@ const SharedDashboard = ({
     return currentSemester === "first-half" ? firstHalf : secondHalf
   }, [metrics?.mentalHealth?.byMonth, currentSemester])
 
+  // Get data for overall mental health pie chart
+  const getOverallPieData = useCallback(() => {
+    // Ensure we have the required data
+    if (!metrics?.mentalHealth?.overall) {
+      return [
+        { name: "Beresiko", value: 0, color: "#ED8768" },
+        { name: "Pengawasan", value: 0, color: "#FCBC03" },
+        { name: "Aman", value: 0, color: "#9BCA61" },
+        { name: "Belum Skrining", value: 0, color: "#D9D9D9" },
+      ]
+    }
+
+    const { atRisk, monitored, stable, notScreened } = metrics.mentalHealth.overall
+
+    return [
+      { name: "Beresiko", value: atRisk || 0, color: "#ED8768" },
+      { name: "Pengawasan", value: monitored || 0, color: "#FCBC03" },
+      { name: "Aman", value: stable || 0, color: "#9BCA61" },
+      { name: "Belum Skrining", value: notScreened || 0, color: "#D9D9D9" },
+    ]
+  }, [metrics?.mentalHealth?.overall])
+
+  // Get data for screening status pie chart
+  const getScreeningData = useCallback(() => {
+    if (!metrics?.status?.screening) {
+      return [
+        { name: "Belum Skrining", value: 0, color: "#6DC4C6" },
+        { name: "Sudah Skrining", value: 0, color: "#E284B3" },
+      ]
+    }
+
+    const { completed, notCompleted } = metrics.status.screening
+
+    return [
+      { name: "Belum Skrining", value: notCompleted || 0, color: "#6DC4C6" },
+      { name: "Sudah Skrining", value: completed || 0, color: "#E284B3" },
+    ]
+  }, [metrics?.status?.screening])
+
+  // Get data for counseling status pie chart
+  const getCounselingData = useCallback(() => {
+    if (!metrics?.status?.counseling) {
+      return [
+        { name: "Belum Konseling", value: 0, color: "#C194E9" },
+        { name: "Sudah Konseling", value: 0, color: "#F1D961" },
+      ]
+    }
+
+    const { completed, notCompleted } = metrics.status.counseling
+
+    return [
+      { name: "Belum Konseling", value: notCompleted || 0, color: "#C194E9" },
+      { name: "Sudah Konseling", value: completed || 0, color: "#F1D961" },
+    ]
+  }, [metrics?.status?.counseling])
+
   const handleCardClick = useCallback((cardId) => {
     if (showingList && activeCard === cardId) {
       // If already showing this card's list, toggle back to dashboard
@@ -145,7 +201,7 @@ const SharedDashboard = ({
     setShowReportModal(true)
   }, [])
 
-  // Custom tooltip - wrapped in useCallback
+  // Custom tooltip
   const CustomTooltip = useCallback(({ active, payload }) => {
     if (active && payload && payload.length) {
       return (
@@ -157,9 +213,10 @@ const SharedDashboard = ({
     return null
   }, [])
 
-  // Custom label - wrapped in useCallback
-  const renderCustomizedLabel = useCallback(({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    if (percent === 0) return null
+  // Custom label for pie chart
+  const renderCustomizedLabel = useCallback(({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }) => {
+    if (value === 0) return null // Don't show label for zero values
+    
     const RADIAN = Math.PI / 180
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
@@ -190,7 +247,7 @@ const SharedDashboard = ({
           <span className="material-icons text-red-500 text-4xl mb-4">error_outline</span>
           <p className="text-red-500 font-semibold mb-2">Gagal memuat data dashboard</p>
           <p className="text-gray-600 mb-4 text-sm">
-            {errorMessage || error?.message || "Terjadi kesalahan saat mengambil data."}
+            {error?.message || "Terjadi kesalahan saat mengambil data."}
           </p>
           <button
             onClick={() => refetch()}
@@ -333,16 +390,7 @@ const SharedDashboard = ({
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
-                                data={[
-                                  { name: "Beresiko", value: metrics.mentalHealth?.overall?.atRisk || 0, color: "#ED8768" },
-                                  { name: "Pengawasan", value: metrics.mentalHealth?.overall?.monitored || 0, color: "#FCBC03" },
-                                  { name: "Aman", value: metrics.mentalHealth?.overall?.stable || 0, color: "#9BCA61" },
-                                  {
-                                    name: "Belum Skrining",
-                                    value: metrics.mentalHealth?.overall?.notScreened || 0,
-                                    color: "#D9D9D9",
-                                  },
-                                ]}
+                                data={getOverallPieData()}
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
@@ -352,12 +400,7 @@ const SharedDashboard = ({
                                 fill="#8884d8"
                                 dataKey="value"
                               >
-                                {[
-                                  { color: "#ED8768" },
-                                  { color: "#FCBC03" },
-                                  { color: "#9BCA61" },
-                                  { color: "#D9D9D9" },
-                                ].map((entry, index) => (
+                                {getOverallPieData().map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
                               </Pie>
@@ -397,17 +440,85 @@ const SharedDashboard = ({
                               {type === "student" && selectedGrade && ` ${selectedGrade}`}
                             </span>
                           </p>
-                          
-                          {/* Using DashboardFilters component */}
-                          <DashboardFilters
-                            type={type}
-                            selectedFilter={selectedFilter}
-                            setSelectedFilter={setSelectedFilter}
-                            selectedGrade={selectedGrade}
-                            setSelectedGrade={setSelectedGrade}
-                            options={options}
-                            filterLabel={config.filterLabel}
-                          />
+                          <div className="flex gap-2">
+                            {type === "student" ? (
+                              <>
+                                <Menu as="div" className="relative">
+                                  <Menu.Button className="flex gap-px items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors">
+                                    <p className="self-stretch my-auto">{selectedFilter}</p>
+                                    <span className="material-icons text-sm">keyboard_arrow_down</span>
+                                  </Menu.Button>
+                                  <Menu.Items className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                    {(options.classrooms || []).map((classroom) => (
+                                      <Menu.Item key={classroom}>
+                                        {({ active }) => (
+                                          <button
+                                            className={`${active ? "bg-blue-100 text-primary" : ""} ${
+                                              selectedFilter === classroom
+                                                ? "bg-primary-light text-primary-variant1 font-semibold"
+                                                : ""
+                                            } w-full text-left px-4 py-2 text-sm`}
+                                            onClick={() => setSelectedFilter(classroom)}
+                                          >
+                                            {classroom}
+                                          </button>
+                                        )}
+                                      </Menu.Item>
+                                    ))}
+                                  </Menu.Items>
+                                </Menu>
+                                <Menu as="div" className="relative">
+                                  <Menu.Button className="flex gap-px items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors">
+                                    <p className="self-stretch my-auto">{selectedGrade}</p>
+                                    <span className="material-icons text-sm">keyboard_arrow_down</span>
+                                  </Menu.Button>
+                                  <Menu.Items className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                    {(options.grades || ["A", "B", "C", "D"]).map((grade) => (
+                                      <Menu.Item key={grade}>
+                                        {({ active }) => (
+                                          <button
+                                            className={`${active ? "bg-blue-100 text-primary" : ""} ${
+                                              selectedGrade === grade
+                                                ? "bg-primary-light text-primary-variant1 font-semibold"
+                                                : ""
+                                            } w-full text-left px-4 py-2 text-sm`}
+                                            onClick={() => setSelectedGrade(grade)}
+                                          >
+                                            {grade}
+                                          </button>
+                                        )}
+                                      </Menu.Item>
+                                    ))}
+                                  </Menu.Items>
+                                </Menu>
+                              </>
+                            ) : (
+                              <Menu as="div" className="relative">
+                                <Menu.Button className="flex gap-px items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors">
+                                  <p className="self-stretch my-auto">{selectedFilter}</p>
+                                  <span className="material-icons text-sm">keyboard_arrow_down</span>
+                                </Menu.Button>
+                                <Menu.Items className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                                  {(options.departments || []).map((department) => (
+                                    <Menu.Item key={department}>
+                                      {({ active }) => (
+                                        <button
+                                          className={`${active ? "bg-blue-100 text-primary" : ""} ${
+                                            selectedFilter === department
+                                              ? "bg-primary-light text-primary-variant1 font-semibold"
+                                              : ""
+                                          } w-full text-left px-4 py-2 text-sm`}
+                                          onClick={() => setSelectedFilter(department)}
+                                        >
+                                          {department}
+                                        </button>
+                                      )}
+                                    </Menu.Item>
+                                  ))}
+                                </Menu.Items>
+                              </Menu>
+                            )}
+                          </div>
                         </div>
                         <div className="h-[336px] mt-4 relative">
                           <ResponsiveContainer width="100%" height="100%">
@@ -484,18 +595,7 @@ const SharedDashboard = ({
                               <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                   <Pie
-                                    data={[
-                                      {
-                                        name: "Belum Skrining",
-                                        value: metrics.status?.screening?.notCompleted || 0,
-                                        color: "#6DC4C6",
-                                      },
-                                      {
-                                        name: "Sudah Skrining",
-                                        value: metrics.status?.screening?.completed || 0,
-                                        color: "#E284B3",
-                                      },
-                                    ]}
+                                    data={getScreeningData()}
                                     cx="50%"
                                     cy="50%"
                                     labelLine={false}
@@ -505,7 +605,7 @@ const SharedDashboard = ({
                                     fill="#8884d8"
                                     dataKey="value"
                                   >
-                                    {[{ color: "#6DC4C6" }, { color: "#E284B3" }].map((entry, index) => (
+                                    {getScreeningData().map((entry, index) => (
                                       <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
                                   </Pie>
@@ -539,18 +639,7 @@ const SharedDashboard = ({
                               <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                   <Pie
-                                    data={[
-                                      {
-                                        name: "Belum Konseling",
-                                        value: metrics.status?.counseling?.notCompleted || 0,
-                                        color: "#C194E9",
-                                      },
-                                      {
-                                        name: "Sudah Konseling",
-                                        value: metrics.status?.counseling?.completed || 0,
-                                        color: "#F1D961",
-                                      },
-                                    ]}
+                                    data={getCounselingData()}
                                     cx="50%"
                                     cy="50%"
                                     labelLine={false}
@@ -560,7 +649,7 @@ const SharedDashboard = ({
                                     fill="#8884d8"
                                     dataKey="value"
                                   >
-                                    {[{ color: "#C194E9" }, { color: "#F1D961" }].map((entry, index) => (
+                                    {getCounselingData().map((entry, index) => (
                                       <Cell key={`cell-${index}`} fill={entry.color} />
                                     ))}
                                   </Pie>

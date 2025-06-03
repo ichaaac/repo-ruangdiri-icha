@@ -1,4 +1,3 @@
-
 // src/components/shared/profile/ProfilePage.jsx
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -6,29 +5,8 @@ import { useAuth } from "../../../hooks/useAuth"
 import ProfileEditModal from "./ProfileEditModal"
 import AccountEditModal from "./AccountEditModal"
 import ProfilePictureUpload from "./ProfilePictureUpload"
+import ConfirmationModal from "./ConfirmationModal"
 import { formatPhoneDisplay } from "../../../lib/phoneUtils"
-
-const Modal = ({ isOpen, onClose, children }) => {
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 z-50">
-      <div className="fixed inset-0 bg-black bg-opacity-30"></div>
-      <div className="flex items-center justify-center h-full p-4">
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="relative z-10 w-full max-w-lg"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {children}
-        </motion.div>
-      </div>
-    </div>
-  )
-}
 
 const SuccessModal = ({ isOpen, message, onClose }) => {
   if (!isOpen) return null
@@ -104,11 +82,19 @@ const ProfilePage = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [modalMessage, setModalMessage] = useState("")
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
 
   const { user: userData, isLoading, error, refetchUser } = useAuth()
 
-  const handleModalClose = (success) => {
+  const handleModalClose = (success, needConfirmation = false) => {
+    if (needConfirmation) {
+      setShowConfirmationModal(true)
+      return
+    }
+    
+    // Only clear the active modal if confirmation is not showing or explicitly confirmed
     setActiveModal(null)
+    
     if (success) {
       if (activeModal === "organizationInfo") {
         setModalMessage(`${organizationInfoTitle} Berhasil Diubah!`)
@@ -296,42 +282,69 @@ const ProfilePage = ({
         </div>
       )}
 
-      {/* Organization Info Edit Modal */}
-      <AnimatePresence>
-        {activeModal === "organizationInfo" && (
-          <Modal isOpen={true} onClose={() => handleModalClose(false)}>
-            <ProfileEditModal
-              onClose={handleModalClose}
-              userData={userData}
-              organizationType={organizationType}
-              organizationLabel={organizationLabel}
-              organizationNameLabel={organizationNameLabel}
-              addressLabel={addressLabel}
-            />
-          </Modal>
+      {/* Main Modals */}
+      <AnimatePresence mode="wait">
+        {activeModal === "organizationInfo" && !showConfirmationModal && (
+          <div className="fixed inset-0 z-50">
+            <div className="fixed inset-0 bg-black bg-opacity-30"></div>
+            <div className="flex items-center justify-center h-full p-4">
+              <div className="relative z-10 w-full max-w-lg">
+                <ProfileEditModal
+                  onClose={handleModalClose}
+                  userData={userData}
+                  organizationType={organizationType}
+                  organizationLabel={organizationLabel}
+                  organizationNameLabel={organizationNameLabel}
+                  addressLabel={addressLabel}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {activeModal === "accountSettings" && !showConfirmationModal && (
+          <div className="fixed inset-0 z-50">
+            <div className="fixed inset-0 bg-black bg-opacity-30"></div>
+            <div className="flex items-center justify-center h-full p-4">
+              <div className="relative z-10 w-full max-w-lg">
+                <AccountEditModal 
+                  onClose={handleModalClose} 
+                  userData={userData} 
+                  organizationType={organizationType} 
+                />
+              </div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
 
-      {/* Account Settings Modal */}
-      <AnimatePresence>
-        {activeModal === "accountSettings" && (
-          <Modal isOpen={true} onClose={() => handleModalClose(false)}>
-            <AccountEditModal onClose={handleModalClose} userData={userData} organizationType={organizationType} />
-          </Modal>
-        )}
-      </AnimatePresence>
-
+      {/* Separate Confirmation Modal */}
+      {showConfirmationModal && (
+        <ConfirmationModal
+          onCancel={() => {
+            // Just close the confirmation modal, keep the edit modal open
+            setShowConfirmationModal(false);
+          }}
+          onConfirm={() => {
+            // Close both modals
+            setShowConfirmationModal(false);
+            setActiveModal(null);
+          }}
+        />
+      )}
+      
       {/* Success Modal */}
-      <AnimatePresence>
-        {showSuccessModal && (
-          <SuccessModal isOpen={true} message={modalMessage} onClose={() => setShowSuccessModal(false)} />
-        )}
-      </AnimatePresence>
-
+      <SuccessModal 
+        isOpen={showSuccessModal} 
+        message={modalMessage}
+        onClose={() => setShowSuccessModal(false)}
+      />
+      
       {/* Error Modal */}
-      <AnimatePresence>
-        {showErrorModal && <ErrorModal isOpen={true} message={modalMessage} onClose={() => setShowErrorModal(false)} />}
-      </AnimatePresence>
+      <ErrorModal
+        isOpen={showErrorModal}
+        message={modalMessage}
+        onClose={() => setShowErrorModal(false)}
+      />
     </div>
   )
 }

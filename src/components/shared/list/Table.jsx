@@ -76,7 +76,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     type="button"
                     onClick={() => handleSelect(optionValue)}
                     className={clsx(
-                      "w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-between",
+                    "w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-between",
                       "transition-colors duration-100",
                       active ? "bg-[#E2F9FF]" : "",
                       isSelected ? "bg-[#E2F9FF] text-[#488BBE] font-medium" : ""
@@ -446,15 +446,32 @@ const SharedTable = forwardRef(
       setEditData((prev) => ({ ...prev, [name]: processedValue }))
     }
 
-    // Helper functions
     const getScreeningStatusUI = (status) => {
       const statusMap = {
-        at_risk: {  icon: "warning", color: "text-red-500", text: "Berisiko" },
-        monitored: {  icon: "error", color: "text-yellow-500", text: "Pengawasan" },
-        stable: { icon: "check_circle", color: "text-green-500", text: "Stabil" },
+        at_risk: {
+          icon: "warning",
+          color: "text-red-500",
+          text: "Berisiko",
+          iconClass: clsx("material-icons", "text-[24px]", "leading-none", "align-middle", "mr-1.5", "text-red-500"),
+        },
+        monitored: {
+          icon: "error",
+          color: "text-yellow-500",
+          text: "Pengawasan",
+          iconClass: clsx("material-icons", "text-[24px]", "leading-none", "align-middle", "mr-1.5", "text-yellow-500"),
+        },
+        stable: {
+          icon: "check_circle",
+          color: "text-green-500",
+          text: "Stabil",
+          iconClass: clsx("material-icons", "text-[24px]", "leading-none", "align-middle", "mr-1.5", "text-green-500"),
+        },
       }
+    
       return statusMap[status] || statusMap.stable
     }
+    
+    
 
     const highlightText = (text) => {
       if (!searchInput || !text) return text
@@ -927,8 +944,8 @@ const SharedTable = forwardRef(
                           }}
                           onMouseLeave={() => setHoveredStatus(null)}
                         >
-                          <span className={clsx("material-icons text-sm", statusUI.color)}>{statusUI.icon}</span>
-                        </span>
+<span className={statusUI.iconClass}>{statusUI.icon}</span>
+</span>
                       </td>
 
                       {/* Counseling Status - REMOVED border-r */}

@@ -1,6 +1,7 @@
-// src/components/shared/dashboard/DashboardTable.jsx - Enhanced with better UI
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+// src/components/shared/dashboard/DashboardTable.jsx - Simplified version for dashboard tabs
+import { useState, useRef, useCallback, useEffect } from "react"
+import { motion } from "framer-motion"
+import clsx from "clsx"
 
 const DashboardTable = ({
   type = "student",
@@ -12,215 +13,268 @@ const DashboardTable = ({
   fetchNextPage = () => {},
   isFetchingNextPage = false,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null)
+  const observerRef = useRef(null)
+  const tableRef = useRef(null)
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
+  const tableConfig = {
+    student: {
+      emptyIcon: "school",
+      emptyText: "Tidak ada data siswa.",
+      detailPath: "/organization/school/student",
+    },
+    employee: {
+      emptyIcon: "business_center",
+      emptyText: "Tidak ada data karyawan.",
+      detailPath: "/organization/company/employee",
+    },
+  }
+
+  const config = tableConfig[type]
+
+  // Infinite scroll observer
+  const lastItemElementRef = useCallback(
+    (node) => {
+      if (observerRef.current) observerRef.current.disconnect()
+      if (isFetchingNextPage || !hasNextPage) return
+
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasNextPage) fetchNextPage()
+        },
+        { threshold: 0.1, rootMargin: "0px 0px 100px 0px" },
+      )
+
+      if (node) observerRef.current.observe(node)
+    },
+    [isFetchingNextPage, hasNextPage, fetchNextPage],
+  )
 
   const handleItemSelect = (item) => {
-    setSelectedItem(item.id === selectedItem?.id ? null : item);
-  };
+    setSelectedItem(item.id === selectedItem ? null : item)
+  }
 
   const handleDetailClick = (id) => {
-    const detailPath =
-      type === "student" ? `/organization/school/student/${id}` : `/organization/company/employee/${id}`;
-    window.open(detailPath, "_blank");
-  };
+    const detailPath = `${config.detailPath}/${id}`
+    window.open(detailPath, "_blank")
+  }
+
+  // Get screening status UI elements
+  const getScreeningStatusUI = (status) => {
+    switch (status) {
+      case "at_risk":
+        return {
+          icon: "warning",
+          color: "text-red-500",
+          text: "Beresiko",
+        }
+      case "monitored":
+        return {
+          icon: "error",
+          color: "text-yellow-500",
+          text: "Pengawasan",
+        }
+      case "stable":
+        return {
+          icon: "check_circle",
+          color: "text-green-500",
+          text: "Stabil",
+        }
+      default:
+        return {
+          icon: "remove",
+          color: "text-gray-400",
+          text: "Belum Skrining",
+        }
+    }
+  }
 
   if (isLoading) {
     return (
-      <div className="bg-blue-100 p-7 rounded-xl">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="flex justify-between items-center bg-[#f5f5f7] p-3 font-medium">
-            <h3 className="text-[#488BBE] font-semibold">{title}</h3>
-            <button onClick={onClose} className="text-[#EE4266] hover:opacity-80 transition-opacity">
-              <span className="material-icons">cancel</span>
-            </button>
-          </div>
-          <div className="flex justify-center items-center p-8">
-            <span className="material-icons animate-spin text-[#488BBE] text-2xl">refresh</span>
-            <span className="text-[#488BBE] text-sm ml-2">Memuat data...</span>
-          </div>
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex justify-between items-center bg-[#f5f5f7] p-3 font-medium">
+          <h3 className="text-[#488BBE] font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-[#EE4266] hover:opacity-80 transition-opacity">
+            <span className="material-icons">cancel</span>
+          </button>
+        </div>
+        <div className="flex justify-center items-center p-8">
+          <span className="material-icons animate-spin text-[#488BBE] text-2xl">refresh</span>
+          <span className="text-[#488BBE] text-sm ml-2">Memuat data...</span>
         </div>
       </div>
-    );
+    )
   }
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-blue-100 p-7 rounded-xl">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="flex justify-between items-center bg-[#f5f5f7] p-3 font-medium">
-            <h3 className="text-[#488BBE] font-semibold">{title}</h3>
-            <button onClick={onClose} className="text-[#EE4266] hover:opacity-80 transition-opacity">
-              <span className="material-icons">cancel</span>
-            </button>
-          </div>
-          <div className="flex flex-col items-center justify-center p-8">
-            <span className="material-icons text-gray-400 text-4xl mb-2">
-              {type === "student" ? "school" : "business_center"}
-            </span>
-            <p className="text-gray-500 text-sm">Tidak ada data {type === "student" ? "siswa" : "karyawan"}</p>
-          </div>
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="flex justify-between items-center bg-[#f5f5f7] p-3 font-medium">
+          <h3 className="text-[#488BBE] font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-[#EE4266] hover:opacity-80 transition-opacity">
+            <span className="material-icons">cancel</span>
+          </button>
+        </div>
+        <div className="flex flex-col items-center justify-center p-8">
+          <span className="material-icons text-gray-400 text-4xl mb-2">
+            {type === "student" ? "school" : "business_center"}
+          </span>
+          <p className="text-gray-500 text-sm">Tidak ada data {type === "student" ? "siswa" : "karyawan"}</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="bg-blue-100 p-7 rounded-xl">
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        {/* Table header */}
-        <div className="grid grid-cols-12 bg-[#f5f5f7] p-3 font-medium">
-          <div className="col-span-3 text-[#488BBE]">Nama</div>
-          {type === "student" ? (
-            <>
-              <div className="col-span-2 text-[#488BBE]">Kelas</div>
-              <div className="col-span-2 text-[#488BBE]">Jenis Kelamin</div>
-              <div className="col-span-3 text-[#488BBE]">NIS</div>
-            </>
-          ) : (
-            <>
-              <div className="col-span-3 text-[#488BBE]">Departemen</div>
-              <div className="col-span-2 text-[#488BBE]">Jenis Kelamin</div>
-              <div className="col-span-2 text-[#488BBE]">Usia</div>
-            </>
-          )}
-          <div className="col-span-2 text-right">
-            <button onClick={onClose} className="text-[#EE4266] hover:opacity-80 transition-opacity">
-              <span className="material-icons">cancel</span>
-            </button>
-          </div>
-        </div>
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      {/* Table header */}
+      <div className="flex justify-between items-center bg-[#f5f5f7] p-3 font-medium">
+        <h3 className="text-[#488BBE] font-semibold">{title}</h3>
+        <button onClick={onClose} className="text-[#EE4266] hover:opacity-80 transition-opacity">
+          <span className="material-icons">cancel</span>
+        </button>
+      </div>
 
-        {/* Table rows */}
-        {data.map((item) => (
-          <motion.div
-            key={item.id}
-            initial={{ backgroundColor: "#ffffff" }}
-            whileHover={{ scale: 1.01, backgroundColor: "#f9f9f9" }}
-            className={`grid grid-cols-12 p-3 border-b border-zinc-200 items-center relative transition-transform cursor-pointer ${
-              selectedItem?.id === item.id ? "bg-[#f5f5f7]" : ""
-            }`}
-            onClick={() => handleItemSelect(item)}
-          >
-            <div className="col-span-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
-                <img
-                  src={`https://i.pravatar.cc/40?u=${item.id}`}
-                  alt={item.fullName}
-                  className="object-cover w-full h-full"
-                />
-              </div>
-              <span className="text-[#8B8B8B]">{item.fullName}</span>
-            </div>
-
-            {type === "student" ? (
-              <>
-                <div className="col-span-2 text-[#8B8B8B]">
-                  {item.classroom && item.grade ? `${item.classroom} ${item.grade}` : item.classroom || "-"}
-                </div>
-                <div className="col-span-2 text-[#8B8B8B]">{item.gender === "male" ? "L" : "P"}</div>
-                <div className="col-span-3 text-[#8B8B8B]">{item.nis || "-"}</div>
-              </>
-            ) : (
-              <>
-                <div className="col-span-3 text-[#8B8B8B]">{item.department || "-"}</div>
-                <div className="col-span-2 text-[#8B8B8B]">{item.gender === "male" ? "L" : "P"}</div>
-                <div className="col-span-2 text-[#8B8B8B]">{item.age || "-"}</div>
-              </>
-            )}
-
-            <div className="col-span-2 text-right">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDetailClick(item.id);
-                }}
-                className="text-[#488BBE] hover:underline"
-              >
-                Lihat Detail
-              </button>
-            </div>
-
-            {/* Orange highlight for selected row */}
-            <AnimatePresence>
-              {selectedItem?.id === item.id && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute bottom-0 left-0 right-0 h-1 bg-[#ED8768]"
-                />
-              )}
-            </AnimatePresence>
-          </motion.div>
-        ))}
-
-        {/* Load more button for infinite scroll */}
-        {hasNextPage && (
-          <div className="flex justify-center p-4">
-            <button
-              onClick={fetchNextPage}
-              disabled={isFetchingNextPage}
-              className="px-4 py-2 bg-[#488BBE] text-white rounded-md hover:bg-[#3399e9] disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {isFetchingNextPage ? (
+      {/* Simplified table */}
+      <div className="overflow-x-auto" ref={tableRef}>
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                Nama
+              </th>
+              {type === "student" ? (
                 <>
-                  <span className="material-icons animate-spin text-sm mr-1">refresh</span>
-                  Memuat...
+                  <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                    Kelas
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                    Jenis Kelamin
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                    NIS
+                  </th>
                 </>
               ) : (
-                "Muat Lebih Banyak"
+                <>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                    Departemen
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                    Jenis Kelamin
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                    Usia
+                  </th>
+                </>
               )}
-            </button>
-          </div>
-        )}
+              <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider">
+                Tindakan
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {data.map((item, index) => {
+              const statusUI = getScreeningStatusUI(item.screeningStatus || "stable")
+              const isLastElement = index === data.length - 1
 
-        {/* Pagination */}
-        <div className="flex justify-center p-4 gap-2">
-          <button className="w-8 h-8 flex items-center justify-center text-[#8B8B8B] hover:bg-gray-100 rounded-md">
-            «
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center text-[#8B8B8B] hover:bg-gray-100 rounded-md">
-            ‹
-          </button>
-          <button
-            className={`w-8 h-8 flex items-center justify-center rounded-md ${
-              currentPage === 1 ? "bg-[#488BBE] text-white" : "text-[#8B8B8B] hover:bg-gray-100"
-            }`}
-            onClick={() => handlePageChange(1)}
-          >
-            1
-          </button>
-          <button
-            className={`w-8 h-8 flex items-center justify-center rounded-md ${
-              currentPage === 2 ? "bg-[#488BBE] text-white" : "text-[#8B8B8B] hover:bg-gray-100"
-            }`}
-            onClick={() => handlePageChange(2)}
-          >
-            2
-          </button>
-          <button
-            className={`w-8 h-8 flex items-center justify-center rounded-md ${
-              currentPage === 3 ? "bg-[#488BBE] text-white" : "text-[#8B8B8B] hover:bg-gray-100"
-            }`}
-            onClick={() => handlePageChange(3)}
-          >
-            3
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center text-[#8B8B8B] hover:bg-gray-100 rounded-md">
-            ›
-          </button>
-          <button className="w-8 h-8 flex items-center justify-center text-[#8B8B8B] hover:bg-gray-100 rounded-md">
-            »
-          </button>
-        </div>
+              return (
+                <motion.tr
+                  key={item.id}
+                  ref={isLastElement ? lastItemElementRef : null}
+                  initial={{ opacity: 0.8 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={() => handleItemSelect(item)}
+                  className={clsx(
+                    "cursor-pointer transition-colors hover:bg-gray-50",
+                    selectedItem === item.id ? "bg-blue-50" : "bg-white"
+                  )}
+                >
+                  {/* Name */}
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                        <img
+                          src={`https://i.pravatar.cc/32?u=${item.id}`}
+                          alt={item.fullName}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
+                      <div className="ml-3 text-sm font-medium text-gray-900 truncate max-w-[150px]" title={item.fullName}>
+                        {item.fullName}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Type-specific columns */}
+                  {type === "student" ? (
+                    <>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                        {item.classroom && item.grade ? `${item.classroom} ${item.grade}` : item.classroom || "-"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                        {item.gender === "male" ? "L" : "P"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                        {item.nis || "-"}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600 truncate max-w-[150px]" title={item.department}>
+                        {item.department || "-"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                        {item.gender === "male" ? "L" : "P"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-600">
+                        {item.age || "-"}
+                      </td>
+                    </>
+                  )}
+
+                  {/* Status */}
+                  <td className="px-4 py-3 whitespace-nowrap text-center">
+                    <div className="flex items-center justify-center">
+                      <span className={`material-icons text-sm ${statusUI.color}`}>{statusUI.icon}</span>
+                      <span className="ml-1 text-xs text-gray-700">{statusUI.text}</span>
+                    </div>
+                  </td>
+
+                  {/* Action */}
+                  <td className="px-4 py-3 whitespace-nowrap text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDetailClick(item.id)
+                      }}
+                      className="text-[#488BBE] hover:underline text-sm"
+                    >
+                      Lihat Detail
+                    </button>
+                  </td>
+                </motion.tr>
+              )
+            })}
+            {isFetchingNextPage && (
+              <tr>
+                <td colSpan={type === "student" ? 6 : 5} className="px-4 py-3 text-center">
+                  <div className="flex justify-center items-center">
+                    <span className="material-icons animate-spin text-[#488BBE] text-sm">refresh</span>
+                    <span className="text-[#488BBE] text-xs ml-2">Memuat data...</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default DashboardTable;
+export default DashboardTable

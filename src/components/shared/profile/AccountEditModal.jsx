@@ -8,7 +8,6 @@ import { apiClient } from "@/lib/api";
 import clsx from "clsx";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import ConfirmationModal from "./ConfirmationModal";
 
 // Enhanced validation schema with proper password requirements
 const passwordSchema = z.object({
@@ -129,7 +128,6 @@ const PasswordChecker = ({ password, onValidityChange }) => {
  * @param {string} props.organizationType - "school" or "company" for title customization
  */
 const AccountEditModal = ({ onClose, userData, organizationType = "school" }) => {
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [passwordRequirementsMet, setPasswordRequirementsMet] = useState(false);
 
@@ -138,7 +136,7 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting, isValid }
   } = useForm({
     resolver: zodResolver(passwordSchema),
     defaultValues: {
@@ -148,7 +146,9 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
       confirmPassword: "",
     },
     mode: "onChange",
+    criteriaMode: "all",
   });
+  
 
   const watchedFields = watch();
   const newPassword = watch("newPassword");
@@ -170,22 +170,7 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
   // Check if form is dirty
   const isDirty = !!(oldPassword || newPassword || confirmPassword);
   
-  // Simple and reliable form validation
-  const isFormValid = 
-    // All required fields filled
-    !!(oldPassword?.trim()) &&
-    !!(newPassword?.trim()) &&
-    !!(confirmPassword?.trim()) &&
-    // Password requirements met
-    passwordRequirementsMet &&
-    // Passwords match
-    newPassword === confirmPassword &&
-    // New password is different from old password
-    newPassword !== oldPassword &&
-    // No form validation errors
-    Object.keys(errors).length === 0 &&
-    // Form has been modified
-    isDirty;
+  const isFormValid = isValid && passwordRequirementsMet && newPassword !== oldPassword;
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data) => {
@@ -211,20 +196,12 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
   };
 
   const handleCloseClick = () => {
-    isDirty ? setShowConfirmationModal(true) : onClose(false);
+    if (isDirty) {
+      onClose(false, true);
+    } else {
+      onClose(false);
+    }
   };
-
-  if (showConfirmationModal) {
-    return (
-      <ConfirmationModal
-        onCancel={() => setShowConfirmationModal(false)}
-        onConfirm={() => {
-          setShowConfirmationModal(false);
-          onClose(false);
-        }}
-      />
-    );
-  }
 
   return (
     <div className="bg-white rounded-lg overflow-hidden shadow-lg w-full max-w-lg mx-auto">
