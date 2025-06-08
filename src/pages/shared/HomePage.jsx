@@ -9,7 +9,7 @@ const ScrollButton = ({ direction = "down", onScroll }) => {
 
   return (
     <motion.div
-      className="fixed right-8 bottom-8 flex flex-col items-center cursor-pointer z-30"
+    className="fixed right-8 bottom-8 flex flex-col items-center cursor-pointer z-30"
       onClick={onScroll}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}

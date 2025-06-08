@@ -1,109 +1,111 @@
-// src/hooks/useEmployeeData.js
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { apiClient } from "../lib/api";
-import { useMemo } from "react";
+"use client"
+
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
+import { apiClient } from "../lib/api"
+import { useMemo } from "react"
+import { useAuth } from "./useAuth"
 
 export const useEmployeeData = (searchTerm, sortConfig, filters) => {
-  const queryClient = useQueryClient();
-  
-  const buildFilterParams = () => {
-    const params = { page: 1, limit: 10 };
-    
-    // Only send filters, not search (we'll filter search client-side)
-    if (filters.department) params.department = filters.department;
-    if (filters.position) params.position = filters.position;
-    if (filters.gender) params.gender = filters.gender === 'L' ? 'male' : 'female';
-    if (filters.screeningStatus) params.screening = filters.screeningStatus;
-    if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? '1' : '0';
+  const queryClient = useQueryClient()
 
-    return params;
-};
+  const buildFilterParams = () => {
+    const params = { page: 1, limit: 10 }
+
+    // Only send filters, not search (we'll filter search client-side)
+    if (filters.department) params.department = filters.department
+    if (filters.position) params.position = filters.position
+    if (filters.gender) params.gender = filters.gender === "L" ? "male" : "female"
+    if (filters.screeningStatus) params.screening = filters.screeningStatus
+    if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? "1" : "0"
+
+    return params
+  }
 
   const sortData = (data, config) => {
-    if (!config.key || !config.direction) return data;
-    
+    if (!config.key || !config.direction) return data
+
     const sorted = [...data].sort((a, b) => {
-      let aValue = a[config.key];
-      let bValue = b[config.key];
-      
-      if (aValue === null || aValue === undefined) aValue = '';
-      if (bValue === null || bValue === undefined) bValue = '';
-      
-      if (config.key === 'fullName') {
-        aValue = String(aValue).toLowerCase();
-        bValue = String(bValue).toLowerCase();
-        return aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+      let aValue = a[config.key]
+      let bValue = b[config.key]
+
+      if (aValue === null || aValue === undefined) aValue = ""
+      if (bValue === null || bValue === undefined) bValue = ""
+
+      if (config.key === "fullName") {
+        aValue = String(aValue).toLowerCase()
+        bValue = String(bValue).toLowerCase()
+        return aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: "base" })
       }
-      
-      if (config.key === 'age' || config.key === 'yearsOfService') {
-        aValue = Number(aValue) || 0;
-        bValue = Number(bValue) || 0;
-        return aValue - bValue;
+
+      if (config.key === "age" || config.key === "yearsOfService") {
+        aValue = Number(aValue) || 0
+        bValue = Number(bValue) || 0
+        return aValue - bValue
       }
-      
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    });
-    
-    return config.direction === 'descending' ? sorted.reverse() : sorted;
-  };
+
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+    })
+
+    return config.direction === "descending" ? sorted.reverse() : sorted
+  }
 
   const infiniteQuery = useInfiniteQuery({
-    queryKey: ['infiniteEmployees', filters],
+    queryKey: ["infiniteEmployees", filters],
     queryFn: async ({ pageParam = 1 }) => {
-      const params = { ...buildFilterParams(), page: pageParam };
-      
+      const params = { ...buildFilterParams(), page: pageParam }
+
       try {
-        const response = await apiClient.get("/organizations/employees", { params });
-        const data = response.data?.data?.employees || [];
+        const response = await apiClient.get("/organizations/employees", { params })
+        const data = response.data?.data?.employees || []
         const metadata = response.data?.metadata || {
           totalPage: 1,
           totalData: 0,
           page: pageParam,
           limit: 10,
           hasNextPage: false,
-          byGender: { male: 0, female: 0 }
-        };
-        
-        return { data, metadata, pageParam };
+          byGender: { male: 0, female: 0 },
+        }
+
+        return { data, metadata, pageParam }
       } catch (error) {
-        console.error("Error fetching employees:", error);
-        throw error;
+        console.error("Error fetching employees:", error)
+        throw error
       }
     },
     getNextPageParam: (lastPage) => {
-      const { page, totalPage } = lastPage.metadata;
-      return page < totalPage ? page + 1 : undefined;
+      const { page, totalPage } = lastPage.metadata
+      return page < totalPage ? page + 1 : undefined
     },
     refetchOnWindowFocus: false,
-  });
+  })
 
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, data }) => apiClient.patch(`/organizations/employees/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries(['infiniteEmployees'])
-  });
-  
+    onSuccess: () => queryClient.invalidateQueries(["infiniteEmployees"]),
+  })
+
   // Process data with client-side search and sort
   const processedData = useMemo(() => {
-    const allEmployees = infiniteQuery.data?.pages.flatMap(page => page.data) || [];
-    
+    const allEmployees = infiniteQuery.data?.pages.flatMap((page) => page.data) || []
+
     // Client-side search filtering
-    let filteredEmployees = allEmployees;
+    let filteredEmployees = allEmployees
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filteredEmployees = allEmployees.filter(employee => {
-        const fullName = employee.fullName?.toLowerCase() || '';
-        const employeeId = employee.employeeId?.toLowerCase() || '';
-        return fullName.includes(searchLower) || employeeId.includes(searchLower);
-      });
+      const searchLower = searchTerm.toLowerCase()
+      filteredEmployees = allEmployees.filter((employee) => {
+        const fullName = employee.fullName?.toLowerCase() || ""
+        const employeeId = employee.employeeId?.toLowerCase() || ""
+        return fullName.includes(searchLower) || employeeId.includes(searchLower)
+      })
     }
-    
+
     // Apply sorting
-    const sortedEmployees = sortData(filteredEmployees, sortConfig);
-    
-    return sortedEmployees;
-  }, [infiniteQuery.data, searchTerm, sortConfig]);
-  
-  const metadata = infiniteQuery.data?.pages[0]?.metadata;
+    const sortedEmployees = sortData(filteredEmployees, sortConfig)
+
+    return sortedEmployees
+  }, [infiniteQuery.data, searchTerm, sortConfig])
+
+  const metadata = infiniteQuery.data?.pages[0]?.metadata
 
   return {
     employees: processedData,
@@ -116,49 +118,59 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     isError: infiniteQuery.isError,
     error: infiniteQuery.error,
     refetch: infiniteQuery.refetch,
-    updateEmployee: updateEmployeeMutation
-  };
-};
+    updateEmployee: updateEmployeeMutation,
+  }
+}
 
-export const useDepartments = () => {
+export const useDepartments = (options = {}) => {
+  const { user } = useAuth() || { user: {} }
+  const userRole = user?.role || ""
+
+  // Only enable the query if user has company role or options.enabled is true
+  const enabled = options.enabled !== undefined ? options.enabled : userRole === "company"
+
   return useQuery({
-    queryKey: ['departments'],
+    queryKey: ["departments"],
     queryFn: async () => {
       try {
-        const response = await apiClient.get("/employees/roles");
-        const data = response?.data?.data;
-        
+        const response = await apiClient.get("/employees/roles")
+        const data = response?.data?.data
+
         // Handle new API format
         if (data?.departments && data?.positions) {
           return {
             departments: data.departments || [],
-            positions: data.positions || []
-          };
+            positions: data.positions || [],
+          }
         }
-        
+
         // Fallback if API returns unexpected format
-        console.error("Unexpected data format from /employees/roles");
+        console.error("Unexpected data format from /employees/roles")
         return {
           departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
-          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"]
-        };
+          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"],
+        }
       } catch (error) {
-        console.error("Error fetching departments:", error);
+        console.error("Error fetching departments:", error)
+        // Return fallback data if there's an error (like 403)
         return {
           departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
-          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"]
-        };
+          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"],
+        }
       }
     },
-  });
-};
+    enabled: enabled,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: false, // Don't retry on 403
+  })
+}
 
 export const useUserProfile = () => {
   return useQuery({
-    queryKey: ['userProfile'],
+    queryKey: ["userProfile"],
     queryFn: async () => {
-      const response = await apiClient.get("/users/me");
-      return response?.data?.data || { fullName: "Pengguna" };
+      const response = await apiClient.get("/users/me")
+      return response?.data?.data || { fullName: "Pengguna" }
     },
-  });
-};
+  })
+}
