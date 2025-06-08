@@ -1,4 +1,4 @@
-"use client"
+import React from "react"
 
 const TableHeader = ({ type = "student" }) => (
   <thead style={{ backgroundColor: "#E8F5FF" }}>
@@ -75,8 +75,34 @@ const TableRow = ({ item, type = "student" }) => {
   )
 }
 
-const DashboardTable = ({ type = "student", data = [], isLoading = false, title = "", isFetchingNextPage = false }) => {
+const DashboardTable = ({ type = "student", data = [], isLoading = false, title = "", isFetchingNextPage = false, hasNextPage = false, fetchNextPage = () => {} }) => {
   const itemsData = Array.isArray(data) ? data : []
+  
+  // Reference for last item to observe for infinite scroll
+  const lastItemRef = React.useCallback(
+    (node) => {
+      if (!node || !hasNextPage || isFetchingNextPage) return;
+      
+      // Create IntersectionObserver for this specific element
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+            console.log("Last item visible, fetching next page");
+            fetchNextPage();
+          }
+        },
+        { threshold: 0.5, rootMargin: "0px 0px 300px 0px" }
+      );
+      
+      observer.observe(node);
+      
+      // Cleanup
+      return () => {
+        observer.disconnect();
+      };
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage]
+  );
 
   if (isLoading && itemsData.length === 0) {
     return (
@@ -98,9 +124,19 @@ const DashboardTable = ({ type = "student", data = [], isLoading = false, title 
         <table className="w-full border-collapse bg-white shadow-sm rounded-lg">
           <TableHeader type={type} />
           <tbody>
-            {itemsData.map((item, index) => (
-              <TableRow key={item.id || index} item={item} type={type} />
-            ))}
+            {itemsData.map((item, index) => {
+              // Apply ref to last item
+              if (index === itemsData.length - 1) {
+                return (
+                  <React.Fragment key={item.id || index}>
+                    <TableRow item={item} type={type} />
+                    {/* Add a sentinel row for better detection */}
+                    <tr ref={lastItemRef} style={{ height: "1px" }}><td colSpan="5"></td></tr>
+                  </React.Fragment>
+                );
+              }
+              return <TableRow key={item.id || index} item={item} type={type} />;
+            })}
           </tbody>
         </table>
       </div>

@@ -28,7 +28,14 @@ const CustomBranchingDropdown = ({
 
   const handleClassroomClick = (classroom) => {
     onClassroomSelect(classroom)
-    setShowGrades(true)
+    // Automatically show grades when classroom is selected
+    if (grades.length > 0) {
+      setShowGrades(true)
+    } else {
+      // If no grades available, close dropdown
+      setIsOpen(false)
+      setShowGrades(false)
+    }
   }
 
   const handleGradeClick = (grade) => {
@@ -37,12 +44,17 @@ const CustomBranchingDropdown = ({
     setShowGrades(false)
   }
 
+  const handleToggle = () => {
+    setIsOpen(!isOpen)
+    setShowGrades(false) // Reset grades visibility when toggling
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Main Trigger */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white"
       >
         <span className="self-stretch my-auto">
@@ -78,8 +90,8 @@ const CustomBranchingDropdown = ({
             ))}
           </div>
 
-          {/* Grade Dropdown - hanya muncul jika classroom dipilih dan ada grades */}
-          {showGrades && selectedClassroom && grades.length > 0 && (
+          {/* Grade Dropdown - muncul ketika showGrades true dan ada grades */}
+          {showGrades && grades.length > 0 && (
             <div
               className="w-24 bg-white border-l-0 border border-gray-200 rounded-r-md shadow-lg max-h-48 overflow-y-auto"
               style={{

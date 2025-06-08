@@ -41,7 +41,7 @@ const SharedDashboard = ({
   const [activeCard, setActiveCard] = useState(selectedDashboardTab === "home" ? "at_risk" : selectedDashboardTab)
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportType, setReportType] = useState("")
-  
+
   // Parse URL query params for initial filter values
   const [selectedFilter, setSelectedFilter] = useState(() => {
     if (typeof window !== "undefined") {
@@ -50,7 +50,7 @@ const SharedDashboard = ({
     }
     return config.defaultFilter || (type === "student" ? "X" : "Finance")
   })
-  
+
   const [selectedGrade, setSelectedGrade] = useState(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search)
@@ -58,7 +58,7 @@ const SharedDashboard = ({
     }
     return ""
   })
-  
+
   const [currentSemester, setCurrentSemester] = useState("first-half")
 
   // Get user data from useAuth hook
@@ -148,13 +148,39 @@ const SharedDashboard = ({
     refetch = () => {},
   } = dashboardData
 
+  // Handle filter changes without page refresh
+  const handleFilterChange = useCallback((filter, grade = "") => {
+    // Update state
+    setSelectedFilter(filter)
+    if (grade !== undefined) {
+      setSelectedGrade(grade)
+    }
+    
+    // Update URL without page refresh
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href)
+      url.searchParams.set("filter", filter)
+      
+      if (grade) {
+        url.searchParams.set("grade", grade)
+      } else if (grade === "") {
+        url.searchParams.delete("grade")
+      }
+      
+      window.history.pushState({}, "", url.toString())
+    }
+    
+    // Trigger refetch
+    refetch()
+  }, [refetch])
+
   // Event handlers
   const handleCardClick = useCallback(
     (cardId) => {
       setActiveCard(cardId)
       setShowingList(true)
       onDashboardTabChange(cardId) // Update sidebar state
-      
+
       // Update URL query params without page reload
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href)
@@ -168,7 +194,7 @@ const SharedDashboard = ({
   const handleReturnHome = useCallback(() => {
     setShowingList(false)
     onDashboardTabChange("home") // Update sidebar state
-    
+
     // Update URL query params without page reload
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
@@ -240,10 +266,11 @@ const SharedDashboard = ({
               currentSemester={currentSemester}
               selectedFilter={selectedFilter}
               selectedGrade={selectedGrade}
-              setSelectedFilter={setSelectedFilter}
-              setSelectedGrade={setSelectedGrade}
+              setSelectedFilter={(filter) => handleFilterChange(filter)}
+              setSelectedGrade={(grade) => handleFilterChange(selectedFilter, grade)}
               onCardClick={handleCardClick}
               onReportClick={handleReport}
+              refetchDashboard={refetch} // Pass refetch function
             />
           )}
         </AnimatePresence>
