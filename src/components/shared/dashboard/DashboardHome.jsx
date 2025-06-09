@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/dashboard/DashboardHome.jsx
 
 import { useCallback, useState } from "react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
@@ -35,50 +35,50 @@ const DashboardHome = ({
   const gradeOptions = options?.grades || []
   const departmentOptions = options?.departments || []
 
-  // Handle dropdown changes without page reload - trigger refetch
+  // Handle dropdown changes without page reload - prevent rapid updates and page refresh
   const handleClassroomChange = useCallback(
     (classroom) => {
-      if (isUpdating) return
+      if (isUpdating || classroom === selectedFilter) return
 
       setIsUpdating(true)
       setSelectedFilter(classroom)
 
-      // Prevent multiple rapid updates
+      // Prevent multiple rapid updates and page refresh
       setTimeout(() => {
         setIsUpdating(false)
-      }, 300)
+      }, 500)
     },
-    [setSelectedFilter, isUpdating],
+    [setSelectedFilter, isUpdating, selectedFilter],
   )
 
   const handleGradeChange = useCallback(
     (grade) => {
-      if (isUpdating) return
+      if (isUpdating || grade === selectedGrade) return
 
       setIsUpdating(true)
       setSelectedGrade(grade)
 
-      // Prevent multiple rapid updates
+      // Prevent multiple rapid updates and page refresh
       setTimeout(() => {
         setIsUpdating(false)
-      }, 300)
+      }, 500)
     },
-    [setSelectedGrade, isUpdating],
+    [setSelectedGrade, isUpdating, selectedGrade],
   )
 
   const handleDepartmentChange = useCallback(
     (department) => {
-      if (isUpdating) return
+      if (isUpdating || department === selectedFilter) return
 
       setIsUpdating(true)
       setSelectedFilter(department)
 
-      // Prevent multiple rapid updates
+      // Prevent multiple rapid updates and page refresh
       setTimeout(() => {
         setIsUpdating(false)
-      }, 300)
+      }, 500)
     },
-    [setSelectedFilter, isUpdating],
+    [setSelectedFilter, isUpdating, selectedFilter],
   )
 
   // Chart data processors
@@ -186,17 +186,21 @@ const DashboardHome = ({
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-      {/* Header */}
+      {/* Header - consistent with ListPage */}
       <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
         <div className="flex items-center gap-2 sm:gap-3">
-          <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
-          <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
+          </div>
+          <div className="flex items-center">
+            <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
+          </div>
         </div>
       </div>
 
-      {/* Title - Use ListPage approach */}
+      {/* Title - consistent with ListPage structure */}
       <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8">
-        <div className="max-w-[1110px] mx-auto">
+        <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || ""}
           </h1>
@@ -338,6 +342,7 @@ const DashboardHome = ({
                                     } w-full text-left px-4 py-2 text-sm`}
                                     onClick={(e) => {
                                       e.preventDefault()
+                                      e.stopPropagation()
                                       handleDepartmentChange(department)
                                     }}
                                   >
@@ -352,6 +357,14 @@ const DashboardHome = ({
                     </div>
                   </div>
                   <div className="h-[336px] mt-4 relative">
+                    {isUpdating && (
+                      <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <span className="material-icons animate-spin">refresh</span>
+                          <span className="text-sm">Memperbarui data...</span>
+                        </div>
+                      </div>
+                    )}
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={getSemesterData()}

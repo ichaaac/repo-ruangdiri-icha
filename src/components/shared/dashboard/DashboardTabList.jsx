@@ -1,3 +1,5 @@
+// src/components/shared/dashboard/DashboardTablist.jsx
+
 import { motion } from "framer-motion"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
@@ -66,17 +68,21 @@ const DashboardTabList = ({
       transition={{ duration: 0.3 }}
       className="w-full min-h-screen overflow-x-hidden relative"
     >
-      {/* Header */}
-      <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-2 sm:pt-6">
+      {/* Header - consistent with ListPage */}
+      <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
         <div className="flex items-center gap-2 sm:gap-3">
-          <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
-          <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
+          </div>
+          <div className="flex items-center">
+            <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
+          </div>
         </div>
       </div>
 
-      {/* Title */}
+      {/* Title - consistent with ListPage structure */}
       <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8">
-        <div className="max-w-[1110px] mx-auto">
+        <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || ""}
           </h1>
@@ -84,81 +90,83 @@ const DashboardTabList = ({
       </div>
 
       {/* Cards & Table */}
-      <div className="px-5 mt-4 sm:mt-6">
+      <div className="px-2 sm:px-4 lg:px-6 mt-4 sm:mt-6">
         <div className="max-w-none mx-auto">
-          {/* Cards */}
-          <div className="flex gap-5 mb-0 px-[70px] relative z-10">
-            {allMetrics.map((metric) => {
-              const isActiveCard = metric.cardId === activeCard
+          {/* Cards Container with proper background integration */}
+          <div className="relative">
+            {/* Cards */}
+            <div className="flex gap-5 mb-0 px-[50px] relative z-10">
+              {allMetrics.map((metric) => {
+                const isActiveCard = metric.cardId === activeCard
 
-              return (
-                <div key={metric.cardId} className="flex-1">
-                  <div className="relative">
-                    {/* Background for active card */}
-                    {isActiveCard && (
+                return (
+                  <div key={metric.cardId} className="flex-1">
+                    <div className="relative">
+                      {/* Background for active card - seamlessly integrated */}
+                      {isActiveCard && (
+                        <div
+                          className="absolute bg-[#D7EDFF] rounded-t-xl"
+                          style={{
+                            top: "-10px",
+                            left: "-5px",
+                            right: "-5px",
+                            bottom: "10px",
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
+
                       <div
-                        className="absolute bg-[#D7EDFF] rounded-xl"
+                        className="relative rounded-xl bg-white"
                         style={{
-                          top: "-15px",
-                          left: "-5px",
-                          right: "-5px",
-                          bottom: "0",
-                          zIndex: 0,
+                          filter: isActiveCard
+                            ? "drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.1))"
+                            : "none",
+                          zIndex: 1,
                         }}
-                      />
-                    )}
-
-<div
-  className="relative rounded-xl bg-white"
-  style={{
-    filter: isActiveCard
-      ? "drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.1))"
-      : "none",
-    zIndex: 1,
-  }}
->
-
-                      <MetricCard
-                        title={metric.title}
-                        count={
-                          isActiveCard
-                            ? tabData?.metadata?.totalData || 0
-                            : metric.count
-                        }
-                        total={metric.total}
-                        color={metric.color}
-                        bgColor={metric.bgColor}
-                        borderColor={metric.borderColor}
-                        icon={metric.icon}
-                        isActive={!isActiveCard}
-                        onCardClick={() =>
-                          isActiveCard
-                            ? onReturnHome?.()
-                            : onCardClick?.(metric.cardId)
-                        }
-                        onReportClick={() => {}}
-                      />
+                      >
+                        <MetricCard
+                          title={metric.title}
+                          count={
+                            isActiveCard
+                              ? tabData?.metadata?.totalData || 0
+                              : metric.count
+                          }
+                          total={metric.total}
+                          color={metric.color}
+                          bgColor={metric.bgColor}
+                          borderColor={metric.borderColor}
+                          icon={metric.icon}
+                          isActive={!isActiveCard}
+                          onCardClick={() =>
+                            isActiveCard
+                              ? onReturnHome?.()
+                              : onCardClick?.(metric.cardId)
+                          }
+                          onReportClick={() => {}}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
 
-          {/* Table */}
-          <div className="bg-[#D7EDFF] rounded-b-xl -mt-3 mx-[20px] z-0 relative">
-            <div className="px-[20px] py-[20px]">
-              <DashboardTable
-                type={type}
-                data={
-                  tabData?.data?.students || tabData?.data?.employees || []
-                }
-                isLoading={tabData?.isLoading || false}
-                title=""
-                hasNextPage={tabData?.hasNextPage}
-                fetchNextPage={tabData?.fetchNextPage}
-                isFetchingNextPage={tabData?.isFetchingNextPage}
-              />
+            {/* Table Container - seamlessly connected to active card background */}
+            <div className="bg-[#D7EDFF] rounded-b-xl mx-[15px] z-0 relative" style={{ marginTop: '-5px' }}>
+              <div className="px-[30px] py-[25px]">
+                <DashboardTable
+                  type={type}
+                  data={
+                    tabData?.data?.students || tabData?.data?.employees || []
+                  }
+                  isLoading={tabData?.isLoading || false}
+                  title=""
+                  hasNextPage={tabData?.hasNextPage}
+                  fetchNextPage={tabData?.fetchNextPage}
+                  isFetchingNextPage={tabData?.isFetchingNextPage}
+                />
+              </div>
             </div>
           </div>
         </div>

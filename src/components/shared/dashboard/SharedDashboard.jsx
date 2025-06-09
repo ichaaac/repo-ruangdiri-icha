@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/dashboard/SharedDashboard.jsx
 
 import { useState, useCallback, useMemo, useEffect } from "react"
 import { AnimatePresence } from "framer-motion"
@@ -148,31 +148,38 @@ const SharedDashboard = ({
     refetch = () => {},
   } = dashboardData
 
-  // Handle filter changes without page refresh
+  // Handle filter changes without page refresh - FIXED: prevent page refresh entirely
   const handleFilterChange = useCallback((filter, grade = "") => {
-    // Update state
-    setSelectedFilter(filter)
-    if (grade !== undefined) {
-      setSelectedGrade(grade)
-    }
-    
-    // Update URL without page refresh
+    // Prevent default behavior and page refresh
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
-      url.searchParams.set("filter", filter)
       
-      if (grade) {
-        url.searchParams.set("grade", grade)
-      } else if (grade === "") {
-        url.searchParams.delete("grade")
+      // Only update URL if values actually changed
+      const currentFilter = url.searchParams.get("filter")
+      const currentGrade = url.searchParams.get("grade")
+      
+      if (currentFilter !== filter || currentGrade !== grade) {
+        url.searchParams.set("filter", filter)
+        
+        if (grade) {
+          url.searchParams.set("grade", grade)
+        } else if (grade === "") {
+          url.searchParams.delete("grade")
+        }
+        
+        // Use replaceState instead of pushState to avoid page refresh
+        window.history.replaceState({}, "", url.toString())
       }
-      
-      window.history.pushState({}, "", url.toString())
     }
     
-    // Trigger refetch
-    refetch()
-  }, [refetch])
+    // Update state only if changed
+    if (filter !== selectedFilter) {
+      setSelectedFilter(filter)
+    }
+    if (grade !== selectedGrade) {
+      setSelectedGrade(grade)
+    }
+  }, [selectedFilter, selectedGrade])
 
   // Event handlers
   const handleCardClick = useCallback(
@@ -185,7 +192,7 @@ const SharedDashboard = ({
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href)
         url.searchParams.set("tab", cardId)
-        window.history.pushState({}, "", url.toString())
+        window.history.replaceState({}, "", url.toString())
       }
     },
     [onDashboardTabChange],
@@ -199,7 +206,7 @@ const SharedDashboard = ({
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
       url.searchParams.delete("tab")
-      window.history.pushState({}, "", url.toString())
+      window.history.replaceState({}, "", url.toString())
     }
   }, [onDashboardTabChange])
 
@@ -266,7 +273,7 @@ const SharedDashboard = ({
               currentSemester={currentSemester}
               selectedFilter={selectedFilter}
               selectedGrade={selectedGrade}
-              setSelectedFilter={(filter) => handleFilterChange(filter)}
+              setSelectedFilter={(filter) => handleFilterChange(filter, selectedGrade)}
               setSelectedGrade={(grade) => handleFilterChange(selectedFilter, grade)}
               onCardClick={handleCardClick}
               onReportClick={handleReport}

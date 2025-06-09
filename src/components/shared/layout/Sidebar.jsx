@@ -57,19 +57,35 @@ const Sidebar = ({
     }
   }
 
+  // FIXED: Auto-expand dropdown for dashboard when on dashboard page
+  useEffect(() => {
+    if (location.pathname.includes("/dashboard")) {
+      const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'))
+      if (dashboardItem) {
+        setActiveDropdown(dashboardItem.path)
+      }
+    }
+  }, [location.pathname, menuItems])
+
   useEffect(() => {
     if (!expanded && !hovered) {
       setShowProfileDropdown(false)
-      setActiveDropdown(null)
+      // Don't close dashboard dropdown if we're on dashboard page
+      if (!location.pathname.includes("/dashboard")) {
+        setActiveDropdown(null)
+      }
     }
-  }, [expanded, hovered])
+  }, [expanded, hovered, location.pathname])
 
   // Toggle sidebar
   const toggleSidebar = () => {
     setExpanded(!expanded)
     onHoverChange?.(!expanded)
     setShowProfileDropdown(false)
-    setActiveDropdown(null)
+    // Don't close dashboard dropdown if we're on dashboard page
+    if (!location.pathname.includes("/dashboard")) {
+      setActiveDropdown(null)
+    }
   }
 
   // Handle logout
@@ -86,7 +102,10 @@ const Sidebar = ({
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
         setShowProfileDropdown(false)
-        setActiveDropdown(null)
+        // Don't close dashboard dropdown if we're on dashboard page
+        if (!location.pathname.includes("/dashboard")) {
+          setActiveDropdown(null)
+        }
       }
     }
 
@@ -96,7 +115,7 @@ const Sidebar = ({
       clearTimeout(expandTimeoutRef.current)
       clearTimeout(collapseTimeoutRef.current)
     }
-  }, [])
+  }, [location.pathname])
 
   // Image error handler
   const handleImageError = () => {
@@ -122,7 +141,7 @@ const Sidebar = ({
     return location.pathname === path
   }
 
-  // Is dashboard item active
+  // FIXED: Is dashboard item active - check both path and selected tab
   const isDashboardItemActive = (tabId) => {
     if (!location.pathname.includes("/dashboard")) return false
     
@@ -155,7 +174,7 @@ const Sidebar = ({
   const getInitial = () => {
     if (userData?.fullName && userData.fullName.length > 0) {
       return userData.fullName.charAt(0).toUpperCase()
-    }
+  }
     return organizationType === "company" ? "C" : "S"
   }
 
@@ -371,9 +390,9 @@ const Sidebar = ({
                           href={dropdownItem.path}
                           className={`block ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} 
                             ${isDashboardItemActive(dropdownItem.id) 
-                              ? "text-[#488BBE] font-bold underline" 
-                              : "text-[#488BBE] hover:text-[#3399E9]"} 
-                            transition-colors`}
+                              ? "text-[#488BBE] font-bold underline bg-[#E2F9FF]" 
+                              : "text-[#488BBE] hover:text-[#3399E9] hover:bg-[#F0F8FF]"} 
+                            transition-colors rounded`}
                           onClick={(e) => {
                             e.preventDefault()
                             handleDashboardItemClick(dropdownItem.id)
