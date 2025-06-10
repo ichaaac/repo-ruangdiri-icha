@@ -324,7 +324,7 @@ const Sidebar = ({
             <motion.div
               className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${
                 isActive(item.path)
-                  ? "bg-[#488BBE] text-white font-bold border-b-2 border-white"
+                  ? "bg-[#488BBE] text-white font-bold"
                   : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
               }`}
               onClick={() => {
@@ -360,7 +360,7 @@ const Sidebar = ({
                 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1 ${
-                  isActive(item.path) ? "font-bold underline" : ""
+                  isActive(item.path) ? "font-bold" : ""
                 }`}
               >
                 {item.label}
@@ -385,22 +385,23 @@ const Sidebar = ({
                   {/* Special handling for dashboard dropdown items */}
                   {item.path.includes('/dashboard') 
                     ? dashboardDropdownItems.map((dropdownItem) => (
-                        <a
+                        <button
                           key={dropdownItem.id}
-                          href={dropdownItem.path}
-                          className={`block ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} 
+                          type="button"
+                          className={`block w-full text-left ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} 
                             ${isDashboardItemActive(dropdownItem.id) 
                               ? "text-[#488BBE] font-bold underline bg-[#E2F9FF]" 
                               : "text-[#488BBE] hover:text-[#3399E9] hover:bg-[#F0F8FF]"} 
                             transition-colors rounded`}
                           onClick={(e) => {
                             e.preventDefault()
+                            e.stopPropagation()
                             handleDashboardItemClick(dropdownItem.id)
                             if (isMobile) setExpanded(false)
                           }}
                         >
                           {dropdownItem.label}
-                        </a>
+                        </button>
                       ))
                     : item.dropdownItems.map((dropdownItem, dropdownIndex) => (
                         <Link

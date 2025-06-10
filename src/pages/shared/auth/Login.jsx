@@ -1,4 +1,5 @@
 // src/pages/shared/auth/Login.jsx
+import { Link } from "react-router-dom";
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,13 +28,14 @@ const Login = () => {
 	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 	useEffect(() => {
-		// Check if email is saved in localStorage when component mounts
-		const savedEmail = localStorage.getItem('rememberedEmail');
-		if (savedEmail) {
-			setEmail(savedEmail);
-			setRememberMe(true);
-		}
-	}, []);
+		const savedEmail = sessionStorage.getItem("tempEmail");
+		const savedPassword = sessionStorage.getItem("tempPassword");
+	  
+		if (savedEmail) setEmail(savedEmail);
+		if (savedPassword) setPassword(savedPassword);
+	  }, []);
+	  
+	  
 
 	// Gunakan loginMutation yang sudah ada dari kode asli tanpa diubah
 	const loginMutation = useMutation({
@@ -71,12 +73,14 @@ const Login = () => {
 			localStorage.removeItem("token");
 			localStorage.removeItem("organizationType");
 			localStorage.removeItem("user");
-
+			localStorage.removeItem("rememberedPassword");
 			// Save token to localStorage
 			localStorage.setItem("token", data.accessToken);
 
 			// Save organization type to localStorage
 			localStorage.setItem("organizationType", data.organizationType);
+			sessionStorage.removeItem("tempEmail");
+			sessionStorage.removeItem("tempPassword");
 
 			console.log("Token and organizationType saved to localStorage");
 
@@ -249,27 +253,24 @@ const Login = () => {
 		}
 	};
 
-	// Handler untuk input email
 	const handleEmailChange = (e) => {
 		setEmail(e.target.value);
-		
-		// Reset error saat user mengetik
+		sessionStorage.setItem("tempEmail", e.target.value); // << simpan sementara
 		if (emailError) {
-			setEmailError(false);
-			setErrorMessage("");
+		  setEmailError(false);
+		  setErrorMessage("");
 		}
-	};
-
-	// Handler untuk input password
-	const handlePasswordChange = (e) => {
+	  };
+	  
+	  const handlePasswordChange = (e) => {
 		setPassword(e.target.value);
-		
-		// Reset error saat user mengetik
+		sessionStorage.setItem("tempPassword", e.target.value); // << simpan sementara
 		if (passwordError) {
-			setPasswordError(false);
-			setErrorMessage("");
+		  setPasswordError(false);
+		  setErrorMessage("");
 		}
-	};
+	  };
+	  
 
 	// Validasi email saat blur
 	const validateEmail = () => {
@@ -371,12 +372,14 @@ const Login = () => {
 			return;
 		}
 
-		// Handle remember me functionality
 		if (rememberMe) {
-			localStorage.setItem('rememberedEmail', email);
-		} else {
-			localStorage.removeItem('rememberedEmail');
-		}
+			localStorage.setItem("rememberedEmail", email);
+			localStorage.setItem("rememberedPassword", password); // << Tambahan ini
+		  } else {
+			localStorage.removeItem("rememberedEmail");
+			localStorage.removeItem("rememberedPassword");
+		  }
+		  
 
 		// If all validations pass, proceed with login
 		loginMutation.mutate({ email, password, rememberMe });
@@ -503,13 +506,16 @@ const Login = () => {
 								<span>Ingat Saya</span>
 							</label>
 
-							<a
-								href="/forgot-password"
-								className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"
-								tabIndex={loginMutation.isPending ? -1 : 0}
-							>
-								Lupa Password?
-							</a>
+							<Link
+  to="/forgot-password"
+  className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"
+  onClick={(e) => {
+    e.stopPropagation(); // prevent bubbling
+  }}
+>
+  Lupa Password?
+</Link>
+
 						</div>
 
 						{/* Google Sign In Button */}

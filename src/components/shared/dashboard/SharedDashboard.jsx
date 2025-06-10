@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion"
 import DashboardHome from "./DashboardHome"
 import DashboardTabList from "./DashboardTabList"
 import { ErrorBoundary } from "../error/ErrorBoundary"
+import { useDashboard, useDashboardTabData } from "../../../hooks/useDashboardMetrics"
 
 // Error fallback component
 const ErrorFallback = ({ error, resetErrorBoundary }) => (
@@ -28,13 +29,11 @@ const ErrorFallback = ({ error, resetErrorBoundary }) => (
  */
 const SharedDashboard = ({
   type = "student",
-  useDashboardHook,
-  useTabDataHook,
-  useAuth,
-  SuccessModalComponent,
   config = {},
   selectedDashboardTab = "home", // Tambah prop dari sidebar
   onDashboardTabChange = () => {}, // Tambah prop dari sidebar
+  useAuth,
+  SuccessModalComponent,
 }) => {
   // State management
   const [showingList, setShowingList] = useState(selectedDashboardTab !== "home")
@@ -42,22 +41,11 @@ const SharedDashboard = ({
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportType, setReportType] = useState("")
 
-  // Parse URL query params for initial filter values
-  const [selectedFilter, setSelectedFilter] = useState(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search)
-      return urlParams.get("filter") || config.defaultFilter || (type === "student" ? "X" : "Finance")
-    }
-    return config.defaultFilter || (type === "student" ? "X" : "Finance")
-  })
+  const [selectedFilter, setSelectedFilter] = useState(
+    config.defaultFilter || (type === "student" ? "X" : "Finance")
+  )
 
-  const [selectedGrade, setSelectedGrade] = useState(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search)
-      return urlParams.get("grade") || ""
-    }
-    return ""
-  })
+  const [selectedGrade, setSelectedGrade] = useState("A")
 
   const [currentSemester, setCurrentSemester] = useState("first-half")
 
@@ -105,17 +93,16 @@ const SharedDashboard = ({
     [type, selectedFilter, selectedGrade],
   )
 
-  // Always call hooks - fix hooks order violation
-  const dashboardData = useDashboardHook?.(type, filters) || {}
+  // Use the new dashboard hook - always returns data, never loading
+  const dashboardData = useDashboard(type, filters)
 
-  // Always call tabDataHook but control with enabled parameter
-  const tabDataQuery =
-    useTabDataHook?.(type, activeCard, {
-      limit: 10,
-      enabled: showingList, // Control query execution
-    }) || {}
+  // Use the new tab data hook with infinite scroll
+  const tabDataQuery = useDashboardTabData(type, activeCard, {
+    enabled: showingList,
+    limit: 30,
+  })
 
-  // Process tab data
+  // Process tab data with infinite scroll support
   const tabData = useMemo(() => {
     if (!showingList || !tabDataQuery.data) {
       return {
@@ -128,86 +115,64 @@ const SharedDashboard = ({
       }
     }
 
+    // Flatten all pages into single array for display
+    const allData = tabDataQuery.data.pages?.flatMap(page => 
+      type === "student" ? page.data?.students || [] : page.data?.employees || []
+    ) || []
+
+    const metadata = tabDataQuery.data.pages?.[0]?.metadata || { totalData: 0, hasNextPage: false }
+
     return {
-      data: tabDataQuery.data?.data || { students: [], employees: [] },
-      metadata: tabDataQuery.data?.metadata || { totalData: 0, hasNextPage: false },
-      isLoading: tabDataQuery.isLoading || false,
-      hasNextPage: tabDataQuery.data?.metadata?.hasNextPage || false,
-      fetchNextPage: tabDataQuery.fetchNextPage || (() => {}),
+      data: type === "student" ? { students: allData, employees: [] } : { students: [], employees: allData },
+      metadata: {
+        ...metadata,
+        totalData: allData.length, // Use actual data length
+        hasNextPage: tabDataQuery.hasNextPage
+      },
+      isLoading: false, // Never show loading
+      hasNextPage: tabDataQuery.hasNextPage,
+      fetchNextPage: tabDataQuery.fetchNextPage,
       isFetchingNextPage: tabDataQuery.isFetchingNextPage || false,
     }
   }, [showingList, tabDataQuery, type])
 
-  // Extract dashboard data safely
+  // Extract dashboard data safely - always available
   const {
     metrics = {},
     options = {},
-    isLoading = false,
-    isError = false,
-    error = null,
     refetch = () => {},
   } = dashboardData
 
-  // Handle filter changes without page refresh - FIXED: prevent page refresh entirely
+  // Handle filter changes - PURE React state updates only
   const handleFilterChange = useCallback((filter, grade = "") => {
-    // Prevent default behavior and page refresh
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href)
-      
-      // Only update URL if values actually changed
-      const currentFilter = url.searchParams.get("filter")
-      const currentGrade = url.searchParams.get("grade")
-      
-      if (currentFilter !== filter || currentGrade !== grade) {
-        url.searchParams.set("filter", filter)
-        
-        if (grade) {
-          url.searchParams.set("grade", grade)
-        } else if (grade === "") {
-          url.searchParams.delete("grade")
-        }
-        
-        // Use replaceState instead of pushState to avoid page refresh
-        window.history.replaceState({}, "", url.toString())
-      }
-    }
-    
-    // Update state only if changed
+    // Update state only - let React Query handle refetching automatically
     if (filter !== selectedFilter) {
       setSelectedFilter(filter)
     }
     if (grade !== selectedGrade) {
       setSelectedGrade(grade)
     }
-  }, [selectedFilter, selectedGrade])
+  }, [selectedFilter, selectedGrade, setSelectedFilter, setSelectedGrade])
 
-  // Event handlers
+  // Event handlers - NO URL manipulation
   const handleCardClick = useCallback(
     (cardId) => {
+      // Check if card is disabled (count is 0)
+      const metric = metrics?.summary?.[cardId === "at_risk" ? "atRisk" : cardId === "not_screened" ? "notScreened" : "notCounseled"]
+      if (metric?.count === 0) {
+        return // Don't allow click if no data
+      }
+
       setActiveCard(cardId)
       setShowingList(true)
-      onDashboardTabChange(cardId) // Update sidebar state
-
-      // Update URL query params without page reload
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href)
-        url.searchParams.set("tab", cardId)
-        window.history.replaceState({}, "", url.toString())
-      }
+      onDashboardTabChange(cardId) // Update sidebar state only
     },
-    [onDashboardTabChange],
+    [onDashboardTabChange, metrics],
   )
 
   const handleReturnHome = useCallback(() => {
     setShowingList(false)
-    onDashboardTabChange("home") // Update sidebar state
-
-    // Update URL query params without page reload
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href)
-      url.searchParams.delete("tab")
-      window.history.replaceState({}, "", url.toString())
-    }
+    onDashboardTabChange("home") // Update sidebar state only
   }, [onDashboardTabChange])
 
   const handleReport = useCallback((reportType) => {
@@ -215,35 +180,7 @@ const SharedDashboard = ({
     setShowReportModal(true)
   }, [])
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-[80vh] text-zinc-400 text-sm">
-        <span className="material-icons animate-spin mr-2">refresh</span>
-        Memuat dashboard...
-      </div>
-    )
-  }
-
-  // Error state
-  if (isError) {
-    return (
-      <div className="flex justify-center items-center h-full min-h-[80vh] p-4">
-        <div className="flex flex-col items-center text-center p-6 max-w-md">
-          <span className="material-icons text-red-500 text-4xl mb-4">error_outline</span>
-          <p className="text-red-500 font-semibold mb-2">Gagal memuat data dashboard</p>
-          <p className="text-gray-600 mb-4 text-sm">{error?.message || "Terjadi kesalahan saat mengambil data."}</p>
-          <button
-            onClick={() => refetch()}
-            className="px-4 py-2 bg-[#488bbe] text-white rounded-full hover:bg-[#3399e9]"
-          >
-            Coba Lagi
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+  // Never show loading states - data is always available
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
       <div className="w-full min-h-screen overflow-x-hidden">

@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/detail/DetailComponents.jsx
 import { motion, AnimatePresence } from "framer-motion"
 import { format } from "date-fns"
 import { id as indonesianLocale } from "date-fns/locale"

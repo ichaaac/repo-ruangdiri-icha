@@ -1,4 +1,6 @@
-import React from "react"
+// src/components/shared/dashboard/DashboardTable.jsx
+
+import React, { useCallback } from "react"
 
 const TableHeader = ({ type = "student" }) => (
   <thead style={{ backgroundColor: "#E8F5FF" }}>
@@ -75,11 +77,19 @@ const TableRow = ({ item, type = "student" }) => {
   )
 }
 
-const DashboardTable = ({ type = "student", data = [], isLoading = false, title = "", isFetchingNextPage = false, hasNextPage = false, fetchNextPage = () => {} }) => {
+const DashboardTable = ({ 
+  type = "student", 
+  data = [], 
+  isLoading = false, 
+  title = "", 
+  isFetchingNextPage = false, 
+  hasNextPage = false, 
+  fetchNextPage = () => {} 
+}) => {
   const itemsData = Array.isArray(data) ? data : []
   
-  // Reference for last item to observe for infinite scroll
-  const lastItemRef = React.useCallback(
+  // Infinite scroll callback - similar to SharedTable
+  const lastItemRef = useCallback(
     (node) => {
       if (!node || !hasNextPage || isFetchingNextPage) return;
       
@@ -104,12 +114,13 @@ const DashboardTable = ({ type = "student", data = [], isLoading = false, title 
     [hasNextPage, isFetchingNextPage, fetchNextPage]
   );
 
-  if (isLoading && itemsData.length === 0) {
+  // Never show loading state - data should always be available
+  if (itemsData.length === 0) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="flex items-center gap-2 text-gray-500">
-          <span className="material-icons animate-spin">refresh</span>
-          <span>Memuat data...</span>
+      <div className="flex justify-center items-center h-32">
+        <div className="flex flex-col items-center gap-2 text-gray-500">
+          <span className="material-icons text-3xl">inbox</span>
+          <span className="text-sm">Tidak ada data untuk ditampilkan</span>
         </div>
       </div>
     )
@@ -117,15 +128,13 @@ const DashboardTable = ({ type = "student", data = [], isLoading = false, title 
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      {/* Hapus header title */}
-
       {/* Table */}
       <div className="w-full overflow-x-auto">
         <table className="w-full border-collapse bg-white shadow-sm rounded-lg">
           <TableHeader type={type} />
           <tbody>
             {itemsData.map((item, index) => {
-              // Apply ref to last item
+              // Apply ref to last item for infinite scroll
               if (index === itemsData.length - 1) {
                 return (
                   <React.Fragment key={item.id || index}>
@@ -141,12 +150,12 @@ const DashboardTable = ({ type = "student", data = [], isLoading = false, title 
         </table>
       </div>
 
-      {/* Pagination loading */}
+      {/* Subtle loading indicator - only when fetching next page */}
       {isFetchingNextPage && (
-        <div className="flex justify-center items-center w-full py-4">
-          <div className="flex items-center gap-2 text-gray-500">
-            <span className="material-icons animate-spin">refresh</span>
-            <span>Memuat data lainnya...</span>
+        <div className="flex justify-center items-center w-full py-2">
+          <div className="flex items-center gap-2 text-gray-400 text-sm">
+            <span className="material-icons text-sm animate-spin">refresh</span>
+            <span>Memuat lebih banyak...</span>
           </div>
         </div>
       )}

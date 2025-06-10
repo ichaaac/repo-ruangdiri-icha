@@ -1,4 +1,4 @@
-"use client"
+// src/pages/organization/company/EmployeeDetailPage.jsx
 
 import { useState, useEffect } from "react"
 import { useParams } from "react-router-dom"

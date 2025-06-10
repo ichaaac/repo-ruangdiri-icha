@@ -24,8 +24,6 @@ const DashboardHome = ({
   refetchDashboard = () => {}, // Add refetch function
 }) => {
   const [currentHalf, setCurrentHalf] = useState("firstHalf")
-  const [isUpdating, setIsUpdating] = useState(false)
-
   // Get user role to handle permissions
   const { user: authUser } = useAuth?.() || { user: {} }
   const userRole = authUser?.role || ""
@@ -35,50 +33,29 @@ const DashboardHome = ({
   const gradeOptions = options?.grades || []
   const departmentOptions = options?.departments || []
 
-  // Handle dropdown changes without page reload - prevent rapid updates and page refresh
+  // Handle dropdown changes - PURE state change, no side effects
   const handleClassroomChange = useCallback(
     (classroom) => {
-      if (isUpdating || classroom === selectedFilter) return
-
-      setIsUpdating(true)
+      if (classroom === selectedFilter) return
       setSelectedFilter(classroom)
-
-      // Prevent multiple rapid updates and page refresh
-      setTimeout(() => {
-        setIsUpdating(false)
-      }, 500)
     },
-    [setSelectedFilter, isUpdating, selectedFilter],
+    [selectedFilter, setSelectedFilter],
   )
 
   const handleGradeChange = useCallback(
     (grade) => {
-      if (isUpdating || grade === selectedGrade) return
-
-      setIsUpdating(true)
+      if (grade === selectedGrade) return
       setSelectedGrade(grade)
-
-      // Prevent multiple rapid updates and page refresh
-      setTimeout(() => {
-        setIsUpdating(false)
-      }, 500)
     },
-    [setSelectedGrade, isUpdating, selectedGrade],
+    [selectedGrade, setSelectedGrade],
   )
 
   const handleDepartmentChange = useCallback(
     (department) => {
-      if (isUpdating || department === selectedFilter) return
-
-      setIsUpdating(true)
+      if (department === selectedFilter) return
       setSelectedFilter(department)
-
-      // Prevent multiple rapid updates and page refresh
-      setTimeout(() => {
-        setIsUpdating(false)
-      }, 500)
     },
-    [setSelectedFilter, isUpdating, selectedFilter],
+    [selectedFilter, setSelectedFilter],
   )
 
   // Chart data processors
@@ -178,9 +155,17 @@ const DashboardHome = ({
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
 
     return (
-      <text x={x} y={y} fill="white" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={12}>
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
+<text
+  x={x}
+  y={y}
+  fill="white"
+  textAnchor="middle"
+  dominantBaseline="central"
+  fontSize={12}
+>
+  {`${(percent * 100).toFixed(0)}%`}
+</text>
+
     )
   }, [])
 
@@ -210,7 +195,7 @@ const DashboardHome = ({
       {/* Main content */}
       <div className="px-2 sm:px-4 lg:px-6 mt-4 sm:mt-6">
         <div className="max-w-[1110px] mx-auto">
-          {/* Metrics Cards */}
+          {/* Metrics Cards - No inactive colors, just disable click */}
           <div className="flex gap-5 mb-6" style={{ paddingLeft: "calc(20px)", paddingRight: "calc(20px)" }}>
             <MetricCard
               title={`Total ${config.entityName} Beresiko`}
@@ -220,7 +205,8 @@ const DashboardHome = ({
               bgColor="#FFEBE5"
               borderColor="#ED8768"
               icon="warning"
-              isActive={false}
+              isActive={true} // Always active colors
+              isDisabled={(metrics.summary?.atRisk?.count || 0) === 0} // Only disable click
               onCardClick={() => onCardClick("at_risk")}
               onReportClick={() => onReportClick(`Daftar ${config.entityName} Beresiko`)}
             />
@@ -232,7 +218,8 @@ const DashboardHome = ({
               bgColor="#E7FEFF"
               borderColor="#B2FDFF"
               icon="assignment"
-              isActive={false}
+              isActive={true} // Always active colors
+              isDisabled={(metrics.summary?.notScreened?.count || 0) === 0} // Only disable click
               onCardClick={() => onCardClick("not_screened")}
               onReportClick={() => onReportClick(`Daftar ${config.entityName} Belum Skrining`)}
             />
@@ -244,7 +231,8 @@ const DashboardHome = ({
               bgColor="#F3E6FF"
               borderColor="#E4C6FF"
               icon="groups"
-              isActive={false}
+              isActive={true} // Always active colors
+              isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0} // Only disable click
               onCardClick={() => onCardClick("not_counseled")}
               onReportClick={() => onReportClick(`Daftar ${config.entityName} Belum Konseling`)}
             />
@@ -255,13 +243,13 @@ const DashboardHome = ({
             {/* Mental Health Status Section */}
             <h2 className="self-start text-lg leading-4 text-primary mb-4">
               Status <span className="font-bold">Kesehatan Mental </span>
-              <span className="font-bold text-primary-variant1">{config.entityName}</span>
+              <span className="font-bold text-primary">{config.entityName}</span>
             </h2>
 
             <div className="flex gap-5 max-md:flex-col">
               {/* Overall Chart */}
-              <div className="w-2/5 max-md:w-full">
-                <div className="flex flex-col px-3.5 py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
+              <div className="w-2/5 max-md:w-full h-full">
+              <div className="flex flex-col h-full px-3.5 py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
                   <div className="flex gap-5 justify-between w-full">
                     <p>Status Kesehatan Mental {config.entityName} Keseluruhan</p>
                     <p className="gap-px self-start leading-6 w-auto">{dateDisplay}</p>
@@ -306,15 +294,16 @@ const DashboardHome = ({
               </div>
 
               {/* Filtered Chart */}
-              <div className="ml-5 w-3/5 max-md:ml-0 max-md:w-full">
-                <div className="px-3 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300">
+              <div className="ml-5 w-3/5 max-md:ml-0 max-md:w-full h-full">
+              <div className="h-full px-3 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col">
                   <div className="flex flex-wrap gap-5 justify-between w-full text-sm leading-6 text-zinc-500">
-                    <p>
-                      Status Kesehatan Mental{" "}
-                      <span className="font-extrabold">
-                        {config.entityName} {selectedFilter} {selectedGrade}
-                      </span>
-                    </p>
+                  <p>
+                    Status Kesehatan Mental{" "}
+                    <span className="font-extrabold">
+                      {config.entityName} {selectedFilter}
+                      {type === "student" && selectedGrade ? ` ${selectedGrade}` : ""}
+                    </span>
+                  </p>
                     <div className="flex gap-2">
                       {type === "student" ? (
                         <CustomBranchingDropdown
@@ -335,19 +324,14 @@ const DashboardHome = ({
                             {departmentOptions.map((department) => (
                               <Menu.Item key={department}>
                                 {({ active }) => (
-                                  <button
-                                    type="button"
+                                  <div
                                     className={`${active ? "bg-blue-100" : ""} ${
                                       selectedFilter === department ? "bg-[#3399E9] text-white font-semibold" : ""
-                                    } w-full text-left px-4 py-2 text-sm`}
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      handleDepartmentChange(department)
-                                    }}
+                                    } w-full text-left px-4 py-2 text-sm cursor-pointer`}
+                                    onClick={() => handleDepartmentChange(department)}
                                   >
                                     {department}
-                                  </button>
+                                  </div>
                                 )}
                               </Menu.Item>
                             ))}
@@ -357,14 +341,6 @@ const DashboardHome = ({
                     </div>
                   </div>
                   <div className="h-[336px] mt-4 relative">
-                    {isUpdating && (
-                      <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10">
-                        <div className="flex items-center gap-2 text-gray-500">
-                          <span className="material-icons animate-spin">refresh</span>
-                          <span className="text-sm">Memperbarui data...</span>
-                        </div>
-                      </div>
-                    )}
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={getSemesterData()}
@@ -381,28 +357,28 @@ const DashboardHome = ({
                       </BarChart>
                     </ResponsiveContainer>
 
-                    {/* Navigation arrows */}
+                    {/* Navigation arrows - cleaned up without background */}
                     <button
                       disabled={!canNavigatePrev()}
                       onClick={handlePrev}
-                      className={`absolute left-0 top-[168px] transform -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full ${
+                      className={`absolute left-2 top-[168px] transform -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
                         canNavigatePrev()
-                          ? "bg-[#488BBE] hover:bg-[#3a7ba8] text-white"
-                          : "bg-gray-300 cursor-not-allowed text-gray-500"
+                          ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
+                          : "text-gray-300 cursor-not-allowed"
                       }`}
                     >
-                      <span className="material-icons text-white">chevron_left</span>
+                      <span className="material-icons text-xl">chevron_left</span>
                     </button>
                     <button
                       disabled={!canNavigateNext()}
                       onClick={handleNext}
-                      className={`absolute right-0 top-[168px] transform -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full ${
+                      className={`absolute right-2 top-[168px] transform -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
                         canNavigateNext()
-                          ? "bg-[#488BBE] hover:bg-[#3a7ba8] text-white"
-                          : "bg-gray-300 cursor-not-allowed text-gray-500"
+                          ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
+                          : "text-gray-300 cursor-not-allowed"
                       }`}
                     >
-                      <span className="material-icons text-white">chevron_right</span>
+                      <span className="material-icons text-xl">chevron_right</span>
                     </button>
                   </div>
 
@@ -427,14 +403,14 @@ const DashboardHome = ({
 
             {/* Status Sections */}
             <div className="mt-4 w-full">
-              <div className="flex gap-5 max-md:flex-col">
-                {/* Screening Status */}
+            <div className="flex gap-5 max-md:flex-col h-[420px]"> {/* Pakai fixed height biar sejajar */}
+            {/* Screening Status */}
                 <div className="w-6/12 max-md:w-full">
                   <div className="flex flex-col grow px-3.5 py-5 w-full bg-white rounded-xl">
                     <h2 className="self-start text-lg leading-4 text-primary">
                       Status <span className="font-bold">Skrining {config.entityName}</span>
                     </h2>
-                    <div className="flex flex-col items-end px-5 md:px-10 pt-5 pb-5 mt-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
+                    <div className="flex flex-col px-3.5 py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
                       <p className="gap-px self-end leading-6 w-auto">{dateDisplay}</p>
                       <div className="h-[300px] w-full mt-4">
                         <ResponsiveContainer width="100%" height="100%">

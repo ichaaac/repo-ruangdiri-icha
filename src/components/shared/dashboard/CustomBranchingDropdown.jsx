@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/dashboard/CustomBrancingDropdown.jsx
 
 import { useState, useRef, useEffect } from "react"
 
@@ -27,7 +27,11 @@ const CustomBranchingDropdown = ({
   }, [])
 
   const handleClassroomClick = (classroom) => {
-    onClassroomSelect(classroom)
+    // Only call if value actually changed - NO page refresh handling
+    if (classroom !== selectedClassroom) {
+      onClassroomSelect(classroom)
+    }
+    
     // Automatically show grades when classroom is selected
     if (grades.length > 0) {
       setShowGrades(true)
@@ -39,7 +43,11 @@ const CustomBranchingDropdown = ({
   }
 
   const handleGradeClick = (grade) => {
-    onGradeSelect(grade)
+    // Only call if value actually changed - NO page refresh handling
+    if (grade !== selectedGrade) {
+      onGradeSelect(grade)
+    }
+    
     setIsOpen(false)
     setShowGrades(false)
   }
@@ -52,10 +60,9 @@ const CustomBranchingDropdown = ({
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Main Trigger */}
-      <button
-        type="button"
+      <div
         onClick={handleToggle}
-        className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white"
+        className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
       >
         <span className="self-stretch my-auto">
           {selectedClassroom && selectedGrade
@@ -63,7 +70,7 @@ const CustomBranchingDropdown = ({
             : selectedClassroom || "Kelas"}
         </span>
         <span className="material-icons text-sm">keyboard_arrow_down</span>
-      </button>
+      </div>
 
       {/* Dropdown Container */}
       {isOpen && (
@@ -77,16 +84,15 @@ const CustomBranchingDropdown = ({
             }}
           >
             {classrooms.map((classroom) => (
-              <button
+              <div
                 key={classroom}
-                type="button"
-                className={`w-full text-center px-3 py-2 text-sm hover:bg-gray-50 first:rounded-tl-md last:rounded-bl-md ${
+                className={`w-full text-center px-3 py-2 text-sm hover:bg-gray-50 first:rounded-tl-md last:rounded-bl-md transition-colors cursor-pointer ${
                   selectedClassroom === classroom ? "bg-[#3399E9] text-white font-semibold" : "text-gray-700"
                 }`}
                 onClick={() => handleClassroomClick(classroom)}
               >
                 {classroom}
-              </button>
+              </div>
             ))}
           </div>
 
@@ -103,7 +109,7 @@ const CustomBranchingDropdown = ({
                 <button
                   key={grade}
                   type="button"
-                  className={`w-full text-center px-2 py-2 text-sm hover:bg-gray-50 first:rounded-tr-md last:rounded-br-md ${
+                  className={`w-full text-center px-2 py-2 text-sm hover:bg-gray-50 first:rounded-tr-md last:rounded-br-md transition-colors ${
                     selectedGrade === grade ? "bg-[#3399E9] text-white font-semibold" : "text-gray-700"
                   }`}
                   onClick={() => handleGradeClick(grade)}

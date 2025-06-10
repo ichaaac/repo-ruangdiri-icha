@@ -92,30 +92,17 @@ const DashboardTabList = ({
       {/* Cards & Table */}
       <div className="px-2 sm:px-4 lg:px-6 mt-4 sm:mt-6">
         <div className="max-w-none mx-auto">
-          {/* Cards Container with proper background integration */}
-          <div className="relative">
-            {/* Cards */}
-            <div className="flex gap-5 mb-0 px-[50px] relative z-10">
+          {/* Unified Background Container - seamlessly integrated */}
+          <div className="relative bg-[#D7EDFF] rounded-xl mx-[15px]">
+            {/* Cards positioned on top of background */}
+            <div className="flex gap-5 px-[35px] pt-[15px] relative z-10">
               {allMetrics.map((metric) => {
                 const isActiveCard = metric.cardId === activeCard
+                const isDisabled = metric.count === 0
 
                 return (
                   <div key={metric.cardId} className="flex-1">
                     <div className="relative">
-                      {/* Background for active card - seamlessly integrated */}
-                      {isActiveCard && (
-                        <div
-                          className="absolute bg-[#D7EDFF] rounded-t-xl"
-                          style={{
-                            top: "-10px",
-                            left: "-5px",
-                            right: "-5px",
-                            bottom: "10px",
-                            zIndex: 0,
-                          }}
-                        />
-                      )}
-
                       <div
                         className="relative rounded-xl bg-white"
                         style={{
@@ -137,12 +124,14 @@ const DashboardTabList = ({
                           bgColor={metric.bgColor}
                           borderColor={metric.borderColor}
                           icon={metric.icon}
-                          isActive={!isActiveCard}
-                          onCardClick={() =>
+                          isActive={!isActiveCard && !isDisabled}
+                          isDisabled={isDisabled}
+                          onCardClick={() => {
+                            if (isDisabled) return // Don't allow click if disabled
                             isActiveCard
                               ? onReturnHome?.()
                               : onCardClick?.(metric.cardId)
-                          }
+                          }}
                           onReportClick={() => {}}
                         />
                       </div>
@@ -152,21 +141,19 @@ const DashboardTabList = ({
               })}
             </div>
 
-            {/* Table Container - seamlessly connected to active card background */}
-            <div className="bg-[#D7EDFF] rounded-b-xl mx-[15px] z-0 relative" style={{ marginTop: '-5px' }}>
-              <div className="px-[30px] py-[25px]">
-                <DashboardTable
-                  type={type}
-                  data={
-                    tabData?.data?.students || tabData?.data?.employees || []
-                  }
-                  isLoading={tabData?.isLoading || false}
-                  title=""
-                  hasNextPage={tabData?.hasNextPage}
-                  fetchNextPage={tabData?.fetchNextPage}
-                  isFetchingNextPage={tabData?.isFetchingNextPage}
-                />
-              </div>
+            {/* Table Container - directly inside background container */}
+            <div className="px-[30px] pb-[25px] pt-[10px]">
+              <DashboardTable
+                type={type}
+                data={
+                  tabData?.data?.students || tabData?.data?.employees || []
+                }
+                isLoading={false} // Never show loading
+                title=""
+                hasNextPage={tabData?.hasNextPage}
+                fetchNextPage={tabData?.fetchNextPage}
+                isFetchingNextPage={tabData?.isFetchingNextPage}
+              />
             </div>
           </div>
         </div>

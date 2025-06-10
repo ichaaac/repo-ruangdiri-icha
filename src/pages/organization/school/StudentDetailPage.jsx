@@ -1,4 +1,4 @@
-"use client"
+// src/pages/organization/school/StudentDetailPage.jsx
 
 import { useState, useEffect } from "react"
 import { useParams } from "react-router-dom"
