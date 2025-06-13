@@ -1,4 +1,5 @@
-// src/components/organization/school/layout/SchoolLayout.jsx - Responsive School Layout
+// src/components/organization/school/layout/SchoolLayout.jsx - Fixed School Layout with proper dashboard handling
+
 import React from "react";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../shared/layout/Layout";
@@ -18,10 +19,7 @@ const SchoolLayout = () => {
       label: "Dashboard",
       path: `${basePath}/dashboard`,
       hasDropdown: true,
-      dropdownItems: [
-        { label: "Dashboard Home", path: `${basePath}/dashboard` },
-        { label: "Dashboard Tab Laporan", path: `${basePath}/dashboard/reports` }
-      ]
+      // No need to define dropdownItems here - handled by Sidebar component dynamically
     },
     {
       icon: "table_chart",

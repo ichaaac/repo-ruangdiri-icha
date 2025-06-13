@@ -1,22 +1,18 @@
-// src/pages/shared/auth/Login.jsx
-import { Link } from "react-router-dom";
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+
 import api, { apiClient } from "../../../lib/api";
 import { loginSchema } from "../../../schemas/validationSchema";
 
 const Login = () => {
-	const navigate = useNavigate();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [rememberMe, setRememberMe] = useState(false);
-	
-	// Tracking field interactions
+
 	const [emailTouched, setEmailTouched] = useState(false);
 	const [passwordTouched, setPasswordTouched] = useState(false);
-	
+
 	const [errorMessage, setErrorMessage] = useState("");
 	const [emailError, setEmailError] = useState(false);
 	const [passwordError, setPasswordError] = useState(false);
@@ -28,14 +24,13 @@ const Login = () => {
 	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 	useEffect(() => {
-		const savedEmail = sessionStorage.getItem("tempEmail");
-		const savedPassword = sessionStorage.getItem("tempPassword");
-	  
-		if (savedEmail) setEmail(savedEmail);
-		if (savedPassword) setPassword(savedPassword);
-	  }, []);
-	  
-	  
+		// Check if email is saved in localStorage when component mounts
+		const savedEmail = localStorage.getItem("rememberedEmail");
+		if (savedEmail) {
+			setEmail(savedEmail);
+			setRememberMe(true);
+		}
+	}, []);
 
 	// Gunakan loginMutation yang sudah ada dari kode asli tanpa diubah
 	const loginMutation = useMutation({
@@ -73,14 +68,12 @@ const Login = () => {
 			localStorage.removeItem("token");
 			localStorage.removeItem("organizationType");
 			localStorage.removeItem("user");
-			localStorage.removeItem("rememberedPassword");
+
 			// Save token to localStorage
 			localStorage.setItem("token", data.accessToken);
 
 			// Save organization type to localStorage
 			localStorage.setItem("organizationType", data.organizationType);
-			sessionStorage.removeItem("tempEmail");
-			sessionStorage.removeItem("tempPassword");
 
 			console.log("Token and organizationType saved to localStorage");
 
@@ -138,7 +131,10 @@ const Login = () => {
 				});
 
 				if (error.response.data && error.response.data.status === "fail") {
-					if (error.response.data.errors && error.response.data.errors.length > 0) {
+					if (
+						error.response.data.errors &&
+						error.response.data.errors.length > 0
+					) {
 						// error.response.data.errors.forEach(err => {
 						// 	if (err.field === "email") {
 						// 		setEmailError(true);
@@ -216,30 +212,49 @@ const Login = () => {
 				return { valid: false, message: "Email harus diisi", field: "email" };
 			}
 		}
-		
+
 		if (field === "password" || field === null) {
 			if (!formData.password) {
-				return { valid: false, message: "Password harus diisi", field: "password" };
+				return {
+					valid: false,
+					message: "Password harus diisi",
+					field: "password",
+				};
 			}
 		}
 
-		// Validasi kedua field kosong (khusus untuk submit form)
-		if (field === null && (!formData.email || !formData.email.trim()) && !formData.password) {
-			return { valid: false, message: "Email dan password harus diisi", field: "both" };
+		if (
+			field === null &&
+			(!formData.email || !formData.email.trim()) &&
+			!formData.password
+		) {
+			return {
+				valid: false,
+				message: "Email dan password harus diisi",
+				field: "both",
+			};
 		}
-		
-		if ((field === "email" || field === null) && formData.email && formData.email.trim()) {
+
+		if (
+			(field === "email" || field === null) &&
+			formData.email &&
+			formData.email.trim()
+		) {
 			const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 			if (!emailRegex.test(formData.email)) {
-				return { valid: false, message: "Format email tidak valid", field: "email" };
+				return {
+					valid: false,
+					message: "Format email tidak valid",
+					field: "email",
+				};
 			}
 		}
-		
+
 		// Kalau sudah sampai di sini dan field spesifik, berarti valid
 		if (field) {
 			return { valid: true, message: "" };
 		}
-		
+
 		// Validasi keseluruhan dengan Zod
 		try {
 			loginSchema.parse(formData);
@@ -247,50 +262,64 @@ const Login = () => {
 		} catch (error) {
 			if (error.errors && error.errors.length > 0) {
 				// Ambil pesan error pertama (sudah dihandle kasus umum di atas, ini untuk kasus khusus)
-				return { valid: false, message: error.errors[0].message, field: error.errors[0].path[0] };
+				return {
+					valid: false,
+					message: error.errors[0].message,
+					field: error.errors[0].path[0],
+				};
 			}
-			return { valid: false, message: "Validasi gagal", field: field || "form" };
+			return {
+				valid: false,
+				message: "Validasi gagal",
+				field: field || "form",
+			};
 		}
 	};
 
+	// Handler untuk input email
 	const handleEmailChange = (e) => {
 		setEmail(e.target.value);
-		sessionStorage.setItem("tempEmail", e.target.value); // << simpan sementara
+
+		// Reset error saat user mengetik
 		if (emailError) {
-		  setEmailError(false);
-		  setErrorMessage("");
+			setEmailError(false);
+			setErrorMessage("");
 		}
-	  };
-	  
-	  const handlePasswordChange = (e) => {
+	};
+
+	// Handler untuk input password
+	const handlePasswordChange = (e) => {
 		setPassword(e.target.value);
-		sessionStorage.setItem("tempPassword", e.target.value); // << simpan sementara
+
+		// Reset error saat user mengetik
 		if (passwordError) {
-		  setPasswordError(false);
-		  setErrorMessage("");
+			setPasswordError(false);
+			setErrorMessage("");
 		}
-	  };
-	  
+	};
 
 	// Validasi email saat blur
 	const validateEmail = () => {
 		// Tandai field sebagai diinteraksi
 		setEmailTouched(true);
-		
+
 		if (!email.trim()) {
 			setEmailError(true);
 			setErrorMessage("Email harus diisi");
 			return false;
 		}
-		
+
 		// Validasi dengan Zod
-		const validation = validateWithZod({ email, password, rememberMe }, "email");
+		const validation = validateWithZod(
+			{ email, password, rememberMe },
+			"email"
+		);
 		if (!validation.valid) {
 			setEmailError(true);
 			setErrorMessage(validation.message);
 			return false;
 		}
-		
+
 		setEmailError(false);
 		// Jangan reset errorMessage jika ada error di field password
 		if (!passwordError) {
@@ -303,21 +332,24 @@ const Login = () => {
 	const validatePassword = () => {
 		// Tandai field sebagai diinteraksi
 		setPasswordTouched(true);
-		
+
 		if (!password) {
 			setPasswordError(true);
 			setErrorMessage("Password harus diisi");
 			return false;
 		}
-		
+
 		// Validasi dengan Zod
-		const validation = validateWithZod({ email, password, rememberMe }, "password");
+		const validation = validateWithZod(
+			{ email, password, rememberMe },
+			"password"
+		);
 		if (!validation.valid) {
 			setPasswordError(true);
 			setErrorMessage(validation.message);
 			return false;
 		}
-		
+
 		setPasswordError(false);
 		// Jangan reset errorMessage jika ada error di field email
 		if (!emailError) {
@@ -327,25 +359,24 @@ const Login = () => {
 	};
 
 	const handleSubmit = (e) => {
-		// Always ensure prevention of default behavior
-		if (e && e.preventDefault) {
-			e.preventDefault();
-		}
-		
+		e.preventDefault();
+
 		// Tandai semua field sebagai telah diinteraksi
 		setEmailTouched(true);
 		setPasswordTouched(true);
-		
+
 		// Reset error message
 		setErrorMessage("");
-		
+
 		// Validasi form dengan zod
 		const validation = validateWithZod({ email, password, rememberMe });
-		
+
+		console.log(validation, "va");
+
 		if (!validation.valid) {
 			// Tetapkan pesan error
 			setErrorMessage(validation.message);
-			
+
 			// Tandai field yang error
 			if (validation.field === "email") {
 				setEmailError(true);
@@ -356,7 +387,6 @@ const Login = () => {
 				setEmailError(false);
 				passwordRef.current?.focus();
 			} else {
-				// Jika validasi umum, periksa masing-masing field
 				if (!email.trim()) {
 					setEmailError(true);
 					setErrorMessage("Email harus diisi");
@@ -372,14 +402,12 @@ const Login = () => {
 			return;
 		}
 
+		// Handle remember me functionality
 		if (rememberMe) {
 			localStorage.setItem("rememberedEmail", email);
-			localStorage.setItem("rememberedPassword", password); // << Tambahan ini
-		  } else {
+		} else {
 			localStorage.removeItem("rememberedEmail");
-			localStorage.removeItem("rememberedPassword");
-		  }
-		  
+		}
 
 		// If all validations pass, proceed with login
 		loginMutation.mutate({ email, password, rememberMe });
@@ -387,7 +415,6 @@ const Login = () => {
 
 	return (
 		<div className="flex flex-col md:flex-row w-full min-h-screen overflow-hidden">
-			{/* Left section with gradient background and illustration */}
 			<section
 				className="w-full md:w-1/2 h-[40vh] md:h-screen relative max-sm:h-[30vh]"
 				style={{ background: "linear-gradient(to bottom, #91D9E1, #5E6EC3)" }}
@@ -407,16 +434,26 @@ const Login = () => {
 					{/* General error message tooltip */}
 					{errorMessage && (emailTouched || passwordTouched) && (
 						<div className="flex items-center px-[15px] py-3 mb-4 text-[14px] leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] inline-flex h-[44px]">
-							<span className="material-icons mr-[9px]" style={{ fontSize: '26px' }}>error</span>
+							<span
+								className="material-icons mr-[9px]"
+								style={{ fontSize: "26px" }}
+							>
+								error
+							</span>
 							<span className="whitespace-nowrap">{errorMessage}</span>
 						</div>
 					)}
-					
+
 					<h1 className="mb-8 md:mb-10 text-3xl font-bold text-primary max-sm:text-2xl max-sm:text-center">
 						Masuk ke Akun
 					</h1>
 
-					<form onSubmit={handleSubmit} className="w-full" id="loginForm" noValidate>
+					<form
+						onSubmit={handleSubmit}
+						className="w-full"
+						id="loginForm"
+						noValidate
+					>
 						{/* Email input */}
 						<div className="mb-6 relative">
 							{/* Email input field */}
@@ -436,7 +473,6 @@ const Login = () => {
 									value={email}
 									onChange={handleEmailChange}
 									onFocus={() => setEmailTouched(true)}
-									onBlur={validateEmail}
 									disabled={loginMutation.isPending}
 									required
 									maxLength={50}
@@ -464,7 +500,6 @@ const Login = () => {
 									value={password}
 									onChange={handlePasswordChange}
 									onFocus={() => setPasswordTouched(true)}
-									onBlur={validatePassword}
 									disabled={loginMutation.isPending}
 									required
 									ref={passwordRef}
@@ -506,16 +541,13 @@ const Login = () => {
 								<span>Ingat Saya</span>
 							</label>
 
-							<Link
-  to="/forgot-password"
-  className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"
-  onClick={(e) => {
-    e.stopPropagation(); // prevent bubbling
-  }}
->
-  Lupa Password?
-</Link>
-
+							<a
+								href="/forgot-password"
+								className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"
+								tabIndex={loginMutation.isPending ? -1 : 0}
+							>
+								Lupa Password?
+							</a>
 						</div>
 
 						{/* Google Sign In Button */}

@@ -1,11 +1,12 @@
-// src/components/shared/dashboard/DashboardHome.jsx
+// src/components/shared/dashboard/DashboardHome.jsx - Added matching background container with fixed sidebar responsiveness
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
 import { Menu } from "@headlessui/react"
 import MetricCard from "./MetricCard"
 import CustomBranchingDropdown from "./CustomBranchingDropdown"
 import { useAuth } from "../../../hooks/useAuth"
+import { useYearlyStats } from "../../../hooks/useDashboardMetrics"
 
 const DashboardHome = ({
   type = "student",
@@ -15,62 +16,76 @@ const DashboardHome = ({
   user = {},
   dateDisplay = "",
   currentSemester = "first-half",
-  selectedFilter = "",
-  selectedGrade = "",
-  setSelectedFilter = () => {},
-  setSelectedGrade = () => {},
   onCardClick = () => {},
   onReportClick = () => {},
-  refetchDashboard = () => {}, // Add refetch function
+  refetchDashboard = () => {},
+  sidebarExpanded = false,
 }) => {
   const [currentHalf, setCurrentHalf] = useState("firstHalf")
-  // Get user role to handle permissions
+  const [barChartClassroom, setBarChartClassroom] = useState("")
+  const [barChartGrade, setBarChartGrade] = useState("")
+  
+  useEffect(() => {
+    if (type === "student") {
+      if (!barChartClassroom && options?.classrooms?.length > 0) {
+        setBarChartClassroom(options.classrooms[0] || "X")
+      }
+      if (!barChartGrade && options?.grades?.length > 0) {
+        setBarChartGrade(options.grades[0] || "A")
+      }
+    } else {
+      if (!barChartClassroom && options?.departments?.length > 0) {
+        setBarChartClassroom(options.departments[0] || "Finance")
+      }
+    }
+  }, [options, type, barChartClassroom, barChartGrade])
+  
   const { user: authUser } = useAuth?.() || { user: {} }
-  const userRole = authUser?.role || ""
-
-  // Fetch data based on user role - use options from useDashboard instead of separate calls
   const classroomOptions = options?.classrooms || []
   const gradeOptions = options?.grades || []
   const departmentOptions = options?.departments || []
 
-  // Handle dropdown changes - PURE state change, no side effects
-  const handleClassroomChange = useCallback(
+  const { data: yearlyStatsData } = useYearlyStats(type, {
+    year: "2025",
+    ...(type === "student" 
+      ? { classroom: barChartClassroom, grade: barChartGrade }
+      : { department: barChartClassroom }),
+  })
+
+  const handleBarChartClassroomChange = useCallback(
     (classroom) => {
-      if (classroom === selectedFilter) return
-      setSelectedFilter(classroom)
+      if (classroom === barChartClassroom) return
+      setBarChartClassroom(classroom)
     },
-    [selectedFilter, setSelectedFilter],
+    [barChartClassroom],
   )
 
-  const handleGradeChange = useCallback(
+  const handleBarChartGradeChange = useCallback(
     (grade) => {
-      if (grade === selectedGrade) return
-      setSelectedGrade(grade)
+      if (grade === barChartGrade) return
+      setBarChartGrade(grade)
     },
-    [selectedGrade, setSelectedGrade],
+    [barChartGrade],
   )
 
-  const handleDepartmentChange = useCallback(
+  const handleBarChartDepartmentChange = useCallback(
     (department) => {
-      if (department === selectedFilter) return
-      setSelectedFilter(department)
+      if (department === barChartClassroom) return
+      setBarChartClassroom(department)
     },
-    [selectedFilter, setSelectedFilter],
+    [barChartClassroom],
   )
 
-  // Chart data processors
   const getSemesterData = useCallback(() => {
-    const byMonth = metrics?.mentalHealth?.byMonth || {}
-    const currentData = byMonth[currentHalf] || []
-
-    // Ensure all months are present
+    const yearlyData = yearlyStatsData?.data || []
+    
     const allMonths =
       currentHalf === "firstHalf"
         ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
         : ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     return allMonths.map((month) => {
-      const existingData = currentData.find((item) => item.month === month)
+      const existingData = yearlyData.find((item) => item.month === month)
       return (
         existingData || {
           month,
@@ -80,7 +95,7 @@ const DashboardHome = ({
         }
       )
     })
-  }, [metrics?.mentalHealth?.byMonth, currentHalf])
+  }, [yearlyStatsData, currentHalf])
 
   const getOverallPieData = useCallback(() => {
     const overall = metrics?.mentalHealth?.overall || {}
@@ -107,14 +122,14 @@ const DashboardHome = ({
     ]
   }, [metrics?.status?.counseling])
 
-  // Navigation functions
   const canNavigateNext = useCallback(() => {
-    const byMonth = metrics?.mentalHealth?.byMonth || {}
+    const yearlyData = yearlyStatsData?.data || []
     if (currentHalf === "firstHalf") {
-      return byMonth.secondHalf && byMonth.secondHalf.length > 0
+      const secondHalfMonths = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+      return yearlyData.some(item => secondHalfMonths.includes(item.month))
     }
     return false
-  }, [metrics?.mentalHealth?.byMonth, currentHalf])
+  }, [yearlyStatsData, currentHalf])
 
   const canNavigatePrev = useCallback(() => {
     return currentHalf === "secondHalf"
@@ -134,7 +149,6 @@ const DashboardHome = ({
     }
   }
 
-  // Chart components
   const CustomTooltip = useCallback(({ active, payload }) => {
     if (active && payload?.length) {
       return (
@@ -155,23 +169,22 @@ const DashboardHome = ({
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
 
     return (
-<text
-  x={x}
-  y={y}
-  fill="white"
-  textAnchor="middle"
-  dominantBaseline="central"
-  fontSize={12}
->
-  {`${(percent * 100).toFixed(0)}%`}
-</text>
-
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={12}
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
     )
   }, [])
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-      {/* Header - consistent with ListPage */}
+      {/* Header */}
       <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -183,20 +196,20 @@ const DashboardHome = ({
         </div>
       </div>
 
-      {/* Title - consistent with ListPage structure */}
+      {/* Title - Ensure user fullName is displayed */}
       <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8">
         <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
-            Halo, {user?.fullName || authUser?.fullName || ""}
+            Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="px-2 sm:px-4 lg:px-6 mt-4 sm:mt-6">
-        <div className="max-w-[1110px] mx-auto">
-          {/* Metrics Cards - No inactive colors, just disable click */}
-          <div className="flex gap-5 mb-6" style={{ paddingLeft: "calc(20px)", paddingRight: "calc(20px)" }}>
+      {/* Main content with background container matching tablist */}
+      <div className="mt-4 sm:mt-6">
+        {/* Metrics Cards with normal padding */}
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
             <MetricCard
               title={`Total ${config.entityName} Beresiko`}
               count={metrics.summary?.atRisk?.count || 0}
@@ -205,8 +218,8 @@ const DashboardHome = ({
               bgColor="#FFEBE5"
               borderColor="#ED8768"
               icon="warning"
-              isActive={true} // Always active colors
-              isDisabled={(metrics.summary?.atRisk?.count || 0) === 0} // Only disable click
+              isActive={true}
+              isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
               onCardClick={() => onCardClick("at_risk")}
               onReportClick={() => onReportClick(`Daftar ${config.entityName} Beresiko`)}
             />
@@ -218,8 +231,8 @@ const DashboardHome = ({
               bgColor="#E7FEFF"
               borderColor="#B2FDFF"
               icon="assignment"
-              isActive={true} // Always active colors
-              isDisabled={(metrics.summary?.notScreened?.count || 0) === 0} // Only disable click
+              isActive={true}
+              isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
               onCardClick={() => onCardClick("not_screened")}
               onReportClick={() => onReportClick(`Daftar ${config.entityName} Belum Skrining`)}
             />
@@ -231,262 +244,278 @@ const DashboardHome = ({
               bgColor="#F3E6FF"
               borderColor="#E4C6FF"
               icon="groups"
-              isActive={true} // Always active colors
-              isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0} // Only disable click
+              isActive={true}
+              isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
               onCardClick={() => onCardClick("not_counseled")}
               onReportClick={() => onReportClick(`Daftar ${config.entityName} Belum Konseling`)}
             />
           </div>
+        </div>
 
-          {/* Dashboard Content */}
-          <div className="flex flex-col px-5 pt-7 pb-4 w-full bg-blue-50 rounded-xl">
-            {/* Mental Health Status Section */}
-            <h2 className="self-start text-lg leading-4 text-primary mb-4">
-              Status <span className="font-bold">Kesehatan Mental </span>
-              <span className="font-bold text-primary">{config.entityName}</span>
-            </h2>
+        {/* Dashboard Content with matching background container width - fixed positioning */}
+        <div 
+          className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5 overflow-hidden"
+          style={{
+            width: '100%',
+            maxWidth: `calc(100% - 40px)`, // 20px kiri-kanan
+            marginLeft: '20px',
+            marginRight: '20px',
+          }}          
+        >
+          {/* Mental Health Status Section */}
+          <h2 className="text-lg leading-4 text-primary mb-4">
+            Status <span className="font-bold">Kesehatan Mental </span>
+            <span className="font-bold text-primary">{config.entityName}</span>
+          </h2>
 
-            <div className="flex gap-5 max-md:flex-col">
-              {/* Overall Chart */}
-              <div className="w-2/5 max-md:w-full h-full">
-              <div className="flex flex-col h-full px-3.5 py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
-                  <div className="flex gap-5 justify-between w-full">
-                    <p>Status Kesehatan Mental {config.entityName} Keseluruhan</p>
-                    <p className="gap-px self-start leading-6 w-auto">{dateDisplay}</p>
-                  </div>
-                  <div className="h-[336px] mt-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={getOverallPieData()}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={renderCustomizedLabel}
-                          outerRadius={100}
-                          innerRadius={60}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {getOverallPieData().map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex gap-3.5 items-center justify-center mt-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
-                      <p>Beresiko</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
-                      <p>Pengawasan</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
-                      <p>Aman</p>
-                    </div>
-                  </div>
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
+            {/* Overall Chart */}
+            <div className="w-full lg:w-2/5">
+              <div className="flex flex-col h-full px-3 sm:px-4 py-4 sm:py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-5 justify-between w-full mb-4">
+                  <p className="text-xs sm:text-sm">Status Kesehatan Mental {config.entityName} Keseluruhan</p>
+                  <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
-              </div>
-
-              {/* Filtered Chart */}
-              <div className="ml-5 w-3/5 max-md:ml-0 max-md:w-full h-full">
-              <div className="h-full px-3 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col">
-                  <div className="flex flex-wrap gap-5 justify-between w-full text-sm leading-6 text-zinc-500">
-                  <p>
-                    Status Kesehatan Mental{" "}
-                    <span className="font-extrabold">
-                      {config.entityName} {selectedFilter}
-                      {type === "student" && selectedGrade ? ` ${selectedGrade}` : ""}
-                    </span>
-                  </p>
-                    <div className="flex gap-2">
-                      {type === "student" ? (
-                        <CustomBranchingDropdown
-                          selectedClassroom={selectedFilter}
-                          selectedGrade={selectedGrade}
-                          onClassroomSelect={handleClassroomChange}
-                          onGradeSelect={handleGradeChange}
-                          classrooms={classroomOptions}
-                          grades={gradeOptions}
-                        />
-                      ) : (
-                        <Menu as="div" className="relative">
-                          <Menu.Button className="flex gap-px items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors">
-                            <p className="self-stretch my-auto">{selectedFilter || config.filterLabel}</p>
-                            <span className="material-icons text-sm">keyboard_arrow_down</span>
-                          </Menu.Button>
-                          <Menu.Items className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                            {departmentOptions.map((department) => (
-                              <Menu.Item key={department}>
-                                {({ active }) => (
-                                  <div
-                                    className={`${active ? "bg-blue-100" : ""} ${
-                                      selectedFilter === department ? "bg-[#3399E9] text-white font-semibold" : ""
-                                    } w-full text-left px-4 py-2 text-sm cursor-pointer`}
-                                    onClick={() => handleDepartmentChange(department)}
-                                  >
-                                    {department}
-                                  </div>
-                                )}
-                              </Menu.Item>
-                            ))}
-                          </Menu.Items>
-                        </Menu>
-                      )}
-                    </div>
-                  </div>
-                  <div className="h-[336px] mt-4 relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={getSemesterData()}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        barSize={12}
+                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={getOverallPieData()}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                        outerRadius="80%"
+                        innerRadius="50%"
+                        fill="#8884d8"
+                        dataKey="value"
                       >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="atRisk" fill="#ED8768" name="Beresiko" />
-                        <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" />
-                        <Bar dataKey="stable" fill="#9BCA61" name="Aman" />
-                      </BarChart>
-                    </ResponsiveContainer>
-
-                    {/* Navigation arrows - cleaned up without background */}
-                    <button
-                      disabled={!canNavigatePrev()}
-                      onClick={handlePrev}
-                      className={`absolute left-2 top-[168px] transform -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                        canNavigatePrev()
-                          ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
-                          : "text-gray-300 cursor-not-allowed"
-                      }`}
-                    >
-                      <span className="material-icons text-xl">chevron_left</span>
-                    </button>
-                    <button
-                      disabled={!canNavigateNext()}
-                      onClick={handleNext}
-                      className={`absolute right-2 top-[168px] transform -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                        canNavigateNext()
-                          ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
-                          : "text-gray-300 cursor-not-allowed"
-                      }`}
-                    >
-                      <span className="material-icons text-xl">chevron_right</span>
-                    </button>
+                        {getOverallPieData().map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
+                    <p className="text-xs sm:text-sm">Beresiko</p>
                   </div>
-
-                  {/* Legend only - removed year display */}
-                  <div className="flex gap-3.5 items-center justify-center mt-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
-                      <p>Beresiko</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
-                      <p>Pengawasan</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
-                      <p>Aman</p>
-                    </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
+                    <p className="text-xs sm:text-sm">Pengawasan</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
+                    <p className="text-xs sm:text-sm">Aman</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Status Sections */}
-            <div className="mt-4 w-full">
-            <div className="flex gap-5 max-md:flex-col h-[420px]"> {/* Pakai fixed height biar sejajar */}
-            {/* Screening Status */}
-                <div className="w-6/12 max-md:w-full">
-                  <div className="flex flex-col grow px-3.5 py-5 w-full bg-white rounded-xl">
-                    <h2 className="self-start text-lg leading-4 text-primary">
+            {/* Filtered Chart */}
+            <div className="w-full lg:w-3/5">
+              <div className="h-full px-3 sm:px-4 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col overflow-hidden">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between w-full text-sm leading-6 text-zinc-500 mb-4">
+                  <p className="text-xs sm:text-sm">
+                    Status Kesehatan Mental{" "}
+                    <span className="font-extrabold">
+                      {config.entityName} {barChartClassroom}
+                      {type === "student" && barChartGrade ? ` ${barChartGrade}` : ""}
+                    </span>
+                  </p>
+                  <div className="flex gap-2 flex-shrink-0">
+                    {type === "student" ? (
+                      <div className="relative" style={{ zIndex: 999999 }}>
+                        <CustomBranchingDropdown
+                          selectedClassroom={barChartClassroom}
+                          selectedGrade={barChartGrade}
+                          onClassroomSelect={handleBarChartClassroomChange}
+                          onGradeSelect={handleBarChartGradeChange}
+                          classrooms={classroomOptions}
+                          grades={gradeOptions}
+                        />
+                      </div>
+                    ) : (
+                      <Menu as="div" className="relative" style={{ zIndex: 999999 }}>
+                        <Menu.Button className="flex gap-px items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors bg-white">
+                          <p className="self-stretch my-auto text-gray-700">{barChartClassroom || config.filterLabel}</p>
+                          <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
+                        </Menu.Button>
+                        <Menu.Items className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 999999 }}>
+                          {departmentOptions.map((department) => (
+                            <Menu.Item key={department}>
+                              {({ active }) => (
+                                <div
+                                  className={`w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors ${
+                                    barChartClassroom === department 
+                                      ? "bg-[#3399E9] text-white font-semibold" 
+                                      : active 
+                                        ? "bg-[#E2F9FF] text-gray-900" 
+                                        : "text-gray-700 hover:bg-gray-50"
+                                  }`}
+                                  onClick={() => handleBarChartDepartmentChange(department)}
+                                >
+                                  {department}
+                                </div>
+                              )}
+                            </Menu.Item>
+                          ))}
+                        </Menu.Items>
+                      </Menu>
+                    )}
+                  </div>
+                </div>
+                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={getSemesterData()}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      barSize={12}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="atRisk" fill="#ED8768" name="Beresiko" />
+                      <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" />
+                      <Bar dataKey="stable" fill="#9BCA61" name="Aman" />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  <button
+                    disabled={!canNavigatePrev()}
+                    onClick={handlePrev}
+                    className={`absolute left-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full transition-colors z-10 ${
+                      canNavigatePrev()
+                        ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
+                        : "text-gray-300 cursor-not-allowed"
+                    }`}
+                  >
+                    <span className="material-icons text-lg sm:text-xl">chevron_left</span>
+                  </button>
+                  <button
+                    disabled={!canNavigateNext()}
+                    onClick={handleNext}
+                    className={`absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full transition-colors z-10 ${
+                      canNavigateNext()
+                        ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
+                        : "text-gray-300 cursor-not-allowed"
+                    }`}
+                  >
+                    <span className="material-icons text-lg sm:text-xl">chevron_right</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
+                    <p className="text-xs sm:text-sm">Beresiko</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
+                    <p className="text-xs sm:text-sm">Pengawasan</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
+                    <p className="text-xs sm:text-sm">Aman</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Sections */}
+          <div className="mt-4 w-full">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
+              {/* Screening Status */}
+              <div className="w-full lg:w-6/12">
+                <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
+                  <div className="px-4 py-4">
+                    <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
                       Status <span className="font-bold">Skrining {config.entityName}</span>
                     </h2>
-                    <div className="flex flex-col px-3.5 py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
-                      <p className="gap-px self-end leading-6 w-auto">{dateDisplay}</p>
-                      <div className="h-[300px] w-full mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={getScreeningData()}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={renderCustomizedLabel}
-                              outerRadius={100}
-                              innerRadius={60}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {getScreeningData().map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                          </PieChart>
-                        </ResponsiveContainer>
+                    <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
+                    
+                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={getScreeningData()}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={renderCustomizedLabel}
+                            outerRadius="80%"
+                            innerRadius="50%"
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {getScreeningData().map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center w-full mt-4">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-[#6DC4C6]"></div>
+                        <p className="text-xs sm:text-sm">Belum Skrining</p>
                       </div>
-                      <div className="flex flex-col md:flex-row gap-3.5 items-center justify-center w-full mt-4">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#6DC4C6]"></div>
-                          <p>Belum Skrining</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#E284B3]"></div>
-                          <p>Sudah Skrining</p>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-[#E284B3]"></div>
+                        <p className="text-xs sm:text-sm">Sudah Skrining</p>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Counseling Status */}
-                <div className="ml-5 w-6/12 max-md:ml-0 max-md:w-full">
-                  <div className="flex flex-col grow px-4 py-5 w-full bg-white rounded-xl">
-                    <h2 className="self-start text-lg leading-4 text-primary max-md:ml-2">
+              {/* Counseling Status */}
+              <div className="w-full lg:w-6/12">
+                <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
+                  <div className="px-4 py-4">
+                    <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
                       Status <span className="font-bold">Konseling {config.entityName}</span>
                     </h2>
-                    <div className="flex flex-col items-end px-5 md:px-10 pt-5 pb-5 mt-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
-                      <p className="gap-px self-end leading-6 w-auto">{dateDisplay}</p>
-                      <div className="h-[300px] w-full mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={getCounselingData()}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              label={renderCustomizedLabel}
-                              outerRadius={100}
-                              innerRadius={60}
-                              fill="#8884d8"
-                              dataKey="value"
-                            >
-                              {getCounselingData().map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                          </PieChart>
-                        </ResponsiveContainer>
+                    <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
+                    
+                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={getCounselingData()}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={renderCustomizedLabel}
+                            outerRadius="80%"
+                            innerRadius="50%"
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {getCounselingData().map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center w-full mt-4">
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-[#C194E9]"></div>
+                        <p className="text-xs sm:text-sm">Belum Konseling</p>
                       </div>
-                      <div className="flex flex-col md:flex-row gap-3.5 items-center justify-center w-full mt-4">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#C194E9]"></div>
-                          <p>Belum Konseling</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#F1D961]"></div>
-                          <p>Sudah Konseling</p>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full bg-[#F1D961]"></div>
+                        <p className="text-xs sm:text-sm">Sudah Konseling</p>
                       </div>
                     </div>
                   </div>

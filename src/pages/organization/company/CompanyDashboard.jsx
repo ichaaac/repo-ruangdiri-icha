@@ -1,31 +1,47 @@
-// src/pages/organization/company/CompanyDashboard.jsx
+// src/pages/organization/company/CompanyDashboard.jsx - Fixed with proper context handling
+
+import { useOutletContext } from "react-router-dom"
 import SharedDashboard from "@/components/shared/dashboard/SharedDashboard"
-import { useDashboard, useDashboardTabData } from "@/hooks/useDashboard"
+import { useAuth } from "@/hooks/useAuth"
 import SuccessModal from "@/components/organization/company/SuccessModal"
 
 const CompanyDashboard = () => {
+  // Get context from Layout with proper fallbacks
+  const context = useOutletContext() || {}
+  const { 
+    sidebarExpanded = false, 
+    selectedDashboardTab = "home", 
+    onDashboardTabChange = () => {},
+    dashboardMetrics = null
+  } = context
+
   return (
-    <SharedDashboard
-      type="employee"
-      useDashboardHook={useDashboard}
-      useTabDataHook={useDashboardTabData}
-      SuccessModalComponent={SuccessModal}
-      config={{
-        entityName: "Karyawan",
-        defaultFilter: "Finance",
-        filterLabel: "Departemen",
-        filterOptions: [
-          "Engineering",
-          "Marketing",
-          "Operations",
-          "Creative",
-          "Finance",
-          "Human Resources",
-          "Sales",
-          "IT",
-        ],
-      }}
-    />
+    <div className="w-full min-h-screen overflow-x-hidden">
+      <SharedDashboard
+        type="employee"
+        config={{
+          entityName: "Karyawan",
+          defaultFilter: "Finance", // Required for API - default department
+          filterLabel: "Departemen",
+          filterOptions: [
+            "Engineering",
+            "Marketing", 
+            "Operations",
+            "Creative",
+            "Finance",
+            "Human Resources",
+            "Sales",
+            "IT",
+          ],
+        }}
+        selectedDashboardTab={selectedDashboardTab}
+        onDashboardTabChange={onDashboardTabChange}
+        useAuth={useAuth}
+        SuccessModalComponent={SuccessModal}
+        sidebarExpanded={sidebarExpanded}
+        dashboardMetrics={dashboardMetrics}
+      />
+    </div>
   )
 }
 

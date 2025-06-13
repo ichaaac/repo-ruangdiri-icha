@@ -1,6 +1,6 @@
-// src/components/shared/dashboard/DashboardTable.jsx
+// src/components/shared/dashboard/DashboardTable.jsx - Added detail navigation, fixed infinite scroll, and added dividers
 
-import React, { useCallback } from "react"
+import React, { useCallback, useState, useRef, useEffect } from "react"
 
 const TableHeader = ({ type = "student" }) => (
   <thead style={{ backgroundColor: "#E8F5FF" }}>
@@ -37,7 +37,7 @@ const TableHeader = ({ type = "student" }) => (
   </thead>
 )
 
-const TableRow = ({ item, type = "student" }) => {
+const TableRow = React.forwardRef(({ item, type = "student", config = {}, clickedNames, setClickedNames }, ref) => {
   const commonCellClass = "px-5 py-4 text-base leading-5 text-zinc-500 max-sm:px-4 max-sm:py-3 max-sm:text-sm"
 
   // Format gender menjadi L/P
@@ -47,8 +47,21 @@ const TableRow = ({ item, type = "student" }) => {
     return gender || "-"
   }
 
+  // Handle detail click navigation
+  const handleDetailClick = () => {
+    const id = item.id
+    if (clickedNames.has(id)) {
+      // Open detail page
+      window.open(`${config.detailPath}/${id}`, "_blank")
+      setClickedNames(new Set())
+    } else {
+      // First click - prepare for navigation
+      setClickedNames(new Set([id]))
+    }
+  }
+
   return (
-    <tr className="bg-white border-b border-gray-100">
+    <tr ref={ref} className="bg-white border-b border-gray-100">
       <td className={commonCellClass}>
         <div className="max-w-[200px] truncate" title={item.fullName || item.nama}>
           {item.fullName || item.nama || "-"}
@@ -58,24 +71,25 @@ const TableRow = ({ item, type = "student" }) => {
         {type === "student" ? item.classroom || item.kelas || "-" : item.department || "-"}
       </td>
       <td className={`${commonCellClass} text-center`}>
-        {" "}
-        {/* Center align gender */}
         {formatGender(item.gender || item.jenisKelamin)}
       </td>
       <td className={commonCellClass}>{type === "student" ? item.nis || "-" : item.age || item.usia || "-"}</td>
       <td className={`${commonCellClass} max-sm:font-medium`}>
         <button
-          className="transition-colors"
+          className="transition-colors cursor-pointer"
           style={{ color: "#488BBE" }}
           onMouseEnter={(e) => (e.target.style.color = "#3a7ba8")}
           onMouseLeave={(e) => (e.target.style.color = "#488BBE")}
+          onClick={handleDetailClick}
         >
           Lihat Detail
         </button>
       </td>
     </tr>
   )
-}
+})
+
+TableRow.displayName = "TableRow"
 
 const DashboardTable = ({ 
   type = "student", 
@@ -84,35 +98,74 @@ const DashboardTable = ({
   title = "", 
   isFetchingNextPage = false, 
   hasNextPage = false, 
-  fetchNextPage = () => {} 
+  fetchNextPage = () => {},
+  config = {} // Add config prop for detail navigation
 }) => {
+  const [clickedNames, setClickedNames] = useState(new Set())
+  const observerRef = useRef(null)
   const itemsData = Array.isArray(data) ? data : []
+
+  // Linear gradient divider like in Table.jsx
+  const LinearGradientDivider = () => (
+    <tr style={{ height: "2px" }}>
+      <td colSpan={type === "student" ? 5 : 5} className="p-0">
+        <div
+          style={{
+            height: "2px",
+            background:
+              "linear-gradient(to right, rgba(255,255,255,0), rgba(72,139,190,0.3) 20%, rgba(72,139,190,0.6) 50%, rgba(72,139,190,0.3) 80%, rgba(255,255,255,0))",
+            margin: "0",
+          }}
+        />
+      </td>
+    </tr>
+  )
   
-  // Infinite scroll callback - similar to SharedTable
-  const lastItemRef = useCallback(
+  // Infinite scroll callback - exactly like SharedTable.jsx
+  const lastItemElementRef = useCallback(
     (node) => {
-      if (!node || !hasNextPage || isFetchingNextPage) return;
-      
-      // Create IntersectionObserver for this specific element
-      const observer = new IntersectionObserver(
+      if (observerRef.current) observerRef.current.disconnect()
+      if (isFetchingNextPage || !hasNextPage) {
+        console.log("Dashboard infinite scroll: skipping observer setup", { isFetchingNextPage, hasNextPage })
+        return
+      }
+
+      observerRef.current = new IntersectionObserver(
         (entries) => {
           if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-            console.log("Last item visible, fetching next page");
-            fetchNextPage();
+            console.log("Dashboard table: Last item visible, fetching next page", { hasNextPage, isFetchingNextPage })
+            fetchNextPage()
           }
         },
-        { threshold: 0.5, rootMargin: "0px 0px 300px 0px" }
-      );
-      
-      observer.observe(node);
-      
-      // Cleanup
-      return () => {
-        observer.disconnect();
-      };
+        { threshold: 0.1, rootMargin: "0px 0px 100px 0px" }
+      )
+
+      if (node) {
+        console.log("Dashboard infinite scroll: setting up observer on node", node)
+        observerRef.current.observe(node)
+      }
     },
-    [hasNextPage, isFetchingNextPage, fetchNextPage]
-  );
+    [isFetchingNextPage, hasNextPage, fetchNextPage]
+  )
+
+  // Debug logs for infinite scroll
+  useEffect(() => {
+    console.log("Dashboard table data updated:", { 
+      dataLength: itemsData.length, 
+      hasNextPage, 
+      isFetchingNextPage,
+      itemsData: itemsData.slice(0, 3) // First 3 items for debugging
+    })
+  }, [itemsData.length, hasNextPage, isFetchingNextPage, itemsData])
+
+  // Cleanup observer on unmount
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+    }
+  }, [])
 
   // Never show loading state - data should always be available
   if (itemsData.length === 0) {
@@ -133,18 +186,23 @@ const DashboardTable = ({
         <table className="w-full border-collapse bg-white shadow-sm rounded-lg">
           <TableHeader type={type} />
           <tbody>
+            <LinearGradientDivider />
             {itemsData.map((item, index) => {
-              // Apply ref to last item for infinite scroll
-              if (index === itemsData.length - 1) {
-                return (
-                  <React.Fragment key={item.id || index}>
-                    <TableRow item={item} type={type} />
-                    {/* Add a sentinel row for better detection */}
-                    <tr ref={lastItemRef} style={{ height: "1px" }}><td colSpan="5"></td></tr>
-                  </React.Fragment>
-                );
-              }
-              return <TableRow key={item.id || index} item={item} type={type} />;
+              const isLastElement = index === itemsData.length - 1
+              
+              return (
+                <React.Fragment key={item.id || index}>
+                  <TableRow 
+                    item={item} 
+                    type={type} 
+                    config={config}
+                    clickedNames={clickedNames}
+                    setClickedNames={setClickedNames}
+                    ref={isLastElement ? lastItemElementRef : null}
+                  />
+                  <LinearGradientDivider />
+                </React.Fragment>
+              );
             })}
           </tbody>
         </table>
@@ -152,7 +210,7 @@ const DashboardTable = ({
 
       {/* Subtle loading indicator - only when fetching next page */}
       {isFetchingNextPage && (
-        <div className="flex justify-center items-center w-full py-2">
+        <div className="flex justify-center items-center w-full py-4">
           <div className="flex items-center gap-2 text-gray-400 text-sm">
             <span className="material-icons text-sm animate-spin">refresh</span>
             <span>Memuat lebih banyak...</span>

@@ -1,4 +1,5 @@
-// src/components/shared/detail/DetailComponents.jsx
+// src/components/shared/detail/DetailComponents.jsx - FIXED: Proper chart alignment and spacing
+
 import { motion, AnimatePresence } from "framer-motion"
 import { format } from "date-fns"
 import { id as indonesianLocale } from "date-fns/locale"
@@ -120,11 +121,10 @@ export const LanguageSwitcher = () => {
   )
 }
 
-// Profile Component for Student/Employee
+// Profile Component
 export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarExpanded = false }) => {
-  const profile = data?.studentProfile || data?.employeeProfile || data || {}
+  const profile = data?.studentProfile || data?.employeeProfile || {}
 
-  // Student fields configuration
   const studentFields = [
     { key: "fullName", label: "Nama Lengkap", value: data?.fullName },
     {
@@ -143,12 +143,11 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
     {
       key: "gender",
       label: "Jenis Kelamin",
-      value: profile.gender === "male" ? "Laki Laki" : profile.gender === "female" ? "Perempuan" : "-",
+      value: profile.gender === "male" ? "Laki-laki" : profile.gender === "female" ? "Perempuan" : "-",
     },
     { key: "iqCategory", label: "Kategori", value: getIqCategoryDisplay(profile.iqCategory) },
   ]
 
-  // Employee fields configuration
   const employeeFields = [
     { key: "fullName", label: "Nama Lengkap", value: data?.fullName },
     {
@@ -156,7 +155,7 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
       label: "Tempat/Tanggal Lahir",
       value: formatBirthInfo(profile.birthPlace, profile.birthDate),
     },
-    { key: "employeeId", label: "Departemen", value: profile.department },
+    { key: "department", label: "Departemen", value: profile.department },
     {
       key: "workYears",
       label: "Lama Bekerja",
@@ -201,19 +200,22 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
         <div className="w-[120px] h-[120px] rounded-full overflow-hidden shadow-sm bg-gray-100 border flex items-center justify-center">
           {data?.profilePicture ? (
             <img
-              src={data.profilePicture || "/placeholder.svg"}
+              src={data.profilePicture}
               alt={`${type} profile`}
               className="object-cover w-full h-full"
+              onError={(e) => {
+                e.target.style.display = 'none'
+                e.target.nextSibling.style.display = 'flex'
+              }}
             />
-          ) : (
-            <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="material-icons text-gray-400 text-3xl">person</span>
-            </div>
-          )}
+          ) : null}
+          <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center" style={{ display: data?.profilePicture ? 'none' : 'flex' }}>
+            <span className="material-icons text-gray-400 text-3xl">person</span>
+          </div>
         </div>
       </motion.div>
 
-      {/* Information Grid - TIDAK PAKAI TRUNCATE */}
+      {/* Information Grid */}
       <div className="w-full flex-grow">
         <div className="grid grid-cols-2 gap-x-6 gap-y-[35px]">
           {fields.map((field, index) => (
@@ -232,7 +234,7 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
           ))}
         </div>
 
-        {/* Edit Button - positioned at bottom to align with metrics chart */}
+        {/* Edit Button */}
         <div className="flex justify-end mt-auto pt-[80px]">
           <motion.button
             onClick={onEdit}
@@ -248,64 +250,63 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
   )
 }
 
-// Development Component
+// CRITICAL FIX: Development Component - Proper chart with exact alignment
 export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" }) => {
-  const profile = data?.studentProfile || data?.employeeProfile || data || {}
   const fullName = data?.fullName || "Siswa"
 
-  // State to track current month and month range
   const [currentMonthIndex, setCurrentMonthIndex] = useState(0)
   const [monthRangeStart, setMonthRangeStart] = useState(0) // 0 = Jan-Jun, 1 = Jul-Dec
 
-  // All 12 months for metrics data
   const allMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-  // Get notes from mental health history
+  // Get notes from API structure - if null, show empty string
   const getMonthlyNotes = () => {
     if (!mentalHealthHistory || mentalHealthHistory.length === 0) {
-      return allMonths.map((_, index) => "Belum ada catatan perkembangan")
+      return allMonths.map(() => "")
     }
 
-    // Create a map of month to notes
     const notesMap = {}
     mentalHealthHistory.forEach((record) => {
-      const date = new Date(record.date)
-      const month = date.getMonth()
-      if (!notesMap[month] || new Date(record.date) > new Date(notesMap[month].date)) {
-        notesMap[month] = {
-          date: record.date,
-          notes: record.notes || "Belum ada catatan perkembangan",
+      if (record.date) {
+        const date = new Date(record.date)
+        const month = date.getMonth()
+        
+        if (!notesMap[month] || new Date(record.date) > new Date(notesMap[month].date)) {
+          notesMap[month] = {
+            date: record.date,
+            notes: record.notes || "",
+            status: record.screeningStatus
+          }
         }
       }
     })
 
-    // Fill in missing months
-    return allMonths.map((_, index) => {
-      return notesMap[index]?.notes || "Belum ada catatan perkembangan"
+    return allMonths.map((monthName, index) => {
+      return notesMap[index]?.notes || ""
     })
   }
 
   const monthlyNotes = getMonthlyNotes()
 
-  // Generate chart data from mental health history
+  // Generate chart data with proper null handling (use 0 for null)
   const generateChartData = () => {
     if (mentalHealthHistory && mentalHealthHistory.length > 0) {
-      // Create a map of month to status
       const statusMap = {}
       mentalHealthHistory.forEach((record) => {
-        const date = new Date(record.date)
-        const month = date.getMonth()
-        if (!statusMap[month] || new Date(record.date) > new Date(statusMap[month].date)) {
-          statusMap[month] = {
-            date: record.date,
-            status: record.status,
+        if (record.date) {
+          const date = new Date(record.date)
+          const month = date.getMonth()
+          if (!statusMap[month] || new Date(record.date) > new Date(statusMap[month].date)) {
+            statusMap[month] = {
+              date: record.date,
+              status: record.screeningStatus,
+            }
           }
         }
       })
 
-      // Convert status to value
       return allMonths.map((month, index) => {
-        const status = statusMap[index]?.status || "stable"
+        const status = statusMap[index]?.status || null
         return {
           month,
           value: getStatusValue(status),
@@ -313,44 +314,30 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
         }
       })
     } else {
-      // Default data if no history
-      const seedValues = [1, 2, 3, 2, 2, 3, 3, 2, 1, 2, 3, 3]
-      const seedStatus = [
-        "at_risk",
-        "monitored",
-        "stable",
-        "monitored",
-        "monitored",
-        "stable",
-        "stable",
-        "monitored",
-        "at_risk",
-        "monitored",
-        "stable",
-        "stable",
-      ]
-      return allMonths.map((month, index) => ({
+      return allMonths.map((month) => ({
         month,
-        value: seedValues[index],
-        status: seedStatus[index],
+        value: 0,
+        status: null,
       }))
     }
   }
 
+  // CRITICAL FIX: Handle status values with exact positioning
   const getStatusValue = (status) => {
+    if (status === null || status === undefined) return 0.5 // Slightly above 0 line for visibility
+    
     const statusValues = {
       at_risk: 1,
       monitored: 2,
       stable: 3,
-      not_screened: 2,
+      not_screened: 0.5, // Slightly above 0
     }
-    return statusValues[status] || 3
+    return statusValues[status] || 0.5
   }
 
   const fullYearChartData = generateChartData()
   const visibleChartData = fullYearChartData.slice(monthRangeStart * 6, monthRangeStart * 6 + 6)
 
-  // Handle previous month click
   const handlePrevMonth = () => {
     if (currentMonthIndex > 0) {
       setCurrentMonthIndex(currentMonthIndex - 1)
@@ -360,7 +347,6 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
     }
   }
 
-  // Handle next month click
   const handleNextMonth = () => {
     if (currentMonthIndex < 5) {
       setCurrentMonthIndex(currentMonthIndex + 1)
@@ -374,15 +360,16 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
   const isPrevDisabled = absoluteMonthIndex === 0
   const isNextDisabled = absoluteMonthIndex === 11
 
-  // Custom dot component with colorful dots
+  // CRITICAL FIX: Custom dot component with proper color and z-index
   const CustomDot = (props) => {
     const { cx, cy, payload, index } = props
     const isActive = index === currentMonthIndex
 
     const getColor = (value) => {
-      if (value <= 1.5) return "#EE4266" // Berisiko - Red
-      if (value <= 2.5) return "#EED142" // Pengawasan - Yellow
-      return "#9BCA61" // Stabil - Green
+      if (value <= 0.75) return "#B0B0B0" // Gray for null/0
+      if (value <= 1.5) return "#EE4266" // Red for at_risk
+      if (value <= 2.5) return "#EED142" // Yellow for monitored
+      return "#9BCA61" // Green for stable
     }
 
     const dotColor = getColor(payload.value)
@@ -427,9 +414,9 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        {/* Arrow Icons - Fixed position */}
+        {/* Arrow Icons */}
         <button
-          className={`absolute left-3 top-[104px] transform -translate-y-1/2 ${
+          className={`absolute left-3 top-[104px] transform -translate-y-1/2 z-10 ${
             isPrevDisabled ? "text-gray-300 cursor-not-allowed" : "text-[#488BBE] cursor-pointer"
           } w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
           onClick={handlePrevMonth}
@@ -439,7 +426,7 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
         </button>
 
         <button
-          className={`absolute right-3 top-[104px] transform -translate-y-1/2 ${
+          className={`absolute right-3 top-[104px] transform -translate-y-1/2 z-10 ${
             isNextDisabled ? "text-gray-300 cursor-not-allowed" : "text-[#488BBE] cursor-pointer"
           } w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
           onClick={handleNextMonth}
@@ -448,7 +435,7 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
           <span className="material-icons text-2xl">chevron_right</span>
         </button>
 
-        {/* Content - No month label as requested */}
+        {/* Content */}
         <div className="px-16 flex flex-col items-center justify-center h-full py-6">
           <AnimatePresence mode="wait">
             <motion.div
@@ -459,7 +446,11 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <p className="text-base leading-relaxed">{monthlyNotes[absoluteMonthIndex]}</p>
+              {monthlyNotes[absoluteMonthIndex] ? (
+                <p className="text-base leading-relaxed">{monthlyNotes[absoluteMonthIndex]}</p>
+              ) : (
+                <p className="text-base leading-relaxed text-gray-400 italic">Tidak ada catatan</p>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -476,46 +467,39 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
       </motion.h2>
 
       <motion.div
-        className="flex overflow-hidden w-full h-[291px] rounded-xl border border-[#535353] bg-[#FCFCFC]"
+        className="flex overflow-hidden w-full h-[330px] rounded-xl border border-[#535353] bg-[#FCFCFC]"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
       >
-        {/* Y-axis labels - Correctly positioned with proper spacing */}
-        <div
-          className="flex flex-col justify-between text-right w-20 px-3"
-          style={{ paddingTop: "20px", paddingBottom: "72.8px" }}
-        >
-          <div style={{ height: "45px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+        {/* CRITICAL FIX: Y-axis labels - properly spaced and aligned */}
+        <div className="flex flex-col justify-between text-right w-24 px-3 py-8">
+          <div className="flex items-center justify-end" style={{ height: "60px" }}>
             <p className="font-bold text-[#9BCA61] leading-[13px] text-sm">Stabil</p>
           </div>
-          <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+          <div className="flex items-center justify-end" style={{ height: "60px" }}>
             <p className="font-bold text-[#EED142] leading-[13px] text-sm">Pengawasan</p>
           </div>
-          <div style={{ height: "58px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+          <div className="flex items-center justify-end" style={{ height: "60px" }}>
             <p className="font-bold text-[#EE4266] leading-[13px] text-sm">Berisiko</p>
           </div>
-          <div style={{ height: "27.6px", display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
+          <div className="flex items-center justify-end" style={{ height: "60px" }}>
             <p className="text-[#828898] leading-[13px] text-sm">0</p>
           </div>
         </div>
 
         {/* Chart area */}
         <div className="flex flex-col flex-1 text-center text-slate-500 min-w-0">
-          <div
-            className="w-full flex-1 relative"
-            style={{ paddingTop: "20px", paddingBottom: "27.6px", paddingLeft: "15px", paddingRight: "15px" }}
-          >
+          <div className="w-full flex-1 relative px-4 py-8">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={visibleChartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <LineChart data={visibleChartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
                 <YAxis domain={[0, 4]} hide />
 
-                {/* 5 Garis putus-putus yang benar dengan warna dan jarak yang tepat */}
-                <ReferenceLine y={4} stroke="#E5E7EB" strokeWidth={1} strokeDasharray="3 3" />
-                <ReferenceLine y={3} stroke="#9BCA61" strokeWidth={1} strokeDasharray="3 3" />
-                <ReferenceLine y={2} stroke="#EED142" strokeWidth={1} strokeDasharray="3 3" />
-                <ReferenceLine y={1} stroke="#EE4266" strokeWidth={1} strokeDasharray="3 3" />
-                <ReferenceLine y={0} stroke="#828898" strokeWidth={1} strokeDasharray="3 3" />
+                {/* CRITICAL FIX: Reference lines exactly aligned with labels */}
+                <ReferenceLine y={3} stroke="#9BCA61" strokeWidth={2} strokeDasharray="4 4" />
+                <ReferenceLine y={2} stroke="#EED142" strokeWidth={2} strokeDasharray="4 4" />
+                <ReferenceLine y={1} stroke="#EE4266" strokeWidth={2} strokeDasharray="4 4" />
+                <ReferenceLine y={0} stroke="#828898" strokeWidth={2} strokeDasharray="4 4" />
 
                 <Line
                   type="monotone"
@@ -549,7 +533,7 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
   )
 }
 
-// Divider Component
+// Divider Component - Better spacing when collapsed
 export const Divider = ({ sidebarExpanded = false }) => (
   <motion.div
     className="hidden lg:block shrink-0 my-auto h-[400px]"
@@ -561,8 +545,8 @@ export const Divider = ({ sidebarExpanded = false }) => (
     animate={{
       opacity: 1,
       scaleY: 1,
-      marginLeft: sidebarExpanded ? "20px" : "50px",
-      marginRight: sidebarExpanded ? "20px" : "50px",
+      marginLeft: sidebarExpanded ? "40px" : "150px", 
+      marginRight: sidebarExpanded ? "40px" : "150px",
     }}
     transition={{ duration: 0.3, ease: "easeInOut" }}
   />
@@ -575,7 +559,7 @@ export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
       <LanguageSwitcher />
 
       <div className="flex flex-col lg:flex-row">
-        {/* Sidebar placeholder dengan lebar yang sesuai */}
+        {/* Sidebar placeholder */}
         <motion.aside
           className="hidden lg:block flex-shrink-0"
           initial={false}
@@ -583,13 +567,13 @@ export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
           transition={{ duration: 0.3, ease: "easeInOut" }}
         />
 
-        {/* Content area dengan layout yang dinamis dan responsive */}
+        {/* Content area with responsive layout */}
         <div className="flex-1 min-w-0">
           <motion.div
             className="flex flex-col lg:flex-row lg:items-start mt-2 pb-8 w-full"
             initial={false}
             animate={{
-              paddingLeft: sidebarExpanded ? "12px" : "36px",
+              paddingLeft: sidebarExpanded ? "20px" : "60px", 
               paddingRight: "24px",
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}

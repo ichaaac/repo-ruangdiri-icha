@@ -1,233 +1,217 @@
-// src/components/shared/dashboard/SharedDashboard.jsx
+// src/components/shared/dashboard/SharedDashboard.jsx - Removed animations and added config support
 
-import { useState, useCallback, useMemo, useEffect } from "react"
-import { AnimatePresence } from "framer-motion"
+import { useState, useEffect, useMemo } from "react"
 import DashboardHome from "./DashboardHome"
 import DashboardTabList from "./DashboardTabList"
-import { ErrorBoundary } from "../error/ErrorBoundary"
 import { useDashboard, useDashboardTabData } from "../../../hooks/useDashboardMetrics"
+import { getCurrentDateInfo } from "../../../lib/date"
 
-// Error fallback component
-const ErrorFallback = ({ error, resetErrorBoundary }) => (
-  <div className="flex justify-center items-center h-full min-h-[80vh] p-4">
-    <div className="flex flex-col items-center text-center p-6 max-w-md">
-      <span className="material-icons text-red-500 text-4xl mb-4">error_outline</span>
-      <p className="text-red-500 font-semibold mb-2">Terjadi kesalahan pada dashboard</p>
-      <p className="text-gray-600 mb-4 text-sm">{error.message || "Silakan coba muat ulang halaman."}</p>
-      <button
-        onClick={resetErrorBoundary}
-        className="px-4 py-2 bg-[#488bbe] text-white rounded-full hover:bg-[#3399e9]"
-      >
-        Coba Lagi
-      </button>
-    </div>
-  </div>
-)
-
-/**
- * Reusable Dashboard Component untuk School dan Company
- */
 const SharedDashboard = ({
   type = "student",
   config = {},
-  selectedDashboardTab = "home", // Tambah prop dari sidebar
-  onDashboardTabChange = () => {}, // Tambah prop dari sidebar
+  selectedDashboardTab = "home",
+  onDashboardTabChange = () => {},
   useAuth,
   SuccessModalComponent,
+  sidebarExpanded = false,
 }) => {
-  // State management
-  const [showingList, setShowingList] = useState(selectedDashboardTab !== "home")
-  const [activeCard, setActiveCard] = useState(selectedDashboardTab === "home" ? "at_risk" : selectedDashboardTab)
-  const [showReportModal, setShowReportModal] = useState(false)
-  const [reportType, setReportType] = useState("")
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
-  const [selectedFilter, setSelectedFilter] = useState(
-    config.defaultFilter || (type === "student" ? "X" : "Finance")
-  )
+  // Get current user with fallback
+  const { user } = useAuth?.() || { user: {} }
+  console.log("SharedDashboard user data:", user) // Debug log
+  const currentDate = getCurrentDateInfo()
 
-  const [selectedGrade, setSelectedGrade] = useState("A")
+  // Get dashboard data with proper error handling
+  const {
+    metrics,
+    options,
+    isLoading: dashboardLoading,
+    isError: dashboardError,
+    error: dashboardErrorDetails,
+    refetch: refetchDashboard,
+    currentFilters,
+  } = useDashboard(type)
 
-  const [currentSemester, setCurrentSemester] = useState("first-half")
-
-  // Get user data from useAuth hook
-  const auth = useAuth?.() || { user: {} }
-  const { user } = auth
-
-  // Sync with selectedDashboardTab from sidebar
-  useEffect(() => {
-    if (selectedDashboardTab === "home") {
-      setShowingList(false)
-    } else {
-      setShowingList(true)
-      setActiveCard(selectedDashboardTab)
+  // Get tab data only when not on home tab
+  const shouldFetchTabData = selectedDashboardTab !== "home"
+  const {
+    data: tabDataQuery,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: tabLoading,
+    isError: tabError,
+  } = useDashboardTabData(
+    type,
+    selectedDashboardTab,
+    {
+      enabled: shouldFetchTabData,
+      limit: 10 // Set to 10 as requested
     }
-  }, [selectedDashboardTab])
-
-  // Date display
-  const dateDisplay = useMemo(() => {
-    const now = new Date()
-    const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
-    const months = [
-      "Januari",
-      "Februari",
-      "Maret",
-      "April",
-      "Mei",
-      "Juni",
-      "Juli",
-      "Agustus",
-      "September",
-      "Oktober",
-      "November",
-      "Desember",
-    ]
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`
-  }, [])
-
-  // Dashboard filters
-  const filters = useMemo(
-    () => ({
-      year: "2025",
-      ...(type === "student" ? { classroom: selectedFilter, grade: selectedGrade } : { department: selectedFilter }),
-    }),
-    [type, selectedFilter, selectedGrade],
   )
 
-  // Use the new dashboard hook - always returns data, never loading
-  const dashboardData = useDashboard(type, filters)
-
-  // Use the new tab data hook with infinite scroll
-  const tabDataQuery = useDashboardTabData(type, activeCard, {
-    enabled: showingList,
-    limit: 30,
-  })
-
-  // Process tab data with infinite scroll support
+  // Process tab data for the list view
   const tabData = useMemo(() => {
-    if (!showingList || !tabDataQuery.data) {
+    if (!shouldFetchTabData || !tabDataQuery?.pages) {
       return {
         data: { students: [], employees: [] },
         metadata: { totalData: 0, hasNextPage: false },
-        isLoading: false,
         hasNextPage: false,
         fetchNextPage: () => {},
         isFetchingNextPage: false,
       }
     }
 
-    // Flatten all pages into single array for display
-    const allData = tabDataQuery.data.pages?.flatMap(page => 
-      type === "student" ? page.data?.students || [] : page.data?.employees || []
-    ) || []
+    // Flatten all pages
+    const allData = tabDataQuery.pages.reduce((acc, page) => {
+      const pageData = page.data || { students: [], employees: [] }
+      acc.students = [...acc.students, ...(pageData.students || [])]
+      acc.employees = [...acc.employees, ...(pageData.employees || [])]
+      return acc
+    }, { students: [], employees: [] })
 
-    const metadata = tabDataQuery.data.pages?.[0]?.metadata || { totalData: 0, hasNextPage: false }
+    const lastPage = tabDataQuery.pages[tabDataQuery.pages.length - 1]
+    const metadata = lastPage?.metadata || { totalData: 0, hasNextPage: false }
 
     return {
-      data: type === "student" ? { students: allData, employees: [] } : { students: [], employees: allData },
+      data: allData,
       metadata: {
         ...metadata,
-        totalData: allData.length, // Use actual data length
-        hasNextPage: tabDataQuery.hasNextPage
+        totalData: type === "student" ? allData.students.length : allData.employees.length,
       },
-      isLoading: false, // Never show loading
-      hasNextPage: tabDataQuery.hasNextPage,
-      fetchNextPage: tabDataQuery.fetchNextPage,
-      isFetchingNextPage: tabDataQuery.isFetchingNextPage || false,
+      hasNextPage,
+      fetchNextPage,
+      isFetchingNextPage,
     }
-  }, [showingList, tabDataQuery, type])
+  }, [tabDataQuery, shouldFetchTabData, type, hasNextPage, fetchNextPage, isFetchingNextPage])
 
-  // Extract dashboard data safely - always available
-  const {
-    metrics = {},
-    options = {},
-    refetch = () => {},
-  } = dashboardData
-
-  // Handle filter changes - PURE React state updates only
-  const handleFilterChange = useCallback((filter, grade = "") => {
-    // Update state only - let React Query handle refetching automatically
-    if (filter !== selectedFilter) {
-      setSelectedFilter(filter)
+  // Handle card clicks - switch to tab view
+  const handleCardClick = (tabType) => {
+    // Check if there's data for this tab
+    const hasData = getTabDataCount(tabType) > 0
+    
+    if (hasData) {
+      onDashboardTabChange(tabType)
     }
-    if (grade !== selectedGrade) {
-      setSelectedGrade(grade)
+  }
+
+  // Handle return to home
+  const handleReturnHome = () => {
+    onDashboardTabChange("home")
+  }
+
+  // Handle report click
+  const handleReportClick = (reportName) => {
+    setSuccessMessage(`Laporan "${reportName}" berhasil dikirim!`)
+    setShowSuccessModal(true)
+    setTimeout(() => setShowSuccessModal(false), 3000)
+  }
+
+  // Get count for specific tab type
+  const getTabDataCount = (tabType) => {
+    switch (tabType) {
+      case "at_risk":
+        return metrics?.summary?.atRisk?.count || 0
+      case "not_screened":
+        return metrics?.summary?.notScreened?.count || 0
+      case "not_counseled":
+        return metrics?.summary?.notCounseled?.count || 0
+      default:
+        return 0
     }
-  }, [selectedFilter, selectedGrade, setSelectedFilter, setSelectedGrade])
+  }
 
-  // Event handlers - NO URL manipulation
-  const handleCardClick = useCallback(
-    (cardId) => {
-      // Check if card is disabled (count is 0)
-      const metric = metrics?.summary?.[cardId === "at_risk" ? "atRisk" : cardId === "not_screened" ? "notScreened" : "notCounseled"]
-      if (metric?.count === 0) {
-        return // Don't allow click if no data
-      }
+  // Format date display
+  const dateDisplay = `${currentDate.monthName} ${currentDate.year}`
 
-      setActiveCard(cardId)
-      setShowingList(true)
-      onDashboardTabChange(cardId) // Update sidebar state only
-    },
-    [onDashboardTabChange, metrics],
-  )
+  // Enhanced config with defaults and detail paths
+  const enhancedConfig = {
+    entityName: type === "student" ? "Siswa" : "Karyawan",
+    defaultFilter: type === "student" ? "X" : "Finance",
+    filterLabel: type === "student" ? "Kelas" : "Departemen",
+    detailPath: type === "student" ? "/dashboard/student/detail" : "/dashboard/employee/detail",
+    ...config,
+  }
 
-  const handleReturnHome = useCallback(() => {
-    setShowingList(false)
-    onDashboardTabChange("home") // Update sidebar state only
-  }, [onDashboardTabChange])
-
-  const handleReport = useCallback((reportType) => {
-    setReportType(reportType)
-    setShowReportModal(true)
-  }, [])
-
-  // Never show loading states - data is always available
-  return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} onReset={() => window.location.reload()}>
-      <div className="w-full min-h-screen overflow-x-hidden">
-        <AnimatePresence mode="wait">
-          {showingList ? (
-            <DashboardTabList
-              key="table-view"
-              type={type}
-              activeCard={activeCard}
-              tabData={tabData}
-              config={config}
-              metrics={metrics}
-              user={user}
-              onClose={handleReturnHome}
-              onCardClick={handleCardClick}
-              onReturnHome={handleReturnHome}
-            />
-          ) : (
-            <DashboardHome
-              key="dashboard-view"
-              type={type}
-              metrics={metrics}
-              options={options}
-              config={config}
-              user={user}
-              dateDisplay={dateDisplay}
-              currentSemester={currentSemester}
-              selectedFilter={selectedFilter}
-              selectedGrade={selectedGrade}
-              setSelectedFilter={(filter) => handleFilterChange(filter, selectedGrade)}
-              setSelectedGrade={(grade) => handleFilterChange(selectedFilter, grade)}
-              onCardClick={handleCardClick}
-              onReportClick={handleReport}
-              refetchDashboard={refetch} // Pass refetch function
-            />
-          )}
-        </AnimatePresence>
-
-        {showReportModal && SuccessModalComponent && (
-          <SuccessModalComponent
-            email="emaila******@gmail.com"
-            reportType={reportType}
-            onClose={() => setShowReportModal(false)}
-          />
-        )}
+  // Loading state
+  if (dashboardLoading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#488BBE]"></div>
+          <p className="text-[#488BBE] font-medium">Memuat dashboard...</p>
+        </div>
       </div>
-    </ErrorBoundary>
+    )
+  }
+
+  // Error state
+  if (dashboardError) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center bg-white p-6">
+        <div className="text-center max-w-md">
+          <div className="text-red-500 text-6xl mb-4">
+            <span className="material-icons" style={{ fontSize: "4rem" }}>error_outline</span>
+          </div>
+          <h2 className="text-xl font-bold text-red-600 mb-2">Gagal Memuat Dashboard</h2>
+          <p className="text-gray-600 mb-6">
+            {dashboardErrorDetails?.message || "Terjadi kesalahan saat memuat data dashboard."}
+          </p>
+          <button
+            onClick={() => refetchDashboard()}
+            className="px-6 py-2 bg-[#488BBE] text-white rounded-lg hover:bg-[#3399E9] transition-colors"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full min-h-screen overflow-x-hidden bg-white">
+      {/* Simple conditional rendering without animations to avoid lag/refresh */}
+      {selectedDashboardTab === "home" ? (
+        <DashboardHome
+          type={type}
+          metrics={metrics}
+          options={options}
+          config={enhancedConfig}
+          user={user}
+          dateDisplay={dateDisplay}
+          onCardClick={handleCardClick}
+          onReportClick={handleReportClick}
+          refetchDashboard={refetchDashboard}
+          sidebarExpanded={sidebarExpanded}
+        />
+      ) : (
+        <DashboardTabList
+          type={type}
+          activeCard={selectedDashboardTab}
+          tabData={tabData}
+          config={enhancedConfig}
+          metrics={metrics}
+          user={user}
+          onClose={() => handleReturnHome()}
+          onCardClick={handleCardClick}
+          onReturnHome={handleReturnHome}
+          isLoading={tabLoading}
+          isError={tabError}
+          sidebarExpanded={sidebarExpanded}
+        />
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && SuccessModalComponent && (
+        <SuccessModalComponent
+          isOpen={showSuccessModal}
+          message={successMessage}
+          onClose={() => setShowSuccessModal(false)}
+        />
+      )}
+    </div>
   )
 }
 

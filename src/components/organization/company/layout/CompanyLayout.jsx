@@ -1,4 +1,5 @@
-// src/components/organization/company/layout/CompanyLayout.jsx - Responsive Company Layout
+// src/components/organization/company/layout/CompanyLayout.jsx - Fixed Company Layout with proper dashboard handling
+
 import React from "react";
 import { useLocation } from "react-router-dom";
 import Layout from "../../../shared/layout/Layout";
@@ -18,10 +19,7 @@ const CompanyLayout = () => {
       label: "Dashboard",
       path: `${basePath}/dashboard`,
       hasDropdown: true,
-      dropdownItems: [
-        { label: "Dashboard Home", path: `${basePath}/dashboard` },
-        { label: "Dashboard Tab Laporan", path: `${basePath}/dashboard/reports` }
-      ]
+      // No need to define dropdownItems here - handled by Sidebar component dynamically
     },
     {
       icon: "table_chart",

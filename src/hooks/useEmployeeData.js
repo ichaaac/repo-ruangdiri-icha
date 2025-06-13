@@ -1,4 +1,4 @@
-"use client"
+// src/hooks/useEmployeeData.js
 
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { apiClient } from "../lib/api"
@@ -15,8 +15,8 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     if (filters.department) params.department = filters.department
     if (filters.position) params.position = filters.position
     if (filters.gender) params.gender = filters.gender === "L" ? "male" : "female"
-    if (filters.screeningStatus) params.screening = filters.screeningStatus
-    if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? "1" : "0"
+    if (filters.screeningStatus) params.screeningStatus= filters.screeningStatus
+    if (filters.counselingStatus !== null) params.counselingStatus = filters.counselingStatus ? "1" : "0"
 
     return params
   }

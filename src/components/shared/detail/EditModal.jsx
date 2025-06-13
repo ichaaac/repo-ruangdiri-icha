@@ -1,6 +1,5 @@
-"use client"
+// src/components/shared/detail/EditModal.jsx - Fixed non-scrollable modal and dropdown z-index
 
-// src/components/shared/detail/UnifiedEditModal.jsx - Unified modal for both student and employee editing
 import { useState, useEffect } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -8,8 +7,7 @@ import { z } from "zod"
 import clsx from "clsx"
 import { PhoneInput } from "react-international-phone"
 import { format } from "date-fns"
-import { useClassrooms } from "@/hooks/useStudentData"
-import { useDepartments } from "@/hooks/useEmployeeData"
+import { useAcademicInfo, useEmployeeRoles } from "../../../hooks/useDashboardMetrics"
 import "react-international-phone/style.css"
 
 // Phone validation helpers
@@ -88,17 +86,18 @@ const employeeSchema = z.object({
 
 // Reusable Components
 const FormField = ({ label, error, children, required = false }) => (
-  <div className="mb-4">
+  <div className="flex flex-col">
     <label className="block text-xs text-gray-500 mb-2">
       {label}
-      {required && "*"}
+      {required && " *"}
     </label>
     {children}
     {error && <span className="text-xs text-red-500 mt-1 block">{error.message}</span>}
   </div>
 )
 
-const CompactDropdown = ({ value, onChange, options, placeholder, error, allowOverflow = false }) => {
+// FIXED: CompactDropdown with proper visibility and z-index
+const CompactDropdown = ({ value, onChange, options, placeholder, error }) => {
   const [isOpen, setIsOpen] = useState(false)
 
   const selectedOption = options.find((opt) => (typeof opt === "object" ? opt.value : opt) === value)
@@ -119,19 +118,21 @@ const CompactDropdown = ({ value, onChange, options, placeholder, error, allowOv
         )}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span className={selectedOption ? "text-gray-900" : "text-gray-400 truncate"}>{displayValue}</span>
+        {/* FIXED: Selection field visibility - ensure text is always visible */}
+        <span className={clsx(
+          "truncate",
+          selectedOption ? "text-gray-900" : "text-gray-400"
+        )}>
+          {displayValue}
+        </span>
         <span className="material-icons text-gray-400 text-sm ml-2 flex-shrink-0">
           {isOpen ? "expand_less" : "expand_more"}
         </span>
       </button>
 
+      {/* FIXED: Dropdown with very high z-index to float above modal */}
       {isOpen && (
-        <div
-          className={clsx(
-            "absolute mt-1 w-full bg-white shadow-lg border border-gray-200 rounded-md py-1 focus:outline-none max-h-48 overflow-y-auto",
-            allowOverflow ? "z-[200]" : "z-[150]",
-          )}
-        >
+        <div className="absolute mt-1 w-full bg-white shadow-lg border border-gray-200 rounded-md py-1 focus:outline-none max-h-48 overflow-y-auto z-[10000]">
           {options.map((option, index) => {
             const optionValue = typeof option === "object" ? option.value : option
             const optionLabel = typeof option === "object" ? option.label : option
@@ -156,11 +157,13 @@ const CompactDropdown = ({ value, onChange, options, placeholder, error, allowOv
         </div>
       )}
 
-      {isOpen && <div className="fixed inset-0 z-[140]" onClick={() => setIsOpen(false)} />}
+      {/* FIXED: Overlay with proper z-index */}
+      {isOpen && <div className="fixed inset-0 z-[9999]" onClick={() => setIsOpen(false)} />}
     </div>
   )
 }
 
+// FIXED: CascadingClassroomDropdown with high z-index
 const CascadingClassroomDropdown = ({
   classroomValue,
   gradeValue,
@@ -176,7 +179,6 @@ const CascadingClassroomDropdown = ({
   const handleClassroomSelect = (classroom) => {
     onClassroomChange(classroom)
     setIsGradeOpen(true)
-    // Keep classroom dropdown open
   }
 
   const handleGradeSelect = (grade) => {
@@ -205,8 +207,9 @@ const CascadingClassroomDropdown = ({
         <span className="material-icons text-gray-400 text-sm">{isClassroomOpen ? "expand_less" : "expand_more"}</span>
       </button>
 
+      {/* FIXED: Classroom dropdown with high z-index */}
       {isClassroomOpen && (
-        <div className="absolute z-[160] mt-1 bg-white shadow-lg border border-gray-200 rounded-md py-1 w-16">
+        <div className="absolute z-[10000] mt-1 bg-white shadow-lg border border-gray-200 rounded-md py-1 w-16">
           {classrooms.map((classroom, index) => (
             <button
               key={classroom}
@@ -223,12 +226,13 @@ const CascadingClassroomDropdown = ({
         </div>
       )}
 
+      {/* FIXED: Grade dropdown with high z-index */}
       {isGradeOpen && classroomValue && (
         <div
-          className="absolute z-[160] mt-1 bg-white shadow-lg border border-gray-200 rounded-md py-1 w-16"
+          className="absolute z-[10000] mt-1 bg-white shadow-lg border border-gray-200 rounded-md py-1 w-16"
           style={{
-            left: "64px", // Align properly with classroom dropdown
-            top: "0px", // Same level as classroom dropdown
+            left: "64px",
+            top: "0px",
           }}
         >
           {grades.map((grade) => (
@@ -244,9 +248,10 @@ const CascadingClassroomDropdown = ({
         </div>
       )}
 
+      {/* FIXED: Overlay with proper z-index */}
       {(isClassroomOpen || isGradeOpen) && (
         <div
-          className="fixed inset-0 z-[155]"
+          className="fixed inset-0 z-[9999]"
           onClick={() => {
             setIsClassroomOpen(false)
             setIsGradeOpen(false)
@@ -263,13 +268,13 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
   const profile = data?.studentProfile || data?.employeeProfile || data || {}
 
   // Fetch data based on type
-  const { data: classroomData } = useClassrooms()
-  const { data: departmentData } = useDepartments()
+  const { data: academicData } = useAcademicInfo()
+  const { data: employeeData } = useEmployeeRoles()
 
-  const classrooms = classroomData?.classrooms || ["X", "XI", "XII"]
-  const grades = classroomData?.gradesResult || ["A", "B", "C", "D", "E", "F"]
-  const departments = departmentData?.departments || ["Human Resources", "Finance", "Marketing", "IT", "Operations"]
-  const positions = departmentData?.positions || ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"]
+  const classrooms = academicData?.data?.classrooms || ["X", "XI", "XII"]
+  const grades = academicData?.data?.grades || ["A", "B", "C", "D"]
+  const departments = employeeData?.data?.departments || ["Human Resources", "Finance", "Marketing", "IT", "Operations"]
+  const positions = employeeData?.data?.positions || ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"]
 
   const formatDateForInput = (dateString) => {
     if (!dateString) return ""
@@ -428,31 +433,37 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
   }
 
   const genderOptions = [
-    { value: "male", label: "L" },
-    { value: "female", label: "P" },
+    { value: "male", label: "Laki-laki" },
+    { value: "female", label: "Perempuan" },
   ]
 
   const iqCategories = [
-    { value: "very_below_average", label: "Sangat Di Bawah Rata-rata" },
+    { value: "very_below_average", label: "Jauh Di Bawah Rata-rata" },
     { value: "below_average", label: "Di Bawah Rata-rata" },
     { value: "average", label: "Rata-rata" },
     { value: "above_average", label: "Di Atas Rata-rata" },
-    { value: "very_above_average", label: "Jauh di atas Rata-rata" },
+    { value: "very_above_average", label: "Jauh Di Atas Rata-rata" },
     { value: "genius", label: "Jenius" },
   ]
 
-  return (
-    <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[90vw] max-w-[778px] h-[90vh] max-h-[500px] flex flex-col">
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold text-[#488BBE]">
-            Edit Profil {type === "student" ? "Siswa" : "Karyawan"}
-          </h2>
-          <button type="button" onClick={onClose} className="text-[#488BBE] hover:text-[#3399E9] transition-colors">
-            <span className="material-icons">close</span>
-          </button>
-        </div>
+  // Check if form has changes (for submit button state)
+  const hasChanges = Object.keys(dirtyFields).length > 0
 
+  return (
+    // FIXED: Modal container - no scrolling, fixed height
+    <div className="bg-white rounded-lg overflow-hidden shadow-lg w-[90vw] max-w-[800px] h-[600px] flex flex-col">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 flex justify-between items-center p-6 border-b">
+        <h2 className="text-lg font-semibold text-[#488BBE]">
+          Edit Profil {type === "student" ? "Siswa" : "Karyawan"}
+        </h2>
+        <button type="button" onClick={onClose} className="text-[#488BBE] hover:text-[#3399E9] transition-colors">
+          <span className="material-icons">close</span>
+        </button>
+      </div>
+
+      {/* Content - Scrollable area */}
+      <div className="flex-1 p-6 overflow-y-auto">
         {errorMessage && (
           <div className="px-3 py-2 mb-4 text-xs bg-pink-100 border border-red-400 text-red-700 rounded-md">
             <div className="flex items-center">
@@ -462,9 +473,9 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Row 1: Full Name | ID */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          {/* FIXED: Row 1 - Nama Lengkap | Tempat/Tanggal Lahir (sesuai figma) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FormField label="Nama Lengkap" error={errors.fullName} required>
               <input
                 {...register("fullName")}
@@ -476,6 +487,28 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
               />
             </FormField>
 
+            {/* Tempat dan Tanggal Lahir - split menjadi dua input */}
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Tempat Lahir" error={errors.birthPlace}>
+                <input
+                  {...register("birthPlace")}
+                  className="w-full rounded-md h-10 border border-gray-300 px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors"
+                  placeholder="Tempat lahir"
+                />
+              </FormField>
+
+              <FormField label="Tanggal Lahir" error={errors.birthDate}>
+                <input
+                  type="date"
+                  {...register("birthDate")}
+                  className="w-full rounded-md h-10 border border-gray-300 px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors"
+                />
+              </FormField>
+            </div>
+          </div>
+
+          {/* FIXED: Row 2 - NIS/ID | Kontak */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <FormField
               label={type === "student" ? "NIS" : "ID Karyawan"}
               error={type === "student" ? errors.nis : errors.employeeId}
@@ -490,29 +523,7 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
                 placeholder={type === "student" ? "NIS" : "ID Karyawan"}
               />
             </FormField>
-          </div>
 
-          {/* Row 2: Birth Place | Birth Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            <FormField label="Tempat Lahir" error={errors.birthPlace}>
-              <input
-                {...register("birthPlace")}
-                className="w-full rounded-md h-10 border border-gray-300 px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors"
-                placeholder="Tempat lahir"
-              />
-            </FormField>
-
-            <FormField label="Tanggal Lahir" error={errors.birthDate}>
-              <input
-                type="date"
-                {...register("birthDate")}
-                className="w-full rounded-md h-10 border border-gray-300 px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors"
-              />
-            </FormField>
-          </div>
-
-          {/* Row 3: Contact | Class/Department */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <FormField
               label={type === "student" ? "Kontak Wali" : "Kontak"}
               error={type === "student" ? errors.guardianContact : errors.contact}
@@ -553,7 +564,10 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
                 )}
               />
             </FormField>
+          </div>
 
+          {/* FIXED: Row 3 - Kelas/Department | Skor IQ/Position */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {type === "student" ? (
               <FormField label="Kelas" error={errors.classroom || errors.grade} required>
                 <CascadingClassroomDropdown
@@ -583,25 +597,6 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
                 />
               </FormField>
             )}
-          </div>
-
-          {/* Row 4: Gender | IQ Score/Position */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-            <FormField label="Jenis Kelamin" error={errors.gender} required>
-              <Controller
-                name="gender"
-                control={control}
-                render={({ field }) => (
-                  <CompactDropdown
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={genderOptions}
-                    placeholder="Pilih gender"
-                    error={errors.gender}
-                  />
-                )}
-              />
-            </FormField>
 
             {type === "student" ? (
               <FormField label="Skor IQ" error={errors.iqScore}>
@@ -633,8 +628,24 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
             )}
           </div>
 
-          {/* Row 5: Category/Years | Empty */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          {/* FIXED: Row 4 - Gender | Kategori/Lama Bekerja */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <FormField label="Jenis Kelamin" error={errors.gender} required>
+              <Controller
+                name="gender"
+                control={control}
+                render={({ field }) => (
+                  <CompactDropdown
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={genderOptions}
+                    placeholder="Pilih jenis kelamin"
+                    error={errors.gender}
+                  />
+                )}
+              />
+            </FormField>
+
             {type === "student" ? (
               <FormField label="Kategori" error={errors.iqCategory}>
                 <Controller
@@ -647,7 +658,6 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
                       options={iqCategories}
                       placeholder="Pilih kategori"
                       error={errors.iqCategory}
-                      allowOverflow={true}
                     />
                   )}
                 />
@@ -664,21 +674,19 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
                 />
               </FormField>
             )}
-
-            <div></div>
           </div>
         </form>
       </div>
 
       {/* Fixed Footer */}
-      <div className="flex justify-end p-6 bg-white border-t">
+      <div className="flex-shrink-0 flex justify-end p-6 bg-white border-t">
         <button
           type="submit"
           onClick={handleSubmit(onSubmit)}
-          disabled={isSubmitting || updateMutation.isPending}
+          disabled={isSubmitting || updateMutation.isPending || !hasChanges}
           className={clsx(
             "h-10 px-6 rounded-md text-white font-semibold transition-colors text-sm",
-            isSubmitting || updateMutation.isPending
+            isSubmitting || updateMutation.isPending || !hasChanges
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-[#488BBE] hover:bg-[#3399E9]",
           )}

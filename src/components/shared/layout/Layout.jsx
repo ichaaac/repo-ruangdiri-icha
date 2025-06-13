@@ -1,19 +1,33 @@
-// src/components/shared/layout/Layout.jsx - Responsive Layout Component
+// src/components/shared/layout/Layout.jsx - Fixed Layout with dashboard tab state management
+
 import React, { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import { useDashboard } from "../../../hooks/useDashboardMetrics";
+import { useAuth } from "../../../hooks/useAuth";
 
 /**
  * Responsive Layout Component for both School and Company
+ * FIXED: Proper dashboard tab state management and metrics passing
  */
 const Layout = ({ 
   organizationType = "school", 
   menuItems = [],
-  startExpanded = false 
+  startExpanded = false,
 }) => {
+  const location = useLocation();
+  const { user } = useAuth?.() || { user: {} };
+  
   const [expanded, setExpanded] = useState(startExpanded);
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [selectedDashboardTab, setSelectedDashboardTab] = useState("home");
+
+  // Determine entity type based on organization
+  const entityType = organizationType === "company" ? "employee" : "student";
+  
+  // Get dashboard metrics for sidebar state management
+  const { metrics: dashboardMetrics } = useDashboard(entityType);
 
   // Check if mobile screen
   useEffect(() => {
@@ -33,16 +47,29 @@ const Layout = ({
     }
   }, [isMobile]);
 
-  // Calculate content margin - responsive design with forced re-render
+  // FIXED: Reset dashboard tab when navigating away from dashboard
+  useEffect(() => {
+    if (!location.pathname.includes("/dashboard")) {
+      setSelectedDashboardTab("home");
+    }
+  }, [location.pathname]);
+
+  // Handle dashboard tab changes
+  const handleDashboardTabChange = (tabId) => {
+    setSelectedDashboardTab(tabId);
+  };
+
+  // FIXED: Calculate content margin with proper responsive spacing
   const getContentMargin = () => {
     if (isMobile) {
       return "60px"; // Always collapsed on mobile
     }
     
+    // Desktop: Use different spacing based on sidebar state
     if (expanded || sidebarHovered) {
-      return "237px";
+      return "257px"; // 237px sidebar + 20px gap
     }
-    return "60px";
+    return "80px"; // 60px sidebar + 20px gap
   };
 
   // Force window resize event when sidebar state changes
@@ -59,7 +86,7 @@ const Layout = ({
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
-      {/* Responsive Sidebar */}
+      {/* FIXED: Responsive Sidebar with dashboard metrics */}
       <Sidebar 
         expanded={expanded} 
         setExpanded={setExpanded} 
@@ -67,19 +94,30 @@ const Layout = ({
         organizationType={organizationType}
         menuItems={menuItems}
         isMobile={isMobile}
+        selectedDashboardTab={selectedDashboardTab}
+        onDashboardTabChange={handleDashboardTabChange}
+        dashboardMetrics={dashboardMetrics} // FIXED: Pass metrics for tab state
       />
 
-      {/* Main content area with responsive margin */}
+      {/* Main content area with responsive margin - FIXED: Proper stretching */}
       <div 
         className="flex-1 transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
         style={{ 
-          marginLeft: getContentMargin()
+          marginLeft: getContentMargin(),
+          // FIXED: Allow stretching when sidebar collapses
+          width: `calc(100vw - ${getContentMargin()})`,
+          maxWidth: `calc(100vw - ${getContentMargin()})`,
         }}
       >
-        <Outlet />
-      </div>
+        <Outlet context={{ 
+          sidebarExpanded: expanded || sidebarHovered,
+          selectedDashboardTab,
+          onDashboardTabChange: handleDashboardTabChange,
+          dashboardMetrics, // FIXED: Pass metrics to children
+        }} />
     </div>
-);
+    </div>
+  );
 };
 
 export default Layout;

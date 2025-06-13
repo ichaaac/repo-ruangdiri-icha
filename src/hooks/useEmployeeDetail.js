@@ -1,15 +1,14 @@
-// src/hooks/useEmployeeDetail.js - Updated hook with dummy data for development
+// src/hooks/useEmployeeDetail.js - Updated hook with new API structure
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import api from "../lib/api"
-import { useDummyData } from "./useDummyData"
+import { apiClient } from "../lib/api"
 
 /**
- * Hook to fetch employee detail data
+ * Hook to fetch employee detail data with new API structure
  * @param {string} employeeId - The ID of the employee to fetch
  */
 export const useEmployeeDetail = (employeeId) => {
   const queryClient = useQueryClient()
-  const { generateMentalHealthHistory } = useDummyData()
 
   // Fetch employee detail
   const {
@@ -22,15 +21,9 @@ export const useEmployeeDetail = (employeeId) => {
     queryKey: ["employee", employeeId],
     queryFn: async () => {
       try {
-        const response = await api.organization.company.getEmployeeById(employeeId)
-        console.log("📊 Employee detail response:", response)
-
-        // DEVELOPMENT ONLY: Add dummy mental health history if missing or incomplete
-        if (!response.data.mentalHealthHistories || response.data.mentalHealthHistories.length < 12) {
-          response.data.mentalHealthHistories = generateMentalHealthHistory()
-        }
-
-        return response
+        const response = await apiClient.get(`/employees/${employeeId}`)
+        console.log("📊 Employee detail response:", response.data)
+        return response.data
       } catch (error) {
         console.error(`Error fetching employee ${employeeId}:`, error)
         throw error
@@ -46,8 +39,8 @@ export const useEmployeeDetail = (employeeId) => {
     mutationFn: async (data) => {
       try {
         console.log("📝 Updating employee with data:", data)
-        const response = await api.organization.company.updateEmployee(employeeId, data)
-        return response
+        const response = await apiClient.patch(`/organizations/employees/${employeeId}`, data)
+        return response.data
       } catch (error) {
         console.error(`Error updating employee ${employeeId}:`, error)
         throw error
@@ -56,6 +49,7 @@ export const useEmployeeDetail = (employeeId) => {
     onSuccess: () => {
       queryClient.invalidateQueries(["employee", employeeId])
       queryClient.invalidateQueries(["infiniteEmployees"])
+      queryClient.invalidateQueries(["dashboardMetrics"])
     },
   })
 
@@ -63,8 +57,8 @@ export const useEmployeeDetail = (employeeId) => {
   const updateProgressMutation = useMutation({
     mutationFn: async (progress) => {
       try {
-        const response = await api.employees.updateProgress(employeeId, progress)
-        return response
+        const response = await apiClient.patch(`/employees/${employeeId}/progress`, { notes: progress })
+        return response.data
       } catch (error) {
         console.error(`Error updating progress for employee ${employeeId}:`, error)
         throw error
@@ -79,8 +73,11 @@ export const useEmployeeDetail = (employeeId) => {
   const updateScreeningStatusMutation = useMutation({
     mutationFn: async ({ status, notes }) => {
       try {
-        const response = await api.employees.updateScreeningStatus(employeeId, status, notes)
-        return response
+        const response = await apiClient.patch(`/employees/${employeeId}/screening-status`, { 
+          screeningStatus: status, 
+          notes 
+        })
+        return response.data
       } catch (error) {
         console.error(`Error updating screening status for employee ${employeeId}:`, error)
         throw error
@@ -89,10 +86,11 @@ export const useEmployeeDetail = (employeeId) => {
     onSuccess: () => {
       queryClient.invalidateQueries(["employee", employeeId])
       queryClient.invalidateQueries(["infiniteEmployees"])
+      queryClient.invalidateQueries(["dashboardMetrics"])
     },
   })
 
-  // Extract data from API structure
+  // Extract data from new API structure
   const employee = employeeData?.data || null
   const mentalHealthHistory = employee?.mentalHealthHistories || []
 

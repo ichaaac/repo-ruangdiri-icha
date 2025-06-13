@@ -1,35 +1,28 @@
-// src/hooks/useDashboardMetrics.js - Fixed smooth fetching without loading states
+// src/hooks/useDashboardMetrics.js - Fixed params and pagination
 
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
+import { useMemo } from "react"
 import { apiClient } from "../lib/api"
 import { getCurrentDateInfo } from "@/lib/date"
+
 /**
- * Hook for fetching dashboard metrics for both students and employees
+ * Hook for fetching dashboard metrics using new API endpoints
  * @param {string} type - 'student' or 'employee'
- * @param {Object} filters - Filter parameters (year, classroom, grade, department, etc.)
  */
-export const useDashboardMetrics = (type = "student", filters = {}) => {
+export const useDashboardMetrics = (type = "student") => {
   const currentDate = getCurrentDateInfo()
   
   return useQuery({
-    queryKey: ["dashboardMetrics", type, filters, currentDate.yearMonth],
+    queryKey: ["dashboardMetrics", type, currentDate.yearMonth],
     queryFn: async () => {
       try {
-        const params = new URLSearchParams()
-        
-        // Always include current year
-        params.append("year", filters.year || currentDate.year)
-
         if (type === "student") {
-          if (filters.classroom) params.append("classroom", filters.classroom)
-          if (filters.grade) params.append("grade", filters.grade)
-          
-          const res = await apiClient.get(`/students/metrics?${params}`)
+          // Use new monthly-stats endpoint for summary data (no params)
+          const res = await apiClient.get(`/students/metrics/monthly-stats`)
           return res.data
         } else {
-          if (filters.department) params.append("department", filters.department)
-          
-          const res = await apiClient.get(`/employees/metrics?${params}`)
+          // Use new monthly-stats endpoint for employees (no params)
+          const res = await apiClient.get(`/employees/metrics/monthly-stats`)
           return res.data
         }
       } catch (error) {
@@ -42,10 +35,6 @@ export const useDashboardMetrics = (type = "student", filters = {}) => {
               notScreened: { count: 0, total: 0 },
               notCounseled: { count: 0, total: 0 },
             },
-            mentalHealth: {
-              overall: { atRisk: 0, monitored: 0, stable: 0, notScreened: 0 },
-              byMonth: { firstHalf: [], secondHalf: [] },
-            },
             status: {
               screening: { completed: 0, notCompleted: 0 },
               counseling: { completed: 0, notCompleted: 0 },
@@ -55,9 +44,8 @@ export const useDashboardMetrics = (type = "student", filters = {}) => {
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 1, // Reduced to 1 minute for faster updates
-    retry: false, // Disable retry to prevent loading states
-    // Ensure immediate data return
+    staleTime: 1000 * 60 * 1,
+    retry: false,
     placeholderData: (previousData) => previousData || {
       data: {
         summary: {
@@ -65,31 +53,81 @@ export const useDashboardMetrics = (type = "student", filters = {}) => {
           notScreened: { count: 0, total: 0 },
           notCounseled: { count: 0, total: 0 },
         },
-        mentalHealth: {
-          overall: { atRisk: 0, monitored: 0, stable: 0, notScreened: 0 },
-          byMonth: { firstHalf: [], secondHalf: [] },
-        },
         status: {
           screening: { completed: 0, notCompleted: 0 },
           counseling: { completed: 0, notCompleted: 0 },
         },
       }
     },
-    // Enable background refetching
     refetchOnMount: false,
     refetchOnReconnect: false,
   })
 }
 
 /**
- * Hook for fetching dashboard tab data with infinite scroll - FIXED to include current date
+ * Hook for fetching yearly stats for barchart with new API parameters
+ * @param {string} type - 'student' or 'employee'
+ * @param {Object} filters - Filter parameters for barchart
+ */
+export const useYearlyStats = (type = "student", filters = {}) => {
+  const currentDate = getCurrentDateInfo()
+  
+  return useQuery({
+    queryKey: ["yearlyStats", type, filters, currentDate.year],
+    queryFn: async () => {
+      try {
+        const params = new URLSearchParams()
+        params.append("year", filters.year || currentDate.year)
+
+        if (type === "student") {
+          // For students: classroom and grade are required
+          if (filters.classroom) params.append("classroom", filters.classroom)
+          if (filters.grade) params.append("grade", filters.grade)
+          
+          const res = await apiClient.get(`/students/metrics/yearly-stats?${params}`)
+          return res.data
+        } else {
+          // For employees: department is required - handle potential API differences
+          if (filters.department) params.append("department", filters.department)
+          
+          // Try employees endpoint, fallback to empty data if fails
+          try {
+            const res = await apiClient.get(`/employees/metrics/yearly-stats?${params}`)
+            return res.data
+          } catch (employeeError) {
+            console.log("Employee yearly-stats endpoint not available, using fallback data")
+            // Return empty data structure that matches expected format
+            return {
+              data: []
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching ${type} yearly stats:`, error)
+        // Return fallback data
+        return {
+          data: []
+        }
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 2,
+    retry: false,
+    placeholderData: { data: [] },
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Hook for fetching dashboard tab data using new API with month parameter
  * @param {string} type - 'student' or 'employee'
  * @param {string} tabType - 'at_risk', 'not_screened', 'not_counseled'
  * @param {Object} params - Additional query parameters
  */
 export const useDashboardTabData = (type = "student", tabType = "at_risk", params = {}) => {
   const currentDate = getCurrentDateInfo()
-  const { enabled = true, limit = 30 } = params
+  const { enabled = true, limit = 10 } = params // Changed limit to 10
 
   return useInfiniteQuery({
     queryKey: ["dashboardTabData", type, tabType, currentDate.yearMonth],
@@ -97,21 +135,22 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       try {
         const queryParams = new URLSearchParams()
         
-        // Add current date context - CRITICAL for data consistency
+        // Add current date context (month is required by new API)
         queryParams.append("year", currentDate.year)
-        queryParams.append("month", currentDate.month)
+        queryParams.append("month", currentDate.month.toString().padStart(2, '0'))
         
         // Add pagination
         queryParams.append("page", pageParam.toString())
         queryParams.append("limit", limit.toString())
 
-        // Map tab types to API parameters
+        // Map tab types to API parameters - FIXED counseling param
         if (tabType === "at_risk") {
           queryParams.append("screeningStatus", "at_risk")
         } else if (tabType === "not_screened") {
           queryParams.append("screeningStatus", "not_screened")
         } else if (tabType === "not_counseled") {
-          queryParams.append("counselingStatus", "0")
+          // FIXED: Use hasCounseling=false based on actual API response
+          queryParams.append("hasCounseling", "false")
         }
 
         const endpoint = type === "student" ? "/organizations/students" : "/organizations/employees"
@@ -150,9 +189,8 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
     },
     enabled: enabled,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    retry: false, // Disable retry to prevent loading states
-    // Ensure immediate data return
+    staleTime: 1000 * 60 * 2,
+    retry: false,
     placeholderData: {
       pages: [{
         data: { students: [], employees: [] },
@@ -185,7 +223,6 @@ export const useAcademicInfo = () => {
         }
       }
     },
-    staleTime: 1000 * 60 * 10, // 10 minutes
     retry: false,
     placeholderData: {
       data: {
@@ -217,7 +254,6 @@ export const useEmployeeRoles = () => {
         }
       }
     },
-    staleTime: 1000 * 60 * 10, // 10 minutes
     retry: false,
     placeholderData: {
       data: {
@@ -229,32 +265,64 @@ export const useEmployeeRoles = () => {
 }
 
 /**
- * Main dashboard hook - combines metrics and options with smooth fetching
+ * Main dashboard hook - combines metrics and options with new API structure
  */
 export const useDashboard = (type = "student", filters = {}) => {
   const currentDate = getCurrentDateInfo()
   
-  // Set appropriate default filters based on entity type
-  const defaultFilters = {
-    year: currentDate.year,
-    month: currentDate.month,
-    ...(type === "student" 
-      ? { classroom: filters.classroom || "X", grade: filters.grade || "A" } 
-      : { department: filters.department || "Finance" }),
-  }
+  // Get summary metrics data (no filters needed for monthly-stats)
+  const metricsQuery = useDashboardMetrics(type)
   
-  // Get metrics data
-  const metricsQuery = useDashboardMetrics(type, defaultFilters)
+  // Get yearly stats for barchart (with filters)
+  const yearlyQuery = useYearlyStats(type, {
+    year: currentDate.year,
+    ...(type === "student" 
+      ? { classroom: "X", grade: "A" } // Default for barchart
+      : { department: "Finance" }),
+  })
   
   // Get options data (classrooms/grades or departments/positions)
   const optionsQuery = type === "student" 
     ? useAcademicInfo() 
     : useEmployeeRoles()
 
+  // Process the new API structure
+  const processedMetrics = useMemo(() => {
+    const summaryData = metricsQuery.data?.data || metricsQuery.placeholderData?.data
+    const yearlyData = yearlyQuery.data?.data || []
+
+    // Convert new API structure to expected format
+    return {
+      summary: summaryData?.summary || {
+        atRisk: { count: 0, total: 0 },
+        notScreened: { count: 0, total: 0 },
+        notCounseled: { count: 0, total: 0 },
+      },
+      // Create overall mental health from summary
+      mentalHealth: {
+        overall: {
+          atRisk: summaryData?.summary?.atRisk?.count || 0,
+          monitored: 0, // Not provided in new API
+          stable: (summaryData?.summary?.atRisk?.total || 0) - (summaryData?.summary?.atRisk?.count || 0),
+          notScreened: summaryData?.summary?.notScreened?.count || 0,
+        },
+        // Convert yearly data to month format
+        byMonth: {
+          firstHalf: yearlyData.filter(item => ["Jan", "Feb", "Mar", "Apr", "May", "Jun"].includes(item.month)),
+          secondHalf: yearlyData.filter(item => ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].includes(item.month)),
+        }
+      },
+      status: summaryData?.status || {
+        screening: { completed: 0, notCompleted: 0 },
+        counseling: { completed: 0, notCompleted: 0 },
+      },
+    }
+  }, [metricsQuery.data, yearlyQuery.data, metricsQuery.placeholderData])
+
   // Always return data, never show loading states
   return {
-    // Extract metrics from the response with safe defaults
-    metrics: metricsQuery.data?.data || metricsQuery.placeholderData?.data,
+    // Extract metrics with new structure
+    metrics: processedMetrics,
     
     // Extract options with proper data structure
     options: type === "student"
@@ -275,11 +343,15 @@ export const useDashboard = (type = "student", filters = {}) => {
     // Provide silent refetch functionality
     refetch: () => {
       metricsQuery.refetch({ throwOnError: false })
+      yearlyQuery.refetch({ throwOnError: false })
       optionsQuery.refetch({ throwOnError: false })
     },
     
     // Additional context
-    currentFilters: defaultFilters,
+    currentFilters: {
+      year: currentDate.year,
+      month: currentDate.month,
+    },
     currentDate,
   }
 }

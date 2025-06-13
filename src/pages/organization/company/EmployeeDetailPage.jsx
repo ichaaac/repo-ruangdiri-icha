@@ -1,7 +1,7 @@
 // src/pages/organization/company/EmployeeDetailPage.jsx
 
-import { useState, useEffect } from "react"
-import { useParams } from "react-router-dom"
+import { useState } from "react"
+import { useParams, useOutletContext } from "react-router-dom"
 import { AnimatePresence } from "framer-motion"
 import { useEmployeeDetail } from "@/hooks/useEmployeeDetail"
 import {
@@ -19,38 +19,10 @@ const EmployeeDetailPage = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
-  const [sidebarExpanded, setSidebarExpanded] = useState(false)
 
-  // Deteksi status sidebar
-  useEffect(() => {
-    // Cek apakah sidebar expanded berdasarkan class atau attribute di DOM
-    const checkSidebarStatus = () => {
-      // Sesuaikan selector ini dengan struktur DOM aplikasi Anda
-      const sidebarElement =
-        document.querySelector('[data-state="expanded"]') ||
-        document.querySelector(".sidebar-expanded") ||
-        document.querySelector('[data-sidebar="expanded"]')
-      setSidebarExpanded(!!sidebarElement)
-    }
-
-    checkSidebarStatus()
-
-    // Observer untuk mendeteksi perubahan pada sidebar
-    const observer = new MutationObserver(checkSidebarStatus)
-    observer.observe(document.body, {
-      attributes: true,
-      subtree: true,
-      attributeFilter: ["class", "data-state", "data-sidebar"],
-    })
-
-    // Juga listen untuk resize event
-    window.addEventListener("resize", checkSidebarStatus)
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("resize", checkSidebarStatus)
-    }
-  }, [])
+  // Get sidebar state from layout context
+  const context = useOutletContext() || {}
+  const { sidebarExpanded = false } = context
 
   const { employee, mentalHealthHistory, isLoading, isError, error, refetch, updateEmployee } =
     useEmployeeDetail(employeeId)
@@ -112,7 +84,11 @@ const EmployeeDetailPage = () => {
 
       <Divider sidebarExpanded={sidebarExpanded} />
 
-      <SharedDevelopment data={employee} mentalHealthHistory={mentalHealthHistory} type="employee" />
+      <SharedDevelopment 
+        data={employee} 
+        mentalHealthHistory={mentalHealthHistory} 
+        type="employee" 
+      />
 
       <AnimatePresence>
         {showEditModal && (
@@ -130,7 +106,11 @@ const EmployeeDetailPage = () => {
 
       <AnimatePresence>
         {showSuccessModal && (
-          <SuccessModal isOpen={true} message={successMessage} onClose={() => setShowSuccessModal(false)} />
+          <SuccessModal 
+            isOpen={true} 
+            message={successMessage} 
+            onClose={() => setShowSuccessModal(false)} 
+          />
         )}
       </AnimatePresence>
     </DetailPageLayout>

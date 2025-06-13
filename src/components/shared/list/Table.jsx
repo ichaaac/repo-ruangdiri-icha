@@ -1,4 +1,4 @@
-
+// src/components/shared/list/Table.jsx
 import React, { useState, useRef, useCallback, forwardRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"
@@ -167,7 +167,6 @@ const SharedTable = forwardRef(
     const helpIconRef = useRef(null)
     const observerRef = useRef(null)
     const contentRef = useRef(null)
-    const [scrollRatio, setScrollRatio] = useState(0)
 
     const tableConfig = {
       student: {
@@ -214,21 +213,6 @@ const SharedTable = forwardRef(
       }
     }, [sidebarExpanded])
 
-    // ACCURATE scroll progress update
-    const updateScrollProgress = useCallback(() => {
-      if (!contentRef.current) return
-
-      const { scrollLeft, scrollWidth, clientWidth } = contentRef.current
-      const maxScroll = scrollWidth - clientWidth
-
-      if (maxScroll > 0) {
-        const ratio = scrollLeft / maxScroll
-        setScrollRatio(ratio)
-      } else {
-        setScrollRatio(0)
-      }
-    }, [])
-
     // DOUBLE CLICK scroll behavior
     const handleDoubleClick = useCallback((e) => {
       // Don't trigger on fullName column or interactive elements
@@ -262,44 +246,21 @@ const SharedTable = forwardRef(
       })
     }, [])
 
-    // Setup scroll listener
-    const setupScrollListener = useCallback(
-      (element) => {
-        if (!element) return
-
-        const handleScroll = () => {
-          updateScrollProgress()
-        }
-
-        element.addEventListener("scroll", handleScroll, { passive: true })
-
-        // Initial update after DOM settles
-        setTimeout(() => {
-          if (element) {
-            updateScrollProgress()
-          }
-        }, 100)
-
-        // Return cleanup function
-        return () => {
-          element.removeEventListener("scroll", handleScroll)
-        }
-      },
-      [updateScrollProgress],
-    )
-
-    // Ref callback to setup listeners
+    // Ref callback to setup listeners and expose table ref to parent
     const tableContainerRef = useCallback(
       (node) => {
         contentRef.current = node
-
-        if (node) {
-          // Setup scroll listener
-          const cleanup = setupScrollListener(node)
-          node._scrollCleanup = cleanup
+        
+        // Expose to parent via ref for scrollbar
+        if (ref) {
+          if (typeof ref === 'function') {
+            ref(node)
+          } else {
+            ref.current = node
+          }
         }
       },
-      [setupScrollListener],
+      [ref],
     )
 
     // Reset editing when filters change
@@ -349,7 +310,7 @@ const SharedTable = forwardRef(
       if (editingId !== null) return
 
       if (clickedNames.has(id)) {
-        window.open(`${config.detailPath}/${id}`, "_blank")
+      window.open(`${config.detailPath}/${id}`, "_blank")
         setClickedNames(new Set())
       } else {
         setClickedNames(new Set([id]))
@@ -526,19 +487,6 @@ const SharedTable = forwardRef(
 
     return (
       <div className="relative w-full">
-        {/* VISUAL ONLY Custom Scrollbar - shows accurate progress */}
-        <div className="relative w-full h-3 mb-2">
-          <div className="relative h-1 bg-gray-200 rounded-full">
-            <div
-              className="absolute h-full bg-[#488BBE] rounded-full opacity-80"
-              style={{
-                width: "20%",
-                left: `${scrollRatio * 80}%`,
-              }}
-            />
-          </div>
-        </div>
-
         {/* FIXED: Responsive container that reacts to sidebar changes */}
         <div
           ref={tableContainerRef}
@@ -1026,14 +974,6 @@ const SharedTable = forwardRef(
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Loading indicator - REMOVED */}
-        {/* {isFetchingNextPage && (
-          <div className="py-4 text-center">
-            <span className="material-icons animate-spin text-[#488BBE] text-base">refresh</span>
-            <span className="text-[#488BBE] text-sm ml-2">Loading...</span>
-          </div>
-        )} */}
 
         {/* Empty state */}
         {data.length === 0 && !isFetchingNextPage && (

@@ -1,6 +1,5 @@
-// src/components/shared/dashboard/DashboardTablist.jsx
+// src/components/shared/dashboard/DashboardTabList.jsx - Fixed background container and removed unused functions
 
-import { motion } from "framer-motion"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
 import { useInfiniteScroll } from "../../../hooks/useInfiniteScroll"
@@ -16,6 +15,7 @@ const DashboardTabList = ({
   onClose = () => {},
   onCardClick = () => {},
   onReturnHome = () => {},
+  sidebarExpanded = false,
 }) => {
   const { user: authUser } = useAuth?.() || { user: {} }
 
@@ -60,15 +60,18 @@ const DashboardTabList = ({
 
   const allMetrics = getAllMetrics()
 
+  // Calculate dynamic padding for metric cards
+  const getContainerPadding = () => {
+    if (sidebarExpanded) {
+      return "px-4 sm:px-6 lg:px-8 xl:pl-20 xl:pr-20" // 20px on both sides when expanded
+    } else {
+      return "px-4 sm:px-6 lg:px-8 xl:pl-20 xl:pr-20" // Same padding for collapsed
+    }
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      className="w-full min-h-screen overflow-x-hidden relative"
-    >
-      {/* Header - consistent with ListPage */}
+    <div className="w-full min-h-screen overflow-x-hidden relative">
+      {/* Header */}
       <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -80,85 +83,83 @@ const DashboardTabList = ({
         </div>
       </div>
 
-      {/* Title - consistent with ListPage structure */}
+      {/* Title - Ensure user fullName is displayed */}
       <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8">
         <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
-            Halo, {user?.fullName || authUser?.fullName || ""}
+            Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>
         </div>
       </div>
 
-      {/* Cards & Table */}
-      <div className="px-2 sm:px-4 lg:px-6 mt-4 sm:mt-6">
-        <div className="max-w-none mx-auto">
-          {/* Unified Background Container - seamlessly integrated */}
-          <div className="relative bg-[#D7EDFF] rounded-xl mx-[15px]">
-            {/* Cards positioned on top of background */}
-            <div className="flex gap-5 px-[35px] pt-[15px] relative z-10">
-              {allMetrics.map((metric) => {
-                const isActiveCard = metric.cardId === activeCard
-                const isDisabled = metric.count === 0
+      {/* Main content - Full width approach */}
+      <div className="mt-4 sm:mt-6 relative">
+        {/* All Metrics Cards Row - Keep normal padding */}
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6 ${getContainerPadding()}`}>
+          {allMetrics.map((metric) => {
+            const isActive = metric.cardId === activeCard
+            const isDisabled = metric.count === 0
+            
+            return (
+              <div key={metric.cardId} className={isActive ? "relative" : ""}>
+                {/* Active card background container - connected to table */}
+                {isActive && (
+                  <div className="absolute inset-0 bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl -m-2 p-2"></div>
+                )}
+                
+                <div className="relative z-10">
+                  <MetricCard
+                    title={metric.title}
+                    count={isActive ? (tabData?.metadata?.totalData || 0) : metric.count}
+                    total={metric.total}
+                    color={isActive ? metric.color : "#8B8B8B"}
+                    bgColor={isActive ? metric.bgColor : "transparent"}
+                    borderColor={isActive ? metric.borderColor : "#C7C7C7"}
+                    icon={metric.icon}
+                    isActive={isActive}
+                    isDisabled={isDisabled && !isActive}
+                    isInactive={!isActive}
+                    onCardClick={() => isActive ? onReturnHome() : onCardClick(metric.cardId)}
+                    onReportClick={() => {}}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
 
-                return (
-                  <div key={metric.cardId} className="flex-1">
-                    <div className="relative">
-                      <div
-                        className="relative rounded-xl bg-white"
-                        style={{
-                          filter: isActiveCard
-                            ? "drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.1))"
-                            : "none",
-                          zIndex: 1,
-                        }}
-                      >
-                        <MetricCard
-                          title={metric.title}
-                          count={
-                            isActiveCard
-                              ? tabData?.metadata?.totalData || 0
-                              : metric.count
-                          }
-                          total={metric.total}
-                          color={metric.color}
-                          bgColor={metric.bgColor}
-                          borderColor={metric.borderColor}
-                          icon={metric.icon}
-                          isActive={!isActiveCard && !isDisabled}
-                          isDisabled={isDisabled}
-                          onCardClick={() => {
-                            if (isDisabled) return // Don't allow click if disabled
-                            isActiveCard
-                              ? onReturnHome?.()
-                              : onCardClick?.(metric.cardId)
-                          }}
-                          onReportClick={() => {}}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Table Container - directly inside background container */}
-            <div className="px-[30px] pb-[25px] pt-[10px]">
-              <DashboardTable
-                type={type}
-                data={
-                  tabData?.data?.students || tabData?.data?.employees || []
-                }
-                isLoading={false} // Never show loading
-                title=""
-                hasNextPage={tabData?.hasNextPage}
-                fetchNextPage={tabData?.fetchNextPage}
-                isFetchingNextPage={tabData?.isFetchingNextPage}
-              />
-            </div>
+        {/* Background container with connected design - fixed positioning */}
+        <div 
+          className="bg-[#D7EDFF] min-h-[549px] rounded-tl-xl rounded-tr-xl overflow-hidden -mt-4 pt-6"
+          style={{
+            width: '100%',
+            maxWidth: `calc(100% - 40px)`,
+            marginLeft: '20px',
+            marginRight: '20px',
+            borderTopLeftRadius: '0px', // Remove top radius to connect with active card
+            borderTopRightRadius: '0px', // Remove top radius to connect with active card  
+            borderBottomLeftRadius: '12px',
+            borderBottomRightRadius: '12px'
+          }}
+        >
+          <div className="px-6 pb-6 h-full">
+            <DashboardTable
+              type={type}
+              data={tabData?.data?.students || tabData?.data?.employees || []}
+              isLoading={false}
+              title=""
+              hasNextPage={tabData?.hasNextPage}
+              fetchNextPage={tabData?.fetchNextPage}
+              isFetchingNextPage={tabData?.isFetchingNextPage}
+              config={config} // Pass config for detail navigation
+            />
           </div>
         </div>
+
+        {/* Reduced spacer to minimize whitespace */}
+        <div style={{ height: '60px' }}></div>
       </div>
-    </motion.div>
+    </div>
   )
 }
 

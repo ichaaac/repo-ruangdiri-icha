@@ -1,135 +1,198 @@
-"use client"
-
-// src/components/shared/ListPage.jsx - Parent File
-import { useMemo, useRef, useState, useEffect, useCallback } from "react"
+// src/components/shared/ListPage.jsx - Parent File with Ultra Responsive Floating Scrollbar
+import { useMemo, useRef, useState, useCallback } from "react"
 import { AnimatePresence } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"
 import useDebounce from "@/hooks/useDebounce"
 import SharedTable from "./Table"
 import clsx from "clsx"
 
-// Custom Scrollbar Component - ONLY FOR TABLE
-const TableScrollbar = ({ tableRef }) => {
+// Ultra Responsive Floating Scrollbar - No useEffect, pure performance
+const FloatingTableScrollbar = ({ tableRef, sidebarExpanded }) => {
   const scrollbarRef = useRef(null)
   const thumbRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [scrollInfo, setScrollInfo] = useState({
+  const animationFrameRef = useRef(null)
+  const scrollInfoRef = useRef({
     scrollRatio: 0,
     thumbWidth: 100,
     maxScroll: 0,
     needsScrollbar: false,
+    tableWidth: 0,
+    tableLeft: 0,
   })
 
-  const updateScrollInfo = useCallback(() => {
+  // High-performance scroll info calculator
+  const calculateScrollInfo = useCallback(() => {
     if (!tableRef.current) {
-      setScrollInfo({ scrollRatio: 0, thumbWidth: 100, maxScroll: 0, needsScrollbar: false })
-      return
+      scrollInfoRef.current.needsScrollbar = false
+      return scrollInfoRef.current
     }
 
     const { scrollLeft, scrollWidth, clientWidth } = tableRef.current
+    const tableRect = tableRef.current.getBoundingClientRect()
     const maxScroll = scrollWidth - clientWidth
     const needsScrollbar = maxScroll > 10
 
     if (!needsScrollbar) {
-      setScrollInfo({ scrollRatio: 0, thumbWidth: 100, maxScroll: 0, needsScrollbar: false })
-      return
+      scrollInfoRef.current.needsScrollbar = false
+      return scrollInfoRef.current
     }
 
     const scrollRatio = scrollLeft / maxScroll
     const visibleRatio = clientWidth / scrollWidth
     const thumbWidth = Math.max(visibleRatio * 100, 15)
 
-    setScrollInfo({ scrollRatio, thumbWidth, maxScroll, needsScrollbar })
+    scrollInfoRef.current = {
+      scrollRatio,
+      thumbWidth,
+      maxScroll,
+      needsScrollbar,
+      tableWidth: clientWidth,
+      tableLeft: tableRect.left,
+    }
+
+    return scrollInfoRef.current
   }, [tableRef])
 
-  useEffect(() => {
-    const element = tableRef.current
-    if (!element) return
-
-    const handleScroll = () => updateScrollInfo()
-    updateScrollInfo()
-
-    element.addEventListener("scroll", handleScroll, { passive: true })
-    window.addEventListener("resize", updateScrollInfo)
-
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateScrollInfo, 10)
-    })
-    resizeObserver.observe(element)
-
-    return () => {
-      element.removeEventListener("scroll", handleScroll)
-      window.removeEventListener("resize", updateScrollInfo)
-      resizeObserver.disconnect()
+  // Smooth visual update with RAF
+  const updateScrollbarVisual = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
     }
-  }, [updateScrollInfo])
 
-  const handleScrollbarClick = useCallback(
-    (e) => {
-      if (!tableRef.current || !scrollbarRef.current || e.target === thumbRef.current) return
+    animationFrameRef.current = requestAnimationFrame(() => {
+      const info = calculateScrollInfo()
+      
+      if (!info.needsScrollbar || !thumbRef.current) return
 
-      const rect = scrollbarRef.current.getBoundingClientRect()
-      const percentage = (e.clientX - rect.left) / rect.width
-      const newScrollLeft = percentage * scrollInfo.maxScroll
+      const thumbLeft = info.scrollRatio * (100 - info.thumbWidth)
+      thumbRef.current.style.left = `${thumbLeft}%`
+      thumbRef.current.style.width = `${info.thumbWidth}%`
+    })
+  }, [calculateScrollInfo])
 
-      tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, scrollInfo.maxScroll))
-    },
-    [scrollInfo.maxScroll, tableRef],
-  )
+  // Direct event handler setup via ref callback
+  const setupScrollbarRef = useCallback((node) => {
+    scrollbarRef.current = node
+    if (!node || !tableRef.current) return
 
-  const handleMouseDown = useCallback(
-    (e) => {
-      e.preventDefault()
-      setIsDragging(true)
+    // Immediate setup without useEffect
+    const table = tableRef.current
+    
+    const handleScroll = () => updateScrollbarVisual()
+    const handleResize = () => updateScrollbarVisual()
 
-      const startX = e.clientX
-      const startScrollLeft = tableRef.current?.scrollLeft || 0
-      const scrollbarWidth = scrollbarRef.current?.offsetWidth || 1
+    // Attach listeners immediately
+    table.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', handleResize, { passive: true })
 
-      const handleMouseMove = (moveEvent) => {
-        if (!tableRef.current) return
+    // Initial update
+    updateScrollbarVisual()
 
-        const deltaX = moveEvent.clientX - startX
-        const percentage = deltaX / scrollbarWidth
-        const newScrollLeft = startScrollLeft + percentage * scrollInfo.maxScroll
-
-        tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, scrollInfo.maxScroll))
+    // Store cleanup in node for later
+    node._cleanup = () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
       }
+      table.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [updateScrollbarVisual, tableRef])
 
-      const handleMouseUp = () => {
-        setIsDragging(false)
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
-      }
+  // Cleanup via ref callback
+  const cleanupRef = useCallback((node) => {
+    if (node && node._cleanup) {
+      node._cleanup()
+    }
+  }, [])
 
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-    },
-    [scrollInfo.maxScroll, tableRef],
-  )
+  // Combined ref callback
+  const scrollbarRefCallback = useCallback((node) => {
+    cleanupRef(scrollbarRef.current)
+    setupScrollbarRef(node)
+  }, [setupScrollbarRef, cleanupRef])
 
-  if (!scrollInfo.needsScrollbar) return null
+  const handleScrollbarClick = useCallback((e) => {
+    if (!tableRef.current || !scrollbarRef.current || e.target === thumbRef.current) return
+
+    const rect = scrollbarRef.current.getBoundingClientRect()
+    const percentage = (e.clientX - rect.left) / rect.width
+    const info = scrollInfoRef.current
+    const newScrollLeft = percentage * info.maxScroll
+
+    tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, info.maxScroll))
+  }, [tableRef])
+
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(true)
+
+    const startX = e.clientX
+    const startScrollLeft = tableRef.current?.scrollLeft || 0
+    const scrollbarWidth = scrollbarRef.current?.offsetWidth || 1
+    const info = scrollInfoRef.current
+
+    const handleMouseMove = (moveEvent) => {
+      if (!tableRef.current) return
+
+      const deltaX = moveEvent.clientX - startX
+      const percentage = deltaX / scrollbarWidth
+      const newScrollLeft = startScrollLeft + percentage * info.maxScroll
+
+      tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, info.maxScroll))
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove, { passive: false })
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [tableRef])
+
+  // Real-time calculation without state
+  const currentInfo = calculateScrollInfo()
+  if (!currentInfo.needsScrollbar) return null
+
+  // Calculate position
+  const sidebarWidth = sidebarExpanded ? 237 : 60
+  const padding = 24
+  const scrollbarLeft = Math.max(sidebarWidth + padding, currentInfo.tableLeft)
+  const scrollbarWidth = Math.min(currentInfo.tableWidth - padding * 2, currentInfo.tableWidth)
 
   return (
-    <div className="w-full h-4 px-2 sm:px-4 lg:px-6 mb-2">
-      <div
-        ref={scrollbarRef}
-        className="relative h-2 bg-gray-200 rounded-full cursor-pointer hover:bg-gray-300 transition-colors"
-        onClick={handleScrollbarClick}
-      >
+    <div 
+      className="fixed z-[9998] transition-[left] duration-300"
+      style={{
+        bottom: '20px',
+        left: `${scrollbarLeft}px`,
+        width: `${scrollbarWidth}px`,
+        height: '20px',
+        pointerEvents: 'auto',
+      }}
+    >
+      <div className="w-full h-5 px-2">
         <div
-          ref={thumbRef}
-          className={clsx(
-            "absolute h-full bg-[#488BBE] rounded-full transition-all duration-150",
-            isDragging ? "opacity-100 bg-[#3399e9]" : "opacity-80 hover:opacity-100 hover:bg-[#3399e9]",
-          )}
-          style={{
-            width: `${scrollInfo.thumbWidth}%`,
-            left: `${scrollInfo.scrollRatio * (100 - scrollInfo.thumbWidth)}%`,
-            cursor: isDragging ? "grabbing" : "grab",
-          }}
-          onMouseDown={handleMouseDown}
-        />
+          ref={scrollbarRefCallback}
+          className="relative h-3 bg-gray-200 rounded-full cursor-pointer hover:bg-gray-300 transition-colors shadow-lg border border-gray-300"
+          onClick={handleScrollbarClick}
+        >
+          <div
+            ref={thumbRef}
+            className={clsx(
+              "absolute h-full bg-[#488BBE] rounded-full shadow-sm transition-[background-color,opacity] duration-150",
+              isDragging ? "opacity-100 bg-[#3399e9]" : "opacity-90 hover:opacity-100 hover:bg-[#3399e9]",
+            )}
+            style={{
+              width: `${currentInfo.thumbWidth}%`,
+              left: `${currentInfo.scrollRatio * (100 - currentInfo.thumbWidth)}%`,
+              cursor: isDragging ? "grabbing" : "grab",
+            }}
+            onMouseDown={handleMouseDown}
+          />
+        </div>
       </div>
     </div>
   )
@@ -194,33 +257,31 @@ const SharedListPage = ({
 
   const { isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, isError, error, refetch } = hookResult
 
-  // const optionsHookResult = useOptionsHook ? useOptionsHook() : { data: null }
-  // const { data: optionsData } = optionsHookResult
-
-  // Reset filters tracking effect
-  useEffect(() => {
+  // Reset filters tracking - minimal effect
+  const handleFiltersChangeCallback = useCallback(() => {
     if (filtersChanged) {
-      setTimeout(() => setFiltersChanged(false), 100)
+      const timer = setTimeout(() => setFiltersChanged(false), 100)
+      return () => clearTimeout(timer)
     }
   }, [filtersChanged])
 
   // Enhanced clearFilters function
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     if (resetEditModeRef.current) {
       resetEditModeRef.current()
     }
     clearFilters()
     setFiltersChanged(true)
-  }
+  }, [clearFilters])
 
   // Enhanced apply filters function
-  const handleApplyFilters = () => {
+  const handleApplyFilters = useCallback(() => {
     if (resetEditModeRef.current) {
       resetEditModeRef.current()
     }
     applyFilters()
     setFiltersChanged(true)
-  }
+  }, [applyFilters])
 
   // Process options data based on type
   const optionsForFilters = useMemo(() => {
@@ -285,6 +346,9 @@ const SharedListPage = ({
       }
     }
   }, [type, user])
+
+  // Trigger cleanup
+  handleFiltersChangeCallback()
 
   if (isError) {
     return (
@@ -437,9 +501,6 @@ const SharedListPage = ({
         </div>
       </div>
 
-      {/* Table-only Scrollbar */}
-      <TableScrollbar tableRef={tableRef} />
-
       {/* Data table container */}
       <div className="px-2 sm:px-4 lg:px-6">
         <SharedTable
@@ -456,10 +517,16 @@ const SharedListPage = ({
           optionsData={optionsForFilters}
           resetEditMode={resetEditModeRef}
           filtersChanged={filtersChanged}
-          isLoading={!listData} // Always set to false to remove loading indicator
+          isLoading={!listData}
           sidebarExpanded={sidebarExpanded}
         />
       </div>
+
+      {/* Ultra Responsive Floating Scrollbar */}
+      <FloatingTableScrollbar 
+        tableRef={tableRef} 
+        sidebarExpanded={sidebarExpanded}
+      />
 
       {/* Filter modal */}
       <AnimatePresence>
@@ -473,7 +540,7 @@ const SharedListPage = ({
             applyFilters={handleApplyFilters}
             optionsData={optionsForFilters}
             data={listData}
-            style={{ zIndex: 9999 }} // Ensure highest z-index
+            style={{ zIndex: 9999 }}
           />
         )}
       </AnimatePresence>

@@ -1,11 +1,12 @@
-// src/components/shared/layout/Sidebar.jsx - Updated with dashboard selection
+// src/components/shared/layout/Sidebar.jsx - Simplified dashboard dropdown and fixed z-index
+
 import { useState, useEffect, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../hooks/useAuth"
 
 /**
- * Responsive Sidebar Component dengan active state untuk dashboard
+ * Responsive Sidebar Component with simplified dashboard dropdown
  */
 const Sidebar = ({
   expanded,
@@ -14,8 +15,9 @@ const Sidebar = ({
   organizationType = "school",
   menuItems = [],
   isMobile = false,
-  selectedDashboardTab = "home", // Add this prop for dashboard tab selection
-  onDashboardTabChange = () => {}, // Add this callback
+  selectedDashboardTab = "home",
+  onDashboardTabChange = () => {},
+  dashboardMetrics = null,
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -51,13 +53,16 @@ const Sidebar = ({
       collapseTimeoutRef.current = setTimeout(() => {
         setHovered(false)
         setShowProfileDropdown(false)
-        setActiveDropdown(null)
+        // Don't close dashboard dropdown if we're on dashboard page
+        if (!location.pathname.includes("/dashboard")) {
+          setActiveDropdown(null)
+        }
         onHoverChange?.(false)
       }, 300)
     }
   }
 
-  // FIXED: Auto-expand dropdown for dashboard when on dashboard page
+  // Auto-expand dropdown for dashboard when on dashboard page
   useEffect(() => {
     if (location.pathname.includes("/dashboard")) {
       const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'))
@@ -122,7 +127,7 @@ const Sidebar = ({
     setFallbackProfileImage(true)
   }
 
-  // Check if current path is active - UPDATED for dashboard
+  // Check if current path is active
   const isActive = (path) => {
     // If path is dashboard, check if we're on dashboard route
     if (path.includes("/dashboard")) {
@@ -141,18 +146,49 @@ const Sidebar = ({
     return location.pathname === path
   }
 
-  // FIXED: Is dashboard item active - check both path and selected tab
-  const isDashboardItemActive = (tabId) => {
+  // Check if dashboard tab is active
+  const isDashboardTabActive = (tabId) => {
     if (!location.pathname.includes("/dashboard")) return false
-    
-    // If on dashboard route and this tab is selected
     return tabId === selectedDashboardTab
+  }
+
+  // FIXED: Simplified dashboard dropdown - only 2 items
+  const getDashboardDropdownItems = () => {
+    return [
+      { 
+        id: "home", 
+        label: "Dashboard Home", 
+        disabled: false
+      },
+      { 
+        id: "tablist", 
+        label: "Dashboard Tablist", 
+        disabled: false
+      },
+    ]
   }
 
   // Handle dashboard item click
   const handleDashboardItemClick = (tabId) => {
     // Set selected tab and call the callback
-    onDashboardTabChange(tabId)
+    if (tabId === "home") {
+      onDashboardTabChange("home")
+    } else if (tabId === "tablist") {
+      // For tablist, we can default to at_risk or the first available tab
+      // Check which tabs have data
+      const metrics = dashboardMetrics?.summary || {}
+      if ((metrics.atRisk?.count || 0) > 0) {
+        onDashboardTabChange("at_risk")
+      } else if ((metrics.notScreened?.count || 0) > 0) {
+        onDashboardTabChange("not_screened")
+      } else if ((metrics.notCounseled?.count || 0) > 0) {
+        onDashboardTabChange("not_counseled")
+      } else {
+        // No data available, stay on home
+        onDashboardTabChange("home")
+        return
+      }
+    }
     
     // Navigate to dashboard if not already there
     const dashboardPath = 
@@ -163,6 +199,9 @@ const Sidebar = ({
     if (location.pathname !== dashboardPath) {
       navigate(dashboardPath)
     }
+    
+    // Close sidebar on mobile
+    if (isMobile) setExpanded(false)
   }
 
   // Handle dropdown toggle
@@ -174,18 +213,11 @@ const Sidebar = ({
   const getInitial = () => {
     if (userData?.fullName && userData.fullName.length > 0) {
       return userData.fullName.charAt(0).toUpperCase()
-  }
+    }
     return organizationType === "company" ? "C" : "S"
   }
 
-  // Find the dashboard item in menuItems
-  const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'))
-  const dashboardDropdownItems = dashboardItem?.dropdownItems || [
-    { id: "home", label: "Dashboard Home", path: `#dashboard-home` },
-    { id: "at_risk", label: `${organizationType === 'school' ? 'Siswa' : 'Karyawan'} Beresiko`, path: `#dashboard-at_risk` },
-    { id: "not_screened", label: `${organizationType === 'school' ? 'Siswa' : 'Karyawan'} Belum Skrining`, path: `#dashboard-not_screened` },
-    { id: "not_counseled", label: `${organizationType === 'school' ? 'Siswa' : 'Karyawan'} Belum Konseling`, path: `#dashboard-not_counseled` },
-  ]
+  const dashboardDropdownItems = getDashboardDropdownItems()
 
   return (
     <motion.div
@@ -280,11 +312,11 @@ const Sidebar = ({
           </motion.div>
         </div>
 
-        {/* Profile Dropdown */}
+        {/* FIXED: Profile Dropdown with high z-index */}
         <AnimatePresence>
           {showProfileDropdown && (expanded || hovered) && (
             <motion.div
-              className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden`}
+              className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden relative z-[9999]`}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -372,38 +404,46 @@ const Sidebar = ({
               </motion.span>
             </motion.div>
 
-            {/* Dropdown Items - Special Handling for Dashboard */}
+            {/* FIXED: Dropdown Items - High z-index for dashboard */}
             <AnimatePresence>
               {item.hasDropdown && activeDropdown === item.path && (expanded || hovered) && (
                 <motion.div
-                  className={`${isMobile ? "pl-7" : "pl-10"} overflow-hidden`}
+                  className={`${isMobile ? "pl-7" : "pl-10"} overflow-hidden relative z-[9999]`}
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
-                  {/* Special handling for dashboard dropdown items */}
+                  {/* FIXED: Simplified dashboard dropdown */}
                   {item.path.includes('/dashboard') 
                     ? dashboardDropdownItems.map((dropdownItem) => (
                         <button
                           key={dropdownItem.id}
                           type="button"
+                          disabled={dropdownItem.disabled}
                           className={`block w-full text-left ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} 
-                            ${isDashboardItemActive(dropdownItem.id) 
-                              ? "text-[#488BBE] font-bold underline bg-[#E2F9FF]" 
-                              : "text-[#488BBE] hover:text-[#3399E9] hover:bg-[#F0F8FF]"} 
-                            transition-colors rounded`}
+                            transition-colors rounded ${
+                              dropdownItem.disabled 
+                                ? "text-gray-400 cursor-not-allowed opacity-50" 
+                                : (
+                                  (dropdownItem.id === "home" && isDashboardTabActive("home")) ||
+                                  (dropdownItem.id === "tablist" && selectedDashboardTab !== "home")
+                                ) 
+                                  ? "text-[#488BBE] font-bold underline" 
+                                  : "text-[#488BBE] hover:text-[#3399E9] hover:bg-[#F0F8FF]"
+                            }`}
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            handleDashboardItemClick(dropdownItem.id)
-                            if (isMobile) setExpanded(false)
+                            if (!dropdownItem.disabled) {
+                              handleDashboardItemClick(dropdownItem.id)
+                            }
                           }}
                         >
                           {dropdownItem.label}
                         </button>
                       ))
-                    : item.dropdownItems.map((dropdownItem, dropdownIndex) => (
+                    : item.dropdownItems?.map((dropdownItem, dropdownIndex) => (
                         <Link
                           key={dropdownIndex}
                           to={dropdownItem.path}
