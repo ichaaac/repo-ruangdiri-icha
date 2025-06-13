@@ -342,7 +342,7 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
   const onSubmit = (formData) => {
     setErrorMessage("")
 
-    const payload = {}
+  const payload = {}
 
     if (dirtyFields.fullName && formData.fullName !== data?.fullName) {
       payload.fullName = formData.fullName.trim()

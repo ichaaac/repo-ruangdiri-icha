@@ -7,6 +7,7 @@ import AccountEditModal from "./AccountEditModal"
 import ProfilePictureUpload from "./ProfilePictureUpload"
 import ConfirmationModal from "./ConfirmationModal"
 import { formatPhoneDisplay } from "../../../lib/phoneUtils"
+import TopRightControl from "../layout/TopRightControl"
 
 const SuccessModal = ({ isOpen, message, onClose }) => {
   if (!isOpen) return null
@@ -135,53 +136,39 @@ const ProfilePage = ({
   const displayPhone = formatPhoneDisplay(userData?.organization?.phone)
 
   return (
-    <div className="box-border w-full min-h-screen bg-white">
-      {/* Profile header */}
-      <div className="relative">
-        <h1
-          className="absolute text-base sm:text-lg font-semibold text-primary"
-          style={{
-            top: "92px",
-            left: "12px",
-            width: "auto",
-          }}
-        >
-          Profil
-        </h1>
-        <div
-          className="absolute h-0.5 bg-gray-300"
-          style={{
-            top: "99px",
-            left: "76px",
-            right: "20px",
-          }}
-        ></div>
-      </div>
+<div className="box-border w-full min-h-screen bg-white relative">
+{/* Profile header */}
+<div className="relative">
+  <TopRightControl />
+  <h1
+    className="absolute text-base sm:text-lg font-semibold text-primary"
+    style={{
+      top: "87px",
+      left: "12px",
+      width: "auto",
+    }}
+  >
+    Profil
+  </h1>
+  <div
+    className="absolute h-0.5 bg-gray-300"
+    style={{
+      top: "99px",
+      left: "76px",
+      right: "20px",
+    }}
+  ></div>
+</div>
 
-      {/* ID/EN and Notification with absolute positioning */}
-      <div
-        className="absolute flex items-center gap-4 sm:gap-6"
-        style={{
-          top: "29px",
-          right: "20px",
-        }}
-      >
-        <div className="flex items-center">
-          <span className="font-bold text-primary text-sm sm:text-base">ID</span>
-          <span className="mx-2 text-primary text-sm sm:text-base">/</span>
-          <span className="text-zinc-500 text-sm sm:text-base">EN</span>
-        </div>
-        <button aria-label="Notifications" className="material-icons text-zinc-500 text-xl sm:text-2xl">
-          notifications
-        </button>
-      </div>
+
+  
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64 mt-32 sm:mt-44">
           <span className="material-icons animate-spin text-primary text-2xl sm:text-3xl">refresh</span>
         </div>
       ) : (
-        <div className="pt-32 sm:pt-44 px-3 sm:px-6 lg:px-12 pb-8">
+        <div className="pt-32 sm:pt-44 px-4 sm:px-6 lg:px-12 pb-8">
           {/* Profile section */}
           <section className="mb-5">
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start sm:items-center p-4 sm:p-5 bg-white rounded-xl border border-gray-300">

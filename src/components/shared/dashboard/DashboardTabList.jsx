@@ -4,6 +4,7 @@ import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
 import { useInfiniteScroll } from "../../../hooks/useInfiniteScroll"
 import { useAuth } from "../../../hooks/useAuth"
+import TopRightControl from "../layout/TopRightControl"
 
 const DashboardTabList = ({
   type = "student",
@@ -72,20 +73,12 @@ const DashboardTabList = ({
   return (
     <div className="w-full min-h-screen overflow-x-hidden relative">
       {/* Header */}
-      <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
-          </div>
-          <div className="flex items-center">
-            <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
-          </div>
-        </div>
-      </div>
+      <TopRightControl isAbsolute />
+
 
       {/* Title - Ensure user fullName is displayed */}
-      <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8">
-        <div className="w-full lg:w-auto">
+      <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 pt-[72px]">
+      <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>

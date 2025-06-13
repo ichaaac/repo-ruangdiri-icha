@@ -40,7 +40,7 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
       else params.gender = filters.gender;
     }
     if (filters.screeningStatus) params.screening = filters.screeningStatus;
-    if (filters.counselingStatus !== null) params.hasCounseled = filters.counselingStatus ? '1' : '0';
+    if (filters.counselingStatus !== null) params.counselingStatus = filters.counselingStatus ? '1' : '0';
     
     return params;
   };

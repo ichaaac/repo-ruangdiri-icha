@@ -1,3 +1,4 @@
+// src/pages/shared/auth/Login.jsx - latest commit with sessionStorage logic
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -9,7 +10,7 @@ const Login = () => {
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [rememberMe, setRememberMe] = useState(false);
-
+	
 	const [emailTouched, setEmailTouched] = useState(false);
 	const [passwordTouched, setPasswordTouched] = useState(false);
 
@@ -24,13 +25,35 @@ const Login = () => {
 	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 	useEffect(() => {
-		// Check if email is saved in localStorage when component mounts
-		const savedEmail = localStorage.getItem("rememberedEmail");
-		if (savedEmail) {
-			setEmail(savedEmail);
-			setRememberMe(true);
+		const navEntries = performance.getEntriesByType("navigation");
+		const isRefresh = navEntries[0]?.type === "reload";
+	
+		if (isRefresh) {
+			// Kalau user REFRESH halaman login -> kosongin semuanya
+			setEmail("");
+			setPassword("");
+			sessionStorage.removeItem("tempEmail");
+			sessionStorage.removeItem("tempPassword");
+			localStorage.removeItem("rememberedPassword");
+			localStorage.removeItem("rememberMe");
+		} else {
+			// Kalau user DATANG dari forgot password / normal navigation
+			const savedEmail = localStorage.getItem("rememberedEmail");
+			const tempEmail = sessionStorage.getItem("tempEmail");
+	
+			if (savedEmail) {
+				setEmail(savedEmail);
+				setRememberMe(true);
+			} else if (tempEmail) {
+				setEmail(tempEmail);
+			}
+	
+		
 		}
 	}, []);
+	
+	
+	
 
 	// Gunakan loginMutation yang sudah ada dari kode asli tanpa diubah
 	const loginMutation = useMutation({
@@ -74,6 +97,9 @@ const Login = () => {
 
 			// Save organization type to localStorage
 			localStorage.setItem("organizationType", data.organizationType);
+
+			// Clear temporary sessionStorage data after successful login
+			sessionStorage.removeItem("tempEmail");
 
 			console.log("Token and organizationType saved to localStorage");
 
@@ -279,7 +305,10 @@ const Login = () => {
 	// Handler untuk input email
 	const handleEmailChange = (e) => {
 		setEmail(e.target.value);
-
+		
+		// Save temporarily to sessionStorage for forgot password navigation
+		sessionStorage.setItem("tempEmail", e.target.value);
+		
 		// Reset error saat user mengetik
 		if (emailError) {
 			setEmailError(false);
@@ -290,6 +319,8 @@ const Login = () => {
 	// Handler untuk input password
 	const handlePasswordChange = (e) => {
 		setPassword(e.target.value);
+		
+		// Save temporarily to sessionStorage for forgot password navigation
 
 		// Reset error saat user mengetik
 		if (passwordError) {
@@ -360,7 +391,12 @@ const Login = () => {
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-
+		const lowercasedEmail = email.trim().toLowerCase();
+		loginMutation.mutate({ 
+		email: lowercasedEmail, 
+		password, 
+		rememberMe 
+		});
 		// Tandai semua field sebagai telah diinteraksi
 		setEmailTouched(true);
 		setPasswordTouched(true);
@@ -402,16 +438,24 @@ const Login = () => {
 			return;
 		}
 
-		// Handle remember me functionality
 		if (rememberMe) {
 			localStorage.setItem("rememberedEmail", email);
+			localStorage.setItem("rememberedPassword", password); // optional, not secure
+			localStorage.setItem("rememberMe", "true");
 		} else {
 			localStorage.removeItem("rememberedEmail");
+			localStorage.removeItem("rememberedPassword");
+			localStorage.removeItem("rememberMe");
 		}
+		
 
 		// If all validations pass, proceed with login
-		loginMutation.mutate({ email, password, rememberMe });
-	};
+		loginMutation.mutate({ 
+			email: email.toLowerCase(), 
+			password, 
+			rememberMe 
+		  });
+			  };
 
 	return (
 		<div className="flex flex-col md:flex-row w-full min-h-screen overflow-hidden">
@@ -520,27 +564,30 @@ const Login = () => {
 
 						{/* Remember me and forgot password */}
 						<div className="flex justify-between items-center mb-5 mt-8">
-							<label className="flex gap-2 items-center text-xs text-zinc-500 cursor-pointer hover:scale-[1.02] transition-transform">
-								<div className="relative">
-									<input
-										type="checkbox"
-										className="sr-only"
-										checked={rememberMe}
-										onChange={() =>
-											!loginMutation.isPending && setRememberMe(!rememberMe)
-										}
-										disabled={loginMutation.isPending}
-									/>
-									<span
-										className="material-icons text-lg"
-										style={{ color: rememberMe ? "#488BBE" : "#8B8B8B" }}
-									>
-										{rememberMe ? "check_circle" : "circle"}
-									</span>
-								</div>
-								<span>Ingat Saya</span>
-							</label>
+						<label className="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer hover:scale-[1.02] transition-transform select-none">
+							<input
+								id="rememberMeCheckbox"
+								type="checkbox"
+								checked={rememberMe}
+								onChange={(e) => {
+								if (!loginMutation.isPending) {
+									setRememberMe(e.target.checked);
+								}
+								}}
+								disabled={loginMutation.isPending}
+								className="absolute w-0 h-0 opacity-0 pointer-events-none"
+							/>
 
+							<span
+								className={`material-icons text-[18px] leading-none align-middle transition-colors ${
+								rememberMe ? "text-[#488BBE]" : "text-zinc-400"
+								}`}
+							>
+								{rememberMe ? "check_circle" : "radio_button_unchecked"}
+							</span>
+
+							<span className="leading-none">Ingat Saya</span>
+							</label>
 							<a
 								href="/forgot-password"
 								className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"

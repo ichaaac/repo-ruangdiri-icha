@@ -2,6 +2,7 @@
 import React, { useState, useRef, useCallback, forwardRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"
+import useDebounce from "@/hooks/useDebounce"
 import clsx from "clsx"
 
 
@@ -448,7 +449,9 @@ const SharedTable = forwardRef(
         ),
       )
     }
-
+    const debouncedSearchInput = useDebounce(searchInput, 300)
+    const isDebouncingSearch = searchInput !== debouncedSearchInput
+    
     const hasChanges =
       editingId &&
       editData.fullName?.trim() &&
@@ -976,7 +979,7 @@ const SharedTable = forwardRef(
         </AnimatePresence>
 
         {/* Empty state */}
-        {data.length === 0 && !isFetchingNextPage && (
+        {data.length === 0 && !isFetchingNextPage && !isDebouncingSearch && (
           <div className="text-center py-8">
             <span className="material-icons text-gray-400 text-5xl">{config.emptyIcon}</span>
             <p className="text-gray-500 mt-2 text-base">{config.emptyText}</p>

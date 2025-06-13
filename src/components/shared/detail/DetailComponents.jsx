@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { id as indonesianLocale } from "date-fns/locale"
 import { LineChart, Line, YAxis, ResponsiveContainer, ReferenceLine } from "recharts"
 import { useState } from "react"
+import TopRightControl from "../layout/TopRightControl"
 
 // Helper functions
 const formatDate = (dateString) => {
@@ -108,16 +109,7 @@ export const SuccessModal = ({ isOpen, message, onClose }) => {
 // Language Switcher Component
 export const LanguageSwitcher = () => {
   return (
-    <div className="flex items-center justify-end pr-6 pt-6 pb-4">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[#488BBE] text-sm font-medium">ID / EN</span>
-        </div>
-        <div className="flex items-center">
-          <span className="material-icons text-[#8b8b8b] text-xl">notifications</span>
-        </div>
-      </div>
-    </div>
+<TopRightControl isAbsolute />
   )
 }
 
