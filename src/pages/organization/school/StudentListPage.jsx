@@ -1,21 +1,20 @@
-
-// src/pages/organization/school/StudentListPage.jsx - Simple wrapper
-import React from "react";
-import SharedListPage from "@/components/shared/list/ListPage";
-import { useStudentData, useClassrooms } from "../../../hooks/useStudentData";
-import { useStudentFilters } from "../../../hooks/useStudentFilter";
-import StudentFilters from "../../../components/organization/school/list/StudentFilter";
+// src/pages/organization/school/StudentListPage.jsx - Clean implementation
+import React from "react"
+import { useOutletContext } from "react-router-dom"
+import SharedListPage from "@/components/shared/list/SharedListPage"
+import StudentFilters from "@/components/organization/school/list/StudentFilter"
 
 const StudentListPage = () => {
+  const context = useOutletContext() || {}
+  const { sidebarExpanded = false } = context
+
   return (
     <SharedListPage
       type="student"
-      useDataHook={useStudentData}
-      useFiltersHook={useStudentFilters}
-      useOptionsHook={useClassrooms}
       FiltersComponent={StudentFilters}
+      sidebarExpanded={sidebarExpanded}
     />
-  );
-};
+  )
+}
 
-export default StudentListPage;
+export default StudentListPage

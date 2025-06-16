@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/CustomBranchingDropdown.jsx - Fixed z-index and styling
+// src/components/shared/dashboard/CustomBranchingDropdown.jsx - Fixed smart positioning and interactions
 
 import { useState, useRef, useEffect } from "react"
 
@@ -13,7 +13,9 @@ const CustomBranchingDropdown = ({
   const [isOpen, setIsOpen] = useState(false)
   const [showGrades, setShowGrades] = useState(false)
   const [hoveredClassroomIndex, setHoveredClassroomIndex] = useState(-1)
+  const [dropdownPosition, setDropdownPosition] = useState({ alignRight: false, showAbove: false })
   const dropdownRef = useRef(null)
+  const triggerRef = useRef(null)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -27,6 +29,32 @@ const CustomBranchingDropdown = ({
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // Smart positioning calculation
+  const calculateDropdownPosition = () => {
+    if (!triggerRef.current) return
+
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    
+    // Dropdown dimensions
+    const classroomWidth = 80
+    const gradeWidth = 96
+    const totalWidth = classroomWidth + gradeWidth
+    const dropdownHeight = classrooms.length * 40
+    
+    // Check horizontal space
+    const spaceRight = viewportWidth - triggerRect.right
+    const spaceLeft = triggerRect.left
+    const alignRight = spaceRight < totalWidth && spaceLeft > totalWidth
+    
+    // Check vertical space
+    const spaceBelow = viewportHeight - triggerRect.bottom
+    const showAbove = spaceBelow < dropdownHeight && triggerRect.top > dropdownHeight
+    
+    setDropdownPosition({ alignRight, showAbove })
+  }
 
   const handleClassroomClick = (classroom) => {
     if (classroom !== selectedClassroom) {
@@ -59,6 +87,9 @@ const CustomBranchingDropdown = ({
   }
 
   const handleToggle = () => {
+    if (!isOpen) {
+      calculateDropdownPosition()
+    }
     setIsOpen(!isOpen)
     setShowGrades(false)
     setHoveredClassroomIndex(-1)
@@ -70,10 +101,59 @@ const CustomBranchingDropdown = ({
     return `${hoveredClassroomIndex * 40}px` // Each classroom item is 40px high
   }
 
+  // Get dropdown container positioning
+  const getDropdownContainerStyle = () => {
+    const baseStyle = {
+      zIndex: 999999,
+      position: 'absolute',
+    }
+
+    if (dropdownPosition.alignRight) {
+      baseStyle.right = 0
+      baseStyle.left = 'auto'
+    } else {
+      baseStyle.left = 0
+      baseStyle.right = 'auto'
+    }
+
+    if (dropdownPosition.showAbove) {
+      baseStyle.bottom = '100%'
+      baseStyle.top = 'auto'
+      baseStyle.marginBottom = '4px'
+    } else {
+      baseStyle.top = '100%'
+      baseStyle.bottom = 'auto'
+      baseStyle.marginTop = '4px'
+    }
+
+    return baseStyle
+  }
+
+  // Get grade dropdown positioning
+  const getGradeDropdownStyle = () => {
+    const baseStyle = {
+      position: 'absolute',
+      top: getGradeDropdownTop(),
+      filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.05)) drop-shadow(0px 11px 11px rgba(0, 0, 0, 0.04)) drop-shadow(0px 25px 15px rgba(0, 0, 0, 0.03)) drop-shadow(0px 44px 17px rgba(0, 0, 0, 0.01))",
+      zIndex: 999999
+    }
+
+    if (dropdownPosition.alignRight) {
+      baseStyle.right = "80px" // Width of classroom dropdown
+      baseStyle.left = "auto"
+    } else {
+      baseStyle.left = "80px" // Width of classroom dropdown
+      baseStyle.right = "auto"
+    }
+
+    return baseStyle
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Main Trigger */}
       <div
+        ref={triggerRef}
         onClick={handleToggle}
         className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
       >
@@ -85,22 +165,31 @@ const CustomBranchingDropdown = ({
         <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
       </div>
 
-      {/* Dropdown Container with HIGHEST z-index and portal-like behavior */}
+      {/* Dropdown Container with SMART positioning */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 flex z-[999999]" style={{ zIndex: 999999 }}>
+        <div 
+          className="flex"
+          style={getDropdownContainerStyle()}
+        >
           {/* Classroom Dropdown */}
           <div
-            className="w-20 bg-white border border-gray-200 rounded-l-md shadow-lg"
+            className={`w-20 bg-white border border-gray-200 shadow-lg ${
+              dropdownPosition.alignRight ? 'rounded-r-md' : 'rounded-l-md'
+            }`}
             style={{
-              filter:
-                "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.05)) drop-shadow(0px 11px 11px rgba(0, 0, 0, 0.04)) drop-shadow(0px 25px 15px rgba(0, 0, 0, 0.03)) drop-shadow(0px 44px 17px rgba(0, 0, 0, 0.01))",
-              zIndex: 999999
+              filter: "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.05)) drop-shadow(0px 11px 11px rgba(0, 0, 0, 0.04)) drop-shadow(0px 25px 15px rgba(0, 0, 0, 0.03)) drop-shadow(0px 44px 17px rgba(0, 0, 0, 0.01))",
+              zIndex: 999999,
+              order: dropdownPosition.alignRight ? 1 : 0
             }}
           >
             {classrooms.map((classroom, index) => (
               <div
                 key={classroom}
-                className={`w-full text-center px-3 py-2 text-sm first:rounded-tl-md last:rounded-bl-md transition-colors cursor-pointer h-10 flex items-center justify-center ${
+                className={`w-full text-center px-3 py-2 text-sm transition-colors cursor-pointer h-10 flex items-center justify-center ${
+                  index === 0 ? (dropdownPosition.alignRight ? 'rounded-tr-md' : 'rounded-tl-md') : ''
+                } ${
+                  index === classrooms.length - 1 ? (dropdownPosition.alignRight ? 'rounded-br-md' : 'rounded-bl-md') : ''
+                } ${
                   selectedClassroom === classroom 
                     ? "bg-[#3399E9] text-white font-semibold" 
                     : "text-gray-700 hover:bg-gray-50"
@@ -113,23 +202,23 @@ const CustomBranchingDropdown = ({
             ))}
           </div>
 
-          {/* Grade Dropdown - PROPER positioning aligned with hovered classroom */}
+          {/* Grade Dropdown - SMART positioning */}
           {showGrades && grades.length > 0 && hoveredClassroomIndex !== -1 && (
             <div
-              className="w-24 bg-white border-l-0 border border-gray-200 rounded-r-md shadow-lg max-h-48 overflow-y-auto absolute"
-              style={{
-                left: "80px", // Width of classroom dropdown
-                top: getGradeDropdownTop(),
-                filter:
-                  "drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.05)) drop-shadow(0px 11px 11px rgba(0, 0, 0, 0.04)) drop-shadow(0px 25px 15px rgba(0, 0, 0, 0.03)) drop-shadow(0px 44px 17px rgba(0, 0, 0, 0.01))",
-                zIndex: 999999
-              }}
+              className={`w-24 bg-white border-l-0 border border-gray-200 shadow-lg max-h-48 overflow-y-auto ${
+                dropdownPosition.alignRight ? 'rounded-l-md' : 'rounded-r-md'
+              }`}
+              style={getGradeDropdownStyle()}
             >
-              {grades.map((grade) => (
+              {grades.map((grade, gradeIndex) => (
                 <button
                   key={grade}
                   type="button"
-                  className={`w-full text-center px-2 py-2 text-sm first:rounded-tr-md last:rounded-br-md transition-colors h-10 flex items-center justify-center ${
+                  className={`w-full text-center px-2 py-2 text-sm transition-colors h-10 flex items-center justify-center ${
+                    gradeIndex === 0 ? (dropdownPosition.alignRight ? 'rounded-tl-md' : 'rounded-tr-md') : ''
+                  } ${
+                    gradeIndex === grades.length - 1 ? (dropdownPosition.alignRight ? 'rounded-bl-md' : 'rounded-br-md') : ''
+                  } ${
                     selectedGrade === grade 
                       ? "bg-[#3399E9] text-white font-semibold" 
                       : "text-gray-700 hover:bg-gray-50"

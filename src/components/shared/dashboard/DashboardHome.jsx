@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardHome.jsx - Added matching background container with fixed sidebar responsiveness
+// src/components/shared/dashboard/DashboardHome.jsx
 
 import { useCallback, useState, useEffect } from "react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
@@ -16,10 +16,8 @@ const DashboardHome = ({
   config = {},
   user = {},
   dateDisplay = "",
-  currentSemester = "first-half",
   onCardClick = () => {},
   onReportClick = () => {},
-  refetchDashboard = () => {},
   sidebarExpanded = false,
 }) => {
   const [currentHalf, setCurrentHalf] = useState("firstHalf")
@@ -42,9 +40,6 @@ const DashboardHome = ({
   }, [options, type, barChartClassroom, barChartGrade])
   
   const { user: authUser } = useAuth?.() || { user: {} }
-  const classroomOptions = options?.classrooms || []
-  const gradeOptions = options?.grades || []
-  const departmentOptions = options?.departments || []
 
   const { data: yearlyStatsData } = useYearlyStats(type, {
     year: "2025",
@@ -53,48 +48,27 @@ const DashboardHome = ({
       : { department: barChartClassroom }),
   })
 
-  const handleBarChartClassroomChange = useCallback(
-    (classroom) => {
-      if (classroom === barChartClassroom) return
-      setBarChartClassroom(classroom)
-    },
-    [barChartClassroom],
-  )
+  const handleBarChartClassroomChange = useCallback((classroom) => {
+    if (classroom !== barChartClassroom) setBarChartClassroom(classroom)
+  }, [barChartClassroom])
 
-  const handleBarChartGradeChange = useCallback(
-    (grade) => {
-      if (grade === barChartGrade) return
-      setBarChartGrade(grade)
-    },
-    [barChartGrade],
-  )
+  const handleBarChartGradeChange = useCallback((grade) => {
+    if (grade !== barChartGrade) setBarChartGrade(grade)
+  }, [barChartGrade])
 
-  const handleBarChartDepartmentChange = useCallback(
-    (department) => {
-      if (department === barChartClassroom) return
-      setBarChartClassroom(department)
-    },
-    [barChartClassroom],
-  )
+  const handleBarChartDepartmentChange = useCallback((department) => {
+    if (department !== barChartClassroom) setBarChartClassroom(department)
+  }, [barChartClassroom])
 
   const getSemesterData = useCallback(() => {
     const yearlyData = yearlyStatsData?.data || []
-    
-    const allMonths =
-      currentHalf === "firstHalf"
-        ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-        : ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const allMonths = currentHalf === "firstHalf"
+      ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+      : ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     return allMonths.map((month) => {
       const existingData = yearlyData.find((item) => item.month === month)
-      return (
-        existingData || {
-          month,
-          atRisk: 0,
-          monitored: 0,
-          stable: 0,
-        }
-      )
+      return existingData || { month, atRisk: 0, monitored: 0, stable: 0 }
     })
   }, [yearlyStatsData, currentHalf])
 
@@ -132,22 +106,16 @@ const DashboardHome = ({
     return false
   }, [yearlyStatsData, currentHalf])
 
-  const canNavigatePrev = useCallback(() => {
-    return currentHalf === "secondHalf"
-  }, [currentHalf])
+  const canNavigatePrev = useCallback(() => currentHalf === "secondHalf", [currentHalf])
 
   const handleNext = () => {
-    if (canNavigateNext()) {
-      if (currentHalf === "firstHalf") {
-        setCurrentHalf("secondHalf")
-      }
+    if (canNavigateNext() && currentHalf === "firstHalf") {
+      setCurrentHalf("secondHalf")
     }
   }
 
   const handlePrev = () => {
-    if (canNavigatePrev()) {
-      setCurrentHalf("firstHalf")
-    }
+    if (canNavigatePrev()) setCurrentHalf("firstHalf")
   }
 
   const CustomTooltip = useCallback(({ active, payload }) => {
@@ -170,14 +138,7 @@ const DashboardHome = ({
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
 
     return (
-      <text
-        x={x}
-        y={y}
-        fill="white"
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={12}
-      >
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12}>
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     )
@@ -185,32 +146,17 @@ const DashboardHome = ({
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-      {/* Header */}
-      {/* <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
-          </div>
-          <div className="flex items-center">
-            <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
-          </div>
-        </div>
-      </div> */}
-
       <TopRightControl isAbsolute />
 
-      {/* Title - Ensure user fullName is displayed */}
       <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 pt-[72px]">
-      <div className="w-full lg:w-auto">
+        <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>
         </div>
       </div>
 
-      {/* Main content with background container matching tablist */}
       <div className="mt-4 sm:mt-6">
-        {/* Metrics Cards with normal padding */}
         <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
             <MetricCard
@@ -255,24 +201,23 @@ const DashboardHome = ({
           </div>
         </div>
 
-        {/* Dashboard Content with matching background container width - fixed positioning */}
         <div 
-          className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5 overflow-hidden"
+          className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5"
           style={{
             width: '100%',
-            maxWidth: `calc(100% - 40px)`, // 20px kiri-kanan
+            maxWidth: `calc(100% - 40px)`,
             marginLeft: '20px',
             marginRight: '20px',
+            position: 'relative',
+            zIndex: 1,
           }}          
         >
-          {/* Mental Health Status Section */}
           <h2 className="text-lg leading-4 text-primary mb-4">
             Status <span className="font-bold">Kesehatan Mental </span>
             <span className="font-bold text-primary">{config.entityName}</span>
           </h2>
 
           <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
-            {/* Overall Chart */}
             <div className="w-full lg:w-2/5">
               <div className="flex flex-col h-full px-3 sm:px-4 py-4 sm:py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-5 justify-between w-full mb-4">
@@ -280,7 +225,7 @@ const DashboardHome = ({
                   <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" key={`overall-pie-${sidebarExpanded ? 'expanded' : 'collapsed'}`}>
                     <PieChart>
                       <Pie
                         data={getOverallPieData()}
@@ -292,6 +237,7 @@ const DashboardHome = ({
                         innerRadius="50%"
                         fill="#8884d8"
                         dataKey="value"
+                        isAnimationActive={false}
                       >
                         {getOverallPieData().map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -318,10 +264,15 @@ const DashboardHome = ({
               </div>
             </div>
 
-            {/* Filtered Chart */}
             <div className="w-full lg:w-3/5">
-              <div className="h-full px-3 sm:px-4 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col overflow-hidden">
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between w-full text-sm leading-6 text-zinc-500 mb-4">
+              <div 
+                className="h-full px-3 sm:px-4 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col"
+                style={{ position: 'relative', zIndex: 2 }}
+              >
+                <div 
+                  className="flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between w-full text-sm leading-6 text-zinc-500 mb-4"
+                  style={{ position: 'relative', zIndex: 10 }}
+                >
                   <p className="text-xs sm:text-sm">
                     Status Kesehatan Mental{" "}
                     <span className="font-extrabold">
@@ -329,26 +280,29 @@ const DashboardHome = ({
                       {type === "student" && barChartGrade ? ` ${barChartGrade}` : ""}
                     </span>
                   </p>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0" style={{ position: 'relative', zIndex: 1000 }}>
                     {type === "student" ? (
-                      <div className="relative" style={{ zIndex: 999999 }}>
+                      <div className="relative">
                         <CustomBranchingDropdown
                           selectedClassroom={barChartClassroom}
                           selectedGrade={barChartGrade}
                           onClassroomSelect={handleBarChartClassroomChange}
                           onGradeSelect={handleBarChartGradeChange}
-                          classrooms={classroomOptions}
-                          grades={gradeOptions}
+                          classrooms={options?.classrooms || []}
+                          grades={options?.grades || []}
                         />
                       </div>
                     ) : (
-                      <Menu as="div" className="relative" style={{ zIndex: 999999 }}>
-                        <Menu.Button className="flex gap-px items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-2 py-1 hover:bg-gray-50 transition-colors bg-white">
-                          <p className="self-stretch my-auto text-gray-700">{barChartClassroom || config.filterLabel}</p>
+                      <Menu as="div" className="relative">
+                        <Menu.Button className="flex gap-1 items-center self-start whitespace-nowrap text-sm text-gray-700 hover:text-gray-900 transition-colors cursor-pointer">
+                          <span className="self-stretch my-auto">{barChartClassroom || config.filterLabel}</span>
                           <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
                         </Menu.Button>
-                        <Menu.Items className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 999999 }}>
-                          {departmentOptions.map((department) => (
+                        <Menu.Items 
+                          className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                          style={{ zIndex: 9999 }}
+                        >
+                          {(options?.departments || []).map((department) => (
                             <Menu.Item key={department}>
                               {({ active }) => (
                                 <div
@@ -371,6 +325,11 @@ const DashboardHome = ({
                     )}
                   </div>
                 </div>
+                
+                <div className="text-center mb-3">
+                  <h3 className="text-sm font-semibold text-gray-600">2025</h3>
+                </div>
+                
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -430,10 +389,8 @@ const DashboardHome = ({
             </div>
           </div>
 
-          {/* Status Sections */}
           <div className="mt-4 w-full">
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
-              {/* Screening Status */}
               <div className="w-full lg:w-6/12">
                 <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
                   <div className="px-4 py-4">
@@ -443,7 +400,7 @@ const DashboardHome = ({
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" key={`screening-pie-${sidebarExpanded ? 'expanded' : 'collapsed'}`}>
                         <PieChart>
                           <Pie
                             data={getScreeningData()}
@@ -455,6 +412,7 @@ const DashboardHome = ({
                             innerRadius="50%"
                             fill="#8884d8"
                             dataKey="value"
+                            isAnimationActive={false}
                           >
                             {getScreeningData().map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -479,7 +437,6 @@ const DashboardHome = ({
                 </div>
               </div>
 
-              {/* Counseling Status */}
               <div className="w-full lg:w-6/12">
                 <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
                   <div className="px-4 py-4">
@@ -489,7 +446,7 @@ const DashboardHome = ({
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" key={`counseling-pie-${sidebarExpanded}`}>
                         <PieChart>
                           <Pie
                             data={getCounselingData()}
@@ -501,6 +458,8 @@ const DashboardHome = ({
                             innerRadius="50%"
                             fill="#8884d8"
                             dataKey="value"
+                            animationBegin={0}
+                            animationDuration={300}
                           >
                             {getCounselingData().map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />

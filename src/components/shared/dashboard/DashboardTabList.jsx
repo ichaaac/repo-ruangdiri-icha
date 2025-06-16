@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardTabList.jsx - Fixed background container and removed unused functions
+// src/components/shared/dashboard/DashboardTabList.jsx
 
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
@@ -13,7 +13,6 @@ const DashboardTabList = ({
   config = {},
   metrics = {},
   user = {},
-  onClose = () => {},
   onCardClick = () => {},
   onReturnHome = () => {},
   sidebarExpanded = false,
@@ -60,42 +59,30 @@ const DashboardTabList = ({
   })
 
   const allMetrics = getAllMetrics()
-
-  // Calculate dynamic padding for metric cards
-  const getContainerPadding = () => {
-    if (sidebarExpanded) {
-      return "px-4 sm:px-6 lg:px-8 xl:pl-20 xl:pr-20" // 20px on both sides when expanded
-    } else {
-      return "px-4 sm:px-6 lg:px-8 xl:pl-20 xl:pr-20" // Same padding for collapsed
-    }
-  }
+  const containerPadding = sidebarExpanded 
+    ? "px-4 sm:px-6 lg:px-8 xl:pl-20 xl:pr-20"
+    : "px-4 sm:px-6 lg:px-8 xl:pl-20 xl:pr-20"
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden relative">
-      {/* Header */}
       <TopRightControl isAbsolute />
 
-
-      {/* Title - Ensure user fullName is displayed */}
       <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 pt-[72px]">
-      <div className="w-full lg:w-auto">
+        <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>
         </div>
       </div>
 
-      {/* Main content - Full width approach */}
       <div className="mt-4 sm:mt-6 relative">
-        {/* All Metrics Cards Row - Keep normal padding */}
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6 ${getContainerPadding()}`}>
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6 ${containerPadding}`}>
           {allMetrics.map((metric) => {
             const isActive = metric.cardId === activeCard
             const isDisabled = metric.count === 0
             
             return (
               <div key={metric.cardId} className={isActive ? "relative" : ""}>
-                {/* Active card background container - connected to table */}
                 {isActive && (
                   <div className="absolute inset-0 bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl -m-2 p-2"></div>
                 )}
@@ -121,7 +108,6 @@ const DashboardTabList = ({
           })}
         </div>
 
-        {/* Background container with connected design - fixed positioning */}
         <div 
           className="bg-[#D7EDFF] min-h-[549px] rounded-tl-xl rounded-tr-xl overflow-hidden -mt-4 pt-6"
           style={{
@@ -129,8 +115,8 @@ const DashboardTabList = ({
             maxWidth: `calc(100% - 40px)`,
             marginLeft: '20px',
             marginRight: '20px',
-            borderTopLeftRadius: '0px', // Remove top radius to connect with active card
-            borderTopRightRadius: '0px', // Remove top radius to connect with active card  
+            borderTopLeftRadius: '0px',
+            borderTopRightRadius: '0px',
             borderBottomLeftRadius: '12px',
             borderBottomRightRadius: '12px'
           }}
@@ -144,12 +130,11 @@ const DashboardTabList = ({
               hasNextPage={tabData?.hasNextPage}
               fetchNextPage={tabData?.fetchNextPage}
               isFetchingNextPage={tabData?.isFetchingNextPage}
-              config={config} // Pass config for detail navigation
+              config={config}
             />
           </div>
         </div>
 
-        {/* Reduced spacer to minimize whitespace */}
         <div style={{ height: '60px' }}></div>
       </div>
     </div>

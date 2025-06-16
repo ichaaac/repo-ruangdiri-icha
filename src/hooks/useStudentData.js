@@ -1,10 +1,8 @@
-// src/hooks/useStudentData.js - Fixed to properly handle API response structure and refetch
+// src/hooks/useStudentData.js - Fixed API parameters and counseling filter
+
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
 
-/**
- * Hook for fetching user profile data
- */
 export const useUserProfile = () => {
   return useQuery({
     queryKey: ['userProfile'],
@@ -31,7 +29,7 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
   
     if (searchTerm) params.search = searchTerm;
     
-    // Filters - using EXACT API parameter names
+    // FIXED: Accurate filter parameters for API
     if (filters.classroom) params.classroom = filters.classroom;
     if (filters.grade) params.grade = filters.grade;
     if (filters.gender) {
@@ -39,13 +37,18 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
       else if (filters.gender === 'P') params.gender = 'female';
       else params.gender = filters.gender;
     }
-    if (filters.screeningStatus) params.screening = filters.screeningStatus;
-    if (filters.counselingStatus !== null) params.counselingStatus = filters.counselingStatus ? '1' : '0';
+    if (filters.screeningStatus) params.screeningStatus = filters.screeningStatus;
+    
+    // FIXED: Counseling status - accurate mapping
+    if (filters.counselingStatus !== null) {
+      // filters.counselingStatus: true = sudah konseling, false = belum konseling
+      // API expects: "1" = sudah konseling, "0" = belum konseling
+      params.counselingStatus = filters.counselingStatus ? '1' : '0';
+    }
     
     return params;
   };
 
-  // Helper function to sort data on frontend
   const sortData = (data, config) => {
     if (!config.key || !config.direction) return data;
     
@@ -53,33 +56,26 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
       let aValue = a[config.key];
       let bValue = b[config.key];
       
-      // Handle null/undefined values
       if (aValue === null || aValue === undefined) aValue = '';
       if (bValue === null || bValue === undefined) bValue = '';
       
-      // Convert to string for name comparison with natural sort
       if (config.key === 'fullName') {
         aValue = String(aValue).toLowerCase();
         bValue = String(bValue).toLowerCase();
-        
-        // Natural sort for alphanumeric strings
         return aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
       }
       
-      // Numeric comparison for IQ score
       if (config.key === 'iqScore') {
         aValue = Number(aValue) || 0;
         bValue = Number(bValue) || 0;
         return aValue - bValue;
       }
       
-      // Default string comparison
       if (aValue < bValue) return -1;
       if (aValue > bValue) return 1;
       return 0;
     });
     
-    // Reverse for descending
     if (config.direction === 'descending') {
       sorted.reverse();
     }
@@ -96,17 +92,15 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
           page: pageParam 
         };
         
-        // Use the organization endpoint for student lists
         const response = await api.organization.school.getStudents(params);
         
-        // The API response structure has metadata in a specific format
         return { 
           data: response.data?.students || [], 
           metadata: response.metadata || {
             totalData: 0,
             totalPage: 1,
             page: pageParam,
-            limit: 30, // Match the increased limit
+            limit: 30,
             hasNextPage: false,
             byGender: { male: 0, female: 0 }
           },
@@ -118,17 +112,15 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
       }
     },
     getNextPageParam: (lastPage) => {
-      // Check if there are more pages based on metadata
       if (lastPage.metadata && lastPage.metadata.hasNextPage) {
         return lastPage.metadata.page + 1;
       }
       return undefined;
     },
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 60 * 2,
   });
 
-  // Update student mutation
   const updateStudentMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       return api.organization.school.updateStudent(id, data);
@@ -141,14 +133,9 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
     }
   });
   
-  // Flatten all pages into single array and sort on frontend
   const allStudents = infiniteQuery.data?.pages.flatMap(page => page.data) || [];
   const sortedStudents = sortData(allStudents, sortConfig);
-  
-  // Get metadata from the first page (should be the same for all pages)
   const metadata = infiniteQuery.data?.pages[0]?.metadata;
-
-  // Get gender counts from metadata if available
   const genderCounts = metadata?.byGender || { male: 0, female: 0 };
 
   return {
@@ -166,9 +153,6 @@ export const useStudentData = (searchTerm, sortConfig, filters) => {
   };
 };
 
-/**
- * Hook to fetch classrooms data from API
- */
 export const useClassrooms = () => {
   return useQuery({
     queryKey: ['classrooms'],
@@ -176,16 +160,13 @@ export const useClassrooms = () => {
       try {
         const response = await api.students.getAcademicInfo();
         
-        // Parse the classroom data exactly as returned from API
         const classrooms = response?.data?.classrooms || [];
         const gradesResult = response?.data?.grades || [];
         
-        // Extract class numbers from classroom strings
         const classNumbers = new Set();
         classrooms.forEach(classroom => {
           const parts = classroom.split('-');
           if (parts.length > 1) {
-            // Get everything after the first dash
             const classNumber = parts.slice(1).join('-');
             if (classNumber) {
               classNumbers.add(classNumber);
@@ -206,3 +187,171 @@ export const useClassrooms = () => {
     retry: 2
   });
 };
+
+// src/hooks/useEmployeeData.js - Fixed counseling filter parameters
+
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
+import { apiClient } from "../lib/api"
+import { useMemo } from "react"
+import { useAuth } from "./useAuth"
+
+export const useEmployeeData = (searchTerm, sortConfig, filters) => {
+  const queryClient = useQueryClient()
+
+  const buildFilterParams = () => {
+    const params = { page: 1, limit: 10 }
+
+    // Only send filters, not search (we'll filter search client-side)
+    if (filters.department) params.department = filters.department
+    if (filters.position) params.position = filters.position
+    if (filters.gender) params.gender = filters.gender === "L" ? "male" : "female"
+    if (filters.screeningStatus) params.screeningStatus = filters.screeningStatus
+    
+    // FIXED: Counseling status parameter - accurate mapping
+    if (filters.counselingStatus !== null) {
+      // filters.counselingStatus: true = sudah konseling, false = belum konseling
+      // API expects: "1" = sudah konseling, "0" = belum konseling
+      params.counselingStatus = filters.counselingStatus ? "1" : "0"
+    }
+
+    return params
+  }
+
+  const sortData = (data, config) => {
+    if (!config.key || !config.direction) return data
+
+    const sorted = [...data].sort((a, b) => {
+      let aValue = a[config.key]
+      let bValue = b[config.key]
+
+      if (aValue === null || aValue === undefined) aValue = ""
+      if (bValue === null || bValue === undefined) bValue = ""
+
+      if (config.key === "fullName") {
+        aValue = String(aValue).toLowerCase()
+        bValue = String(bValue).toLowerCase()
+        return aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: "base" })
+      }
+
+      if (config.key === "age" || config.key === "yearsOfService") {
+        aValue = Number(aValue) || 0
+        bValue = Number(bValue) || 0
+        return aValue - bValue
+      }
+
+      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+    })
+
+    return config.direction === "descending" ? sorted.reverse() : sorted
+  }
+
+  const infiniteQuery = useInfiniteQuery({
+    queryKey: ["infiniteEmployees", filters],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params = { ...buildFilterParams(), page: pageParam }
+
+      try {
+        const response = await apiClient.get("/organizations/employees", { params })
+        const data = response.data?.data?.employees || []
+        const metadata = response.data?.metadata || {
+          totalPage: 1,
+          totalData: 0,
+          page: pageParam,
+          limit: 10,
+          hasNextPage: false,
+          byGender: { male: 0, female: 0 },
+        }
+
+        return { data, metadata, pageParam }
+      } catch (error) {
+        console.error("Error fetching employees:", error)
+        throw error
+      }
+    },
+    getNextPageParam: (lastPage) => {
+      const { page, totalPage } = lastPage.metadata
+      return page < totalPage ? page + 1 : undefined
+    },
+    refetchOnWindowFocus: false,
+  })
+
+  const updateEmployeeMutation = useMutation({
+    mutationFn: async ({ id, data }) => apiClient.patch(`/organizations/employees/${id}`, data),
+    onSuccess: () => queryClient.invalidateQueries(["infiniteEmployees"]),
+  })
+
+  const processedData = useMemo(() => {
+    const allEmployees = infiniteQuery.data?.pages.flatMap((page) => page.data) || []
+
+    // Client-side search filtering
+    let filteredEmployees = allEmployees
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
+      filteredEmployees = allEmployees.filter((employee) => {
+        const fullName = employee.fullName?.toLowerCase() || ""
+        const employeeId = employee.employeeId?.toLowerCase() || ""
+        return fullName.includes(searchLower) || employeeId.includes(searchLower)
+      })
+    }
+
+    // Apply sorting
+    const sortedEmployees = sortData(filteredEmployees, sortConfig)
+
+    return sortedEmployees
+  }, [infiniteQuery.data, searchTerm, sortConfig])
+
+  const metadata = infiniteQuery.data?.pages[0]?.metadata
+
+  return {
+    employees: processedData,
+    totalData: metadata?.totalData || 0,
+    genderCounts: metadata?.byGender || { male: 0, female: 0 },
+    isLoading: infiniteQuery.isLoading,
+    isFetchingNextPage: infiniteQuery.isFetchingNextPage,
+    hasNextPage: infiniteQuery.hasNextPage,
+    fetchNextPage: infiniteQuery.fetchNextPage,
+    isError: infiniteQuery.isError,
+    error: infiniteQuery.error,
+    refetch: infiniteQuery.refetch,
+    updateEmployee: updateEmployeeMutation,
+  }
+}
+
+export const useDepartments = (options = {}) => {
+  const { user } = useAuth() || { user: {} }
+  const userRole = user?.role || ""
+
+  const enabled = options.enabled !== undefined ? options.enabled : userRole === "company"
+
+  return useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      try {
+        const response = await apiClient.get("/employees/roles")
+        const data = response?.data?.data
+
+        if (data?.departments && data?.positions) {
+          return {
+            departments: data.departments || [],
+            positions: data.positions || [],
+          }
+        }
+
+        console.error("Unexpected data format from /employees/roles")
+        return {
+          departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
+          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"],
+        }
+      } catch (error) {
+        console.error("Error fetching departments:", error)
+        return {
+          departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
+          positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"],
+        }
+      }
+    },
+    enabled: enabled,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  })
+}
