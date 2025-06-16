@@ -1,4 +1,4 @@
-// src/components/list/utils/listHelpers.js
+// src/components/shared/list/utils/listHelpers.js
 import React from 'react'
 
 /**

@@ -9,9 +9,8 @@ import {
   truncateText,
   highlightSearchTerm,
   getScreeningStatusInfo,
-  getCounselingStatusInfo,
   calculateTableWidth
-} from "@/components/list/utils"
+} from "@/components/shared/list/utils"
 
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
   const currentOption = options.find((opt) => (opt.value !== undefined ? opt.value : opt) === value)

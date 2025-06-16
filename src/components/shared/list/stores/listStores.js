@@ -1,4 +1,4 @@
-// src/components/list/stores/listStore.js
+// src/components/shared/list/stores/listStore.js
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 
