@@ -1,15 +1,6 @@
 // src/components/shared/ConfirmationModal.jsx
 import React from "react"
-import { motion } from "framer-motion"
 
-/**
- * Reusable Confirmation Modal Component
- * @param {Object} props
- * @param {Function} props.onCancel - Callback when cancel is clicked
- * @param {Function} props.onConfirm - Callback when confirm is clicked
- * @param {string}   props.title - Optional custom title
- * @param {string}   props.message - Optional custom message
- */
 const ConfirmationModal = ({
   onCancel,
   onConfirm,
@@ -22,7 +13,7 @@ const ConfirmationModal = ({
       <div className="fixed inset-0 z-[9998] bg-black bg-opacity-30" style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0 }}></div>
 
       {/* CONTENT yang di‐animate masuk/keluar */}
-      <motion.div
+      <div
         key="confirmation-content"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -55,7 +46,7 @@ const ConfirmationModal = ({
             </button>
           </div>
         </div>
-      </motion.div>
+      </div>
   </>
   )
 }

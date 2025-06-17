@@ -40,6 +40,7 @@ const createProfileSchema = (organizationType) => {
  * @param {string} props.organizationLabel - "Sekolah" or "Perusahaan"
  * @param {string} props.organizationNameLabel - "Nama Sekolah" or "Nama Perusahaan"
  * @param {string} props.addressLabel - "Alamat" or "Alamat Perusahaan"
+ * @param {Object} props.tempFormData - Data form yang tersimpan sementara
  */
 const ProfileEditModal = ({ 
   onClose, 
@@ -47,14 +48,22 @@ const ProfileEditModal = ({
   organizationType = "school",
   organizationLabel = "Sekolah",
   organizationNameLabel = "Nama Sekolah",
-  addressLabel = "Alamat"
+  addressLabel = "Alamat",
+  tempFormData = null // Data form yang tersimpan sementara
 }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [phoneValidationError, setPhoneValidationError] = useState("");
   const queryClient = useQueryClient();
 
-  // Default values dari userData
-  const defaultValues = {
+  // Default values dari userData atau tempFormData (jika ada)
+  const defaultValues = tempFormData || {
+    fullName: userData?.fullName || "",
+    address: userData?.organization?.address || "",
+    phone: userData?.organization?.phone || "",
+  };
+
+  // Original values dari userData asli (untuk perbandingan hasChanges)
+  const originalValues = {
     fullName: userData?.fullName || "",
     address: userData?.organization?.address || "",
     phone: userData?.organization?.phone || "",
@@ -77,19 +86,25 @@ const ProfileEditModal = ({
   const watchedFields = watch();
   const addressLength = watchedFields.address?.length || 0;
 
-  // Cek apakah ada perubahan dari nilai awal
+  // Cek apakah ada perubahan dari nilai ASLI userData
   const hasChanges = 
-    watchedFields.fullName !== defaultValues.fullName ||
-    watchedFields.address !== defaultValues.address ||
-    watchedFields.phone !== defaultValues.phone;
+    watchedFields.fullName !== originalValues.fullName ||
+    watchedFields.address !== originalValues.address ||
+    watchedFields.phone !== originalValues.phone;
 
   useEffect(() => {
-    if (userData) {
+    // Jika ada tempFormData, gunakan itu (prioritas tinggi)
+    if (tempFormData) {
+      setValue("fullName", tempFormData.fullName || "");
+      setValue("address", tempFormData.address || "");
+      setValue("phone", tempFormData.phone || "");
+    } else if (userData) {
+      // Fallback ke userData
       setValue("fullName", userData.fullName || "");
       setValue("address", userData.organization?.address || "");
       setValue("phone", userData.organization?.phone || "");
     }
-  }, [userData, setValue]);
+  }, [userData, setValue, tempFormData]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
@@ -130,7 +145,17 @@ const ProfileEditModal = ({
   };
 
   const handleCloseClick = () => {
-    hasChanges ? onClose(false, true) : onClose(false);
+    if (hasChanges) {
+      // Kirim current form data ke parent
+      const currentFormData = {
+        fullName: watchedFields.fullName,
+        address: watchedFields.address,
+        phone: watchedFields.phone,
+      };
+      onClose(false, true, currentFormData);
+    } else {
+      onClose(false);
+    }
   };
 
   const handlePhoneChange = (value, field) => {

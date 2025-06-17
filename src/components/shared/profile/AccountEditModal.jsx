@@ -126,8 +126,9 @@ const PasswordChecker = ({ password, onValidityChange }) => {
  * @param {Function} props.onClose - Callback when modal closes
  * @param {Object} props.userData - Current user data
  * @param {string} props.organizationType - "school" or "company" for title customization
+ * @param {Object} props.tempFormData - Data form yang tersimpan sementara
  */
-const AccountEditModal = ({ onClose, userData, organizationType = "school" }) => {
+const AccountEditModal = ({ onClose, userData, organizationType = "school", tempFormData = null }) => {
   const [errorMessage, setErrorMessage] = useState("");
   const [passwordRequirementsMet, setPasswordRequirementsMet] = useState(false);
 
@@ -139,7 +140,7 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
     formState: { errors, isSubmitting, isValid }
   } = useForm({
     resolver: zodResolver(passwordSchema),
-    defaultValues: {
+    defaultValues: tempFormData || {
       email: userData?.email || "",
       oldPassword: "",
       newPassword: "",
@@ -148,6 +149,14 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
     mode: "onChange",
     criteriaMode: "all",
   });
+
+  // Original values untuk perbandingan hasChanges
+  const originalValues = {
+    email: userData?.email || "",
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  };
   
 
   const watchedFields = watch();
@@ -155,20 +164,31 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
   const confirmPassword = watch("confirmPassword");
   const oldPassword = watch("oldPassword");
 
-  // Update email when userData changes
+  // Update email when userData changes, tapi jaga tempFormData
   useEffect(() => {
-    if (userData?.email) {
+    if (tempFormData) {
+      // Jika ada tempFormData, restore semua field
+      setValue("email", tempFormData.email || "");
+      setValue("oldPassword", tempFormData.oldPassword || "");
+      setValue("newPassword", tempFormData.newPassword || "");
+      setValue("confirmPassword", tempFormData.confirmPassword || "");
+    } else if (userData?.email) {
+      // Fallback ke userData email saja
       setValue("email", userData.email);
     }
-  }, [userData, setValue]);
+  }, [userData, setValue, tempFormData]);
 
   // Stabilized password validity change handler
   const handlePasswordValidityChange = useCallback((isValid) => {
     setPasswordRequirementsMet(isValid);
   }, []);
 
-  // Check if form is dirty
-  const isDirty = !!(oldPassword || newPassword || confirmPassword);
+  // Check if form is dirty - dibandingkan dengan originalValues
+  const isDirty = !!(
+    watchedFields.oldPassword !== originalValues.oldPassword || 
+    watchedFields.newPassword !== originalValues.newPassword || 
+    watchedFields.confirmPassword !== originalValues.confirmPassword
+  );
   
   const isFormValid = isValid && passwordRequirementsMet && newPassword !== oldPassword;
 
@@ -197,7 +217,14 @@ const AccountEditModal = ({ onClose, userData, organizationType = "school" }) =>
 
   const handleCloseClick = () => {
     if (isDirty) {
-      onClose(false, true);
+      // Kirim current form data ke parent
+      const currentFormData = {
+        email: watchedFields.email,
+        oldPassword: watchedFields.oldPassword,
+        newPassword: watchedFields.newPassword,
+        confirmPassword: watchedFields.confirmPassword,
+      };
+      onClose(false, true, currentFormData);
     } else {
       onClose(false);
     }

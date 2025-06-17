@@ -84,20 +84,36 @@ const ProfilePage = ({
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [modalMessage, setModalMessage] = useState("")
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+  
+  // State untuk menyimpan data form sementara
+  const [tempFormData, setTempFormData] = useState(null)
+  const [pendingModalType, setPendingModalType] = useState(null)
 
   const { user: userData, isLoading, error, refetchUser } = useAuth()
 
-  const handleModalClose = (success, needConfirmation = false) => {
+  const handleModalClose = (success, needConfirmation = false, formData = null) => {
     if (needConfirmation) {
-      setShowConfirmationModal(true)
+      // Simpan data form dan tipe modal yang sedang aktif
+      setTempFormData(formData)
+      setPendingModalType(activeModal)
+      
+      // Tutup modal edit dulu, baru tampilkan confirmation
+      setActiveModal(null)
+      
+      // Tunggu sebentar agar modal edit benar-benar tertutup, baru tampilkan confirmation
+      setTimeout(() => {
+        setShowConfirmationModal(true)
+      }, 100)
       return
     }
     
-    // Only clear the active modal if confirmation is not showing or explicitly confirmed
+    // Clear modal dan temp data
     setActiveModal(null)
+    setTempFormData(null)
+    setPendingModalType(null)
     
     if (success) {
-      if (activeModal === "organizationInfo") {
+      if (activeModal === "organizationInfo" || pendingModalType === "organizationInfo") {
         setModalMessage(`${organizationInfoTitle} Berhasil Diubah!`)
       } else {
         setModalMessage("Password Berhasil Diubah!")
@@ -109,6 +125,24 @@ const ProfilePage = ({
 
       refetchUser()
     }
+  }
+
+  const handleConfirmationCancel = () => {
+    // Tutup confirmation modal
+    setShowConfirmationModal(false)
+    
+    // Tunggu sebentar, lalu buka kembali modal edit dengan data yang tersimpan
+    setTimeout(() => {
+      setActiveModal(pendingModalType)
+    }, 100)
+  }
+
+  const handleConfirmationConfirm = () => {
+    // Tutup confirmation dan clear semua
+    setShowConfirmationModal(false)
+    setActiveModal(null)
+    setTempFormData(null)
+    setPendingModalType(null)
   }
 
   if (error) {
@@ -159,9 +193,6 @@ const ProfilePage = ({
     }}
   ></div>
 </div>
-
-
-  
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64 mt-32 sm:mt-44">
@@ -283,6 +314,7 @@ const ProfilePage = ({
                   organizationLabel={organizationLabel}
                   organizationNameLabel={organizationNameLabel}
                   addressLabel={addressLabel}
+                  tempFormData={tempFormData}
                 />
               </div>
             </div>
@@ -296,7 +328,8 @@ const ProfilePage = ({
                 <AccountEditModal 
                   onClose={handleModalClose} 
                   userData={userData} 
-                  organizationType={organizationType} 
+                  organizationType={organizationType}
+                  tempFormData={tempFormData}
                 />
               </div>
             </div>
@@ -307,15 +340,8 @@ const ProfilePage = ({
       {/* Separate Confirmation Modal */}
       {showConfirmationModal && (
         <ConfirmationModal
-          onCancel={() => {
-            // Just close the confirmation modal, keep the edit modal open
-            setShowConfirmationModal(false);
-          }}
-          onConfirm={() => {
-            // Close both modals
-            setShowConfirmationModal(false);
-            setActiveModal(null);
-          }}
+          onCancel={handleConfirmationCancel}
+          onConfirm={handleConfirmationConfirm}
         />
       )}
       
