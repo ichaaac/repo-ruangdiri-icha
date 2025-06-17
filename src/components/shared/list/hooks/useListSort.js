@@ -1,7 +1,7 @@
 
 // src/components/list/hooks/useListSort.js
 import { useCallback } from "react"
-import { useListStore } from "../stores/listStore"
+import { useListStore } from "../stores/listStores"
 import { getNextSortConfig, getSortIcon } from "../utils/sortUtils"
 
 /**

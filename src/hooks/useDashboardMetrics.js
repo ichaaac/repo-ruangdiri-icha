@@ -6,7 +6,93 @@ import { apiClient } from "../lib/api"
 import { getCurrentDateInfo } from "@/lib/date"
 
 /**
- * Hook for fetching dashboard metrics (monthly stats)
+ * Hook for fetching metric cards data using organizations/period endpoint
+ * This also provides the totalData for metric cards
+ */
+export const useMetricCardsData = (type = "student") => {
+  const currentDate = getCurrentDateInfo()
+  
+  // Fetch each metric separately to get totalData for cards
+  const atRiskQuery = useQuery({
+    queryKey: ["metricCards", type, "at_risk", currentDate.yearMonth],
+    queryFn: async () => {
+      if (type === "student") {
+        const res = await apiClient.get(`/organizations/students/period?page=1&limit=10&month=${currentDate.month}&year=${currentDate.year}&screeningStatus=at_risk`)
+        return res.data
+      } else {
+        const res = await apiClient.get(`/organizations/employees/period?page=1&limit=10&month=${currentDate.month}&year=${currentDate.year}&screeningStatus=at_risk`)
+        return res.data
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 1,
+    retry: false,
+  })
+
+  const notScreenedQuery = useQuery({
+    queryKey: ["metricCards", type, "not_screened", currentDate.yearMonth],
+    queryFn: async () => {
+      if (type === "student") {
+        const res = await apiClient.get(`/organizations/students/period?page=1&limit=10&month=${currentDate.month}&year=${currentDate.year}&screeningStatus=not_screened`)
+        return res.data
+      } else {
+        const res = await apiClient.get(`/organizations/employees/period?page=1&limit=10&month=${currentDate.month}&year=${currentDate.year}&screeningStatus=not_screened`)
+        return res.data
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 1,
+    retry: false,
+  })
+
+  const notCounseledQuery = useQuery({
+    queryKey: ["metricCards", type, "not_counseled", currentDate.yearMonth],
+    queryFn: async () => {
+      if (type === "student") {
+        const res = await apiClient.get(`/organizations/students/period?page=1&limit=10&month=${currentDate.month}&year=${currentDate.year}&counselingStatus=0`)
+        return res.data
+      } else {
+        const res = await apiClient.get(`/organizations/employees/period?page=1&limit=10&month=${currentDate.month}&year=${currentDate.year}&counselingStatus=0`)
+        return res.data
+      }
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 1,
+    retry: false,
+  })
+
+  return {
+    atRisk: {
+      count: atRiskQuery.data?.data?.metadata?.totalData || 0,
+      total: atRiskQuery.data?.data?.metadata?.totalData || 0,
+      data: atRiskQuery.data?.data?.students || atRiskQuery.data?.data?.employees || [],
+      isLoading: atRiskQuery.isLoading,
+      error: atRiskQuery.error
+    },
+    notScreened: {
+      count: notScreenedQuery.data?.data?.metadata?.totalData || 0,
+      total: notScreenedQuery.data?.data?.metadata?.totalData || 0,
+      data: notScreenedQuery.data?.data?.students || notScreenedQuery.data?.data?.employees || [],
+      isLoading: notScreenedQuery.isLoading,
+      error: notScreenedQuery.error
+    },
+    notCounseled: {
+      count: notCounseledQuery.data?.data?.metadata?.totalData || 0,
+      total: notCounseledQuery.data?.data?.metadata?.totalData || 0,
+      data: notCounseledQuery.data?.data?.students || notCounseledQuery.data?.data?.employees || [],
+      isLoading: notCounseledQuery.isLoading,
+      error: notCounseledQuery.error
+    },
+    refetch: () => {
+      atRiskQuery.refetch()
+      notScreenedQuery.refetch()
+      notCounseledQuery.refetch()
+    }
+  }
+}
+
+/**
+ * Hook for fetching pie charts data using monthly-stats endpoint
  */
 export const useDashboardMetrics = (type = "student") => {
   const currentDate = getCurrentDateInfo()
@@ -40,12 +126,17 @@ export const useYearlyStats = (type = "student", filters = {}) => {
       params.append("year", filters.year || currentDate.year)
 
       if (type === "student") {
-        if (filters.classroom) params.append("classroom", filters.classroom)
-        if (filters.grade) params.append("grade", filters.grade)
+        // Wajib ada classroom dan grade
+        const classroom = filters.classroom || "X"
+        const grade = filters.grade || "A"
+        params.append("classroom", classroom)
+        params.append("grade", grade)
         const res = await apiClient.get(`/students/metrics/yearly-stats?${params}`)
         return res.data
       } else {
-        if (filters.department) params.append("department", filters.department)
+        // Wajib ada department
+        const department = filters.department || "Finance"
+        params.append("department", department)
         const res = await apiClient.get(`/employees/metrics/yearly-stats?${params}`)
         return res.data
       }
@@ -57,11 +148,12 @@ export const useYearlyStats = (type = "student", filters = {}) => {
 }
 
 /**
- * Hook for fetching dashboard tab data (organizations endpoint)
+ * Hook for fetching dashboard tab data (organizations endpoint with infinite scroll)
+ * Reuses metric cards queries when possible to avoid duplicate fetching
  */
 export const useDashboardTabData = (type = "student", tabType = "at_risk", params = {}) => {
   const currentDate = getCurrentDateInfo()
-  const { enabled = true, limit = 20 } = params
+  const { enabled = true, limit = 10 } = params
 
   return useInfiniteQuery({
     queryKey: ["dashboardTabData", type, tabType, currentDate.yearMonth],
@@ -79,7 +171,7 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       } else if (tabType === "not_screened") {
         queryParams.append("screeningStatus", "not_screened")
       } else if (tabType === "not_counseled") {
-        queryParams.append("counselingStatus", "1")
+        queryParams.append("counselingStatus", "0")
       }
 
       const endpoint = type === "student" 
@@ -90,7 +182,7 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       
       return {
         data: res.data?.data || { students: [], employees: [] },
-        metadata: res.data?.metadata || { 
+        metadata: res.data?.data?.metadata || { 
           totalData: 0, 
           hasNextPage: false, 
           page: pageParam,
@@ -150,12 +242,13 @@ export const useEmployeeRoles = () => {
 }
 
 /**
- * Main dashboard hook - combines metrics and options
+ * Main dashboard hook - combines all metrics efficiently
  */
 export const useDashboard = (type = "student") => {
   const currentDate = getCurrentDateInfo()
   
-  const metricsQuery = useDashboardMetrics(type)
+  // Use monthly-stats for both metric cards AND pie charts
+  const monthlyStatsQuery = useDashboardMetrics(type)
   const yearlyQuery = useYearlyStats(type, {
     year: currentDate.year,
     ...(type === "student" 
@@ -165,8 +258,13 @@ export const useDashboard = (type = "student") => {
   const optionsQuery = type === "student" ? useAcademicInfo() : useEmployeeRoles()
 
   const processedMetrics = useMemo(() => {
-    const data = metricsQuery.data?.data
-    if (!data) {
+    // Use monthly-stats data for both metric cards and pie charts
+    const monthlyData = monthlyStatsQuery.data?.data
+    
+    console.log("=== DASHBOARD METRICS DEBUG ===")
+    console.log("Monthly stats data:", monthlyData)
+    
+    if (!monthlyData) {
       return {
         summary: {
           atRisk: { count: 0, total: 0 },
@@ -180,15 +278,32 @@ export const useDashboard = (type = "student") => {
       }
     }
 
-    return {
-      summary: data.summary,
-      status: data.status,
+    const result = {
+      // Metric cards use monthly-stats data
+      summary: {
+        atRisk: { 
+          count: monthlyData.summary?.atRisk?.count || 0, 
+          total: monthlyData.summary?.atRisk?.total || 0 
+        },
+        notScreened: { 
+          count: monthlyData.summary?.notScreened?.count || 0, 
+          total: monthlyData.summary?.notScreened?.total || 0 
+        },
+        notCounseled: { 
+          count: monthlyData.summary?.notCounseled?.count || 0, 
+          total: monthlyData.summary?.notCounseled?.total || 0 
+        },
+      },
+      // Pie charts also use monthly-stats data
+      status: monthlyData.status || {
+        screening: { completed: 0, notCompleted: 0 },
+        counseling: { completed: 0, notCompleted: 0 },
+      },
       mentalHealth: {
         overall: {
-          atRisk: data.summary?.atRisk?.count || 0,
-          monitored: 0,
-          stable: (data.summary?.atRisk?.total || 0) - (data.summary?.atRisk?.count || 0),
-          notScreened: data.summary?.notScreened?.count || 0,
+          atRisk: monthlyData.summary?.atRisk?.count || 0,
+          monitored: 0, // Not in API response
+          stable: monthlyData.summary?.atRisk?.total ? (monthlyData.summary.atRisk.total - monthlyData.summary.atRisk.count) : 0,
         },
         byMonth: {
           firstHalf: (yearlyQuery.data?.data || []).filter(item => 
@@ -200,7 +315,10 @@ export const useDashboard = (type = "student") => {
         }
       }
     }
-  }, [metricsQuery.data, yearlyQuery.data])
+    
+    console.log("Final processed metrics:", result.summary)
+    return result
+  }, [monthlyStatsQuery.data, yearlyQuery.data])
 
   return {
     metrics: processedMetrics,
@@ -213,11 +331,11 @@ export const useDashboard = (type = "student") => {
           departments: optionsQuery.data?.data?.departments || optionsQuery.placeholderData?.data?.departments || [], 
           positions: optionsQuery.data?.data?.positions || optionsQuery.placeholderData?.data?.positions || [] 
         },
-    isLoading: metricsQuery.isLoading || yearlyQuery.isLoading || optionsQuery.isLoading,
-    isError: metricsQuery.isError || yearlyQuery.isError || optionsQuery.isError,
-    error: metricsQuery.error || yearlyQuery.error || optionsQuery.error,
+    isLoading: monthlyStatsQuery.isLoading || yearlyQuery.isLoading || optionsQuery.isLoading,
+    isError: monthlyStatsQuery.isError || yearlyQuery.isError || optionsQuery.isError,
+    error: monthlyStatsQuery.error || yearlyQuery.error || optionsQuery.error,
     refetch: () => {
-      metricsQuery.refetch()
+      monthlyStatsQuery.refetch()
       yearlyQuery.refetch()
       optionsQuery.refetch()
     },

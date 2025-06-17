@@ -1,15 +1,11 @@
-// src/components/list/hooks/useList.js
-import { useListData } from "./useListData"
-import { useListEdit } from "./useListData"
-import { useListFilters } from "./useListData"
+// src/components/shared/list/hooks/useList.js
+
+import { useListData } from "./useListData" // ✅ ini wajib
+import { useListFilters } from "./useListFilter"
+import { useListSort } from "./useListSort"
+import { useListEdit } from "./useListEdit"
 import { useListOptions } from "./useListOption"
-import { useListSort } from "./useListData"
-/**
- * Combined hook for complete list functionality
- * @param {string} type - List type
- * @param {string} searchTerm - Search term
- * @returns {Object} Complete list functionality
- */
+
 export const useList = (type, searchTerm = "") => {
   const data = useListData(type, searchTerm)
   const filters = useListFilters(type)

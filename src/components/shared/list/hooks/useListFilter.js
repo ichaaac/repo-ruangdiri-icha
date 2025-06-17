@@ -1,6 +1,6 @@
 // src/components/list/hooks/useListFilters.js
 import { useCallback, useMemo } from "react"
-import { useListStore } from "../stores/listStore"
+import { useListStore } from "../stores/listStores"
 import { hasActiveFilters } from "../utils/filterUtils"
 
 /**

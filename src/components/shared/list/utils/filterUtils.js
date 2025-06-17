@@ -1,4 +1,4 @@
-// src/components/list/utils/filterUtils.js
+// src/components/shared/list/utils/filterUtils.js
 
 /**
  * Check if any filters are active

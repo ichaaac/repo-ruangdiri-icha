@@ -1,10 +1,11 @@
-// src/components/shared/list/SharedListPage.jsx - Refactored with new hooks
-import { useState } from "react"
+// src/components/shared/list/SharedListPage.jsx - Updated with TopRightControl
+import { useState, useRef } from "react"
 import { AnimatePresence } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"
-import { useList } from "./hooks/useList"
+import { useList } from "./hooks/useList" // ENHANCEMENT: Use integrated hook
 import SharedTable from "./SharedTable"
 import FloatingTableScrollbar from "./FloatingTableScrollbar"
+import TopRightControl from "../layout/TopRightControl"
 
 const SharedListPage = ({
   type = "student",
@@ -14,8 +15,9 @@ const SharedListPage = ({
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
   const [showFilterModal, setShowFilterModal] = useState(false)
+  const tableRef = useRef(null)
   
-  // Use the new combined hook
+  // ENHANCEMENT: Use the integrated hooks
   const { data, filters, sort, edit, options } = useList(type, searchTerm)
   
   // Local state for filter inputs (temporary before applying)
@@ -122,20 +124,10 @@ const SharedListPage = ({
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-end px-2 sm:px-4 lg:px-6 pt-4 sm:pt-6">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="text-[#8b8b8b] text-xs sm:text-sm font-medium">ID / EN</span>
-          </div>
-          <div className="flex items-center">
-            <span className="material-icons text-[#8b8b8b] text-lg sm:text-xl">notifications</span>
-          </div>
-        </div>
-      </div>
+      <TopRightControl isAbsolute />
 
       {/* Title and Stats */}
-      <div className="flex flex-col lg:flex-row items-start justify-between px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 gap-4 lg:gap-6">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 pt-[72px] gap-4 lg:gap-6">
         {currentConfig.title && (
           <div className="w-full lg:w-auto">
             <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
@@ -144,7 +136,7 @@ const SharedListPage = ({
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 sm:gap-3 w-full lg:w-auto justify-center lg:justify-end">
+        <div className="flex flex-wrap gap-2 sm:gap-3 flex-shrink-0">
           {/* Total Stats */}
           <div className="relative w-[90px] sm:w-[110px] lg:w-[120px] h-[60px] sm:h-[70px] lg:h-[80px]">
             <div
@@ -206,7 +198,7 @@ const SharedListPage = ({
       </div>
 
       {/* Search and Filter Controls */}
-      <div className="px-2 sm:px-4 lg:px-6 mt-4 sm:mt-6 mb-4">
+      <div className="px-2 sm:px-4 lg:px-6 mt-9 mb-[21px]">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4">
           <div className="relative w-full sm:max-w-xs md:max-w-sm lg:max-w-md">
             <span className="absolute inset-y-0 left-3 flex items-center">
@@ -246,9 +238,10 @@ const SharedListPage = ({
         </div>
       </div>
 
-      {/* Table */}
+      {/* ENHANCEMENT: Table with integrated hooks */}
       <div className="px-2 sm:px-4 lg:px-6">
         <SharedTable
+          ref={tableRef}
           type={type}
           data={data.data}
           searchInput={searchTerm}
@@ -261,12 +254,15 @@ const SharedListPage = ({
           optionsData={options.data || {}}
           isLoading={data.isLoading}
           sidebarExpanded={sidebarExpanded}
-          editHook={edit}
+          editHook={edit} // ENHANCEMENT: Pass edit hook directly
         />
       </div>
 
-      {/* Floating Scrollbar */}
-      <FloatingTableScrollbar sidebarExpanded={sidebarExpanded} />
+      {/* ENHANCEMENT: Stable FloatingTableScrollbar */}
+      <FloatingTableScrollbar 
+        tableRef={tableRef}
+        sidebarExpanded={sidebarExpanded} 
+      />
 
       {/* Filter Modal */}
       <AnimatePresence>

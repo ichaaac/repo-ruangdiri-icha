@@ -1,276 +1,187 @@
-// Enhanced Smooth Floating Scrollbar - Sleek Design & Sidebar Responsive
-import { useMemo, useRef, useState, useCallback, useEffect } from "react"
+// src/components/shared/list/FloatingTableScrollbar.jsx - Stable Version
+import { useRef, useState, useCallback, useEffect } from "react"
 import clsx from "clsx"
 
 const FloatingTableScrollbar = ({ tableRef, sidebarExpanded }) => {
   const scrollbarRef = useRef(null)
   const thumbRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
-  const rafRef = useRef(null)
-  const cleanupRef = useRef(null)
+  const [isVisible, setIsVisible] = useState(false) // FIXED: Stable visibility state
+  const [scrollInfo, setScrollInfo] = useState({ ratio: 0, thumbWidth: 0 })
 
-  // Enhanced scroll calculation with caching
-  const getScrollInfo = useCallback(() => {
-    if (!tableRef.current) return null
-
-    const { scrollLeft, scrollWidth, clientWidth } = tableRef.current
-    const maxScroll = scrollWidth - clientWidth
-
-    if (maxScroll <= 5) return null
-
-    const scrollRatio = scrollLeft / maxScroll
-    const thumbWidth = Math.max((clientWidth / scrollWidth) * 100, 12)
-
-    return {
-      scrollRatio,
-      thumbWidth,
-      maxScroll,
-      tableWidth: clientWidth,
-      scrollLeft,
-    }
-  }, [tableRef])
-
-  // Ultra smooth thumb update with RAF optimization
-  const updateThumb = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
-
-    rafRef.current = requestAnimationFrame(() => {
-      const info = getScrollInfo()
-      if (!info || !thumbRef.current) return
-
-      const thumbLeft = info.scrollRatio * (100 - info.thumbWidth)
-      
-      // Use transform3d for hardware acceleration
-      thumbRef.current.style.transform = `translate3d(${thumbLeft}%, 0, 0)`
-      thumbRef.current.style.width = `${info.thumbWidth}%`
-    })
-  }, [getScrollInfo])
-
-  // Setup scrollbar with optimized listeners
-  const scrollbarCallback = useCallback((node) => {
-    // Cleanup previous
-    if (cleanupRef.current) {
-      cleanupRef.current()
-      cleanupRef.current = null
-    }
-
-    scrollbarRef.current = node
-    if (!node || !tableRef.current) return
+  // FIXED: Stable scroll info calculation with proper checks
+  const calculateScrollInfo = useCallback(() => {
+    if (!tableRef?.current) return null
 
     const table = tableRef.current
+    const scrollWidth = table.scrollWidth
+    const clientWidth = table.clientWidth  
+    const scrollLeft = table.scrollLeft
+    const maxScroll = scrollWidth - clientWidth
 
-    // Throttled event handlers for performance
-    let scrollTicking = false
+    // Only show if there's actually scrollable content
+    if (maxScroll <= 0) return null
+
+    const scrollRatio = scrollLeft / maxScroll
+    const thumbWidth = Math.max((clientWidth / scrollWidth) * 100, 8)
+
+    return { scrollRatio, thumbWidth, maxScroll }
+  }, [tableRef])
+
+  // FIXED: Debounced update to prevent flickering
+  const updateScrollbar = useCallback(() => {
+    const info = calculateScrollInfo()
+    
+    if (!info) {
+      setIsVisible(false)
+      return
+    }
+
+    setIsVisible(true)
+    setScrollInfo({
+      ratio: info.scrollRatio,
+      thumbWidth: info.thumbWidth
+    })
+
+    // Update thumb position directly
+    if (thumbRef.current) {
+      const thumbLeft = info.scrollRatio * (100 - info.thumbWidth)
+      thumbRef.current.style.left = `${thumbLeft}%`
+      thumbRef.current.style.width = `${info.thumbWidth}%`
+    }
+  }, [calculateScrollInfo])
+
+  // FIXED: Optimized event listeners
+  useEffect(() => {
+    if (!tableRef?.current) return
+
+    const table = tableRef.current
+    let timeoutId = null
+
+    // Debounced handler to prevent excessive updates
     const handleScroll = () => {
-      if (!scrollTicking) {
-        requestAnimationFrame(() => {
-          updateThumb()
-          scrollTicking = false
-        })
-        scrollTicking = true
-      }
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(updateScrollbar, 16) // ~60fps
     }
 
-    let resizeTicking = false
     const handleResize = () => {
-      if (!resizeTicking) {
-        requestAnimationFrame(() => {
-          updateThumb()
-          resizeTicking = false
-        })
-        resizeTicking = true
-      }
+      if (timeoutId) clearTimeout(timeoutId)
+      timeoutId = setTimeout(updateScrollbar, 100)
     }
 
-    // Attach event listeners
+    // Initial update
+    updateScrollbar()
+
     table.addEventListener('scroll', handleScroll, { passive: true })
     window.addEventListener('resize', handleResize, { passive: true })
 
-    // Initial update
-    requestAnimationFrame(updateThumb)
-
-    // Store cleanup function
-    cleanupRef.current = () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
       table.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', handleResize)
     }
-  }, [updateThumb, tableRef])
+  }, [tableRef, updateScrollbar])
 
-  // Enhanced click handling with smooth scroll
-  const handleClick = useCallback((e) => {
-    if (!tableRef.current || !scrollbarRef.current || e.target === thumbRef.current) return
+  // FIXED: Update when sidebar changes with proper delay
+  useEffect(() => {
+    const timer = setTimeout(updateScrollbar, 350)
+    return () => clearTimeout(timer)
+  }, [sidebarExpanded, updateScrollbar])
+
+  // FIXED: Stable click handler
+  const handleScrollbarClick = useCallback((e) => {
+    if (!tableRef?.current || !scrollbarRef.current) return
+    if (e.target === thumbRef.current) return
 
     e.preventDefault()
+    
     const rect = scrollbarRef.current.getBoundingClientRect()
-    const percentage = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    const info = getScrollInfo()
+    const clickRatio = (e.clientX - rect.left) / rect.width
+    const info = calculateScrollInfo()
+    
     if (!info) return
 
-    const targetScrollLeft = percentage * info.maxScroll
-    
-    // Smooth scroll to target position
+    const targetScrollLeft = clickRatio * info.maxScroll
     tableRef.current.scrollTo({
       left: Math.max(0, Math.min(targetScrollLeft, info.maxScroll)),
       behavior: 'smooth'
     })
-  }, [getScrollInfo, tableRef])
+  }, [tableRef, calculateScrollInfo])
 
-  // Enhanced drag handling with momentum and smooth motion
-  const handleMouseDown = useCallback((e) => {
+  // FIXED: Stable drag handler
+  const handleThumbMouseDown = useCallback((e) => {
+    if (!tableRef?.current || !scrollbarRef.current) return
+
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(true)
 
     const startX = e.clientX
-    const startScrollLeft = tableRef.current?.scrollLeft || 0
-    const scrollbarRect = scrollbarRef.current?.getBoundingClientRect()
-    const scrollbarWidth = scrollbarRect?.width || 1
-    const info = getScrollInfo()
+    const startScrollLeft = tableRef.current.scrollLeft
+    const scrollbarRect = scrollbarRef.current.getBoundingClientRect()
+    const info = calculateScrollInfo()
+    
     if (!info) return
 
-    let lastMoveTime = Date.now()
-    let velocity = 0
-
     const handleMouseMove = (moveEvent) => {
-      if (!tableRef.current) return
+      if (!tableRef?.current) return
 
-      const currentTime = Date.now()
-      const deltaTime = currentTime - lastMoveTime
       const deltaX = moveEvent.clientX - startX
+      const scrollRatio = deltaX / scrollbarRect.width
+      const newScrollLeft = startScrollLeft + (scrollRatio * info.maxScroll)
       
-      // Calculate velocity for momentum
-      if (deltaTime > 0) {
-        velocity = deltaX / deltaTime
-      }
-      
-      const percentage = deltaX / scrollbarWidth
-      const newScrollLeft = startScrollLeft + percentage * info.maxScroll
-      const clampedScrollLeft = Math.max(0, Math.min(newScrollLeft, info.maxScroll))
-
-      // Direct scroll during drag for immediate feedback
-      tableRef.current.scrollLeft = clampedScrollLeft
-      
-      lastMoveTime = currentTime
+      tableRef.current.scrollLeft = Math.max(0, Math.min(newScrollLeft, info.maxScroll))
     }
 
     const handleMouseUp = () => {
       setIsDragging(false)
-      
-      // Apply momentum if drag was fast enough
-      if (Math.abs(velocity) > 0.3 && tableRef.current) {
-        const momentumDistance = velocity * 80 // Adjust multiplier for feel
-        const currentScrollLeft = tableRef.current.scrollLeft
-        const targetScrollLeft = Math.max(0, Math.min(
-          currentScrollLeft + momentumDistance,
-          info.maxScroll
-        ))
-        
-        if (Math.abs(targetScrollLeft - currentScrollLeft) > 3) {
-          tableRef.current.scrollTo({
-            left: targetScrollLeft,
-            behavior: 'smooth'
-          })
-        }
-      }
-      
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
 
-    document.addEventListener('mousemove', handleMouseMove, { passive: false })
-    document.addEventListener('mouseup', handleMouseUp, { passive: true })
-  }, [getScrollInfo, tableRef])
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [tableRef, calculateScrollInfo])
 
-  // Update on sidebar state change
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(updateThumb)
-    }, 320) // Wait for sidebar transition
-    
-    return () => clearTimeout(timeoutId)
-  }, [sidebarExpanded, updateThumb])
+  // FIXED: Don't render if not visible to prevent blinking
+  if (!isVisible) return null
 
-  // Check if scrollbar is needed
-  const currentInfo = getScrollInfo()
-  if (!currentInfo) return null
-
-  // Enhanced position calculation with responsive behavior
-  const getScrollbarPosition = () => {
-    const sidebarWidth = sidebarExpanded ? 237 : 60
-    const padding = 24
-    const scrollbarLeft = sidebarWidth + padding
-    
-    // Use actual table width for better accuracy
-    const availableWidth = Math.max(currentInfo.tableWidth - padding * 2, 200)
-    
-    return {
-      left: scrollbarLeft,
-      width: availableWidth,
-    }
-  }
-
-  const position = getScrollbarPosition()
+  // FIXED: Simplified positioning without complex calculations
+  const sidebarWidth = sidebarExpanded ? 237 : 60
+  const padding = 24
+  const left = sidebarWidth + padding
+  const width = Math.max(window.innerWidth - sidebarWidth - (padding * 2), 300)
 
   return (
     <div
-      className="fixed z-[9998] transition-all duration-300 ease-out pointer-events-none"
+      className="fixed bottom-4 z-[9998]"
       style={{
-        bottom: '16px',
-        left: `${position.left}px`,
-        width: `${position.width}px`,
-        height: '16px',
-        willChange: 'left, width',
+        left: `${left}px`,
+        width: `${width}px`,
+        height: '10px',
+        transition: 'left 0.3s ease-out, width 0.3s ease-out', // FIXED: Smooth transition
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="w-full h-full flex items-center px-1 pointer-events-auto">
+      <div
+        ref={scrollbarRef}
+        className="w-full h-full bg-black/10 hover:bg-black/15 rounded-full cursor-pointer transition-colors duration-150 relative"
+        onClick={handleScrollbarClick}
+      >
         <div
-          ref={scrollbarCallback}
+          ref={thumbRef}
           className={clsx(
-            "relative w-full rounded-full cursor-pointer transition-all duration-200 ease-out",
-            "bg-black/10 hover:bg-black/15 backdrop-blur-sm",
-            "border border-white/30 shadow-sm",
-            isHovered || isDragging ? "h-3" : "h-2"
+            "absolute top-0 h-full rounded-full transition-colors duration-150",
+            isDragging ? "bg-[#3399e9]" : "bg-[#488BBE] hover:bg-[#3399e9]"
           )}
-          onClick={handleClick}
           style={{
-            willChange: 'height, background-color',
+            left: `${scrollInfo.ratio * (100 - scrollInfo.thumbWidth)}%`,
+            width: `${scrollInfo.thumbWidth}%`,
+            cursor: isDragging ? "grabbing" : "grab",
+            minWidth: '16px',
           }}
-        >
-          {/* Scrollbar thumb */}
-          <div
-            ref={thumbRef}
-            className={clsx(
-              "absolute top-0 h-full rounded-full transition-all duration-150 ease-out",
-              "shadow-sm border border-white/40",
-              isDragging 
-                ? "bg-[#3399e9] shadow-md scale-105" 
-                : isHovered
-                  ? "bg-[#488BBE] shadow-md"
-                  : "bg-[#488BBE]/90"
-            )}
-            style={{
-              cursor: isDragging ? "grabbing" : "grab",
-              willChange: "transform, width, background-color, box-shadow, scale",
-              transformOrigin: "left center",
-              minWidth: "16px",
-            }}
-            onMouseDown={handleMouseDown}
-          />
-        </div>
-      </div>
-      
-      {/* Subtle glow effect when active */}
-      {(isHovered || isDragging) && (
-        <div 
-          className="absolute inset-0 rounded-full bg-[#488BBE]/5 blur-sm -z-10 transition-opacity duration-300"
-          style={{ transform: 'scale(1.2)' }}
+          onMouseDown={handleThumbMouseDown}
         />
-      )}
+      </div>
     </div>
   )
 }

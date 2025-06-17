@@ -1,4 +1,4 @@
-// src/components/list/stores/selectionStore.js
+// src/components/shared/list/stores/selectionStore.js
 export const useSelectionStore = create((set, get) => ({
     // Selected items by type
     selectedItems: {

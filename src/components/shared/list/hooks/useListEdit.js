@@ -1,6 +1,6 @@
 // src/components/list/hooks/useListEdit.js
 import { useCallback } from "react"
-import { useEditStore } from "../stores/editStore"
+import { useEditStore } from "../stores/editStores"
 import { validateStudentData, validateEmployeeData, getChangedFields } from "../utils/validationUtils"
 
 /**

@@ -225,7 +225,7 @@ const DashboardHome = ({
                   <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" key={`overall-pie-${sidebarExpanded ? 'expanded' : 'collapsed'}`}>
+                  <ResponsiveContainer width="100%" height="100%" key="overall-pie-static">
                     <PieChart>
                       <Pie
                         data={getOverallPieData()}
@@ -400,7 +400,7 @@ const DashboardHome = ({
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" key={`screening-pie-${sidebarExpanded ? 'expanded' : 'collapsed'}`}>
+                      <ResponsiveContainer width="100%" height="100%" key="screening-pie-static">
                         <PieChart>
                           <Pie
                             data={getScreeningData()}
@@ -446,7 +446,7 @@ const DashboardHome = ({
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" key={`counseling-pie-${sidebarExpanded}`}>
+                      <ResponsiveContainer width="100%" height="100%" key="counseling-pie-static">
                         <PieChart>
                           <Pie
                             data={getCounselingData()}
@@ -458,8 +458,7 @@ const DashboardHome = ({
                             innerRadius="50%"
                             fill="#8884d8"
                             dataKey="value"
-                            animationBegin={0}
-                            animationDuration={300}
+                            isAnimationActive={false}
                           >
                             {getCounselingData().map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />

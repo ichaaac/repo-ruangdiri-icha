@@ -1,4 +1,6 @@
 // src/components/list/stores/editStore.js
+import { create } from "zustand"
+
 export const useEditStore = create((set, get) => ({
     // Currently editing items by type
     editingItems: {

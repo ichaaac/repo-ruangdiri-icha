@@ -36,4 +36,4 @@ const SchoolDashboard = () => {
   )
 }
 
-export default SchoolDashboarda
+export default SchoolDashboard

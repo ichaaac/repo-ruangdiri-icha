@@ -271,9 +271,9 @@ const ProfilePage = ({
 
       {/* Main Modals */}
       <AnimatePresence mode="wait">
-        {activeModal === "organizationInfo" && !showConfirmationModal && (
-          <div className="fixed inset-0 z-50">
-            <div className="fixed inset-0 bg-black bg-opacity-30"></div>
+      {activeModal === "organizationInfo" && (
+         <div className="fixed inset-0 z-50">
+           <div className="fixed inset-0 bg-black bg-opacity-30"></div>
             <div className="flex items-center justify-center h-full p-4">
               <div className="relative z-10 w-full max-w-lg">
                 <ProfileEditModal
@@ -288,9 +288,9 @@ const ProfilePage = ({
             </div>
           </div>
         )}
-        {activeModal === "accountSettings" && !showConfirmationModal && (
+        {activeModal === "accountSettings" && (
           <div className="fixed inset-0 z-50">
-            <div className="fixed inset-0 bg-black bg-opacity-30"></div>
+           <div className="fixed inset-0 bg-black bg-opacity-30"></div>
             <div className="flex items-center justify-center h-full p-4">
               <div className="relative z-10 w-full max-w-lg">
                 <AccountEditModal 
