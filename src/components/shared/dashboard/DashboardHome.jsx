@@ -49,8 +49,14 @@ const DashboardHome = ({
   })
 
   const handleBarChartClassroomChange = useCallback((classroom) => {
-    if (classroom !== barChartClassroom) setBarChartClassroom(classroom)
-  }, [barChartClassroom])
+    if (classroom !== barChartClassroom) {
+      setBarChartClassroom(classroom)
+      // Reset grade when classroom changes for student type
+      if (type === "student" && options?.grades?.length > 0) {
+        setBarChartGrade(options.grades[0] || "A")
+      }
+    }
+  }, [barChartClassroom, type, options?.grades])
 
   const handleBarChartGradeChange = useCallback((grade) => {
     if (grade !== barChartGrade) setBarChartGrade(grade)
@@ -294,7 +300,7 @@ const DashboardHome = ({
                       </div>
                     ) : (
                       <Menu as="div" className="relative">
-                        <Menu.Button className="flex gap-1 items-center self-start whitespace-nowrap text-sm text-gray-700 hover:text-gray-900 transition-colors cursor-pointer">
+                        <Menu.Button className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer text-gray-700">
                           <span className="self-stretch my-auto">{barChartClassroom || config.filterLabel}</span>
                           <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
                         </Menu.Button>
@@ -350,24 +356,24 @@ const DashboardHome = ({
                   <button
                     disabled={!canNavigatePrev()}
                     onClick={handlePrev}
-                    className={`absolute left-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full transition-colors z-10 ${
+                    className={`absolute left-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 rounded-full transition-colors z-0 ${
                       canNavigatePrev()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                   >
-                    <span className="material-icons text-lg sm:text-xl">chevron_left</span>
+                    <span className="material-icons text-xl sm:text-2xl">chevron_left</span>
                   </button>
                   <button
                     disabled={!canNavigateNext()}
                     onClick={handleNext}
-                    className={`absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-6 sm:w-8 h-6 sm:h-8 rounded-full transition-colors z-10 ${
+                    className={`absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 rounded-full transition-colors z-0 ${
                       canNavigateNext()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                   >
-                    <span className="material-icons text-lg sm:text-xl">chevron_right</span>
+                    <span className="material-icons text-xl sm:text-2xl">chevron_right</span>
                   </button>
                 </div>
 
@@ -390,13 +396,14 @@ const DashboardHome = ({
           </div>
 
           <div className="mt-4 w-full">
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 mb-6">
+              {/* Status Skrining Section */}
               <div className="w-full lg:w-6/12">
+                <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
+                  Status <span className="font-bold">Skrining {config.entityName}</span>
+                </h2>
                 <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
                   <div className="px-4 py-4">
-                    <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
-                      Status <span className="font-bold">Skrining {config.entityName}</span>
-                    </h2>
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
@@ -437,12 +444,13 @@ const DashboardHome = ({
                 </div>
               </div>
 
+              {/* Status Konseling Section */}
               <div className="w-full lg:w-6/12">
+                <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
+                  Status <span className="font-bold">Konseling {config.entityName}</span>
+                </h2>
                 <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
                   <div className="px-4 py-4">
-                    <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
-                      Status <span className="font-bold">Konseling {config.entityName}</span>
-                    </h2>
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">

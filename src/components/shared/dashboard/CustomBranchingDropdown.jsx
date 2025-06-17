@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/CustomBranchingDropdown.jsx - Fixed smart positioning and interactions
+// src/components/shared/dashboard/CustomBranchingDropdown.jsx - Fixed interactions (click-based, not hover)
 
 import { useState, useRef, useEffect } from "react"
 
@@ -12,7 +12,7 @@ const CustomBranchingDropdown = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [showGrades, setShowGrades] = useState(false)
-  const [hoveredClassroomIndex, setHoveredClassroomIndex] = useState(-1)
+  const [selectedClassroomIndex, setSelectedClassroomIndex] = useState(-1)
   const [dropdownPosition, setDropdownPosition] = useState({ alignRight: false, showAbove: false })
   const dropdownRef = useRef(null)
   const triggerRef = useRef(null)
@@ -22,13 +22,21 @@ const CustomBranchingDropdown = ({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false)
         setShowGrades(false)
-        setHoveredClassroomIndex(-1)
+        setSelectedClassroomIndex(-1)
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // Reset grades when classrooms change
+  useEffect(() => {
+    if (!isOpen) {
+      setShowGrades(false)
+      setSelectedClassroomIndex(-1)
+    }
+  }, [isOpen])
 
   // Smart positioning calculation
   const calculateDropdownPosition = () => {
@@ -56,23 +64,23 @@ const CustomBranchingDropdown = ({
     setDropdownPosition({ alignRight, showAbove })
   }
 
-  const handleClassroomClick = (classroom) => {
+  const handleClassroomClick = (classroom, index) => {
+    // Update selected classroom index
+    setSelectedClassroomIndex(index)
+    
+    // Select the classroom
     if (classroom !== selectedClassroom) {
       onClassroomSelect(classroom)
     }
     
+    // Show grades if available
     if (grades.length > 0) {
       setShowGrades(true)
     } else {
+      // If no grades, close dropdown
       setIsOpen(false)
       setShowGrades(false)
-    }
-  }
-
-  const handleClassroomHover = (index) => {
-    setHoveredClassroomIndex(index)
-    if (grades.length > 0) {
-      setShowGrades(true)
+      setSelectedClassroomIndex(-1)
     }
   }
 
@@ -81,9 +89,10 @@ const CustomBranchingDropdown = ({
       onGradeSelect(grade)
     }
     
+    // Close dropdown after grade selection
     setIsOpen(false)
     setShowGrades(false)
-    setHoveredClassroomIndex(-1)
+    setSelectedClassroomIndex(-1)
   }
 
   const handleToggle = () => {
@@ -92,13 +101,13 @@ const CustomBranchingDropdown = ({
     }
     setIsOpen(!isOpen)
     setShowGrades(false)
-    setHoveredClassroomIndex(-1)
+    setSelectedClassroomIndex(-1)
   }
 
-  // Calculate grade dropdown position based on hovered classroom
+  // Calculate grade dropdown position based on selected classroom
   const getGradeDropdownTop = () => {
-    if (hoveredClassroomIndex === -1) return "0px"
-    return `${hoveredClassroomIndex * 40}px` // Each classroom item is 40px high
+    if (selectedClassroomIndex === -1) return "0px"
+    return `${selectedClassroomIndex * 40}px` // Each classroom item is 40px high
   }
 
   // Get dropdown container positioning
@@ -192,18 +201,19 @@ const CustomBranchingDropdown = ({
                 } ${
                   selectedClassroom === classroom 
                     ? "bg-[#3399E9] text-white font-semibold" 
+                    : selectedClassroomIndex === index
+                    ? "bg-blue-100 text-gray-900"
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
-                onClick={() => handleClassroomClick(classroom)}
-                onMouseEnter={() => handleClassroomHover(index)}
+                onClick={() => handleClassroomClick(classroom, index)}
               >
                 {classroom}
               </div>
             ))}
           </div>
 
-          {/* Grade Dropdown - SMART positioning */}
-          {showGrades && grades.length > 0 && hoveredClassroomIndex !== -1 && (
+          {/* Grade Dropdown - Only shows on CLICK, not hover */}
+          {showGrades && grades.length > 0 && selectedClassroomIndex !== -1 && (
             <div
               className={`w-24 bg-white border-l-0 border border-gray-200 shadow-lg max-h-48 overflow-y-auto ${
                 dropdownPosition.alignRight ? 'rounded-l-md' : 'rounded-r-md'
@@ -241,7 +251,7 @@ const CustomBranchingDropdown = ({
           onClick={() => {
             setIsOpen(false)
             setShowGrades(false)
-            setHoveredClassroomIndex(-1)
+            setSelectedClassroomIndex(-1)
           }}
         />
       )}

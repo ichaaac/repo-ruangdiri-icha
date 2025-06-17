@@ -9,18 +9,15 @@ const ConfirmationModal = ({
 }) => {
   return (
     <>
-      {/* BACKDROP that covers the ENTIRE viewport including sidebar */}
       <div className="fixed inset-0 z-[9998] bg-black bg-opacity-30" style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0 }}></div>
-
-      {/* CONTENT yang di‐animate masuk/keluar */}
-      <div
-        key="confirmation-content"
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-      >
+        <div
+          key="confirmation-content"
+            initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+        >
         <div className="bg-white rounded-lg w-full max-w-sm sm:max-w-md py-6 sm:py-8 px-4 sm:px-6 relative flex flex-col items-center">
           <div className="mb-4">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#F5385D] flex items-center justify-center text-white">
