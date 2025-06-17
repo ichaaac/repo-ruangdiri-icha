@@ -31,7 +31,7 @@ const MetricCard = ({
       }
     }
 
-    if (title.includes("Beresiko")) {
+    if (title.includes("Berisiko")) {
       return {
         background: "linear-gradient(to bottom, white, #FFEBE5)",
         border: "0.5px solid #FFC1AF",
