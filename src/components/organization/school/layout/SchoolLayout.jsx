@@ -1,31 +1,49 @@
-// src/components/organization/school/layout/SchoolLayout.jsx
-import React, { useState } from "react";
-import { Outlet } from "react-router-dom";
-import SchoolSidebar from "../SchoolSidebar";
+// src/components/organization/school/layout/SchoolLayout.jsx - Fixed School Layout with proper dashboard handling
+
+import React from "react";
+import { useLocation } from "react-router-dom";
+import Layout from "../../../shared/layout/Layout";
 
 const SchoolLayout = () => {
-  const [expanded, setExpanded] = useState(true);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
+  const location = useLocation();
+
+  // Check if this is a development route
+  const isDev = location.pathname.startsWith('/dev/school');
+
+  // Configure menu items based on route type
+  const basePath = isDev ? '/dev/school' : '/organization/school';
+
+  const menuItems = [
+    {
+      icon: "bar_chart",
+      label: "Dashboard",
+      path: `${basePath}/dashboard`,
+      hasDropdown: true,
+      // No need to define dropdownItems here - handled by Sidebar component dynamically
+    },
+    {
+      icon: "table_chart",
+      label: "Daftar Siswa",
+      path: `${basePath}/student-list`,
+    },
+    {
+      icon: "calendar_month",
+      label: "Jadwal",
+      path: `${basePath}/schedule`,
+    },
+    {
+      icon: "brightness_5",
+      label: "Pengaturan",
+      path: `${basePath}/profile`,
+    },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* Sidebar component with expansion controls */}
-      <SchoolSidebar 
-        expanded={expanded} 
-        setExpanded={setExpanded} 
-        onHoverChange={setSidebarHovered}
-      />
-      
-      {/* Main content area with responsive margin based on sidebar state */}
-      <div 
-        className="flex-1 transition-all duration-300"
-        style={{ 
-          marginLeft: expanded ? "237px" : sidebarHovered ? "237px" : "59px" 
-        }}
-      >
-        <Outlet />
-      </div>
-    </div>
+    <Layout
+      organizationType="school"
+      menuItems={menuItems}
+      startExpanded={false} // Responsive: start collapsed
+    />
   );
 };
 

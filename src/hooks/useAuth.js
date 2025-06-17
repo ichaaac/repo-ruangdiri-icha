@@ -1,12 +1,16 @@
-// src/hooks/useAuth.js - Fixed to correctly handle the API response
+// src/hooks/useAuth.js - Updated to support development routes
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api, { getMe } from "../lib/api";
 
 export const useAuth = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check if we're in development mode (accessing /dev routes)
+  const isDevelopmentMode = location.pathname.startsWith('/dev');
 
   const {
     data: user,
@@ -16,6 +20,23 @@ export const useAuth = () => {
   } = useQuery({
     queryKey: ["currentUser"],
     queryFn: async () => {
+      // Skip API call for development routes
+      if (isDevelopmentMode) {
+        // Return mock user data for development
+        const mockUser = {
+          id: "dev-user-123",
+          fullName: "Development User",
+          email: "dev@example.com",
+          organization: {
+            id: "dev-org-123",
+            name: "Development Organization",
+            type: location.pathname.includes('/dev/school') ? "school" : "company",
+            profilePicture: null
+          }
+        };
+        return mockUser;
+      }
+
       const token = localStorage.getItem("token");
 
       // If no token, return null (not authenticated)
@@ -47,6 +68,9 @@ export const useAuth = () => {
       }
     },
     retry: false,
+    // Don't refetch automatically for development routes
+    refetchOnWindowFocus: !isDevelopmentMode,
+    refetchOnMount: !isDevelopmentMode,
   });
 
   /**
@@ -79,10 +103,11 @@ export const useAuth = () => {
       localStorage.setItem("token", data.accessToken);
       localStorage.setItem("organizationType", data.organizationType);
 
+      // Redirect to appropriate dashboard based on organization type
       if (data.organizationType === "school") {
-        window.location.href = "/demo/organization/school/profile";
+        window.location.href = "/organization/school/dashboard";
       } else if (data.organizationType === "company") {
-        window.location.href = "/demo/organization/company/profile";
+        window.location.href = "/organization/company/dashboard";
       } else {
         window.location.href = "/";
       }
@@ -119,6 +144,12 @@ export const useAuth = () => {
    */
   const changePassword = useMutation({
     mutationFn: async ({ oldPassword, newPassword }) => {
+      // Skip API call for development mode
+      if (isDevelopmentMode) {
+        // Mock successful password change
+        return { status: "success", message: "Password changed successfully" };
+      }
+
       try {
         // Set a custom header to prevent 401 intercept redirect
         const response = await api.auth.changePassword(oldPassword, newPassword, true);
@@ -138,6 +169,11 @@ export const useAuth = () => {
    */
   const logout = useMutation({
     mutationFn: async () => {
+      // Skip API call for development mode
+      if (isDevelopmentMode) {
+        return { status: "success" };
+      }
+
       try {
         await api.auth.logout();
       } catch (error) {
@@ -156,7 +192,12 @@ export const useAuth = () => {
       queryClient.setQueryData(["company-profile"], null);
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 
-      navigate("/login");
+      // Redirect based on current mode
+      if (isDevelopmentMode) {
+        navigate("/dev");
+      } else {
+        navigate("/login");
+      }
     },
   });
 
@@ -164,6 +205,9 @@ export const useAuth = () => {
    * Check if user is authenticated
    */
   const isAuthenticated = () => {
+    // Always authenticated for development routes
+    if (isDevelopmentMode) return true;
+    
     const token = localStorage.getItem("token");
     if (!token) return false;
     if (isLoading) return true;
@@ -174,15 +218,27 @@ export const useAuth = () => {
    * Get user's organization type
    */
   const getOrganizationType = () => {
+    // Return organization type based on development route
+    if (isDevelopmentMode) {
+      return location.pathname.includes('/dev/school') ? 'school' : 'company';
+    }
+    
     const storedType = localStorage.getItem("organizationType");
     if (storedType) return storedType;
     return user?.organization?.type || null;
   };
 
+  /**
+   * Check if we're in development mode
+   */
+  const isDevelopment = () => {
+    return isDevelopmentMode;
+  };
+
   return {
     user,
-    isLoading,
-    error,
+    isLoading: isDevelopmentMode ? false : isLoading, // No loading for dev mode
+    error: isDevelopmentMode ? null : error, // No errors for dev mode
     login,
     forgotPassword,
     resetPassword,
@@ -190,6 +246,7 @@ export const useAuth = () => {
     logout,
     isAuthenticated,
     getOrganizationType,
+    isDevelopment,
     refetchUser: refetch,
   };
 };

@@ -7,7 +7,7 @@
 //  * Handles password change with validation
 //  * 
 //  * @param {Object} props - Component props
-//  * @param {string} props.type - Organization type ('school' or 'company')
+//  * @param {string} props.type - Organization type ('school' or 'compan')
 //  * @param {Object} props.initialData - Initial email data
 //  * @param {Function} props.onClose - Function to close the modal
 //  * @param {Function} props.onSubmit - Function to handle form submission

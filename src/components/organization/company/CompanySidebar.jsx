@@ -180,9 +180,9 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
           onClick={() => setShowProfileDropdown(!showProfileDropdown)}
         >
           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-            {userData?.organization?.profilePicture ? (
+            {userData?.profilePicture ? (
               <img
-                src={`${userData.organization.profilePicture}?t=${new Date().getTime()}`}
+                src={`${userData.profilePicture}?t=${new Date().getTime()}`}
                 alt="Organization"
                 className="w-full h-full object-cover"
               />

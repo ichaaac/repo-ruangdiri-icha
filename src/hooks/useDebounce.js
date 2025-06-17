@@ -1,7 +1,7 @@
 // src/hooks/useDebounce.js - Optimized to reduce delays
 import { useState, useEffect } from "react";
 
-export const useDebounce = (value, delay = 500) => { // Reduced delay for faster search
+export const useDebounce = (value, delay = 7000) => { // Reduced delay for faster search
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
