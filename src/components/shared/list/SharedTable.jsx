@@ -79,10 +79,10 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     type="button"
                     onClick={() => handleSelect(optionValue)}
                     className={clsx(
-                    "w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-between",
-                      "transition-colors duration-100",
-                      active ? "bg-[#E2F9FF]" : "",
-                      isSelected ? "bg-[#E2F9FF] text-[#488BBE] font-medium" : ""
+                      "w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-between",
+                        "transition-colors duration-100",
+                        active ? "bg-[#E2F9FF]" : "",
+                        isSelected ? "bg-[#E2F9FF] text-[#488BBE] font-medium" : ""
                     )}
                     style={{ backgroundColor: active ? "#E2F9FF" : "white" }}
                   >
@@ -99,7 +99,6 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
   )
 }
 
-// Help Tooltip Component
 const HelpTooltip = ({ helpIconRef, showHelpTooltip }) => (
   <AnimatePresence>
     {showHelpTooltip && (
@@ -137,50 +136,6 @@ const HelpTooltip = ({ helpIconRef, showHelpTooltip }) => (
   </AnimatePresence>
 )
 
-// FIXED: Properly aligned action buttons with closer spacing
-const FloatingActionButtons = ({ 
-  isEditing, 
-  hasChanges, 
-  onCancel, 
-  onSave, 
-  isPending,
-  scrollLeft = 0 
-}) => {
-  if (!isEditing) return null
-
-  return (
-    <div className="flex items-center justify-center gap-1" style={{
-      transform: `translateX(${Math.min(scrollLeft * 0.3, 30)}px)`,
-      transition: 'transform 0.1s ease-out'
-    }}>
-      <button
-        className={clsx(
-          "w-8 h-8 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
-          isPending && "opacity-50 cursor-not-allowed",
-        )}
-        onClick={onCancel}
-        disabled={isPending}
-      >
-        <span className="material-icons text-lg">cancel</span>
-      </button>
-
-      <button
-        className={clsx(
-          "w-8 h-8 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
-          (!hasChanges || isPending) && "opacity-50 cursor-not-allowed",
-        )}
-        onClick={onSave}
-        disabled={!hasChanges || isPending}
-      >
-        <span className="material-icons text-lg">check_circle</span>
-      </button>
-    </div>
-  )
-}
-
-/**
- * Enhanced SharedTable with integrated hooks
- */
 const SharedTable = forwardRef(
   (
     {
@@ -196,14 +151,13 @@ const SharedTable = forwardRef(
       optionsData = {},
       isLoading = false,
       sidebarExpanded = false,
-      editHook, // ENHANCEMENT: Use edit hook directly
+      editHook,
     },
     ref,
   ) => {
     const [showHelpTooltip, setShowHelpTooltip] = useState(false)
     const [hoveredStatus, setHoveredStatus] = useState(null)
     const [showEditTooltip, setShowEditTooltip] = useState(null)
-    const [scrollLeft, setScrollLeft] = useState(0) // ENHANCEMENT: Track scroll for floating buttons
     const helpIconRef = useRef(null)
     const observerRef = useRef(null)
     const contentRef = useRef(null)
@@ -223,21 +177,6 @@ const SharedTable = forwardRef(
 
     const config = tableConfig[type]
 
-    // ENHANCEMENT: Track scroll position for floating buttons
-    useEffect(() => {
-      const handleScroll = () => {
-        if (contentRef.current) {
-          setScrollLeft(contentRef.current.scrollLeft)
-        }
-      }
-
-      if (contentRef.current) {
-        contentRef.current.addEventListener('scroll', handleScroll, { passive: true })
-        return () => contentRef.current?.removeEventListener('scroll', handleScroll)
-      }
-    }, [])
-
-    // Simplified sidebar width calculation
     useEffect(() => {
       const updateTableLayout = () => {
         if (contentRef.current) {
@@ -255,7 +194,6 @@ const SharedTable = forwardRef(
       return () => clearTimeout(timeoutId)
     }, [sidebarExpanded])
 
-    // Ref callback to expose table ref to parent
     const tableContainerRef = useCallback(
       (node) => {
         contentRef.current = node
@@ -271,7 +209,6 @@ const SharedTable = forwardRef(
       [ref],
     )
 
-    // Infinite scroll observer
     const lastItemElementRef = useCallback(
       (node) => {
         if (observerRef.current) observerRef.current.disconnect()
@@ -300,7 +237,6 @@ const SharedTable = forwardRef(
       window.open(`${config.detailPath}/${id}`, "_blank")
     }
 
-    // ENHANCEMENT: Use edit hook methods
     const startEditing = (id) => {
       if (editHook?.editingItemId) return
       const item = data.find((d) => d.id === id)
@@ -322,7 +258,6 @@ const SharedTable = forwardRef(
       const changes = editHook?.getChanges(original)
       if (!Object.keys(changes).length) return
 
-      // Process numeric fields
       if (type === "student" && changes.iqScore !== undefined) {
         changes.iqScore = Number.parseInt(changes.iqScore) || 0
       }
@@ -341,7 +276,6 @@ const SharedTable = forwardRef(
       })
     }
 
-    // Handle edit field change
     const handleEditChange = (e) => {
       const { name, value } = e.target
       editHook?.updateField(name, value)
@@ -350,10 +284,8 @@ const SharedTable = forwardRef(
     const debouncedSearchInput = useDebounce(searchInput, 7000)
     const isDebouncingSearch = searchInput !== debouncedSearchInput
     
-    // Check if has changes using edit hook
     const hasChanges = editHook?.hasUnsavedChanges() && editHook?.editData?.fullName?.trim()
 
-    // Linear gradient divider
     const LinearGradientDivider = () => (
       <tr style={{ height: "1px" }}>
         <td colSpan={type === "student" ? 8 : 9} className="p-0">
@@ -391,141 +323,131 @@ const SharedTable = forwardRef(
               width: "100%",
             }}
           >
-       <thead className="bg-[#E2F9FF]">
-  <tr>
-    {/* Name Column */}
-    <th
-      className="px-3 py-2 text-left text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
-      data-name-column="true"
-      style={{ minWidth: "200px" }}
-    >
-      <div className="flex items-center gap-1">
-        <span>NAMA</span>
-        <span
-          className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
-          onClick={() => requestSort("fullName")}
-        >
-          {getSortIcon("fullName")}
-        </span>
-      </div>
-    </th>
-
-    {/* Type-specific columns */}
-    {type === "student" ? (
-      <>
-        <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
-          KELAS
-        </th>
-        <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
-          JENIS KELAMIN
-        </th>
-        <th
-          className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
-          style={{ minWidth: "120px" }}
-        >
-          <div className="flex items-center justify-center gap-1">
-            <span>NIS</span>
-            <span 
-              className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
-              onClick={() => requestSort("nis")}
-            >
-              {getSortIcon("nis")}
-            </span>
-          </div>
-        </th>
-        <th
-          className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
-          style={{ minWidth: "120px" }}
-        >
-          <div className="flex items-center justify-center gap-1">
-            <span>SKOR IQ</span>
-            <span 
-              className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
-              onClick={() => requestSort("iqScore")}
-            >
-              {getSortIcon("iqScore")}
-            </span>
-          </div>
-        </th>
-      </>
-    ) : (
-      <>
-        <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "150px" }}>
-          DEPARTEMEN
-        </th>
-        <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "150px" }}>
-          JABATAN
-        </th>
-        <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
-          JENIS KELAMIN
-        </th>
-        <th
-          className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
-          style={{ minWidth: "100px" }}
-        >
-          <div className="flex items-center justify-center gap-1">
-            <span>USIA</span>
-            <span
-              className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
-              onClick={() => requestSort("age")}
-            >
-              {getSortIcon("age")}
-            </span>
-          </div>
-        </th>
-        <th
-          className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
-          style={{ minWidth: "150px" }}
-        >
-          <div className="flex items-center justify-center gap-1">
-            <span>LAMA BEKERJA</span>
-            <span
-              className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
-              onClick={() => requestSort("yearsOfService")}
-            >
-              {getSortIcon("yearsOfService")}
-            </span>
-          </div>
-        </th>
-      </>
-    )}
-
-    {/* Common columns */}
-    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
-      <div className="flex items-center justify-center">
-        SKRINING
-        <span
-          className="material-icons text-sm ml-1 text-gray-400 cursor-help opacity-70 hover:opacity-100 transition-opacity"
-          ref={helpIconRef}
-          onMouseEnter={() => setShowHelpTooltip(true)}
-          onMouseLeave={() => setShowHelpTooltip(false)}
-        >
-          help_outline
-        </span>
-        <HelpTooltip helpIconRef={helpIconRef} showHelpTooltip={showHelpTooltip} />
-      </div>
-    </th>
-    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
-      KONSELING
-    </th>
-    <th className="px-3 py-2 text-center whitespace-nowrap" style={{ minWidth: "80px" }}></th>
-  </tr>
-</thead>
-
+            <thead className="bg-[#E2F9FF]">
+              <tr>
+                <th
+                  className="px-3 py-2 text-left text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                  data-name-column="true"
+                  style={{ minWidth: "200px" }}
+                >
+                  <div className="flex items-center gap-1">
+                    <span>NAMA</span>
+                    <span
+                      className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
+                      onClick={() => requestSort("fullName")}
+                    >
+                      {getSortIcon("fullName")}
+                    </span>
+                  </div>
+                </th>
+                {type === "student" ? (
+                  <>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                      KELAS
+                    </th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                      JENIS KELAMIN
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "120px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>NIS</span>
+                        <span 
+                          className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
+                          onClick={() => requestSort("nis")}
+                        >
+                          {getSortIcon("nis")}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "120px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>SKOR IQ</span>
+                        <span 
+                          className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
+                          onClick={() => requestSort("iqScore")}
+                        >
+                          {getSortIcon("iqScore")}
+                        </span>
+                      </div>
+                    </th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "150px" }}>
+                      DEPARTEMEN
+                    </th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "150px" }}>
+                      JABATAN
+                    </th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                      JENIS KELAMIN
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "100px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>USIA</span>
+                        <span
+                          className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
+                          onClick={() => requestSort("age")}
+                        >
+                          {getSortIcon("age")}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "150px" }}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>LAMA BEKERJA</span>
+                        <span
+                          className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
+                          onClick={() => requestSort("yearsOfService")}
+                        >
+                          {getSortIcon("yearsOfService")}
+                        </span>
+                      </div>
+                    </th>
+                  </>
+                )}
+                <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                  <div className="flex items-center justify-center">
+                    SKRINING
+                    <span
+                      className="material-icons text-sm ml-1 text-gray-400 cursor-help opacity-70 hover:opacity-100 transition-opacity"
+                      ref={helpIconRef}
+                      onMouseEnter={() => setShowHelpTooltip(true)}
+                      onMouseLeave={() => setShowHelpTooltip(false)}
+                    >
+                      help_outline
+                    </span>
+                    <HelpTooltip helpIconRef={helpIconRef} showHelpTooltip={showHelpTooltip} />
+                  </div>
+                </th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                  KONSELING
+                </th>
+                <th className="px-3 py-2 text-center whitespace-nowrap" style={{ minWidth: "80px" }}></th>
+              </tr>
+            </thead>
             <tbody className="bg-white">
               <LinearGradientDivider />
-
               {data.map((item, index) => {
                 const statusUI = getScreeningStatusInfo(item.screeningStatus || "stable")
-                // FIXED: Use hasCounseling boolean instead of counselingStatus
                 const counselingUI = getCounselingStatusInfo(item.hasCounseling)
                 const isLastElement = index === data.length - 1
                 const isEditing = editHook?.isEditingItem(item.id)
-
                 return (
                   <React.Fragment key={item.id}>
                     <tr className="bg-white relative" ref={isLastElement ? lastItemElementRef : null}>
-                      {/* Name - FIXED: Remove highlighting */}
                       <td className="px-3 py-2 text-left whitespace-nowrap" data-name-column="true">
                         {isEditing ? (
                           <input
@@ -545,11 +467,8 @@ const SharedTable = forwardRef(
                           </div>
                         )}
                       </td>
-
-                      {/* Type-specific columns */}
                       {type === "student" ? (
                         <>
-                          {/* Classroom */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex gap-1 justify-center" style={{ zIndex: 9999 }}>
@@ -577,8 +496,6 @@ const SharedTable = forwardRef(
                               </div>
                             )}
                           </td>
-
-                          {/* Gender */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 999 }}>
@@ -597,8 +514,6 @@ const SharedTable = forwardRef(
                               <div className="text-sm text-gray-600">{getGenderDisplay(item.gender)}</div>
                             )}
                           </td>
-
-                          {/* NIS - FIXED: Remove highlighting */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <input
@@ -612,8 +527,6 @@ const SharedTable = forwardRef(
                               <div className="text-sm text-gray-600">{item.nis}</div>
                             )}
                           </td>
-
-                          {/* IQ Score */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <input
@@ -632,7 +545,6 @@ const SharedTable = forwardRef(
                         </>
                       ) : (
                         <>
-                          {/* Department */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 999 }}>
@@ -650,8 +562,6 @@ const SharedTable = forwardRef(
                               </div>
                             )}
                           </td>
-
-                          {/* Position */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 999 }}>
@@ -669,8 +579,6 @@ const SharedTable = forwardRef(
                               </div>
                             )}
                           </td>
-
-                          {/* Gender */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="relative" style={{ zIndex: 999 }}>
@@ -689,8 +597,6 @@ const SharedTable = forwardRef(
                               <div className="text-sm text-gray-600">{getGenderDisplay(item.gender)}</div>
                             )}
                           </td>
-
-                          {/* Age */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-1">
@@ -712,8 +618,6 @@ const SharedTable = forwardRef(
                               </div>
                             )}
                           </td>
-
-                          {/* Years of Service */}
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-1">
@@ -737,8 +641,6 @@ const SharedTable = forwardRef(
                           </td>
                         </>
                       )}
-
-                      {/* Screening Status */}
                       <td className="px-3 py-2 text-center whitespace-nowrap">
                         <span
                           className="inline-flex items-center justify-center w-6 h-6 sm:w-8 sm:h-8 rounded-full cursor-pointer"
@@ -755,25 +657,37 @@ const SharedTable = forwardRef(
                           <span className={statusUI.iconClass}>{statusUI.icon}</span>
                         </span>
                       </td>
-
-                      {/* Counseling Status */}
                       <td className="px-3 py-2 text-center whitespace-nowrap">
                         <span className={clsx("text-sm", counselingUI.color)}>
                           {counselingUI.text}
                         </span>
                       </td>
-
-                      {/* Actions - FIXED: Closer button spacing */}
                       <td className="px-3 py-2 text-center relative whitespace-nowrap">
                         {isEditing ? (
-                          <FloatingActionButtons
-                            isEditing={isEditing}
-                            hasChanges={hasChanges}
-                            onCancel={cancelEditing}
-                            onSave={() => saveEditing(item.id)}
-                            isPending={updateItem.isPending}
-                            scrollLeft={scrollLeft}
-                          />
+                          <div className="flex items-center justify-center">
+                            <div className="flex items-center gap-1 relative -translate-x-[18px]">
+                              <button
+                                className={clsx(
+                                  "w-8 h-8 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
+                                  updateItem.isPending && "opacity-50 cursor-not-allowed",
+                                )}
+                                onClick={cancelEditing}
+                                disabled={updateItem.isPending}
+                              >
+                                <span className="material-icons text-lg">cancel</span>
+                              </button>
+                              <button
+                                className={clsx(
+                                  "w-8 h-8 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
+                                  (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
+                                )}
+                                onClick={() => saveEditing(item.id)}
+                                disabled={!hasChanges || updateItem.isPending}
+                              >
+                                <span className="material-icons text-lg">check_circle</span>
+                              </button>
+                            </div>
+                          </div>
                         ) : (
                           <div className="flex items-center justify-center">
                             <button
@@ -801,8 +715,6 @@ const SharedTable = forwardRef(
             </tbody>
           </table>
         </div>
-
-        {/* Status tooltip */}
         <AnimatePresence>
           {hoveredStatus && (
             <motion.div
@@ -819,8 +731,6 @@ const SharedTable = forwardRef(
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Empty state */}
         {data.length === 0 && !isFetchingNextPage && !isDebouncingSearch && (
           <div className="text-center py-8">
             <span className="material-icons text-gray-400 text-4xl">{config.emptyIcon}</span>

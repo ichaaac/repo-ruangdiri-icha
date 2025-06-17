@@ -6,7 +6,6 @@ import { useAuth } from "@/hooks/useAuth"
 import SuccessModal from "@/components/organization/school/SuccessModal"
 
 const SchoolDashboard = () => {
-  // Get context from Layout with proper fallbacks
   const context = useOutletContext() || {}
   const { 
     sidebarExpanded = false, 
@@ -21,7 +20,7 @@ const SchoolDashboard = () => {
         type="student"
         config={{
           entityName: "Siswa",
-          defaultFilter: "X", // Required for API - default classroom
+          defaultFilter: "X", 
           filterLabel: "Kelas",
           filterOptions: ["X", "XI", "XII"],
         }}
