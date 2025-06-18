@@ -1,4 +1,4 @@
-// src/components/shared/detail/DetailComponents.jsx - FIXED: Proper chart alignment and spacing
+// src/components/shared/detail/DetailComponents.jsx - Optimized Responsive with Precise Reference Lines
 
 import { motion, AnimatePresence } from "framer-motion"
 import { format } from "date-fns"
@@ -109,11 +109,11 @@ export const SuccessModal = ({ isOpen, message, onClose }) => {
 // Language Switcher Component
 export const LanguageSwitcher = () => {
   return (
-<TopRightControl isAbsolute />
+    <TopRightControl isAbsolute />
   )
 }
 
-// Profile Component
+// Profile Component - Responsive
 export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarExpanded = false }) => {
   const profile = data?.studentProfile || data?.employeeProfile || {}
 
@@ -167,14 +167,13 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
 
   return (
     <motion.section
-      className="flex-shrink-0 flex flex-col"
-      style={{ width: "340px" }}
+      className="flex-shrink-0 flex flex-col w-full max-w-sm lg:max-w-[340px] xl:max-w-[380px] 2xl:max-w-[420px]"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
       <motion.h1
-        className="text-xl font-semibold leading-none text-[#488BBE] mb-6 text-left"
+        className="text-lg lg:text-xl font-semibold leading-none text-[#488BBE] mb-4 lg:mb-6 text-left"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -184,12 +183,12 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
 
       {/* Profile Picture */}
       <motion.div
-        className="flex justify-center lg:justify-start mb-[51px]"
+        className="flex justify-center lg:justify-start mb-8 lg:mb-[51px]"
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <div className="w-[120px] h-[120px] rounded-full overflow-hidden shadow-sm bg-gray-100 border flex items-center justify-center">
+        <div className="w-[100px] h-[100px] lg:w-[120px] lg:h-[120px] rounded-full overflow-hidden shadow-sm bg-gray-100 border flex items-center justify-center">
           {data?.profilePicture ? (
             <img
               src={data.profilePicture}
@@ -202,14 +201,14 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
             />
           ) : null}
           <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center" style={{ display: data?.profilePicture ? 'none' : 'flex' }}>
-            <span className="material-icons text-gray-400 text-3xl">person</span>
+            <span className="material-icons text-gray-400 text-2xl lg:text-3xl">person</span>
           </div>
         </div>
       </motion.div>
 
       {/* Information Grid */}
       <div className="w-full flex-grow">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-[35px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 lg:gap-x-6 gap-y-6 lg:gap-y-[35px]">
           {fields.map((field, index) => (
             <motion.div
               key={field.key}
@@ -227,7 +226,7 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
         </div>
 
         {/* Edit Button */}
-        <div className="flex justify-end mt-auto pt-[80px]">
+        <div className="flex justify-end mt-auto pt-12 lg:pt-[80px]">
           <motion.button
             onClick={onEdit}
             className="px-3 py-1.5 text-xs font-semibold leading-5 text-white bg-[#488BBE] rounded-md min-h-7 w-[82px] hover:bg-[#3399E9] transition-colors"
@@ -242,7 +241,7 @@ export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarEx
   )
 }
 
-// CRITICAL FIX: Development Component - Proper chart with exact alignment
+// OPTIMIZED: Development Component with Precise Reference Lines
 export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" }) => {
   const fullName = data?.fullName || "Siswa"
 
@@ -251,7 +250,7 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
 
   const allMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-  // Get notes from API structure - if null, show empty string
+  // Get notes from API structure
   const getMonthlyNotes = () => {
     if (!mentalHealthHistory || mentalHealthHistory.length === 0) {
       return allMonths.map(() => "")
@@ -280,7 +279,7 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
 
   const monthlyNotes = getMonthlyNotes()
 
-  // Generate chart data with proper null handling (use 0 for null)
+  // Generate chart data with precise handling
   const generateChartData = () => {
     if (mentalHealthHistory && mentalHealthHistory.length > 0) {
       const statusMap = {}
@@ -308,21 +307,21 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
     } else {
       return allMonths.map((month) => ({
         month,
-        value: 0,
+        value: 0.5,
         status: null,
       }))
     }
   }
 
-  // CRITICAL FIX: Handle status values with exact positioning
+  // PRECISE STATUS VALUES: Exact alignment with reference lines
   const getStatusValue = (status) => {
     if (status === null || status === undefined) return 0.5 // Slightly above 0 line for visibility
     
     const statusValues = {
-      at_risk: 1,
-      monitored: 2,
-      stable: 3,
-      not_screened: 0.5, // Slightly above 0
+      at_risk: 1.0,      // Exactly on "Berisiko" line
+      monitored: 2.0,    // Exactly on "Pengawasan" line  
+      stable: 3.0,       // Exactly on "Stabil" line
+      not_screened: 0.5, // Slightly above 0 line
     }
     return statusValues[status] || 0.5
   }
@@ -352,7 +351,7 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
   const isPrevDisabled = absoluteMonthIndex === 0
   const isNextDisabled = absoluteMonthIndex === 11
 
-  // CRITICAL FIX: Custom dot component with proper color and z-index
+  // OPTIMIZED: Custom dot component with precise colors
   const CustomDot = (props) => {
     const { cx, cy, payload, index } = props
     const isActive = index === currentMonthIndex
@@ -385,14 +384,14 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
 
   return (
     <motion.section
-      className="flex flex-col w-full min-w-0 max-w-[679px]"
+      className="flex flex-col w-full min-w-0 flex-1"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
       {/* Development Section */}
       <motion.h2
-        className="text-xl font-semibold text-[#488BBE] mb-3"
+        className="text-lg lg:text-xl font-semibold text-[#488BBE] mb-3"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
@@ -401,34 +400,34 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
       </motion.h2>
 
       <motion.article
-        className="relative flex flex-col w-full h-[208px] text-sm leading-5 rounded-xl border border-gray-300 bg-[#FCFCFC] text-neutral-600 mb-8"
+        className="relative flex flex-col w-full h-[180px] lg:h-[208px] text-sm leading-5 rounded-xl border border-gray-300 bg-[#FCFCFC] text-neutral-600 mb-6 lg:mb-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         {/* Arrow Icons */}
         <button
-          className={`absolute left-3 top-[104px] transform -translate-y-1/2 z-10 ${
+          className={`absolute left-2 lg:left-3 top-1/2 transform -translate-y-1/2 z-10 ${
             isPrevDisabled ? "text-gray-300 cursor-not-allowed" : "text-[#488BBE] cursor-pointer"
-          } w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
+          } w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
           onClick={handlePrevMonth}
           disabled={isPrevDisabled}
         >
-          <span className="material-icons text-2xl">chevron_left</span>
+          <span className="material-icons text-xl lg:text-2xl">chevron_left</span>
         </button>
 
         <button
-          className={`absolute right-3 top-[104px] transform -translate-y-1/2 z-10 ${
+          className={`absolute right-2 lg:right-3 top-1/2 transform -translate-y-1/2 z-10 ${
             isNextDisabled ? "text-gray-300 cursor-not-allowed" : "text-[#488BBE] cursor-pointer"
-          } w-10 h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
+          } w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center hover:bg-gray-100 rounded-full transition-colors`}
           onClick={handleNextMonth}
           disabled={isNextDisabled}
         >
-          <span className="material-icons text-2xl">chevron_right</span>
+          <span className="material-icons text-xl lg:text-2xl">chevron_right</span>
         </button>
 
         {/* Content */}
-        <div className="px-16 flex flex-col items-center justify-center h-full py-6">
+        <div className="px-12 lg:px-16 flex flex-col items-center justify-center h-full py-4 lg:py-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={absoluteMonthIndex}
@@ -439,9 +438,9 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
               transition={{ duration: 0.3 }}
             >
               {monthlyNotes[absoluteMonthIndex] ? (
-                <p className="text-base leading-relaxed">{monthlyNotes[absoluteMonthIndex]}</p>
+                <p className="text-sm lg:text-base leading-relaxed">{monthlyNotes[absoluteMonthIndex]}</p>
               ) : (
-                <p className="text-base leading-relaxed text-gray-400 italic">Tidak ada catatan</p>
+                <p className="text-sm lg:text-base leading-relaxed text-gray-400 italic">Tidak ada catatan</p>
               )}
             </motion.div>
           </AnimatePresence>
@@ -450,85 +449,97 @@ export const SharedDevelopment = ({ data, mentalHealthHistory, type = "student" 
 
       {/* Mental Health Chart */}
       <motion.h2
-        className="text-xl font-semibold text-[#488BBE] mb-3"
+        className="text-lg lg:text-xl font-semibold text-[#488BBE] mb-3"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
         Perkembangan Status Kesehatan Mental ({fullName})
       </motion.h2>
-
-      <motion.div
-        className="flex overflow-hidden w-full h-[330px] rounded-xl border border-[#535353] bg-[#FCFCFC]"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
+            <motion.div
+          className="flex overflow-hidden w-full h-[280px] lg:h-[330px] rounded-xl border border-[#535353] bg-[#FCFCFC]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
       >
-        {/* CRITICAL FIX: Y-axis labels - properly spaced and aligned */}
-        <div className="flex flex-col justify-between text-right w-24 px-3 py-8">
-          <div className="flex items-center justify-end" style={{ height: "60px" }}>
-            <p className="font-bold text-[#9BCA61] leading-[13px] text-sm">Stabil</p>
-          </div>
-          <div className="flex items-center justify-end" style={{ height: "60px" }}>
-            <p className="font-bold text-[#EED142] leading-[13px] text-sm">Pengawasan</p>
-          </div>
-          <div className="flex items-center justify-end" style={{ height: "60px" }}>
-            <p className="font-bold text-[#EE4266] leading-[13px] text-sm">Berisiko</p>
-          </div>
-          <div className="flex items-center justify-end" style={{ height: "60px" }}>
-            <p className="text-[#828898] leading-[13px] text-sm">0</p>
-          </div>
-        </div>
+{/* Y-axis container using ABSOLUTE POSITIONING */}
+<div className="flex flex-col w-20 lg:w-24 text-right">
+    {/* This is the flex-1 area, and it's our positioning context */}
+    <div className="flex-1 relative">
+        {/*
+          Each label is now positioned absolutely within the container above.
+          The values are calculated to match the chart's internal margin of 10px.
+        */}
+        <p className="font-bold text-[#9BCA61] leading-[13px] text-xs lg:text-sm absolute right-2 lg:right-3"
+           style={{ top: 'calc(25% + 5px)', transform: 'translateY(-50%)' }}>
+            Stabil
+        </p>
+        <p className="font-bold text-[#EED142] leading-[13px] text-xs lg:text-sm absolute right-2 lg:right-3"
+           style={{ top: '50%', transform: 'translateY(-50%)' }}>
+            Pengawasan
+        </p>
+        <p className="font-bold text-[#EE4266] leading-[13px] text-xs lg:text-sm absolute right-2 lg:right-3"
+           style={{ top: 'calc(75% - 5px)', transform: 'translateY(-50%)' }}>
+            Berisiko
+        </p>
+        <p className="text-[#828898] leading-[13px] text-xs lg:text-sm absolute right-2 lg:right-3"
+           style={{ bottom: '10px', transform: 'translateY(50%)' }}>
+            0
+        </p>
+    </div>
 
-        {/* Chart area */}
-        <div className="flex flex-col flex-1 text-center text-slate-500 min-w-0">
-          <div className="w-full flex-1 relative px-4 py-8">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={visibleChartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-                <YAxis domain={[0, 4]} hide />
+    {/* This spacer stays the same */}
+    <div className="pb-4 lg:pb-6">&nbsp;</div>
+</div>
 
-                {/* CRITICAL FIX: Reference lines exactly aligned with labels */}
-                <ReferenceLine y={3} stroke="#9BCA61" strokeWidth={2} strokeDasharray="4 4" />
-                <ReferenceLine y={2} stroke="#EED142" strokeWidth={2} strokeDasharray="4 4" />
-                <ReferenceLine y={1} stroke="#EE4266" strokeWidth={2} strokeDasharray="4 4" />
-                <ReferenceLine y={0} stroke="#828898" strokeWidth={2} strokeDasharray="4 4" />
-
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#3B82F6"
-                  strokeWidth={3}
-                  dot={<CustomDot />}
-                  activeDot={false}
-                  isAnimationActive={true}
-                  animationDuration={1000}
-                  animationEasing="ease-in-out"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          {/* Chart area (No changes needed here) */}
+          <div className="flex flex-col flex-1 text-center text-slate-500 min-w-0">
+              <div className="w-full flex-1 relative px-3 lg:px-4 py-6 lg:py-8">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={visibleChartData} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+                          <YAxis domain={[0, 4]} hide />
+                          <ReferenceLine y={3.0} stroke="#9BCA61" strokeWidth={2} strokeDasharray="4 4" />
+                          <ReferenceLine y={2.0} stroke="#EED142" strokeWidth={2} strokeDasharray="4 4" />
+                          <ReferenceLine y={1.0} stroke="#EE4266" strokeWidth={2} strokeDasharray="4 4" />
+                          <ReferenceLine y={0.0} stroke="#828898" strokeWidth={2} strokeDasharray="4 4" />
+                          <Line
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#3B82F6"
+                              strokeWidth={3}
+                              dot={<CustomDot />}
+                              activeDot={false}
+                              isAnimationActive={true}
+                              animationDuration={1200}
+                              animationEasing="ease-in-out"
+                              connectNulls={false}
+                          />
+                      </LineChart>
+                  </ResponsiveContainer>
+              </div>
+              <div className="flex justify-between px-6 lg:px-8 pb-4 lg:pb-6">
+                  {visibleChartData.map((data, index) => (
+                      <span
+                          key={index}
+                          className={`text-xs lg:text-sm cursor-pointer transition-colors ${
+                              index === currentMonthIndex ? "text-[#488BBE] font-medium" : "text-[#828898] hover:text-[#488BBE]"
+                          }`}
+                          onClick={() => setCurrentMonthIndex(index)}
+                      >
+                          {data.month}
+                      </span>
+                  ))}
+              </div>
           </div>
-
-          {/* Month labels */}
-          <div className="flex justify-between px-8 pb-6">
-            {visibleChartData.map((data, index) => (
-              <span
-                key={index}
-                className={`text-sm ${index === currentMonthIndex ? "text-[#488BBE] font-medium" : "text-[#828898]"}`}
-              >
-                {data.month}
-              </span>
-            ))}
-          </div>
-        </div>
       </motion.div>
     </motion.section>
   )
 }
 
-// Divider Component - Better spacing when collapsed
+// Divider Component - Responsive spacing
 export const Divider = ({ sidebarExpanded = false }) => (
   <motion.div
-    className="hidden lg:block shrink-0 my-auto h-[400px]"
+    className="hidden lg:block shrink-0 my-auto h-[300px] lg:h-[400px] xl:h-[450px]"
     style={{
       background: "linear-gradient(180deg, #FFFFFF 0%, #488BBA 50%, #FFFFFF 100%)",
       width: "1px",
@@ -537,17 +548,17 @@ export const Divider = ({ sidebarExpanded = false }) => (
     animate={{
       opacity: 1,
       scaleY: 1,
-      marginLeft: sidebarExpanded ? "40px" : "150px", 
-      marginRight: sidebarExpanded ? "40px" : "150px",
+      marginLeft: sidebarExpanded ? "40px" : "80px", 
+      marginRight: sidebarExpanded ? "40px" : "80px",
     }}
     transition={{ duration: 0.3, ease: "easeInOut" }}
   />
 )
 
-// Main Layout Component
+// Main Layout Component - Responsive with proper spacing
 export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
   return (
-    <main className="bg-white min-h-screen">
+    <main className="bg-white min-h-screen relative">
       <LanguageSwitcher />
 
       <div className="flex flex-col lg:flex-row">
@@ -559,18 +570,22 @@ export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
           transition={{ duration: 0.3, ease: "easeInOut" }}
         />
 
-        {/* Content area with responsive layout */}
+        {/* Content area with responsive layout and proper spacing (122px from TopRightControl) */}
         <div className="flex-1 min-w-0">
           <motion.div
-            className="flex flex-col lg:flex-row lg:items-start mt-2 pb-8 w-full"
+            className="flex flex-col lg:flex-row lg:items-start w-full px-4 lg:px-0"
             initial={false}
             animate={{
-              paddingLeft: sidebarExpanded ? "20px" : "60px", 
-              paddingRight: "24px",
+              paddingLeft: sidebarExpanded ? "32px" : "60px", 
+              paddingRight: "32px",
+              paddingTop: "140px", // 122px + 18px margin as per Figma
+              paddingBottom: "32px",
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <div className="flex flex-col lg:flex-row lg:items-start w-full max-w-none">{children}</div>
+            <div className="flex flex-col lg:flex-row lg:items-start w-full max-w-none gap-6 lg:gap-0">
+              {children}
+            </div>
           </motion.div>
         </div>
       </div>

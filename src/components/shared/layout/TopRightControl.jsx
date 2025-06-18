@@ -1,4 +1,4 @@
-// src/components/shared/TopRightControl.jsx
+// src/components/shared/layout/TopRightControl.jsx
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
     const wrapperClass = isAbsolute
       ? "absolute top-[29px] right-[12px]"

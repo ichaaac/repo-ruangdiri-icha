@@ -1,4 +1,4 @@
-// src/pages/organization/school/StudentDetailPage.jsx
+// src/pages/organization/school/StudentDetailPage.jsx - OPTIMIZED: Responsive
 
 import { useState } from "react"
 import { useParams, useOutletContext } from "react-router-dom"
@@ -39,10 +39,10 @@ const StudentDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen px-4">
         <div className="flex items-center space-x-2">
-          <span className="material-icons animate-spin text-[#488BBE]">sync</span>
-          <span className="text-[#488BBE]">Memuat data siswa...</span>
+          <span className="material-icons animate-spin text-[#488BBE] text-2xl">sync</span>
+          <span className="text-[#488BBE] text-sm lg:text-base">Memuat data siswa...</span>
         </div>
       </div>
     )
@@ -50,20 +50,20 @@ const StudentDetailPage = () => {
 
   if (isError) {
     return (
-      <div className="flex justify-center items-center min-h-screen p-6">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">
-            <span className="material-icons" style={{ fontSize: "6rem" }}>
+      <div className="flex justify-center items-center min-h-screen p-4 lg:p-6">
+        <div className="text-center max-w-md">
+          <div className="text-red-500 text-4xl lg:text-6xl mb-4">
+            <span className="material-icons" style={{ fontSize: "4rem" }}>
               error_outline
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Gagal Memuat Data</h1>
-          <p className="text-gray-600 mb-6 max-w-md">
+          <h1 className="text-xl lg:text-2xl font-bold text-red-600 mb-2">Gagal Memuat Data</h1>
+          <p className="text-gray-600 mb-6 text-sm lg:text-base">
             {error?.message || "Gagal memuat data siswa. Silakan coba beberapa saat lagi."}
           </p>
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 bg-[#488BBE] text-white rounded-full hover:bg-[#3399E9] transition-colors"
+            className="px-4 py-2 bg-[#488BBE] text-white rounded-full hover:bg-[#3399E9] transition-colors text-sm lg:text-base"
           >
             Coba Lagi
           </button>
