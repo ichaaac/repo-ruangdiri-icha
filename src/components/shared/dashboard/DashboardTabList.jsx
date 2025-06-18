@@ -27,13 +27,13 @@ const DashboardTabList = ({
 
   const getAllMetrics = () => [
     {
-      title: `Total ${config.entityName} Beresiko`,
+      title: `Total ${config.entityName} Berisiko`, // FIXED: BERISIKO not BERESIKO
       count: metrics?.summary?.atRisk?.count || 0,
       total: metrics?.summary?.atRisk?.total || 0,
       color: "#ED8768",
       bgColor: "#FFEBE5",
       borderColor: "#FFC1AF",
-      icon: "warning",
+      icon: "assignment_late", // Consistent with DashboardHome
       cardId: "at_risk",
     },
     {
@@ -43,7 +43,7 @@ const DashboardTabList = ({
       color: "#8CC3EE",
       bgColor: "#E7FEFF",
       borderColor: "#B2FDFF",
-      icon: "assignment",
+      icon: "article", // Consistent with DashboardHome
       cardId: "not_screened",
     },
     {
@@ -53,7 +53,7 @@ const DashboardTabList = ({
       color: "#A08CE2",
       bgColor: "#F3E6FF",
       borderColor: "#E4C6FF",
-      icon: "groups",
+      icon: "article", // Consistent with DashboardHome
       cardId: "not_counseled",
     },
   ]
@@ -108,18 +108,22 @@ const DashboardTabList = ({
             const isDisabled = metric.count === 0
             
             return (
-              <div key={metric.cardId} className={isActive ? "relative" : ""}>
+              <div key={metric.cardId} className="w-full relative">
                 {isActive && (
                   <div 
-                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl"
+                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl z-0"
                     style={{
-                      inset: "-12px -12px -12px -12px", // Wider background: top, right, bottom, left
-                      padding: "16px 24px 0px 24px"
+                      top: "-12px",
+                      left: "-12px", 
+                      right: "-12px",
+                      bottom: "-20px",
+                      borderBottomLeftRadius: "0px",
+                      borderBottomRightRadius: "0px"
                     }}
                   />
                 )}
                 
-                <div className="relative z-10">
+                <div className="relative z-10 w-full">
                   <MetricCard
                     title={metric.title}
                     count={isActive ? (tabData?.metadata?.totalData || 0) : metric.count}
@@ -127,7 +131,7 @@ const DashboardTabList = ({
                     color={isActive ? metric.color : "#8B8B8B"}
                     bgColor={isActive ? metric.bgColor : "transparent"}
                     borderColor={isActive ? metric.borderColor : "#C7C7C7"}
-                    icon={metric.icon}
+                    icon={metric.icon} // Icons will be handled by MetricCard itself
                     isActive={isActive}
                     isDisabled={isDisabled && !isActive}
                     isInactive={!isActive}
@@ -141,29 +145,27 @@ const DashboardTabList = ({
         </div>
 
         <div 
-          className="bg-[#D7EDFF] min-h-[549px] rounded-tl-xl rounded-tr-xl overflow-hidden -mt-4 pt-6"
+          className="bg-[#D7EDFF] min-h-[400px] rounded-xl overflow-hidden -mt-3"
           style={{
             width: '100%',
-            maxWidth: `calc(100% - 40px)`,
-            marginLeft: '20px',
-            marginRight: '20px',
-            borderTopLeftRadius: '0px',
-            borderTopRightRadius: '0px',
-            borderBottomLeftRadius: '12px',
-            borderBottomRightRadius: '12px'
+            maxWidth: `calc(100% - 32px)`,
+            marginLeft: '16px',
+            marginRight: '16px',
           }}
         >
-          <div className="px-6 pb-6 h-full">
-
+          <div className="px-6 py-6 h-full">
             <DashboardTable
               type={type}
-              data={tabData?.data?.students || tabData?.data?.employees || []}
+              data={type === "student" ? (tabData?.data?.students || []) : (tabData?.data?.employees || [])}
               isLoading={false}
               title=""
               hasNextPage={tabData?.hasNextPage}
               fetchNextPage={tabData?.fetchNextPage}
               isFetchingNextPage={tabData?.isFetchingNextPage}
-              config={config}
+              config={{
+                ...config,
+                detailPath: type === "student" ? "/organization/school/student" : "/organization/company/employee"
+              }}
             />
           </div>
         </div>

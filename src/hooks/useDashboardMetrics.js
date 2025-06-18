@@ -62,11 +62,12 @@ export const useYearlyStats = (type = "student", filters = {}) => {
 /**
  * Hook for fetching metric cards data using organizations/period endpoint
  * This provides unified data for both metric cards and tab navigation
+ * OPTIMIZED: Use staleTime and cacheTime to prevent blink effects
  */
 export const useMetricCardsData = (type = "student") => {
   const currentDate = getCurrentDateInfo()
   
-  // Fetch all metric types in parallel to get totalData from metadata
+  // Optimized queries with longer stale time to prevent blink
   const atRiskQuery = useQuery({
     queryKey: ["metricCards", type, "at_risk", currentDate.yearMonth],
     queryFn: async () => {
@@ -79,8 +80,10 @@ export const useMetricCardsData = (type = "student") => {
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 1,
+    staleTime: 1000 * 60 * 5, // 5 minutes - longer to prevent blink
+    cacheTime: 1000 * 60 * 10, // 10 minutes cache
     retry: false,
+    keepPreviousData: true, // IMPORTANT: Keep previous data to prevent blink
   })
 
   const notScreenedQuery = useQuery({
@@ -95,8 +98,10 @@ export const useMetricCardsData = (type = "student") => {
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 1,
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 10,
     retry: false,
+    keepPreviousData: true,
   })
 
   const notCounseledQuery = useQuery({
@@ -111,8 +116,10 @@ export const useMetricCardsData = (type = "student") => {
       }
     },
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 1,
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 10,
     retry: false,
+    keepPreviousData: true,
   })
 
   return {
@@ -148,6 +155,7 @@ export const useMetricCardsData = (type = "student") => {
 /**
  * Hook for fetching dashboard tab data (organizations endpoint with infinite scroll)
  * Reuses the same endpoint as metric cards for consistency
+ * OPTIMIZED: Enhanced error handling and data consistency
  */
 export const useDashboardTabData = (type = "student", tabType = "at_risk", params = {}) => {
   const currentDate = getCurrentDateInfo()
@@ -178,6 +186,9 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       
       const res = await apiClient.get(`${endpoint}?${queryParams}`)
       
+      console.log(`=== DASHBOARD TAB DATA FETCH (${type}, ${tabType}) ===`)
+      console.log("API Response:", res.data)
+      
       return {
         data: res.data?.data || { students: [], employees: [] },
         metadata: res.data?.data?.metadata || { 
@@ -194,8 +205,10 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
     },
     enabled: enabled,
     refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2,
-    retry: false,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    cacheTime: 1000 * 60 * 5, // 5 minutes cache
+    retry: 2, // Retry twice on failure
+    keepPreviousData: true, // Prevent blink during refetch
   })
 }
 

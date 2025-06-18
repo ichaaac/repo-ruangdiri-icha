@@ -235,45 +235,51 @@ const DashboardHome = ({
       <div className="mt-4 sm:mt-6">
         <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
-            <MetricCard
-              title={`Total ${config.entityName} Berisiko`}
-              count={metrics.summary?.atRisk?.count || 0}
-              total={metrics.summary?.atRisk?.total || 0}
-              color="#ED8768"
-              bgColor="#FFEBE5"
-              borderColor="#ED8768"
-              icon="assignment_late"
-              isActive={true}
-              isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
-              onCardClick={() => onCardClick("at_risk")}
-              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
-            />
-            <MetricCard
-              title={`Total ${config.entityName} Belum Skrining`}
-              count={metrics.summary?.notScreened?.count || 0}
-              total={metrics.summary?.notScreened?.total || 0}
-              color="#8CC3EE"
-              bgColor="#E7FEFF"
-              borderColor="#B2FDFF"
-              icon="article"
-              isActive={true}
-              isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
-              onCardClick={() => onCardClick("not_screened")}
-              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
-            />
-            <MetricCard
-              title={`Total ${config.entityName} Belum Konseling`}
-              count={metrics.summary?.notCounseled?.count || 0}
-              total={metrics.summary?.notCounseled?.total || 0}
-              color="#A08CE2"
-              bgColor="#F3E6FF"
-              borderColor="#E4C6FF"
-              icon="article"
-              isActive={true}
-              isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
-              onCardClick={() => onCardClick("not_counseled")}
-              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
-            />
+            <div className="w-full">
+              <MetricCard
+                title={`Total ${config.entityName} Berisiko`}
+                count={metrics.summary?.atRisk?.count || 0}
+                total={metrics.summary?.atRisk?.total || 0}
+                color="#ED8768"
+                bgColor="#FFEBE5"
+                borderColor="#ED8768"
+                icon="assignment_late" // Consistent across all views
+                isActive={true}
+                isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
+                onCardClick={() => onCardClick("at_risk")}
+                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
+              />
+            </div>
+            <div className="w-full">
+              <MetricCard
+                title={`Total ${config.entityName} Belum Skrining`}
+                count={metrics.summary?.notScreened?.count || 0}
+                total={metrics.summary?.notScreened?.total || 0}
+                color="#8CC3EE"
+                bgColor="#E7FEFF"
+                borderColor="#B2FDFF"
+                icon="article" // Consistent across all views
+                isActive={true}
+                isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
+                onCardClick={() => onCardClick("not_screened")}
+                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
+              />
+            </div>
+            <div className="w-full">
+              <MetricCard
+                title={`Total ${config.entityName} Belum Konseling`}
+                count={metrics.summary?.notCounseled?.count || 0}
+                total={metrics.summary?.notCounseled?.total || 0}
+                color="#A08CE2"
+                bgColor="#F3E6FF"
+                borderColor="#E4C6FF"
+                icon="article" // Consistent across all views
+                isActive={true}
+                isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
+                onCardClick={() => onCardClick("not_counseled")}
+                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
+              />
+            </div>
           </div>
         </div>
 
@@ -300,8 +306,11 @@ const DashboardHome = ({
                   <p className="text-xs sm:text-sm">Status Kesehatan Mental {config.entityName} Keseluruhan</p>
                   <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
-                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                  {renderEnhancedPieChart(getOverallPieData(), hoveredPieIndex, setHoveredPieIndex, "overall")}
+                {/* Fixed container with absolute positioning to prevent sidebar shifts */}
+                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
+                  <div className="absolute inset-0">
+                    {renderEnhancedPieChart(getOverallPieData(), hoveredPieIndex, setHoveredPieIndex, "overall")}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
                   <div className="flex items-center gap-1">
@@ -332,7 +341,7 @@ const DashboardHome = ({
                   <p className="text-xs sm:text-sm">
                     Status Kesehatan Mental{" "}
                     <span className="font-extrabold">
-                      {config.entityName} {barChartClassroom}
+                      {config.entityName} {type === "student" ? "Kelas " : ""}{barChartClassroom}
                       {type === "student" && barChartGrade ? ` ${barChartGrade}` : ""}
                     </span>
                   </p>
@@ -448,18 +457,20 @@ const DashboardHome = ({
                   <div className="px-4 py-4">
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
-                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      {renderEnhancedPieChart(getScreeningData(), screeningHoveredIndex, setScreeningHoveredIndex, "screening")}
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center w-full mt-4">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-[#6DC4C6]"></div>
-                        <p className="text-xs sm:text-sm">Belum Skrining</p>
+                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
+                      <div className="absolute inset-0">
+                        {renderEnhancedPieChart(getScreeningData(), screeningHoveredIndex, setScreeningHoveredIndex, "screening")}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-[#E284B3]"></div>
-                        <p className="text-xs sm:text-sm">Sudah Skrining</p>
+                      {/* Custom Legend - Positioned at bottom right, vertical layout */}
+                      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-[#6DC4C6]"></div>
+                          <p className="text-xs sm:text-sm">Belum Skrining</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-[#E284B3]"></div>
+                          <p className="text-xs sm:text-sm">Sudah Skrining</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -475,18 +486,20 @@ const DashboardHome = ({
                   <div className="px-4 py-4">
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
-                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      {renderEnhancedPieChart(getCounselingData(), counselingHoveredIndex, setCounselingHoveredIndex, "counseling")}
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center w-full mt-4">
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-[#C194E9]"></div>
-                        <p className="text-xs sm:text-sm">Belum Konseling</p>
+                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
+                      <div className="absolute inset-0">
+                        {renderEnhancedPieChart(getCounselingData(), counselingHoveredIndex, setCounselingHoveredIndex, "counseling")}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full bg-[#F1D961]"></div>
-                        <p className="text-xs sm:text-sm">Sudah Konseling</p>
+                      {/* Custom Legend - Positioned at bottom right, vertical layout */}
+                      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-[#C194E9]"></div>
+                          <p className="text-xs sm:text-sm">Belum Konseling</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full bg-[#F1D961]"></div>
+                          <p className="text-xs sm:text-sm">Sudah Konseling</p>
+                        </div>
                       </div>
                     </div>
                   </div>

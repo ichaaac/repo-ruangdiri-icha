@@ -7,37 +7,39 @@ const TableHeader = ({ type = "student" }) => (
     <tr>
       <th
         className="px-5 py-3 text-left text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
-        style={{ color: "#488BBE" }}
+        style={{ color: "#488BBE", width: "25%" }}
       >
-        Nama
-      </th>
-      <th
-        className="px-5 py-3 text-left text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
-        style={{ color: "#488BBE" }}
-      >
-        {type === "student" ? "Kelas" : "Departemen"}
+        NAMA
       </th>
       <th
         className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
-        style={{ color: "#488BBE" }}
+        style={{ color: "#488BBE", width: "20%" }}
       >
-        Jenis Kelamin
+        {type === "student" ? "KELAS" : "DEPARTEMEN"}
       </th>
       <th
-        className="px-5 py-3 text-left text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
-        style={{ color: "#488BBE" }}
+        className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
+        style={{ color: "#488BBE", width: "15%" }}
       >
-        {type === "student" ? "NIS" : "Usia"}
+        JENIS KELAMIN
       </th>
       <th
-        className="px-5 py-3 text-left text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
-        style={{ color: "#488BBE" }}
-      ></th>
+        className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
+        style={{ color: "#488BBE", width: "20%" }}
+      >
+        {type === "student" ? "NIS" : "USIA"}
+      </th>
+      <th
+        className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
+        style={{ color: "#488BBE", width: "20%" }}
+      >
+        AKSI
+      </th>
     </tr>
   </thead>
 )
 
-const TableRow = React.forwardRef(({ item, type = "student", config = {}, clickedNames, setClickedNames }, ref) => {
+const TableRow = React.forwardRef(({ item, type = "student", config = {} }, ref) => {
   const commonCellClass = "px-5 py-4 text-base leading-5 text-zinc-500 max-sm:px-4 max-sm:py-3 max-sm:text-sm"
 
   // Format gender menjadi L/P
@@ -48,38 +50,59 @@ const TableRow = React.forwardRef(({ item, type = "student", config = {}, clicke
   }
 
   // Handle detail click navigation
-  const handleDetailClick = () => {
-    const id = item.id
-    if (clickedNames.has(id)) {
-      // Open detail page
-      window.open(`${config.detailPath}/${id}`, "_blank")
-      setClickedNames(new Set())
-    } else {
-      // First click - prepare for navigation
-      setClickedNames(new Set([id]))
-    }
+  const handleDetailClick = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const detailPath = type === "student" 
+      ? "/organization/school/student" 
+      : "/organization/company/employee"
+    
+    const url = `${detailPath}/${item.id}`
+    window.open(url, "_blank")
   }
 
   return (
     <tr ref={ref} className="bg-white border-b border-gray-100">
-      <td className={commonCellClass}>
-        <div className="max-w-[200px] truncate" title={item.fullName || item.nama}>
+      {/* Nama - Left aligned, clickable for detail */}
+      <td className={commonCellClass} style={{ width: "25%" }}>
+        <div 
+          className="max-w-[180px] truncate cursor-pointer text-gray-900 hover:text-[#488BBE] transition-colors font-medium" 
+          title={item.fullName || item.nama}
+          onClick={handleDetailClick}
+        >
           {item.fullName || item.nama || "-"}
         </div>
       </td>
-      <td className={commonCellClass}>
-        {type === "student" ? item.classroom || item.kelas || "-" : item.department || "-"}
+      
+      {/* Kelas/Departemen - Center aligned */}
+      <td className={`${commonCellClass} text-center truncate`} style={{ width: "20%" }}>
+        <div className="max-w-full" title={
+          type === "student" 
+            ? (item.classroom && item.grade ? `${item.classroom} - ${item.grade}` : item.classroom || item.kelas || "-")
+            : item.department || "-"
+        }>
+          {type === "student" 
+            ? (item.classroom && item.grade ? `${item.classroom} - ${item.grade}` : item.classroom || item.kelas || "-")
+            : item.department || "-"
+          }
+        </div>
       </td>
-      <td className={`${commonCellClass} text-center`}>
+      
+      {/* Jenis Kelamin - Center aligned */}
+      <td className={`${commonCellClass} text-center`} style={{ width: "15%" }}>
         {formatGender(item.gender || item.jenisKelamin)}
       </td>
-      <td className={commonCellClass}>{type === "student" ? item.nis || "-" : item.age || item.usia || "-"}</td>
-      <td className={`${commonCellClass} max-sm:font-medium`}>
+      
+      {/* NIS/Usia - Center aligned */}
+      <td className={`${commonCellClass} text-center`} style={{ width: "20%" }}>
+        {type === "student" ? item.nis || "-" : (item.age ? `${item.age} Tahun` : "-")}
+      </td>
+      
+      {/* RESTORED: Action Button - Center aligned */}
+      <td className={`${commonCellClass} text-center`} style={{ width: "20%" }}>
         <button
-          className="transition-colors cursor-pointer"
-          style={{ color: "#488BBE" }}
-          onMouseEnter={(e) => (e.target.style.color = "#3a7ba8")}
-          onMouseLeave={(e) => (e.target.style.color = "#488BBE")}
+          className="transition-colors cursor-pointer font-medium text-[#488BBE] hover:text-[#3a7ba8] whitespace-nowrap"
           onClick={handleDetailClick}
         >
           Lihat Detail
@@ -99,16 +122,44 @@ const DashboardTable = ({
   isFetchingNextPage = false, 
   hasNextPage = false, 
   fetchNextPage = () => {},
-  config = {} // Add config prop for detail navigation
+  config = {}
 }) => {
-  const [clickedNames, setClickedNames] = useState(new Set())
   const observerRef = useRef(null)
-  const itemsData = Array.isArray(data) ? data : []
+  
+  // Enhanced data handling - fix employee data extraction
+  let itemsData = []
+  
+  if (Array.isArray(data)) {
+    itemsData = data
+  } else if (data && typeof data === 'object') {
+    if (type === "student") {
+      if (data.students) {
+        itemsData = data.students
+      } else if (data.data && data.data.students) {
+        itemsData = data.data.students
+      }
+    } else if (type === "employee") {
+      if (data.employees) {
+        itemsData = data.employees
+      } else if (data.data && data.data.employees) {
+        itemsData = data.data.employees
+      }
+    }
+    
+    // Fallback - try to find any array
+    if (itemsData.length === 0) {
+      if (data.data && Array.isArray(data.data)) {
+        itemsData = data.data
+      } else if (Array.isArray(data.items)) {
+        itemsData = data.items
+      }
+    }
+  }
 
-  // Linear gradient divider like in Table.jsx
+  // Linear gradient divider
   const LinearGradientDivider = () => (
     <tr style={{ height: "2px" }}>
-      <td colSpan={type === "student" ? 5 : 5} className="p-0">
+      <td colSpan={5} className="p-0">
         <div
           style={{
             height: "2px",
@@ -121,19 +172,17 @@ const DashboardTable = ({
     </tr>
   )
   
-  // Infinite scroll callback - exactly like SharedTable.jsx
+  // Infinite scroll callback
   const lastItemElementRef = useCallback(
     (node) => {
       if (observerRef.current) observerRef.current.disconnect()
       if (isFetchingNextPage || !hasNextPage) {
-        console.log("Dashboard infinite scroll: skipping observer setup", { isFetchingNextPage, hasNextPage })
         return
       }
 
       observerRef.current = new IntersectionObserver(
         (entries) => {
           if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-            console.log("Dashboard table: Last item visible, fetching next page", { hasNextPage, isFetchingNextPage })
             fetchNextPage()
           }
         },
@@ -141,22 +190,11 @@ const DashboardTable = ({
       )
 
       if (node) {
-        console.log("Dashboard infinite scroll: setting up observer on node", node)
         observerRef.current.observe(node)
       }
     },
     [isFetchingNextPage, hasNextPage, fetchNextPage]
   )
-
-  // Debug logs for infinite scroll
-  useEffect(() => {
-    console.log("Dashboard table data updated:", { 
-      dataLength: itemsData.length, 
-      hasNextPage, 
-      isFetchingNextPage,
-      itemsData: itemsData.slice(0, 3) // First 3 items for debugging
-    })
-  }, [itemsData.length, hasNextPage, isFetchingNextPage, itemsData])
 
   // Cleanup observer on unmount
   useEffect(() => {
@@ -167,30 +205,27 @@ const DashboardTable = ({
     }
   }, [])
 
-  // Dynamic height calculation based on data
+  // Dynamic height calculation - more compact
   const calculateMinHeight = () => {
     if (itemsData.length === 0) return "200px"
     
-    // Base height for header + minimum padding
-    const baseHeight = 100
-    // Approximate row height (including dividers)
-    const rowHeight = 60
+    const baseHeight = 80 // Reduced base height
+    const rowHeight = 50 // Reduced row height
     const totalHeight = baseHeight + (itemsData.length * rowHeight)
     
-    // Minimum height to prevent too small containers
-    const minHeight = Math.max(300, totalHeight)
-    // Maximum height to prevent too large containers
-    const maxHeight = 800
+    // More compact constraints
+    const minHeight = Math.max(200, totalHeight)
+    const maxHeight = 600 // Reduced max height
     
     return `${Math.min(minHeight, maxHeight)}px`
   }
 
-  // Never show loading state - data should always be available
-  if (itemsData.length === 0) {
+  // Show empty state only when truly no data
+  if (!itemsData || itemsData.length === 0) {
     return (
       <div 
-        className="flex justify-center items-center"
-        style={{ minHeight: "300px" }}
+        className="flex justify-center items-center bg-white rounded-lg shadow-sm"
+        style={{ minHeight: "200px" }}
       >
         <div className="flex flex-col items-center gap-2 text-gray-500">
           <span className="material-icons text-3xl">inbox</span>
@@ -202,10 +237,10 @@ const DashboardTable = ({
 
   return (
     <div 
-      className="flex flex-col gap-6 w-full"
+      className="flex flex-col w-full"
       style={{ minHeight: calculateMinHeight() }}
     >
-      {/* Table Container with Dynamic Height */}
+      {/* Compact Table Container */}
       <div 
         className="w-full overflow-x-auto bg-white rounded-lg shadow-sm"
         style={{ 
@@ -213,7 +248,7 @@ const DashboardTable = ({
           transition: "min-height 0.3s ease-in-out"
         }}
       >
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse table-fixed">
           <TableHeader type={type} />
           <tbody>
             <LinearGradientDivider />
@@ -221,13 +256,11 @@ const DashboardTable = ({
               const isLastElement = index === itemsData.length - 1
               
               return (
-                <React.Fragment key={item.id || index}>
+                <React.Fragment key={item.id || `${type}-${index}`}>
                   <TableRow 
                     item={item} 
                     type={type} 
                     config={config}
-                    clickedNames={clickedNames}
-                    setClickedNames={setClickedNames}
                     ref={isLastElement ? lastItemElementRef : null}
                   />
                   <LinearGradientDivider />
@@ -238,9 +271,9 @@ const DashboardTable = ({
         </table>
       </div>
 
-      {/* Loading indicator for infinite scroll */}
+      {/* Compact loading indicator */}
       {isFetchingNextPage && (
-        <div className="flex justify-center items-center w-full py-4">
+        <div className="flex justify-center items-center w-full py-3">
           <div className="flex items-center gap-2 text-gray-400 text-sm">
             <span className="material-icons text-sm animate-spin">refresh</span>
             <span>Memuat lebih banyak...</span>
@@ -248,11 +281,11 @@ const DashboardTable = ({
         </div>
       )}
 
-      {/* Show when has more data to load */}
+      {/* More compact scroll hint */}
       {hasNextPage && !isFetchingNextPage && itemsData.length >= 10 && (
         <div className="flex justify-center items-center w-full py-2">
           <div className="text-gray-400 text-xs">
-            Scroll ke bawah untuk memuat data lebih banyak
+            Scroll untuk memuat data lebih banyak
           </div>
         </div>
       )}

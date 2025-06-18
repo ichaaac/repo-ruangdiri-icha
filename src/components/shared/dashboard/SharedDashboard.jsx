@@ -20,7 +20,6 @@ const SharedDashboard = ({
 
   // Get current user with fallback
   const { user } = useAuth?.() || { user: {} }
-  console.log("SharedDashboard user data:", user) // Debug log
   const currentDate = getCurrentDateInfo()
 
   // Get dashboard data with proper error handling - now uses fixed hooks
@@ -64,19 +63,28 @@ const SharedDashboard = ({
       }
     }
 
-    // Flatten all pages
+    // Flatten all pages with proper structure preservation
     const allData = tabDataQuery.pages.reduce((acc, page) => {
       const pageData = page.data || { students: [], employees: [] }
-      acc.students = [...acc.students, ...(pageData.students || [])]
-      acc.employees = [...acc.employees, ...(pageData.employees || [])]
+      
+      // Handle both direct arrays and nested structure
+      if (type === "student") {
+        const studentsArray = pageData.students || pageData || []
+        acc.students = [...acc.students, ...studentsArray]
+      } else {
+        const employeesArray = pageData.employees || pageData || []
+        acc.employees = [...acc.employees, ...employeesArray]
+      }
+      
       return acc
     }, { students: [], employees: [] })
 
     const lastPage = tabDataQuery.pages[tabDataQuery.pages.length - 1]
     const metadata = lastPage?.metadata || { totalData: 0, hasNextPage: false }
 
-    return {
-      data: allData,
+    // Return structured data that DashboardTable can handle
+    const result = {
+      data: allData, // Keep the full structure
       metadata: {
         ...metadata,
         totalData: type === "student" ? allData.students.length : allData.employees.length,
@@ -85,6 +93,14 @@ const SharedDashboard = ({
       fetchNextPage,
       isFetchingNextPage,
     }
+
+    console.log("=== SHARED DASHBOARD TAB DATA DEBUG ===")
+    console.log("Type:", type)
+    console.log("Raw tabDataQuery pages:", tabDataQuery.pages)
+    console.log("Processed allData:", allData)
+    console.log("Final result:", result)
+
+    return result
   }, [tabDataQuery, shouldFetchTabData, type, hasNextPage, fetchNextPage, isFetchingNextPage])
 
   // Handle card clicks - switch to tab view
@@ -168,12 +184,6 @@ const SharedDashboard = ({
       </div>
     )
   }
-
-  // Debug log for metrics
-  console.log("=== SHARED DASHBOARD DEBUG ===")
-  console.log("Metrics:", metrics)
-  console.log("Selected tab:", selectedDashboardTab)
-  console.log("Tab data:", tabData)
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">

@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/MetricCard.jsx - Enhanced with divider and proper icons
+// src/components/shared/dashboard/MetricCard.jsx - Enhanced with proper icons, colors, and SVG divider
 
 import { motion } from "framer-motion"
 
@@ -16,12 +16,12 @@ const MetricCard = ({
   onCardClick,
   onReportClick,
 }) => {
-  const iconMap = {
-    assignment_late: "assignment_late", // Updated for at_risk
-    article: "article", // Updated for screening and counseling
-    assignment: "assignment",
-    groups: "groups",
-    warning: "warning"
+  // Fixed icon mapping - consistent icons
+  const getCardIcon = () => {
+    if (title.includes("Berisiko")) return "assignment_late"
+    if (title.includes("Belum Skrining")) return "article"
+    if (title.includes("Belum Konseling")) return "article"
+    return icon // fallback
   }
 
   const getCardStyle = () => {
@@ -63,15 +63,27 @@ const MetricCard = ({
   const getColor = () => {
     if (isInactive) return "#8B8B8B"
     
-    if (title.includes("Beresiko")) return "#ED8768"
+    if (title.includes("Berisiko")) return "#ED8768"
     if (title.includes("Belum Skrining")) return "#6DC4C6"
-    if (title.includes("Belum Konseling")) return "#C194E9"
+    if (title.includes("Belum Konseling")) return "#A08CE2"
     return color
   }
 
   const getTextColor = () => isInactive ? "#8B8B8B" : "#6B7280"
 
   const canInteract = !isDisabled
+
+  // SVG Divider Component with dynamic color
+  const SVGDivider = () => {
+    const dividerColor = getColor()
+    return (
+      <div className="mx-auto my-2 sm:my-3 z-10" style={{ width: "calc(100% - 16px)", maxWidth: "320px" }}>
+        <svg width="100%" height="2" viewBox="0 0 319 2" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0.416504 1H318.028" stroke={dividerColor} strokeWidth="0.5"/>
+        </svg>
+      </div>
+    )
+  }
 
   return (
     <motion.div
@@ -109,11 +121,11 @@ const MetricCard = ({
               style={{ color: getColor() }}
               whileHover={canInteract ? { scale: 1.1 } : {}}
             >
-              {iconMap[icon] || icon}
+              {getCardIcon()}
             </motion.span>
             <span 
               className="text-[10px] sm:text-xs font-medium text-center leading-tight"
-              style={{ color: getColor() }}
+              style={{ color: "#488BBE" }} // Fixed: Always use primary blue color
             >
               Kirim Laporan
             </span>
@@ -132,15 +144,8 @@ const MetricCard = ({
           <div className="w-8 sm:w-12"></div>
         </div>
 
-        {/* FIXED: Added proper divider */}
-        <div
-          className="mx-auto h-[2px] my-2 sm:my-3 rounded-full z-10"
-          style={{
-            width: "calc(100% - 16px)",
-            backgroundColor: getColor(),
-            maxWidth: "320px",
-          }}
-        />
+        {/* FIXED: SVG Divider with proper color */}
+        <SVGDivider />
 
         <p 
           className="text-xs sm:text-sm font-medium"
