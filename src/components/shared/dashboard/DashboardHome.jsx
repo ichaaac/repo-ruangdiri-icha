@@ -81,7 +81,7 @@ const DashboardHome = ({
   const getOverallPieData = useCallback(() => {
     const overall = metrics?.mentalHealth?.overall || {}
     return [
-      { name: "Beresiko", value: overall.atRisk || 0, color: "#ED8768" },
+      { name: "Berisiko", value: overall.atRisk || 0, color: "#ED8768" },
       { name: "Pengawasan", value: overall.monitored || 0, color: "#FCBC03" },
       { name: "Aman", value: overall.stable || 0, color: "#9BCA61" },
     ]
@@ -166,7 +166,7 @@ const DashboardHome = ({
         <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
             <MetricCard
-              title={`Total ${config.entityName} Beresiko`}
+              title={`Total ${config.entityName} Berisiko`}
               count={metrics.summary?.atRisk?.count || 0}
               total={metrics.summary?.atRisk?.total || 0}
               color="#ED8768"
@@ -176,7 +176,7 @@ const DashboardHome = ({
               isActive={true}
               isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
               onCardClick={() => onCardClick("at_risk")}
-              onReportClick={() => onReportClick(`Daftar ${config.entityName} Beresiko`)}
+              onReportClick={() => onReportClick(`Daftar ${config.entityName} Berisiko`)}
             />
             <MetricCard
               title={`Total ${config.entityName} Belum Skrining`}
@@ -256,7 +256,7 @@ const DashboardHome = ({
                 <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
-                    <p className="text-xs sm:text-sm">Beresiko</p>
+                    <p className="text-xs sm:text-sm">Berisiko</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
@@ -347,7 +347,7 @@ const DashboardHome = ({
                       <XAxis dataKey="month" />
                       <YAxis />
                       <Tooltip />
-                      <Bar dataKey="atRisk" fill="#ED8768" name="Beresiko" />
+                      <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" />
                       <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" />
                       <Bar dataKey="stable" fill="#9BCA61" name="Aman" />
                     </BarChart>
@@ -380,7 +380,7 @@ const DashboardHome = ({
                 <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
-                    <p className="text-xs sm:text-sm">Beresiko</p>
+                    <p className="text-xs sm:text-sm">Berisiko</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
