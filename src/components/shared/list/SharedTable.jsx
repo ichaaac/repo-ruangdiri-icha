@@ -662,33 +662,34 @@ const SharedTable = forwardRef(
                           {counselingUI.text}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-center relative whitespace-nowrap">
-                        {isEditing ? (
-                          <div className="flex items-center justify-center">
-                            <div className="flex items-center gap-1 relative -translate-x-[18px]">
-                              <button
-                                className={clsx(
-                                  "w-8 h-8 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
-                                  updateItem.isPending && "opacity-50 cursor-not-allowed",
-                                )}
-                                onClick={cancelEditing}
-                                disabled={updateItem.isPending}
-                              >
-                                <span className="material-icons text-lg">cancel</span>
-                              </button>
-                              <button
-                                className={clsx(
-                                  "w-8 h-8 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
-                                  (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
-                                )}
-                                onClick={() => saveEditing(item.id)}
-                                disabled={!hasChanges || updateItem.isPending}
-                              >
-                                <span className="material-icons text-lg">check_circle</span>
-                              </button>
+                        <td className="px-3 py-2 text-center relative whitespace-nowrap">
+                          {isEditing ? (
+                            <div className="flex items-center justify-center">
+                              {/* UBAH BAGIAN INI LAGI YAK */}
+                              <div className="flex items-center relative -translate-x-[22px]"> {/* BALIKIN: translate-x dengan nilai baru */}
+                                <button
+                                  className={clsx(
+                                    "w-9 h-9 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
+                                    updateItem.isPending && "opacity-50 cursor-not-allowed",
+                                  )}
+                                  onClick={cancelEditing}
+                                  disabled={updateItem.isPending}
+                                >
+                                  <span className="material-icons text-xl">cancel</span>
+                                </button>
+                                <button
+                                  className={clsx(
+                                    "w-9 h-9 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
+                                    (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
+                                  )}
+                                  onClick={() => saveEditing(item.id)}
+                                  disabled={!hasChanges || updateItem.isPending}
+                                >
+                                  <span className="material-icons text-xl">check_circle</span>
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
+                          ) : (
                           <div className="flex items-center justify-center">
                             <button
                               className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors relative"
