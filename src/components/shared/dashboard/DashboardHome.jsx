@@ -1,10 +1,11 @@
-// src/components/shared/dashboard/DashboardHome.jsx
+// src/components/shared/dashboard/DashboardHome.jsx - Enhanced with hover effects and modal
 
 import { useCallback, useState, useEffect } from "react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
 import { Menu } from "@headlessui/react"
 import MetricCard from "./MetricCard"
 import CustomBranchingDropdown from "./CustomBranchingDropdown"
+import EmailNotificationModal from "./EmailNotificationModal"
 import { useAuth } from "../../../hooks/useAuth"
 import { useYearlyStats } from "../../../hooks/useDashboardMetrics"
 import TopRightControl from "../layout/TopRightControl"
@@ -23,6 +24,15 @@ const DashboardHome = ({
   const [currentHalf, setCurrentHalf] = useState("firstHalf")
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
+  
+  // Modal states
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [reportName, setReportName] = useState("")
+  
+  // PieChart hover states
+  const [hoveredPieIndex, setHoveredPieIndex] = useState(-1)
+  const [screeningHoveredIndex, setScreeningHoveredIndex] = useState(-1)
+  const [counselingHoveredIndex, setCounselingHoveredIndex] = useState(-1)
   
   useEffect(() => {
     if (type === "student") {
@@ -124,6 +134,13 @@ const DashboardHome = ({
     if (canNavigatePrev()) setCurrentHalf("firstHalf")
   }
 
+  // Handle report click with modal
+  const handleReportClickWithModal = (reportTitle) => {
+    setReportName(reportTitle)
+    setShowEmailModal(true)
+    onReportClick(reportTitle) // Still call original handler
+  }
+
   const CustomTooltip = useCallback(({ active, payload }) => {
     if (active && payload?.length) {
       return (
@@ -149,6 +166,59 @@ const DashboardHome = ({
       </text>
     )
   }, [])
+
+  // Enhanced PieChart with hover effects
+  const renderEnhancedPieChart = (data, hoveredIndex, setHoveredIndex, chartKey) => {
+    return (
+      <ResponsiveContainer width="100%" height="100%" key={`${chartKey}-pie-enhanced`}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={renderCustomizedLabel}
+            outerRadius="80%"
+            innerRadius="50%"
+            fill="#8884d8"
+            dataKey="value"
+            isAnimationActive={false}
+            onMouseEnter={(_, index) => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(-1)}
+          >
+            {data.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={entry.color}
+                stroke={hoveredIndex === index ? entry.color : "none"}
+                strokeWidth={hoveredIndex === index ? 3 : 0}
+                style={{
+                  filter: hoveredIndex === index ? "brightness(1.1)" : "none",
+                  transform: hoveredIndex === index ? "scale(1.05)" : "scale(1)",
+                  transformOrigin: "center",
+                  transition: "all 0.2s ease-in-out"
+                }}
+              />
+            ))}
+          </Pie>
+          <Tooltip 
+            content={({ active, payload }) => {
+              if (active && payload?.length) {
+                const data = payload[0].payload
+                return (
+                  <div className="bg-black/80 text-white text-sm rounded-md p-2 shadow-lg">
+                    <p className="font-semibold">{data.name}</p>
+                    <p>{`Jumlah: ${data.value}`}</p>
+                  </div>
+                )
+              }
+              return null
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    )
+  }
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
@@ -176,7 +246,7 @@ const DashboardHome = ({
               isActive={true}
               isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
               onCardClick={() => onCardClick("at_risk")}
-              onReportClick={() => onReportClick(`Daftar ${config.entityName} Berisiko`)}
+              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
             />
             <MetricCard
               title={`Total ${config.entityName} Belum Skrining`}
@@ -189,7 +259,7 @@ const DashboardHome = ({
               isActive={true}
               isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
               onCardClick={() => onCardClick("not_screened")}
-              onReportClick={() => onReportClick(`Daftar ${config.entityName} Belum Skrining`)}
+              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
             />
             <MetricCard
               title={`Total ${config.entityName} Belum Konseling`}
@@ -202,7 +272,7 @@ const DashboardHome = ({
               isActive={true}
               isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
               onCardClick={() => onCardClick("not_counseled")}
-              onReportClick={() => onReportClick(`Daftar ${config.entityName} Belum Konseling`)}
+              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
             />
           </div>
         </div>
@@ -231,27 +301,7 @@ const DashboardHome = ({
                   <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%" key="overall-pie-static">
-                    <PieChart>
-                      <Pie
-                        data={getOverallPieData()}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={renderCustomizedLabel}
-                        outerRadius="80%"
-                        innerRadius="50%"
-                        fill="#8884d8"
-                        dataKey="value"
-                        isAnimationActive={false}
-                      >
-                        {getOverallPieData().map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {renderEnhancedPieChart(getOverallPieData(), hoveredPieIndex, setHoveredPieIndex, "overall")}
                 </div>
                 <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
                   <div className="flex items-center gap-1">
@@ -407,27 +457,7 @@ const DashboardHome = ({
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" key="screening-pie-static">
-                        <PieChart>
-                          <Pie
-                            data={getScreeningData()}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={renderCustomizedLabel}
-                            outerRadius="80%"
-                            innerRadius="50%"
-                            fill="#8884d8"
-                            dataKey="value"
-                            isAnimationActive={false}
-                          >
-                            {getScreeningData().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<CustomTooltip />} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      {renderEnhancedPieChart(getScreeningData(), screeningHoveredIndex, setScreeningHoveredIndex, "screening")}
                     </div>
                     
                     <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center w-full mt-4">
@@ -454,27 +484,7 @@ const DashboardHome = ({
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
                     
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full">
-                      <ResponsiveContainer width="100%" height="100%" key="counseling-pie-static">
-                        <PieChart>
-                          <Pie
-                            data={getCounselingData()}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={renderCustomizedLabel}
-                            outerRadius="80%"
-                            innerRadius="50%"
-                            fill="#8884d8"
-                            dataKey="value"
-                            isAnimationActive={false}
-                          >
-                            {getCounselingData().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<CustomTooltip />} />
-                        </PieChart>
-                      </ResponsiveContainer>
+                      {renderEnhancedPieChart(getCounselingData(), counselingHoveredIndex, setCounselingHoveredIndex, "counseling")}
                     </div>
                     
                     <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center w-full mt-4">
@@ -494,6 +504,15 @@ const DashboardHome = ({
           </div>
         </div>
       </div>
+
+      {/* Email Notification Modal */}
+      <EmailNotificationModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        reportName={reportName}
+        entityName={config.entityName}
+        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
+      />
     </div>
   )
 }

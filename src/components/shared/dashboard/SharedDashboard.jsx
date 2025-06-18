@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/SharedDashboard.jsx - Removed animations and added config support
+// src/components/shared/dashboard/SharedDashboard.jsx - Updated with fixed hooks and proper integration
 
 import { useState, useEffect, useMemo } from "react"
 import DashboardHome from "./DashboardHome"
@@ -23,7 +23,7 @@ const SharedDashboard = ({
   console.log("SharedDashboard user data:", user) // Debug log
   const currentDate = getCurrentDateInfo()
 
-  // Get dashboard data with proper error handling
+  // Get dashboard data with proper error handling - now uses fixed hooks
   const {
     metrics,
     options,
@@ -102,14 +102,13 @@ const SharedDashboard = ({
     onDashboardTabChange("home")
   }
 
-  // Handle report click
+  // Handle report click - now handled by individual components with modal
   const handleReportClick = (reportName) => {
-    setSuccessMessage(`Laporan "${reportName}" berhasil dikirim!`)
-    setShowSuccessModal(true)
-    setTimeout(() => setShowSuccessModal(false), 3000)
+    console.log(`Report triggered: ${reportName}`)
+    // Individual components now handle their own modals
   }
 
-  // Get count for specific tab type
+  // Get count for specific tab type from the unified metrics
   const getTabDataCount = (tabType) => {
     switch (tabType) {
       case "at_risk":
@@ -170,6 +169,12 @@ const SharedDashboard = ({
     )
   }
 
+  // Debug log for metrics
+  console.log("=== SHARED DASHBOARD DEBUG ===")
+  console.log("Metrics:", metrics)
+  console.log("Selected tab:", selectedDashboardTab)
+  console.log("Tab data:", tabData)
+
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
       {/* Simple conditional rendering without animations to avoid lag/refresh */}
@@ -203,7 +208,7 @@ const SharedDashboard = ({
         />
       )}
 
-      {/* Success Modal */}
+      {/* Success Modal - kept for backward compatibility */}
       {showSuccessModal && SuccessModalComponent && (
         <SuccessModalComponent
           isOpen={showSuccessModal}

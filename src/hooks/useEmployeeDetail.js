@@ -1,4 +1,4 @@
-// src/hooks/useEmployeeDetail.js - Updated hook with new API structure
+// src/hooks/useEmployeeDetail.js - CORRECTED for new API structure
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../lib/api"
@@ -90,13 +90,20 @@ export const useEmployeeDetail = (employeeId) => {
     },
   })
 
-  // Extract data from new API structure
+  // Extract data from new API structure - NO MORE mentalHealthHistories
   const employee = employeeData?.data || null
-  const mentalHealthHistory = employee?.mentalHealthHistories || []
 
+  console.log("📋 useEmployeeDetail processed data:", {
+    employee: employee,
+    screenings: employee?.screenings || [],
+    counselings: employee?.counselings || [],
+    isLoading,
+    isError,
+  })
+
+  // REMOVED: mentalHealthHistory from return - no longer needed
   return {
     employee,
-    mentalHealthHistory,
     isLoading,
     isLoadingHistory: false,
     isError,

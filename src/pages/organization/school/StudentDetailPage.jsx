@@ -1,4 +1,4 @@
-// src/pages/organization/school/StudentDetailPage.jsx - OPTIMIZED: Responsive
+// src/pages/organization/school/StudentDetailPage.jsx - CORRECTED for New API Structure
 
 import { useState } from "react"
 import { useParams, useOutletContext } from "react-router-dom"
@@ -24,8 +24,8 @@ const StudentDetailPage = () => {
   const context = useOutletContext() || {}
   const { sidebarExpanded = false } = context
 
-  const { student, mentalHealthHistory, isLoading, isError, error, refetch, updateStudent } =
-    useStudentDetail(studentId)
+  // CORRECTED: No longer destructuring mentalHealthHistory
+  const { student, isLoading, isError, error, refetch, updateStudent } = useStudentDetail(studentId)
 
   const handleEditSuccess = (message) => {
     setShowEditModal(false)
@@ -72,6 +72,13 @@ const StudentDetailPage = () => {
     )
   }
 
+  // Debug log for development
+  console.log("📋 StudentDetailPage rendering with data:", {
+    student,
+    screenings: student?.screenings || [],
+    counselings: student?.counselings || [],
+  })
+
   return (
     <DetailPageLayout sidebarExpanded={sidebarExpanded}>
       <SharedProfile
@@ -84,9 +91,9 @@ const StudentDetailPage = () => {
 
       <Divider sidebarExpanded={sidebarExpanded} />
 
+      {/* CORRECTED: Only passing data and type, no mentalHealthHistory */}
       <SharedDevelopment 
         data={student} 
-        mentalHealthHistory={mentalHealthHistory} 
         type="student" 
       />
 

@@ -1,3 +1,5 @@
+// src/components/shared/list/SharedTable.jsx
+
 import React, { useState, useRef, useCallback, forwardRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"

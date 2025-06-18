@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardTable.jsx - Added detail navigation, fixed infinite scroll, and added dividers
+// src/components/shared/dashboard/DashboardTable.jsx - Fixed infinite scroll and dynamic height
 
 import React, { useCallback, useState, useRef, useEffect } from "react"
 
@@ -167,10 +167,31 @@ const DashboardTable = ({
     }
   }, [])
 
+  // Dynamic height calculation based on data
+  const calculateMinHeight = () => {
+    if (itemsData.length === 0) return "200px"
+    
+    // Base height for header + minimum padding
+    const baseHeight = 100
+    // Approximate row height (including dividers)
+    const rowHeight = 60
+    const totalHeight = baseHeight + (itemsData.length * rowHeight)
+    
+    // Minimum height to prevent too small containers
+    const minHeight = Math.max(300, totalHeight)
+    // Maximum height to prevent too large containers
+    const maxHeight = 800
+    
+    return `${Math.min(minHeight, maxHeight)}px`
+  }
+
   // Never show loading state - data should always be available
   if (itemsData.length === 0) {
     return (
-      <div className="flex justify-center items-center h-32">
+      <div 
+        className="flex justify-center items-center"
+        style={{ minHeight: "300px" }}
+      >
         <div className="flex flex-col items-center gap-2 text-gray-500">
           <span className="material-icons text-3xl">inbox</span>
           <span className="text-sm">Tidak ada data untuk ditampilkan</span>
@@ -180,10 +201,19 @@ const DashboardTable = ({
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Table */}
-      <div className="w-full overflow-x-auto">
-        <table className="w-full border-collapse bg-white shadow-sm rounded-lg">
+    <div 
+      className="flex flex-col gap-6 w-full"
+      style={{ minHeight: calculateMinHeight() }}
+    >
+      {/* Table Container with Dynamic Height */}
+      <div 
+        className="w-full overflow-x-auto bg-white rounded-lg shadow-sm"
+        style={{ 
+          minHeight: calculateMinHeight(),
+          transition: "min-height 0.3s ease-in-out"
+        }}
+      >
+        <table className="w-full border-collapse">
           <TableHeader type={type} />
           <tbody>
             <LinearGradientDivider />
@@ -208,12 +238,21 @@ const DashboardTable = ({
         </table>
       </div>
 
-      {/* Subtle loading indicator - only when fetching next page */}
+      {/* Loading indicator for infinite scroll */}
       {isFetchingNextPage && (
         <div className="flex justify-center items-center w-full py-4">
           <div className="flex items-center gap-2 text-gray-400 text-sm">
             <span className="material-icons text-sm animate-spin">refresh</span>
             <span>Memuat lebih banyak...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Show when has more data to load */}
+      {hasNextPage && !isFetchingNextPage && itemsData.length >= 10 && (
+        <div className="flex justify-center items-center w-full py-2">
+          <div className="text-gray-400 text-xs">
+            Scroll ke bawah untuk memuat data lebih banyak
           </div>
         </div>
       )}

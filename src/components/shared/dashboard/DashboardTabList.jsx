@@ -1,7 +1,9 @@
-// src/components/shared/dashboard/DashboardTabList.jsx
+// src/components/shared/dashboard/DashboardTabList.jsx - Enhanced with report feature
 
+import { useState } from "react"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
+import EmailNotificationModal from "./EmailNotificationModal"
 import { useInfiniteScroll } from "../../../hooks/useInfiniteScroll"
 import { useAuth } from "../../../hooks/useAuth"
 import TopRightControl from "../layout/TopRightControl"
@@ -18,6 +20,10 @@ const DashboardTabList = ({
   sidebarExpanded = false,
 }) => {
   const { user: authUser } = useAuth?.() || { user: {} }
+  
+  // Modal states for email notification
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [reportName, setReportName] = useState("")
 
   const getAllMetrics = () => [
     {
@@ -51,6 +57,26 @@ const DashboardTabList = ({
       cardId: "not_counseled",
     },
   ]
+
+  // Handle report click with modal
+  const handleReportClick = (reportTitle) => {
+    setReportName(reportTitle)
+    setShowEmailModal(true)
+  }
+
+  // Get appropriate report title based on active card
+  const getReportTitle = (cardId) => {
+    switch (cardId) {
+      case "at_risk":
+        return `Daftar ${config.entityName} Berisiko`
+      case "not_screened":
+        return `Daftar ${config.entityName} Belum Skrining`
+      case "not_counseled":
+        return `Daftar ${config.entityName} Belum Konseling`
+      default:
+        return `Laporan ${config.entityName}`
+    }
+  }
 
   useInfiniteScroll({
     hasNextPage: tabData?.hasNextPage,
@@ -100,7 +126,7 @@ const DashboardTabList = ({
                     isDisabled={isDisabled && !isActive}
                     isInactive={!isActive}
                     onCardClick={() => isActive ? onReturnHome() : onCardClick(metric.cardId)}
-                    onReportClick={() => {}}
+                    onReportClick={() => handleReportClick(getReportTitle(metric.cardId))}
                   />
                 </div>
               </div>
@@ -122,6 +148,8 @@ const DashboardTabList = ({
           }}
         >
           <div className="px-6 pb-6 h-full">
+   
+
             <DashboardTable
               type={type}
               data={tabData?.data?.students || tabData?.data?.employees || []}
@@ -137,6 +165,15 @@ const DashboardTabList = ({
 
         <div style={{ height: '60px' }}></div>
       </div>
+
+      {/* Email Notification Modal */}
+      <EmailNotificationModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        reportName={reportName}
+        entityName={config.entityName}
+        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
+      />
     </div>
   )
 }

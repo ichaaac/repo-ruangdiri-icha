@@ -1,4 +1,4 @@
-// src/components/shared/list/SharedListPage.jsx - Updated with TopRightControl
+// src/components/shared/list/SharedListPage.jsx 
 import { useState, useRef } from "react"
 import { AnimatePresence } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"

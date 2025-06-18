@@ -1,4 +1,4 @@
-// src/hooks/useEmployeeData.js
+// src/hooks/useEmployeeData.js - Fixed counseling filter parameters
 
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from "@tanstack/react-query"
 import { apiClient } from "../lib/api"
@@ -15,8 +15,14 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     if (filters.department) params.department = filters.department
     if (filters.position) params.position = filters.position
     if (filters.gender) params.gender = filters.gender === "L" ? "male" : "female"
-    if (filters.screeningStatus) params.screeningStatus= filters.screeningStatus
-    if (filters.counselingStatus !== null) params.counselingStatus = filters.counselingStatus ? "1" : "0"
+    if (filters.screeningStatus) params.screeningStatus = filters.screeningStatus
+    
+    // FIXED: Counseling status parameter - accurate mapping
+    if (filters.counselingStatus !== null) {
+      // filters.counselingStatus: true = sudah konseling, false = belum konseling
+      // API expects: "1" = sudah konseling, "0" = belum konseling
+      params.counselingStatus = filters.counselingStatus ? "1" : "0"
+    }
 
     return params
   }
@@ -84,7 +90,6 @@ export const useEmployeeData = (searchTerm, sortConfig, filters) => {
     onSuccess: () => queryClient.invalidateQueries(["infiniteEmployees"]),
   })
 
-  // Process data with client-side search and sort
   const processedData = useMemo(() => {
     const allEmployees = infiniteQuery.data?.pages.flatMap((page) => page.data) || []
 
@@ -126,7 +131,6 @@ export const useDepartments = (options = {}) => {
   const { user } = useAuth() || { user: {} }
   const userRole = user?.role || ""
 
-  // Only enable the query if user has company role or options.enabled is true
   const enabled = options.enabled !== undefined ? options.enabled : userRole === "company"
 
   return useQuery({
@@ -136,7 +140,6 @@ export const useDepartments = (options = {}) => {
         const response = await apiClient.get("/employees/roles")
         const data = response?.data?.data
 
-        // Handle new API format
         if (data?.departments && data?.positions) {
           return {
             departments: data.departments || [],
@@ -144,7 +147,6 @@ export const useDepartments = (options = {}) => {
           }
         }
 
-        // Fallback if API returns unexpected format
         console.error("Unexpected data format from /employees/roles")
         return {
           departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
@@ -152,7 +154,6 @@ export const useDepartments = (options = {}) => {
         }
       } catch (error) {
         console.error("Error fetching departments:", error)
-        // Return fallback data if there's an error (like 403)
         return {
           departments: ["Human Resources", "Finance", "Marketing", "IT", "Operations"],
           positions: ["Head", "Manager", "Staff", "Specialist", "Developer", "Analyst"],
@@ -160,17 +161,7 @@ export const useDepartments = (options = {}) => {
       }
     },
     enabled: enabled,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: false, // Don't retry on 403
-  })
-}
-
-export const useUserProfile = () => {
-  return useQuery({
-    queryKey: ["userProfile"],
-    queryFn: async () => {
-      const response = await apiClient.get("/users/me")
-      return response?.data?.data || { fullName: "Pengguna" }
-    },
+    staleTime: 1000 * 60 * 5,
+    retry: false,
   })
 }

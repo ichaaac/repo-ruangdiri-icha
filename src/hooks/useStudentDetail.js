@@ -1,4 +1,4 @@
-// src/hooks/useStudentDetail.js - Updated hook with new API structure
+// src/hooks/useStudentDetail.js - CORRECTED for new API structure
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../lib/api"
@@ -30,6 +30,7 @@ export const useStudentDetail = (studentId) => {
     },
     enabled: !!studentId,
     retry: 1,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   })
 
   // Update student detail mutation using organization endpoint
@@ -91,22 +92,22 @@ export const useStudentDetail = (studentId) => {
     },
   })
 
-  // Extract data from new API structure
+  // Extract data from new API structure - NO MORE mentalHealthHistories
   const student = studentData?.data || null
-  const mentalHealthHistory = student?.mentalHealthHistories || []
 
   console.log("📋 useStudentDetail processed data:", {
-    student,
-    mentalHealthHistory,
+    student: student,
+    screenings: student?.screenings || [],
+    counselings: student?.counselings || [],
     isLoading,
     isError,
   })
 
+  // REMOVED: mentalHealthHistory from return - no longer needed
   return {
     student,
-    mentalHealthHistory,
     isLoading,
-    isLoadingHistory: false, // Since history is included in main response
+    isLoadingHistory: false, // Since data is included in main response
     isError,
     error,
     refetch,
