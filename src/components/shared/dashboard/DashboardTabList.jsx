@@ -110,7 +110,13 @@ const DashboardTabList = ({
             return (
               <div key={metric.cardId} className={isActive ? "relative" : ""}>
                 {isActive && (
-                  <div className="absolute inset-0 bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl -m-2 p-2"></div>
+                  <div 
+                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl"
+                    style={{
+                      inset: "-12px -12px -12px -12px", // Wider background: top, right, bottom, left
+                      padding: "16px 24px 0px 24px"
+                    }}
+                  />
                 )}
                 
                 <div className="relative z-10">
@@ -148,7 +154,6 @@ const DashboardTabList = ({
           }}
         >
           <div className="px-6 pb-6 h-full">
-   
 
             <DashboardTable
               type={type}

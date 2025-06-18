@@ -206,9 +206,9 @@ const DashboardHome = ({
               if (active && payload?.length) {
                 const data = payload[0].payload
                 return (
-                  <div className="bg-black/80 text-white text-sm rounded-md p-2 shadow-lg">
-                    <p className="font-semibold">{data.name}</p>
-                    <p>{`Jumlah: ${data.value}`}</p>
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg text-sm p-2">
+                    <p className="font-semibold text-gray-900">{data.name}</p>
+                    <p className="text-gray-600">{`Jumlah: ${data.value}`}</p>
                   </div>
                 )
               }
@@ -242,7 +242,7 @@ const DashboardHome = ({
               color="#ED8768"
               bgColor="#FFEBE5"
               borderColor="#ED8768"
-              icon="warning"
+              icon="assignment_late"
               isActive={true}
               isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
               onCardClick={() => onCardClick("at_risk")}
@@ -255,7 +255,7 @@ const DashboardHome = ({
               color="#8CC3EE"
               bgColor="#E7FEFF"
               borderColor="#B2FDFF"
-              icon="assignment"
+              icon="article"
               isActive={true}
               isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
               onCardClick={() => onCardClick("not_screened")}
@@ -268,7 +268,7 @@ const DashboardHome = ({
               color="#A08CE2"
               bgColor="#F3E6FF"
               borderColor="#E4C6FF"
-              icon="groups"
+              icon="article"
               isActive={true}
               isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
               onCardClick={() => onCardClick("not_counseled")}
@@ -383,7 +383,7 @@ const DashboardHome = ({
                 </div>
                 
                 <div className="text-center mb-3">
-                  <h3 className="text-sm font-semibold text-gray-600">2025</h3>
+                  <h3 className="text-lg font-bold text-gray-700">2025</h3>
                 </div>
                 
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
@@ -393,53 +393,45 @@ const DashboardHome = ({
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       barSize={12}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                       <XAxis dataKey="month" />
                       <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" />
-                      <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" />
-                      <Bar dataKey="stable" fill="#9BCA61" name="Aman" />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                      />
+                      <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="stable" fill="#9BCA61" name="Aman" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
 
                   <button
                     disabled={!canNavigatePrev()}
                     onClick={handlePrev}
-                    className={`absolute left-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 rounded-full transition-colors z-0 ${
+                    className={`absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors z-10 ${
                       canNavigatePrev()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                   >
-                    <span className="material-icons text-xl sm:text-2xl">chevron_left</span>
+                    <span className="material-icons text-2xl sm:text-3xl">chevron_left</span>
                   </button>
                   <button
                     disabled={!canNavigateNext()}
                     onClick={handleNext}
-                    className={`absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-8 sm:w-10 h-8 sm:h-10 rounded-full transition-colors z-0 ${
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors z-10 ${
                       canNavigateNext()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                   >
-                    <span className="material-icons text-xl sm:text-2xl">chevron_right</span>
+                    <span className="material-icons text-2xl sm:text-3xl">chevron_right</span>
                   </button>
-                </div>
-
-                <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
-                    <p className="text-xs sm:text-sm">Berisiko</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
-                    <p className="text-xs sm:text-sm">Pengawasan</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
-                    <p className="text-xs sm:text-sm">Aman</p>
-                  </div>
                 </div>
               </div>
             </div>

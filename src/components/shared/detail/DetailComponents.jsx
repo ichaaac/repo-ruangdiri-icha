@@ -524,7 +524,7 @@ export const SharedDevelopment = ({ data, type = "student" }) => {
 
 export const Divider = ({ sidebarExpanded = false }) => (
   <motion.div
-    className="hidden lg:block shrink-0 my-auto h-[300px] lg:h-[400px] xl:h-[450px]"
+    className="hidden lg:block shrink-0 my-auto h-[500px] lg:h-[600px] xl:h-[650px]" // Angkanya udah digedein
     style={{
       background: "linear-gradient(180deg, #FFFFFF 0%, #488BBA 50%, #FFFFFF 100%)",
       width: "1px",
@@ -533,13 +533,12 @@ export const Divider = ({ sidebarExpanded = false }) => (
     animate={{
       opacity: 1,
       scaleY: 1,
-      marginLeft: sidebarExpanded ? "40px" : "80px",
+      marginLeft: sidebarExpanded ? "40px" : "80px", 
       marginRight: sidebarExpanded ? "40px" : "80px",
     }}
     transition={{ duration: 0.3, ease: "easeInOut" }}
   />
 )
-
 // Main Layout Component (Tidak ada perubahan)
 export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
   return (

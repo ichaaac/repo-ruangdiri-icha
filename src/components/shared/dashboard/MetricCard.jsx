@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/MetricCard.jsx
+// src/components/shared/dashboard/MetricCard.jsx - Enhanced with divider and proper icons
 
 import { motion } from "framer-motion"
 
@@ -17,9 +17,11 @@ const MetricCard = ({
   onReportClick,
 }) => {
   const iconMap = {
-    warning: "warning",
+    assignment_late: "assignment_late", // Updated for at_risk
+    article: "article", // Updated for screening and counseling
     assignment: "assignment",
     groups: "groups",
+    warning: "warning"
   }
 
   const getCardStyle = () => {
@@ -107,7 +109,7 @@ const MetricCard = ({
               style={{ color: getColor() }}
               whileHover={canInteract ? { scale: 1.1 } : {}}
             >
-              {iconMap[icon]}
+              {iconMap[icon] || icon}
             </motion.span>
             <span 
               className="text-[10px] sm:text-xs font-medium text-center leading-tight"
@@ -130,12 +132,13 @@ const MetricCard = ({
           <div className="w-8 sm:w-12"></div>
         </div>
 
+        {/* FIXED: Added proper divider */}
         <div
           className="mx-auto h-[2px] my-2 sm:my-3 rounded-full z-10"
           style={{
-            width: "calc(100% - 13px)",
+            width: "calc(100% - 16px)",
             backgroundColor: getColor(),
-            maxWidth: "317px",
+            maxWidth: "320px",
           }}
         />
 
