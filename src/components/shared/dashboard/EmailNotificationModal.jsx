@@ -24,19 +24,16 @@ const EmailNotificationModal = ({
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", duration: 0.5 }}
           >
- <button
-  type="button"
-  onClick={onClose}
-  aria-label="Tutup modal"
-  className="absolute top-2 right-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#488BBE] p-0"
->
-  <span className="material-icons-outlined text-[#488BBE] text-[36px] leading-none">
-    cancel
-  </span>
-</button>
-
-
-            
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup modal"
+            className="absolute top-2 right-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#488BBE] p-0"
+          >
+            <span className="material-icons-outlined text-[#488BBE] text-[20px] leading-none">
+              cancel
+            </span>
+          </button>
             <div className="flex relative flex-col gap-5 items-center w-[346px] max-md:w-full max-md:max-w-[346px] max-sm:gap-4 max-sm:w-full">
               <EmailIcon />
               <NotificationMessage 
