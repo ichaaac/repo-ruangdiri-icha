@@ -1,7 +1,10 @@
 // src/components/shared/dashboard/EmailNotificationModal.jsx
 
 import { motion, AnimatePresence } from "framer-motion"
-import { useEffect } from "react"
+
+// <<< DIHAPUS >>>
+// Komponen ikon dari SVG udah ga kita butuhin lagi.
+// const CancelIcon = ({ className = "" }) => ( ... )
 
 const EmailNotificationModal = ({ 
   isOpen, 
@@ -10,22 +13,7 @@ const EmailNotificationModal = ({
   entityName = "Siswa",
   userEmail = "a******@gmail.com" 
 }) => {
-  // Auto close after 3 seconds
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        onClose()
-      }, 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [isOpen, onClose])
-
-  // Close on click outside
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
+  // Logika auto close dan backdrop click sudah dihapus.
 
   return (
     <AnimatePresence>
@@ -35,15 +23,28 @@ const EmailNotificationModal = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={handleBackdropClick}
         >
           <motion.section 
-            className="flex flex-col shrink-0 gap-2.5 justify-center items-center p-5 mx-auto my-0 max-w-none bg-white rounded-xl shadow-xl h-[174px] w-[386px] max-md:p-5 max-md:w-full max-md:h-auto max-md:max-w-[386px] max-md:min-h-[174px] max-sm:p-4 max-sm:mx-4 max-sm:my-0 max-sm:w-full max-sm:max-w-[350px]"
+            className="relative flex flex-col shrink-0 gap-2.5 justify-center items-center p-5 mx-auto my-0 max-w-none bg-white rounded-xl shadow-xl h-[174px] w-[386px] max-md:p-5 max-md:w-full max-md:h-auto max-md:max-w-[386px] max-md:min-h-[174px] max-sm:p-4 max-sm:mx-4 max-sm:my-0 max-sm:w-full max-sm:max-w-[350px]"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", duration: 0.5 }}
           >
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-3 right-3 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#488BBE]"
+              aria-label="Tutup modal"
+            >
+              {/* <<< INI DIA PERUBAHANNYA >>> */}
+              {/* Gak pake komponen SVG, langsung pake span buat Google Icons. */}
+              {/* Warna #488BBE nya kita jadiin class text-[], ukuran iconnya kita samain pake text-2xl (24px) */}
+              <span className="material-icons-outlined text-[#488BBE] text-2xl leading-none">
+                cancel
+              </span>
+            </button>
+            
             <div className="flex relative flex-col gap-5 items-center w-[346px] max-md:w-full max-md:max-w-[346px] max-sm:gap-4 max-sm:w-full">
               <EmailIcon />
               <NotificationMessage 
@@ -59,6 +60,7 @@ const EmailNotificationModal = ({
   )
 }
 
+// Komponen EmailIcon dan NotificationMessage di bawah sini biarin aja, ga perlu diubah.
 const EmailIcon = () => {
   return (
     <div className="flex flex-col items-center gap-2.5 relative w-[346px] h-20">

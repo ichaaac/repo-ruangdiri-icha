@@ -170,8 +170,9 @@ const DashboardHome = ({
   // Enhanced PieChart with hover effects
   const renderEnhancedPieChart = (data, hoveredIndex, setHoveredIndex, chartKey) => {
     return (
-      <ResponsiveContainer width="100%" height="100%" key={`${chartKey}-pie-enhanced`}>
-        <PieChart>
+      // Gunakan fixed width dan height alih-alih ResponsiveContainer
+      <div style={{ width: '280px', height: '280px', margin: '0 auto' }}>
+        <PieChart width={280} height={280}>
           <Pie
             data={data}
             cx="50%"
@@ -182,7 +183,7 @@ const DashboardHome = ({
             innerRadius="50%"
             fill="#8884d8"
             dataKey="value"
-            isAnimationActive={false}
+            isAnimationActive={false} // Disable animation untuk stabilitas
             onMouseEnter={(_, index) => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(-1)}
           >
@@ -194,9 +195,8 @@ const DashboardHome = ({
                 strokeWidth={hoveredIndex === index ? 3 : 0}
                 style={{
                   filter: hoveredIndex === index ? "brightness(1.1)" : "none",
-                  transform: hoveredIndex === index ? "scale(1.05)" : "scale(1)",
-                  transformOrigin: "center",
-                  transition: "all 0.2s ease-in-out"
+                  // Hapus transform scale untuk mengurangi jitter
+                  transition: "filter 0.2s ease-in-out"
                 }}
               />
             ))}
@@ -216,7 +216,7 @@ const DashboardHome = ({
             }}
           />
         </PieChart>
-      </ResponsiveContainer>
+      </div>
     )
   }
 
