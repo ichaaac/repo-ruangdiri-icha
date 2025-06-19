@@ -99,18 +99,13 @@ export const useAuth = () => {
         throw error;
       }
     },
-    onSuccess: (data) => {
-      localStorage.setItem("token", data.accessToken);
-      localStorage.setItem("organizationType", data.organizationType);
-
-      // Redirect to appropriate dashboard based on organization type
-      if (data.organizationType === "school") {
-        window.location.href = "/organization/school/dashboard";
-      } else if (data.organizationType === "company") {
-        window.location.href = "/organization/company/dashboard";
-      } else {
-        window.location.href = "/";
-      }
+    onSuccess: () => {
+      // Cukup invalidasi query biar data user ke-fetch ulang.
+      // Gak perlu navigate, biarin ProtectedRoute yang urus.
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+    
+      // Atau kalo mau lebih cepet, navigate ke homepage aja dulu
+      navigate("/");
     },
   });
 

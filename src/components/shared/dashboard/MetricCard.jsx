@@ -120,11 +120,11 @@ const MetricCard = ({
               {getCardIcon()}
             </motion.span>
             <span 
-              className="text-[10px] sm:text-xs font-medium text-center leading-tight"
-              style={{ color: "#488BBE" }}
-            >
-              Kirim Laporan
-            </span>
+            className="text-[10px] sm:text-xs font-medium text-center leading-tight"
+            style={{ color: isInactive ? "#8B8B8B" : "#488BBE" }}
+          >
+            Kirim Laporan
+          </span>
           </div>
         </div>
         

@@ -1,30 +1,13 @@
-// src/components/auth/ProtectedRoute.jsx
+// src/components/auth/ProtectedRoute.jsx - FINAL FIX LOGIC
+
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-/**
- * Protected Route Component
- * Only allows authenticated users to access the route
- * Can optionally restrict access by organization type
- * Uses React Query through useAuth instead of useEffect
- * 
- * @param {Object} props - Component props
- * @param {React.ReactNode} props.children - Child components
- * @param {string} [props.requiredOrgType] - Required organization type ('school' or 'company')
- */
 const ProtectedRoute = ({ children, requiredOrgType }) => {
-  const { user, isLoading, isAuthenticated, getOrganizationType } = useAuth();
+  const { user, isLoading, getOrganizationType } = useAuth();
   const location = useLocation();
 
-  // First check if we have a token - most basic check
-  const token = localStorage.getItem('token');
-  if (!token) {
-    // No token, redirect to login
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Show loading state if we have a token but data is still loading
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -36,17 +19,24 @@ const ProtectedRoute = ({ children, requiredOrgType }) => {
     );
   }
 
-  // If we have a token but isAuthenticated fails, still let the user proceed
-  // This can happen when token exists but user data hasn't loaded yet
-  // We'll rely on the loading state to prevent showing protected content
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
 
-  // Check if user has the required organization type
+  // ==========================================================
+  // !!! INI DIA LOGIKA YANG SUDAH DIBENERIN TOTAL !!!
+  // ==========================================================
+  // Sekarang kita cek apakah user BELUM onboarding (isOnboarded === true)
+  if (user.isOnboarded === true && !location.pathname.startsWith('/onboarding')) {
+    // Kalo BELUM onboarding & coba akses halaman lain, paksa ke splash screen
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // --- Cek required org type ---
   if (requiredOrgType) {
     const currentOrgType = getOrganizationType();
-    
-    // If organization type doesn't match and we have user data
-    if (currentOrgType && currentOrgType !== requiredOrgType && user) {
-      // Redirect to appropriate dashboard based on actual org type
+
+    if (currentOrgType && currentOrgType !== requiredOrgType) {
       if (currentOrgType === 'school') {
         return <Navigate to="/organization/school/profile" replace />;
       } else if (currentOrgType === 'company') {
@@ -55,7 +45,6 @@ const ProtectedRoute = ({ children, requiredOrgType }) => {
     }
   }
 
-  // Render children if all conditions are met or we're still loading with a token
   return children;
 };
 

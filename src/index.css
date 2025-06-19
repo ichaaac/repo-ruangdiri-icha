@@ -458,3 +458,7 @@ Firefox scrollbar
     -webkit-appearance: none;
   }
 }
+.pie-cell-hovered {
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1); /* Efek border "bayangan" */
+  border-radius: 50%; /* Biar tetep bulet */
+}

@@ -24,10 +24,10 @@ import SchoolDashboard from "../pages/organization/school/SchoolDashboard";
 import StudentListPage from "../pages/organization/school/StudentListPage";
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
 import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
-/**
- * Route configuration for the application
- * Enhanced with development routes using existing layouts
- */
+
+import OnboardingForm from "@/pages/shared/OnboardingForm";
+import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
+
 const routes = [
   // Public routes
   {
@@ -46,6 +46,23 @@ const routes = [
     path: "/reset-password",
     element: <ResetPassword />
   },
+  {
+    path: "/onboarding",
+    element: (
+      <ProtectedRoute>
+        <OnboardingSplashScreen />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/onboarding/form",
+    element: (
+      <ProtectedRoute>
+        <OnboardingForm />
+      </ProtectedRoute>
+    )
+  },
+  
 
   // ========================================
   // DEVELOPMENT ROUTES - NO BACKEND REQUIRED

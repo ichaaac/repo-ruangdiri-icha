@@ -460,13 +460,15 @@ const SharedTable = forwardRef(
                             className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-2 py-1 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                           />
                         ) : (
-                          <div
-                            className="text-sm font-medium cursor-pointer text-gray-900 hover:text-[#488BBE] transition-colors"
-                            onClick={(e) => handleNameClick(item.id, e)}
-                            title={item.fullName}
-                          >
+                        <div
+                          className="text-sm font-medium text-gray-900 transition-colors"
+                          onClick={(e) => handleNameClick(item.id, e)}
+                          title={item.fullName}
+                        >
+                          <span className="cursor-pointer hover:text-[#488BBE] transition-colors">
                             {truncateText(item.fullName, 30)}
-                          </div>
+                          </span>
+                        </div>
                         )}
                       </td>
                       {type === "student" ? (

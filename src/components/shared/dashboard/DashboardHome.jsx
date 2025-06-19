@@ -1,7 +1,7 @@
 // src/components/shared/dashboard/DashboardHome.jsx - Enhanced with hover effects and modal
 
 import { useCallback, useState, useEffect } from "react"
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Sector } from "recharts"
 import { Menu } from "@headlessui/react"
 import MetricCard from "./MetricCard"
 import CustomBranchingDropdown from "./CustomBranchingDropdown"
@@ -167,17 +167,35 @@ const DashboardHome = ({
       textAnchor="middle" 
       dominantBaseline="central" 
       fontSize={12}
-      style={{ pointerEvents: 'none' }} // <-- CUMA TAMBAH INI DOANG
+      style={{ pointerEvents: 'none' }} 
     >
       {`${(percent * 100).toFixed(0)}%`}
     </text>
     )
   }, [])
 
-  // Enhanced PieChart with hover effects
+
+  
+  const renderActiveShape = (props) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  
+    return (
+      <g>
+        <Sector
+          cx={cx}
+          cy={cy}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius + 10} // Zoom effect disini
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+        />
+      </g>
+    );
+  };
+  
   const renderEnhancedPieChart = (data, hoveredIndex, setHoveredIndex, chartKey) => {
     return (
-      // Gunakan fixed width dan height alih-alih ResponsiveContainer
       <div style={{ width: '280px', height: '280px', margin: '0 auto' }}>
         <PieChart width={280} height={280}>
           <Pie
@@ -188,9 +206,10 @@ const DashboardHome = ({
             label={renderCustomizedLabel}
             outerRadius="80%"
             innerRadius="50%"
-            fill="#8884d8"
             dataKey="value"
-            isAnimationActive={false} // Disable animation untuk stabilitas
+            isAnimationActive={false}
+            activeIndex={hoveredIndex}   // <<< ini kuncinya
+            activeShape={renderActiveShape} 
             onMouseEnter={(_, index) => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(-1)}
           >
@@ -198,13 +217,8 @@ const DashboardHome = ({
               <Cell 
                 key={`cell-${index}`} 
                 fill={entry.color}
-                stroke={hoveredIndex === index ? entry.color : "none"}
-                strokeWidth={hoveredIndex === index ? 3 : 0}
-                style={{
-                  filter: hoveredIndex === index ? "brightness(1.1)" : "none",
-                  // Hapus transform scale untuk mengurangi jitter
-                  transition: "filter 0.2s ease-in-out"
-                }}
+                // stroke="#FFFFFF"
+                // strokeWidth={2}
               />
             ))}
           </Pie>
@@ -226,6 +240,8 @@ const DashboardHome = ({
       </div>
     )
   }
+  
+  
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
