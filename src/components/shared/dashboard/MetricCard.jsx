@@ -74,7 +74,7 @@ const MetricCard = ({
   const SVGDivider = () => {
     const dividerColor = getColor()
     return (
-      <div className="w-full my-2 sm:my-3 z-10">
+      <div className="w-[400px] my-auto sm:my-3 z-10">
         <svg width="100%" height="2" viewBox="0 0 319 2" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M0.416504 1H318.028" stroke={dividerColor} strokeWidth="0.5"/>
         </svg>

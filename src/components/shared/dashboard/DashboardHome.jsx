@@ -161,9 +161,16 @@ const DashboardHome = ({
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
 
     return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12}>
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
+    <text 
+      x={x} y={y} 
+      fill="white" 
+      textAnchor="middle" 
+      dominantBaseline="central" 
+      fontSize={12}
+      style={{ pointerEvents: 'none' }} // <-- CUMA TAMBAH INI DOANG
+    >
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
     )
   }, [])
 
