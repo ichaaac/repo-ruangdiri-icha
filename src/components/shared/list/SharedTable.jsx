@@ -677,7 +677,7 @@ const SharedTable = forwardRef(
                                   onClick={cancelEditing}
                                   disabled={updateItem.isPending}
                                 >
-                                  <span className="material-icons text-xl">cancel</span>
+                                  <span className="material-icons text-2xl">cancel</span>
                                 </button>
                                 <button
                                   className={clsx(
@@ -687,7 +687,7 @@ const SharedTable = forwardRef(
                                   onClick={() => saveEditing(item.id)}
                                   disabled={!hasChanges || updateItem.isPending}
                                 >
-                                  <span className="material-icons text-xl">check_circle</span>
+                                  <span className="material-icons text-2xl">check_circle</span>
                                 </button>
                               </div>
                             </div>

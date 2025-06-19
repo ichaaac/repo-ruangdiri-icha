@@ -1,10 +1,4 @@
-// src/components/shared/dashboard/EmailNotificationModal.jsx
-
 import { motion, AnimatePresence } from "framer-motion"
-
-// <<< DIHAPUS >>>
-// Komponen ikon dari SVG udah ga kita butuhin lagi.
-// const CancelIcon = ({ className = "" }) => ( ... )
 
 const EmailNotificationModal = ({ 
   isOpen, 
@@ -13,7 +7,6 @@ const EmailNotificationModal = ({
   entityName = "Siswa",
   userEmail = "a******@gmail.com" 
 }) => {
-  // Logika auto close dan backdrop click sudah dihapus.
 
   return (
     <AnimatePresence>
@@ -31,19 +24,18 @@ const EmailNotificationModal = ({
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", duration: 0.5 }}
           >
-            <button
-              type="button"
-              onClick={onClose}
-              className="absolute top-3 right-3 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#488BBE]"
-              aria-label="Tutup modal"
-            >
-              {/* <<< INI DIA PERUBAHANNYA >>> */}
-              {/* Gak pake komponen SVG, langsung pake span buat Google Icons. */}
-              {/* Warna #488BBE nya kita jadiin class text-[], ukuran iconnya kita samain pake text-2xl (24px) */}
-              <span className="material-icons-outlined text-[#488BBE] text-2xl leading-none">
-                cancel
-              </span>
-            </button>
+ <button
+  type="button"
+  onClick={onClose}
+  aria-label="Tutup modal"
+  className="absolute top-2 right-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#488BBE] p-0"
+>
+  <span className="material-icons-outlined text-[#488BBE] text-[36px] leading-none">
+    cancel
+  </span>
+</button>
+
+
             
             <div className="flex relative flex-col gap-5 items-center w-[346px] max-md:w-full max-md:max-w-[346px] max-sm:gap-4 max-sm:w-full">
               <EmailIcon />

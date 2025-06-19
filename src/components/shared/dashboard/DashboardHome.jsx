@@ -233,55 +233,53 @@ const DashboardHome = ({
       </div>
 
       <div className="mt-4 sm:mt-6">
-        <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
-            <div className="w-full">
-              <MetricCard
-                title={`Total ${config.entityName} Berisiko`}
-                count={metrics.summary?.atRisk?.count || 0}
-                total={metrics.summary?.atRisk?.total || 0}
-                color="#ED8768"
-                bgColor="#FFEBE5"
-                borderColor="#ED8768"
-                icon="assignment_late" // Consistent across all views
-                isActive={true}
-                isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
-                onCardClick={() => onCardClick("at_risk")}
-                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
-              />
-            </div>
-            <div className="w-full">
-              <MetricCard
-                title={`Total ${config.entityName} Belum Skrining`}
-                count={metrics.summary?.notScreened?.count || 0}
-                total={metrics.summary?.notScreened?.total || 0}
-                color="#8CC3EE"
-                bgColor="#E7FEFF"
-                borderColor="#B2FDFF"
-                icon="article" // Consistent across all views
-                isActive={true}
-                isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
-                onCardClick={() => onCardClick("not_screened")}
-                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
-              />
-            </div>
-            <div className="w-full">
-              <MetricCard
-                title={`Total ${config.entityName} Belum Konseling`}
-                count={metrics.summary?.notCounseled?.count || 0}
-                total={metrics.summary?.notCounseled?.total || 0}
-                color="#A08CE2"
-                bgColor="#F3E6FF"
-                borderColor="#E4C6FF"
-                icon="article" // Consistent across all views
-                isActive={true}
-                isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
-                onCardClick={() => onCardClick("not_counseled")}
-                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
-              />
-            </div>
+      <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
+          {/* Card 1: Berisiko */}
+          <div className="w-full">
+            <MetricCard
+              title={`Total ${config.entityName} Berisiko`}
+              count={metrics.summary?.atRisk?.count || 0}
+              total={metrics.summary?.atRisk?.total || 0}
+              icon="assignment_late"
+              isActive={true} // Di Home, semua card aktif
+              isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
+              // <<< BARU: Logika isReportEnabled untuk halaman Home >>>
+              isReportEnabled={(metrics.summary?.atRisk?.count || 0) > 0}
+              onCardClick={() => onCardClick("at_risk")}
+              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
+            />
+          </div>
+          {/* Card 2: Belum Skrining */}
+          <div className="w-full">
+            <MetricCard
+              title={`Total ${config.entityName} Belum Skrining`}
+              count={metrics.summary?.notScreened?.count || 0}
+              total={metrics.summary?.notScreened?.total || 0}
+              icon="article"
+              isActive={true}
+              isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
+              isReportEnabled={(metrics.summary?.notScreened?.count || 0) > 0}
+              onCardClick={() => onCardClick("not_screened")}
+              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
+            />
+          </div>
+          {/* Card 3: Belum Konseling */}
+          <div className="w-full">
+            <MetricCard
+              title={`Total ${config.entityName} Belum Konseling`}
+              count={metrics.summary?.notCounseled?.count || 0}
+              total={metrics.summary?.notCounseled?.total || 0}
+              icon="article"
+              isActive={true}
+              isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
+              isReportEnabled={(metrics.summary?.notCounseled?.count || 0) > 0}
+              onCardClick={() => onCardClick("not_counseled")}
+              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
+            />
           </div>
         </div>
+      </div>
 
         <div 
           className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5"
@@ -512,13 +510,13 @@ const DashboardHome = ({
 
       {/* Email Notification Modal */}
       <EmailNotificationModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        reportName={reportName}
-        entityName={config.entityName}
-        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
-      />
-    </div>
+      isOpen={showEmailModal}
+      onClose={() => setShowEmailModal(false)} 
+      reportName={reportName}
+      entityName={config.entityName}
+      userEmail={user?.email || authUser?.email || "a******@gmail.com"}
+    />
+  </div>
   )
 }
 

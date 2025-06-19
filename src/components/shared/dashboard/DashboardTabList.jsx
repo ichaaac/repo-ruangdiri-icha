@@ -1,5 +1,3 @@
-// src/components/shared/dashboard/DashboardTabList.jsx - Enhanced with report feature
-
 import { useState } from "react"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
@@ -27,33 +25,24 @@ const DashboardTabList = ({
 
   const getAllMetrics = () => [
     {
-      title: `Total ${config.entityName} Berisiko`, // FIXED: BERISIKO not BERESIKO
+      title: `Total ${config.entityName} Berisiko`,
       count: metrics?.summary?.atRisk?.count || 0,
       total: metrics?.summary?.atRisk?.total || 0,
-      color: "#ED8768",
-      bgColor: "#FFEBE5",
-      borderColor: "#FFC1AF",
-      icon: "assignment_late", // Consistent with DashboardHome
+      icon: "assignment_late",
       cardId: "at_risk",
     },
     {
       title: `Total ${config.entityName} Belum Skrining`,
       count: metrics?.summary?.notScreened?.count || 0,
       total: metrics?.summary?.notScreened?.total || 0,
-      color: "#8CC3EE",
-      bgColor: "#E7FEFF",
-      borderColor: "#B2FDFF",
-      icon: "article", // Consistent with DashboardHome
+      icon: "article",
       cardId: "not_screened",
     },
     {
       title: `Total ${config.entityName} Belum Konseling`,
       count: metrics?.summary?.notCounseled?.count || 0,
       total: metrics?.summary?.notCounseled?.total || 0,
-      color: "#A08CE2",
-      bgColor: "#F3E6FF",
-      borderColor: "#E4C6FF",
-      icon: "article", // Consistent with DashboardHome
+      icon: "article",
       cardId: "not_counseled",
     },
   ]
@@ -105,8 +94,11 @@ const DashboardTabList = ({
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6 ${containerPadding}`}>
           {allMetrics.map((metric) => {
             const isActive = metric.cardId === activeCard
-            const isDisabled = metric.count === 0
+            const isCountZero = metric.count === 0
             
+            // Logika untuk mengaktifkan tombol "Kirim Laporan"
+            const isReportEnabled = isActive && !isCountZero
+
             return (
               <div key={metric.cardId} className="w-full relative">
                 {isActive && (
@@ -128,14 +120,20 @@ const DashboardTabList = ({
                     title={metric.title}
                     count={isActive ? (tabData?.metadata?.totalData || 0) : metric.count}
                     total={metric.total}
-                    color={isActive ? metric.color : "#8B8B8B"}
-                    bgColor={isActive ? metric.bgColor : "transparent"}
-                    borderColor={isActive ? metric.borderColor : "#C7C7C7"}
-                    icon={metric.icon} // Icons will be handled by MetricCard itself
+                    icon={metric.icon}
                     isActive={isActive}
-                    isDisabled={isDisabled && !isActive}
                     isInactive={!isActive}
-                    onCardClick={() => isActive ? onReturnHome() : onCardClick(metric.cardId)}
+                    isDisabled={isCountZero}
+                    isReportEnabled={isReportEnabled}
+                    onCardClick={() => {
+                      // Jangan lakukan apa-apa kalo count=0. Kalo aktif, balik ke home. Kalo ga aktif, klik.
+                      if (isCountZero) return
+                      if (isActive) {
+                        onReturnHome()
+                      } else {
+                        onCardClick(metric.cardId)
+                      }
+                    }}
                     onReportClick={() => handleReportClick(getReportTitle(metric.cardId))}
                   />
                 </div>
@@ -175,13 +173,13 @@ const DashboardTabList = ({
 
       {/* Email Notification Modal */}
       <EmailNotificationModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        reportName={reportName}
-        entityName={config.entityName}
-        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
-      />
-    </div>
+      isOpen={showEmailModal}
+      onClose={() => setShowEmailModal(false)} 
+      reportName={reportName}
+      entityName={config.entityName}
+      userEmail={user?.email || authUser?.email || "a******@gmail.com"}
+    />
+  </div>
   )
 }
 

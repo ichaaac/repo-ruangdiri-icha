@@ -9,31 +9,30 @@ const TableHeader = ({ type = "student" }) => (
         className="px-5 py-3 text-left text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
         style={{ color: "#488BBE", width: "25%" }}
       >
-        NAMA
+        Nama
       </th>
       <th
         className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
         style={{ color: "#488BBE", width: "20%" }}
       >
-        {type === "student" ? "KELAS" : "DEPARTEMEN"}
+        {type === "student" ? "Kelas" : "Departemen"}
       </th>
       <th
         className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
         style={{ color: "#488BBE", width: "15%" }}
       >
-        JENIS KELAMIN
+        Jenis Kelamin
       </th>
       <th
         className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
         style={{ color: "#488BBE", width: "20%" }}
       >
-        {type === "student" ? "NIS" : "USIA"}
+        {type === "student" ? "NIS" : "Usia"}
       </th>
       <th
         className="px-5 py-3 text-center text-base leading-5 font-normal max-sm:px-4 max-sm:py-2 max-sm:text-sm"
         style={{ color: "#488BBE", width: "20%" }}
       >
-        AKSI
       </th>
     </tr>
   </thead>

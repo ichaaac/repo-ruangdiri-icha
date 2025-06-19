@@ -1,5 +1,3 @@
-// src/components/shared/dashboard/MetricCard.jsx - Enhanced with proper icons, colors, and SVG divider
-
 import { motion } from "framer-motion"
 
 const MetricCard = ({
@@ -8,20 +6,19 @@ const MetricCard = ({
   total,
   icon,
   color,
-  bgColor,
-  borderColor,
   isActive,
   isDisabled = false,
   isInactive = false,
+  isReportEnabled = false,
   onCardClick,
   onReportClick,
 }) => {
-  // Fixed icon mapping - consistent icons
+  // --- Helper Functions ---
   const getCardIcon = () => {
     if (title.includes("Berisiko")) return "assignment_late"
     if (title.includes("Belum Skrining")) return "article"
     if (title.includes("Belum Konseling")) return "article"
-    return icon // fallback
+    return icon
   }
 
   const getCardStyle = () => {
@@ -53,10 +50,11 @@ const MetricCard = ({
       }
     }
 
+    // Fallback, although it's better to handle all cases explicitly
     return {
-      background: `linear-gradient(to bottom, white, ${bgColor})`,
-      border: `0.5px solid ${borderColor}`,
-      borderTop: `16px solid ${color}`,
+      background: `linear-gradient(to bottom, white, #E0E0E0)`,
+      border: `0.5px solid #BDBDBD`,
+      borderTop: `16px solid #9E9E9E`,
     }
   }
 
@@ -70,14 +68,13 @@ const MetricCard = ({
   }
 
   const getTextColor = () => isInactive ? "#8B8B8B" : "#6B7280"
+  
+  const canInteract = !isDisabled && isActive
 
-  const canInteract = !isDisabled
-
-  // SVG Divider Component with dynamic color
   const SVGDivider = () => {
     const dividerColor = getColor()
     return (
-      <div className="mx-auto my-2 sm:my-3 z-10" style={{ width: "calc(100% - 16px)", maxWidth: "320px" }}>
+      <div className="w-full my-2 sm:my-3 z-10">
         <svg width="100%" height="2" viewBox="0 0 319 2" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M0.416504 1H318.028" stroke={dividerColor} strokeWidth="0.5"/>
         </svg>
@@ -90,69 +87,64 @@ const MetricCard = ({
       whileHover={{ scale: canInteract ? 1.02 : 1.0 }}
       transition={{ duration: 0.2 }}
       className={`relative w-full h-[156px] rounded-xl overflow-hidden ${
-        isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+        canInteract ? "cursor-pointer" : "cursor-not-allowed"
       }`}
       style={getCardStyle()}
+      onClick={canInteract ? onCardClick : undefined}
     >
-      <div className="p-4 sm:p-5 h-full flex flex-col justify-between">
+      <div className="h-full flex flex-col justify-between py-4 px-7 sm:py-5">
         <div className="flex justify-between items-start">
           <motion.h2
             className={`text-3xl sm:text-4xl lg:text-5xl font-bold leading-none ${
-              isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              !canInteract ? "opacity-50" : ""
             }`}
             style={{ color: getColor() }}
-            onClick={isDisabled ? undefined : onCardClick}
-            whileHover={canInteract ? { scale: 1.05 } : {}}
           >
             {count}
           </motion.h2>
 
           <div
-            className={`flex flex-col items-center justify-center ${
-              isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+            className={`flex flex-col items-center justify-center -mr-2 transition-opacity ${
+              !isReportEnabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
             }`}
             onClick={(e) => {
               e.stopPropagation()
-              if (!isDisabled) onReportClick()
+              if (isReportEnabled) onReportClick()
             }}
           >
             <motion.span
               className="material-icons text-2xl sm:text-3xl mb-1"
               style={{ color: getColor() }}
-              whileHover={canInteract ? { scale: 1.1 } : {}}
+              whileHover={isReportEnabled ? { scale: 1.1 } : {}}
             >
               {getCardIcon()}
             </motion.span>
             <span 
               className="text-[10px] sm:text-xs font-medium text-center leading-tight"
-              style={{ color: "#488BBE" }} // Fixed: Always use primary blue color
+              style={{ color: "#488BBE" }}
             >
               Kirim Laporan
             </span>
           </div>
         </div>
+        
+        <div /> 
 
-        <div className="flex justify-between items-end">
-          <div className="flex-1 mr-2">
-            <p 
-              className="text-xs sm:text-sm font-medium leading-tight"
-              style={{ color: getTextColor() }}
-            >
-              {title}
-            </p>
-          </div>
-          <div className="w-8 sm:w-12"></div>
+        <div>
+          <p 
+            className="text-xs sm:text-sm font-medium leading-tight"
+            style={{ color: getTextColor() }}
+          >
+            {title}
+          </p>
+          <SVGDivider />
+          <p 
+            className="text-xs sm:text-sm font-medium"
+            style={{ color: getTextColor() }}
+          >
+            {count}/{total}
+          </p>
         </div>
-
-        {/* FIXED: SVG Divider with proper color */}
-        <SVGDivider />
-
-        <p 
-          className="text-xs sm:text-sm font-medium"
-          style={{ color: getTextColor() }}
-        >
-          {count}/{total}
-        </p>
       </div>
     </motion.div>
   )
