@@ -22,6 +22,8 @@ const Sidebar = ({
   const navigate = useNavigate()
   const { logout, user: userData } = useAuth()
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
+  const [profileDropdownHeight, setProfileDropdownHeight] = useState(0);
+  const profileDropdownRef = useRef(null);
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [hovered, setHovered] = useState(false)
   const [toggleHovered, setToggleHovered] = useState(false)
@@ -34,7 +36,20 @@ const Sidebar = ({
 
   const expandedWidth = isMobile ? 200 : 237
   const collapsedWidth = isMobile ? 50 : 60
-  const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
+//...
+const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
+
+// <<< TAMBAH BLOK INI >>>
+useEffect(() => {
+  const dropdownIsVisible = showProfileDropdown && (expanded || hovered);
+  if (dropdownIsVisible && profileDropdownRef.current) {
+    // Kalo dropdown keliatan, ukur tingginya
+    setProfileDropdownHeight(profileDropdownRef.current.scrollHeight);
+  } else {
+    // Kalo ilang, reset tingginya jadi 0
+    setProfileDropdownHeight(0);
+  }
+}, [showProfileDropdown, expanded, hovered]); // << Pantau semua state yg relevan
 
   const handleContentMouseEnter = () => {
     if (!expanded && !isMobile) {
@@ -210,7 +225,6 @@ const Sidebar = ({
           onMouseEnter={handleContentMouseEnter}
           onMouseLeave={handleContentMouseLeave}
         >
-          {/* Profile Section */}
           <div className={`${isMobile ? "px-3 pt-10" : "px-2.5 pt-16"} relative mb-6`}>
             <div
               className="flex items-center cursor-pointer relative min-h-[40px] gap-3"
@@ -241,14 +255,16 @@ const Sidebar = ({
             </div>
             <AnimatePresence>
               {showProfileDropdown && (expanded || hovered) && (
-                <motion.div 
-                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden relative z-[9999]`}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                <motion.div
+                  ref={profileDropdownRef}
+                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} absolute w-full`} // <== POSISINYA ABSOLUTE
+                  style={{ zIndex: 10 }} // Kasih z-index biar di atas
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  <Link 
+                <Link 
                     to={`/organization/${organizationType}/profile`} 
                     className={`block py-2 ${isMobile ? "text-xs" : "text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors`} 
                     onClick={() => setShowProfileDropdown(false)}
@@ -265,6 +281,13 @@ const Sidebar = ({
               )}
             </AnimatePresence>
           </div>
+
+          {/* <<< INI GANJELANNYA, DIPINDAH KE LUAR SEBAGAI SIBLING >>> */}
+          <motion.div
+            className="overflow-hidden w-full"
+            animate={{ height: profileDropdownHeight }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          />
 
           {/* Divider */}
           <div className={`${isMobile ? "px-2" : "px-3"} mb-6`}>
