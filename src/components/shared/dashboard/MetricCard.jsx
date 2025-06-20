@@ -1,3 +1,5 @@
+// src/components/shared/dashboard/MetricCard.jsx
+
 import { motion } from "framer-motion"
 
 const MetricCard = ({
@@ -60,25 +62,30 @@ const MetricCard = ({
 
   const getColor = () => {
     if (isInactive) return "#8B8B8B"
-    
+
     if (title.includes("Berisiko")) return "#ED8768"
     if (title.includes("Belum Skrining")) return "#6DC4C6"
     if (title.includes("Belum Konseling")) return "#A08CE2"
     return color
   }
 
-  const getTextColor = () => isInactive ? "#8B8B8B" : "#6B7280"
-  
+  const getTextColor = () => (isInactive ? "#8B8B8B" : "#6B7280")
+
   const canInteract = !isDisabled && isActive
 
   const SVGDivider = () => {
     const dividerColor = getColor()
     return (
-      <div className="w-[400px] my-auto sm:my-3 z-10">
-        <svg width="100%" height="2" viewBox="0 0 319 2" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0.416504 1H318.028" stroke={dividerColor} strokeWidth="0.5"/>
-        </svg>
-      </div>
+      <svg
+        width="100%"
+        height="2.4"
+        viewBox="0 0 100 2"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="none"
+      >
+        <path d="M0 1H100" stroke={dividerColor} strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+      </svg>
     )
   }
 
@@ -92,12 +99,12 @@ const MetricCard = ({
       style={getCardStyle()}
       onClick={canInteract ? onCardClick : undefined}
     >
-      <div className="h-full flex flex-col justify-between py-4 px-7 sm:py-5">
+      {/* === MULAI DARI SINI PERUBAHANNYA === */}
+      <div className="h-full flex flex-col py-4 px-7 sm:py-5">
+        {/* Bagian Atas (Angka Gede & Ikon) */}
         <div className="flex justify-between items-start">
           <motion.h2
-            className={`text-3xl sm:text-4xl lg:text-5xl font-bold leading-none ${
-              !canInteract ? "opacity-50" : ""
-            }`}
+            className={`text-3xl sm:text-4xl lg:text-5xl font-bold leading-none ${!canInteract ? "opacity-50" : ""}`}
             style={{ color: getColor() }}
           >
             {count}
@@ -119,33 +126,36 @@ const MetricCard = ({
             >
               {getCardIcon()}
             </motion.span>
-            <span 
-            className="text-[10px] sm:text-xs font-medium text-center leading-tight"
-            style={{ color: isInactive ? "#8B8B8B" : "#488BBE" }}
-          >
-            Kirim Laporan
-          </span>
+            <span
+              className="text-[10px] sm:text-xs font-medium text-center leading-tight"
+              style={{ color: isInactive ? "#8B8B8B" : "#488BBE" }}
+            >
+              Kirim Laporan
+            </span>
           </div>
         </div>
-        
-        <div /> 
 
+        {/* Spacer baru untuk ngedorong konten ke bawah */}
+        <div className="flex-grow" />
+
+        {/* Bagian Bawah (Title, Divider, dll) */}
         <div>
-          <p 
-            className="text-xs sm:text-sm font-medium leading-tight"
-            style={{ color: getTextColor() }}
-          >
+          <p className="text-xs sm:text-sm font-medium leading-tight" style={{ color: getTextColor() }}>
             {title}
           </p>
-          <SVGDivider />
-          <p 
-            className="text-xs sm:text-sm font-medium"
-            style={{ color: getTextColor() }}
-          >
+
+          {/* Pengaturan jarak divider sekarang di sini, lebih pasti */}
+          <div className="mt-[6px] mb-[7px] w-full">
+            <SVGDivider />
+          </div>
+
+          {/* Teks count/total bersih dari class aneh-aneh */}
+          <p className="text-xs sm:text-sm font-medium leading-tight" style={{ color: getTextColor() }}>
             {count}/{total}
           </p>
         </div>
       </div>
+       {/* === SELESAI === */}
     </motion.div>
   )
 }

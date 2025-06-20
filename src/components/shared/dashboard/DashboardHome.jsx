@@ -1,7 +1,20 @@
-// src/components/shared/dashboard/DashboardHome.jsx - Enhanced with hover effects and modal
 
-import { useCallback, useState, useEffect } from "react"
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Sector } from "recharts"
+// src/components/shared/dashboard/DashboardHome.jsx - Smooth zoom with moving labels
+
+import { useCallback, useState, useEffect, useRef } from "react"
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  Sector,
+} from "recharts"
 import { Menu } from "@headlessui/react"
 import MetricCard from "./MetricCard"
 import CustomBranchingDropdown from "./CustomBranchingDropdown"
@@ -24,16 +37,31 @@ const DashboardHome = ({
   const [currentHalf, setCurrentHalf] = useState("firstHalf")
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
-  
+
   // Modal states
   const [showEmailModal, setShowEmailModal] = useState(false)
   const [reportName, setReportName] = useState("")
-  
+
   // PieChart hover states
   const [hoveredPieIndex, setHoveredPieIndex] = useState(-1)
   const [screeningHoveredIndex, setScreeningHoveredIndex] = useState(-1)
   const [counselingHoveredIndex, setCounselingHoveredIndex] = useState(-1)
-  
+
+  // Tooltip states
+  const [showOverallTooltip, setShowOverallTooltip] = useState(false)
+  const [showScreeningTooltip, setShowScreeningTooltip] = useState(false)
+  const [showCounselingTooltip, setShowCounselingTooltip] = useState(false)
+
+  // Timeout refs
+  const hoverTimeoutRef = useRef(null)
+  const screeningTimeoutRef = useRef(null)
+  const counselingTimeoutRef = useRef(null)
+  const tooltipTimeoutRef = useRef(null)
+  const screeningTooltipTimeoutRef = useRef(null)
+  const counselingTooltipTimeoutRef = useRef(null)
+
+  const HOVER_DELAY = 25
+
   useEffect(() => {
     if (type === "student") {
       if (!barChartClassroom && options?.classrooms?.length > 0) {
@@ -48,39 +76,60 @@ const DashboardHome = ({
       }
     }
   }, [options, type, barChartClassroom, barChartGrade])
-  
+
+  // Cleanup timeouts
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+      if (screeningTimeoutRef.current) clearTimeout(screeningTimeoutRef.current)
+      if (counselingTimeoutRef.current) clearTimeout(counselingTimeoutRef.current)
+      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+      if (screeningTooltipTimeoutRef.current) clearTimeout(screeningTooltipTimeoutRef.current)
+      if (counselingTooltipTimeoutRef.current) clearTimeout(counselingTooltipTimeoutRef.current)
+    }
+  }, [])
+
   const { user: authUser } = useAuth?.() || { user: {} }
 
   const { data: yearlyStatsData } = useYearlyStats(type, {
     year: "2025",
-    ...(type === "student" 
+    ...(type === "student"
       ? { classroom: barChartClassroom, grade: barChartGrade }
       : { department: barChartClassroom }),
   })
 
-  const handleBarChartClassroomChange = useCallback((classroom) => {
-    if (classroom !== barChartClassroom) {
-      setBarChartClassroom(classroom)
-      // Reset grade when classroom changes for student type
-      if (type === "student" && options?.grades?.length > 0) {
-        setBarChartGrade(options.grades[0] || "A")
+  const handleBarChartClassroomChange = useCallback(
+    (classroom) => {
+      if (classroom !== barChartClassroom) {
+        setBarChartClassroom(classroom)
+        if (type === "student" && options?.grades?.length > 0) {
+          setBarChartGrade(options.grades[0] || "A")
+        }
       }
-    }
-  }, [barChartClassroom, type, options?.grades])
+    },
+    [barChartClassroom, type, options?.grades],
+  )
 
-  const handleBarChartGradeChange = useCallback((grade) => {
-    if (grade !== barChartGrade) setBarChartGrade(grade)
-  }, [barChartGrade])
+  const handleBarChartGradeChange = useCallback(
+    (grade) => {
+      if (grade !== barChartGrade) setBarChartGrade(grade)
+    },
+    [barChartGrade],
+  )
 
-  const handleBarChartDepartmentChange = useCallback((department) => {
-    if (department !== barChartClassroom) setBarChartClassroom(department)
-  }, [barChartClassroom])
+  const handleBarChartDepartmentChange = useCallback(
+    (department) => {
+      if (department !== barChartClassroom) setBarChartClassroom(department)
+    },
+    [barChartClassroom],
+  )
 
   const getSemesterData = useCallback(() => {
     const yearlyData = yearlyStatsData?.data || []
-    const allMonths = currentHalf === "firstHalf"
-      ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-      : ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const allMonths =
+      currentHalf === "firstHalf"
+        ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+        : ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     return allMonths.map((month) => {
       const existingData = yearlyData.find((item) => item.month === month)
@@ -117,7 +166,7 @@ const DashboardHome = ({
     const yearlyData = yearlyStatsData?.data || []
     if (currentHalf === "firstHalf") {
       const secondHalfMonths = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-      return yearlyData.some(item => secondHalfMonths.includes(item.month))
+      return yearlyData.some((item) => secondHalfMonths.includes(item.month))
     }
     return false
   }, [yearlyStatsData, currentHalf])
@@ -134,114 +183,162 @@ const DashboardHome = ({
     if (canNavigatePrev()) setCurrentHalf("firstHalf")
   }
 
-  // Handle report click with modal
   const handleReportClickWithModal = (reportTitle) => {
     setReportName(reportTitle)
     setShowEmailModal(true)
-    onReportClick(reportTitle) // Still call original handler
+    onReportClick(reportTitle)
   }
 
-  const CustomTooltip = useCallback(({ active, payload }) => {
-    if (active && payload?.length) {
+  // Enhanced label renderer yang ikut bergerak dengan zoom
+  const renderCustomizedLabel = useCallback(
+    ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value, index }, hoveredIndex) => {
+      if (value === 0) return null
+
+      const RADIAN = Math.PI / 180
+      // Adjust radius based on hover state - jika di-hover, radius lebih besar
+      const isHovered = hoveredIndex === index
+      const adjustedOuterRadius = isHovered ? outerRadius + 10 : outerRadius
+      const radius = innerRadius + (adjustedOuterRadius - innerRadius) * 0.5
+      const x = cx + radius * Math.cos(-midAngle * RADIAN)
+      const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
       return (
-        <div className="bg-white p-2 border border-gray-200 rounded shadow-sm">
-          <p className="font-semibold">{`${payload[0].name}: ${payload[0].value}`}</p>
-        </div>
+        <text
+          x={x}
+          y={y}
+          fill="white"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={12}
+          style={{
+            pointerEvents: "none",
+            transition: "all 0.25s ease-out", // Smooth transition untuk label
+          }}
+        >
+          {`${(percent * 100).toFixed(0)}%`}
+        </text>
       )
-    }
-    return null
-  }, [])
+    },
+    [],
+  )
 
-  const renderCustomizedLabel = useCallback(({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }) => {
-    if (value === 0) return null
-
-    const RADIAN = Math.PI / 180
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
-    const x = cx + radius * Math.cos(-midAngle * RADIAN)
-    const y = cy + radius * Math.sin(-midAngle * RADIAN)
-
-    return (
-    <text 
-      x={x} y={y} 
-      fill="white" 
-      textAnchor="middle" 
-      dominantBaseline="central" 
-      fontSize={12}
-      style={{ pointerEvents: 'none' }} 
-    >
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-    )
-  }, [])
-
-
-  
+  // Active shape dengan smooth zoom
   const renderActiveShape = (props) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-  
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props
+
     return (
       <g>
         <Sector
           cx={cx}
           cy={cy}
           innerRadius={innerRadius}
-          outerRadius={outerRadius + 10} // Zoom effect disini
+          outerRadius={outerRadius + 10}
           startAngle={startAngle}
           endAngle={endAngle}
           fill={fill}
+          style={{
+            transition: "all 0.25s ease-out",
+          }}
         />
       </g>
-    );
-  };
-  
-  const renderEnhancedPieChart = (data, hoveredIndex, setHoveredIndex, chartKey) => {
+    )
+  }
+
+  const createDelayedHoverHandlers = (setHoveredIndex, setShowTooltip, hoverTimeoutRef, tooltipTimeoutRef) => {
+    const handleMouseEnter = (_, index) => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
+
+      hoverTimeoutRef.current = setTimeout(() => {
+        setHoveredIndex(index)
+      }, HOVER_DELAY)
+
+      tooltipTimeoutRef.current = setTimeout(() => {
+        setShowTooltip(true)
+      }, HOVER_DELAY)
+    }
+
+    const handleMouseLeave = () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+        hoverTimeoutRef.current = null
+      }
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current)
+        tooltipTimeoutRef.current = null
+      }
+
+      setHoveredIndex(-1)
+      setShowTooltip(false)
+    }
+
+    return { handleMouseEnter, handleMouseLeave }
+  }
+
+  const overallHandlers = createDelayedHoverHandlers(
+    setHoveredPieIndex,
+    setShowOverallTooltip,
+    hoverTimeoutRef,
+    tooltipTimeoutRef,
+  )
+
+  const screeningHandlers = createDelayedHoverHandlers(
+    setScreeningHoveredIndex,
+    setShowScreeningTooltip,
+    screeningTimeoutRef,
+    screeningTooltipTimeoutRef,
+  )
+
+  const counselingHandlers = createDelayedHoverHandlers(
+    setCounselingHoveredIndex,
+    setShowCounselingTooltip,
+    counselingTimeoutRef,
+    counselingTooltipTimeoutRef,
+  )
+
+  const renderEnhancedPieChart = (data, hoveredIndex, showTooltip, handlers) => {
     return (
-      <div style={{ width: '280px', height: '280px', margin: '0 auto' }}>
+      <div style={{ width: "280px", height: "280px", margin: "0 auto" }} onMouseLeave={handlers.handleMouseLeave}>
         <PieChart width={280} height={280}>
           <Pie
             data={data}
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={renderCustomizedLabel}
+            label={(props) => renderCustomizedLabel(props, hoveredIndex)} // Pass hoveredIndex ke label
             outerRadius="80%"
             innerRadius="50%"
             dataKey="value"
             isAnimationActive={false}
-            activeIndex={hoveredIndex}   // <<< ini kuncinya
-            activeShape={renderActiveShape} 
-            onMouseEnter={(_, index) => setHoveredIndex(index)}
-            onMouseLeave={() => setHoveredIndex(-1)}
+            activeIndex={hoveredIndex}
+            activeShape={renderActiveShape}
+            onMouseEnter={handlers.handleMouseEnter}
+            onMouseLeave={handlers.handleMouseLeave}
           >
             {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={entry.color}
-                // stroke="#FFFFFF"
-                // strokeWidth={2}
-              />
+              <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip 
-            content={({ active, payload }) => {
-              if (active && payload?.length) {
-                const data = payload[0].payload
-                return (
-                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg text-sm p-2">
-                    <p className="font-semibold text-gray-900">{data.name}</p>
-                    <p className="text-gray-600">{`Jumlah: ${data.value}`}</p>
-                  </div>
-                )
-              }
-              return null
-            }}
-          />
+          {showTooltip && (
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload?.length) {
+                  const data = payload[0].payload
+                  return (
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg text-sm p-2">
+                      <p className="font-semibold text-gray-900">{data.name}</p>
+                      <p className="text-gray-600">{`Jumlah: ${data.value}`}</p>
+                    </div>
+                  )
+                }
+                return null
+              }}
+            />
+          )}
         </PieChart>
       </div>
     )
   }
-  
-  
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
@@ -256,64 +353,60 @@ const DashboardHome = ({
       </div>
 
       <div className="mt-4 sm:mt-6">
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
-          {/* Card 1: Berisiko */}
-          <div className="w-full">
-            <MetricCard
-              title={`Total ${config.entityName} Berisiko`}
-              count={metrics.summary?.atRisk?.count || 0}
-              total={metrics.summary?.atRisk?.total || 0}
-              icon="assignment_late"
-              isActive={true} // Di Home, semua card aktif
-              isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
-              // <<< BARU: Logika isReportEnabled untuk halaman Home >>>
-              isReportEnabled={(metrics.summary?.atRisk?.count || 0) > 0}
-              onCardClick={() => onCardClick("at_risk")}
-              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
-            />
-          </div>
-          {/* Card 2: Belum Skrining */}
-          <div className="w-full">
-            <MetricCard
-              title={`Total ${config.entityName} Belum Skrining`}
-              count={metrics.summary?.notScreened?.count || 0}
-              total={metrics.summary?.notScreened?.total || 0}
-              icon="article"
-              isActive={true}
-              isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
-              isReportEnabled={(metrics.summary?.notScreened?.count || 0) > 0}
-              onCardClick={() => onCardClick("not_screened")}
-              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
-            />
-          </div>
-          {/* Card 3: Belum Konseling */}
-          <div className="w-full">
-            <MetricCard
-              title={`Total ${config.entityName} Belum Konseling`}
-              count={metrics.summary?.notCounseled?.count || 0}
-              total={metrics.summary?.notCounseled?.total || 0}
-              icon="article"
-              isActive={true}
-              isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
-              isReportEnabled={(metrics.summary?.notCounseled?.count || 0) > 0}
-              onCardClick={() => onCardClick("not_counseled")}
-              onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
-            />
+        <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
+            <div className="w-full">
+              <MetricCard
+                title={`Total ${config.entityName} Berisiko`}
+                count={metrics.summary?.atRisk?.count || 0}
+                total={metrics.summary?.atRisk?.total || 0}
+                icon="assignment_late"
+                isActive={true}
+                isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
+                isReportEnabled={(metrics.summary?.atRisk?.count || 0) > 0}
+                onCardClick={() => onCardClick("at_risk")}
+                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
+              />
+            </div>
+            <div className="w-full">
+              <MetricCard
+                title={`Total ${config.entityName} Belum Skrining`}
+                count={metrics.summary?.notScreened?.count || 0}
+                total={metrics.summary?.notScreened?.total || 0}
+                icon="article"
+                isActive={true}
+                isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
+                isReportEnabled={(metrics.summary?.notScreened?.count || 0) > 0}
+                onCardClick={() => onCardClick("not_screened")}
+                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
+              />
+            </div>
+            <div className="w-full">
+              <MetricCard
+                title={`Total ${config.entityName} Belum Konseling`}
+                count={metrics.summary?.notCounseled?.count || 0}
+                total={metrics.summary?.notCounseled?.total || 0}
+                icon="article"
+                isActive={true}
+                isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
+                isReportEnabled={(metrics.summary?.notCounseled?.count || 0) > 0}
+                onCardClick={() => onCardClick("not_counseled")}
+                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-        <div 
+        <div
           className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5"
           style={{
-            width: '100%',
+            width: "100%",
             maxWidth: `calc(100% - 40px)`,
-            marginLeft: '20px',
-            marginRight: '20px',
-            position: 'relative',
+            marginLeft: "20px",
+            marginRight: "20px",
+            position: "relative",
             zIndex: 1,
-          }}          
+          }}
         >
           <h2 className="text-lg leading-4 text-primary mb-4">
             Status <span className="font-bold">Kesehatan Mental </span>
@@ -327,10 +420,9 @@ const DashboardHome = ({
                   <p className="text-xs sm:text-sm">Status Kesehatan Mental {config.entityName} Keseluruhan</p>
                   <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
-                {/* Fixed container with absolute positioning to prevent sidebar shifts */}
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
                   <div className="absolute inset-0">
-                    {renderEnhancedPieChart(getOverallPieData(), hoveredPieIndex, setHoveredPieIndex, "overall")}
+                    {renderEnhancedPieChart(getOverallPieData(), hoveredPieIndex, showOverallTooltip, overallHandlers)}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
@@ -351,22 +443,23 @@ const DashboardHome = ({
             </div>
 
             <div className="w-full lg:w-3/5">
-              <div 
+              <div
                 className="h-full px-3 sm:px-4 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col"
-                style={{ position: 'relative', zIndex: 2 }}
+                style={{ position: "relative", zIndex: 2 }}
               >
-                <div 
+                <div
                   className="flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between w-full text-sm leading-6 text-zinc-500 mb-4"
-                  style={{ position: 'relative', zIndex: 10 }}
+                  style={{ position: "relative", zIndex: 10 }}
                 >
                   <p className="text-xs sm:text-sm">
                     Status Kesehatan Mental{" "}
                     <span className="font-extrabold">
-                      {config.entityName} {type === "student" ? "Kelas " : ""}{barChartClassroom}
+                      {config.entityName} {type === "student" ? "Kelas " : ""}
+                      {barChartClassroom}
                       {type === "student" && barChartGrade ? ` ${barChartGrade}` : ""}
                     </span>
                   </p>
-                  <div className="flex gap-2 flex-shrink-0" style={{ position: 'relative', zIndex: 1000 }}>
+                  <div className="flex gap-2 flex-shrink-0" style={{ position: "relative", zIndex: 1000 }}>
                     {type === "student" ? (
                       <div className="relative">
                         <CustomBranchingDropdown
@@ -384,7 +477,7 @@ const DashboardHome = ({
                           <span className="self-stretch my-auto">{barChartClassroom || config.filterLabel}</span>
                           <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
                         </Menu.Button>
-                        <Menu.Items 
+                        <Menu.Items
                           className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                           style={{ zIndex: 9999 }}
                         >
@@ -393,10 +486,10 @@ const DashboardHome = ({
                               {({ active }) => (
                                 <div
                                   className={`w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors ${
-                                    barChartClassroom === department 
-                                      ? "bg-[#3399E9] text-white font-semibold" 
-                                      : active 
-                                        ? "bg-[#E2F9FF] text-gray-900" 
+                                    barChartClassroom === department
+                                      ? "bg-[#3399E9] text-white font-semibold"
+                                      : active
+                                        ? "bg-[#E2F9FF] text-gray-900"
                                         : "text-gray-700 hover:bg-gray-50"
                                   }`}
                                   onClick={() => handleBarChartDepartmentChange(department)}
@@ -411,11 +504,11 @@ const DashboardHome = ({
                     )}
                   </div>
                 </div>
-                
+
                 <div className="text-center mb-3">
                   <h3 className="text-lg font-bold text-gray-700">2025</h3>
                 </div>
-                
+
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
@@ -426,12 +519,12 @@ const DashboardHome = ({
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                       <XAxis dataKey="month" />
                       <YAxis />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          backgroundColor: "white",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "8px",
+                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                         }}
                       />
                       <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" radius={[4, 4, 0, 0]} />
@@ -469,7 +562,6 @@ const DashboardHome = ({
 
           <div className="mt-4 w-full">
             <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 mb-6">
-              {/* Status Skrining Section */}
               <div className="w-full lg:w-6/12">
                 <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
                   Status <span className="font-bold">Skrining {config.entityName}</span>
@@ -477,12 +569,16 @@ const DashboardHome = ({
                 <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
                   <div className="px-4 py-4">
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
-                    
+
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
                       <div className="absolute inset-0">
-                        {renderEnhancedPieChart(getScreeningData(), screeningHoveredIndex, setScreeningHoveredIndex, "screening")}
+                        {renderEnhancedPieChart(
+                          getScreeningData(),
+                          screeningHoveredIndex,
+                          showScreeningTooltip,
+                          screeningHandlers,
+                        )}
                       </div>
-                      {/* Custom Legend - Positioned at bottom right, vertical layout */}
                       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
                         <div className="flex items-center gap-1">
                           <div className="w-3 h-3 rounded-full bg-[#6DC4C6]"></div>
@@ -498,7 +594,6 @@ const DashboardHome = ({
                 </div>
               </div>
 
-              {/* Status Konseling Section */}
               <div className="w-full lg:w-6/12">
                 <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
                   Status <span className="font-bold">Konseling {config.entityName}</span>
@@ -506,12 +601,16 @@ const DashboardHome = ({
                 <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
                   <div className="px-4 py-4">
                     <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
-                    
+
                     <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
                       <div className="absolute inset-0">
-                        {renderEnhancedPieChart(getCounselingData(), counselingHoveredIndex, setCounselingHoveredIndex, "counseling")}
+                        {renderEnhancedPieChart(
+                          getCounselingData(),
+                          counselingHoveredIndex,
+                          showCounselingTooltip,
+                          counselingHandlers,
+                        )}
                       </div>
-                      {/* Custom Legend - Positioned at bottom right, vertical layout */}
                       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
                         <div className="flex items-center gap-1">
                           <div className="w-3 h-3 rounded-full bg-[#C194E9]"></div>
@@ -531,15 +630,14 @@ const DashboardHome = ({
         </div>
       </div>
 
-      {/* Email Notification Modal */}
       <EmailNotificationModal
-      isOpen={showEmailModal}
-      onClose={() => setShowEmailModal(false)} 
-      reportName={reportName}
-      entityName={config.entityName}
-      userEmail={user?.email || authUser?.email || "a******@gmail.com"}
-    />
-  </div>
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        reportName={reportName}
+        entityName={config.entityName}
+        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
+      />
+    </div>
   )
 }
 
