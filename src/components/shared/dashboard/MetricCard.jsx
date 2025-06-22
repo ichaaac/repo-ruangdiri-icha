@@ -1,5 +1,3 @@
-// src/components/shared/dashboard/MetricCard.jsx
-
 import { motion } from "framer-motion"
 
 const MetricCard = ({
@@ -15,7 +13,7 @@ const MetricCard = ({
   onCardClick,
   onReportClick,
 }) => {
-  // --- Helper Functions ---
+  // --- Helper Functions (ini ga gua ubah, udah oke) ---
   const getCardIcon = () => {
     if (title.includes("Berisiko")) return "assignment_late"
     if (title.includes("Belum Skrining")) return "article"
@@ -31,7 +29,6 @@ const MetricCard = ({
         borderTop: "16px solid #8B8B8B",
       }
     }
-
     if (title.includes("Berisiko")) {
       return {
         background: "linear-gradient(to bottom, white, #FFEBE5)",
@@ -51,8 +48,6 @@ const MetricCard = ({
         borderTop: "16px solid #A08CE2",
       }
     }
-
-    // Fallback, although it's better to handle all cases explicitly
     return {
       background: `linear-gradient(to bottom, white, #E0E0E0)`,
       border: `0.5px solid #BDBDBD`,
@@ -62,7 +57,6 @@ const MetricCard = ({
 
   const getColor = () => {
     if (isInactive) return "#8B8B8B"
-
     if (title.includes("Berisiko")) return "#ED8768"
     if (title.includes("Belum Skrining")) return "#6DC4C6"
     if (title.includes("Belum Konseling")) return "#A08CE2"
@@ -70,8 +64,14 @@ const MetricCard = ({
   }
 
   const getTextColor = () => (isInactive ? "#8B8B8B" : "#6B7280")
+  
+  // --- PERUBAHAN LOGIKA UTAMA ADA DI SINI ---
+  
+  // [1] Logika untuk nge-klik KARTU-nya. Cuma butuh !isDisabled.
+  const isCardClickable = !isDisabled
 
-  const canInteract = !isDisabled && isActive
+  // [2] Logika untuk tombol "Kirim Laporan". Harus aktif DAN report-nya emang enabled.
+  const canSendReport = isActive && isReportEnabled
 
   const SVGDivider = () => {
     const dividerColor = getColor()
@@ -91,38 +91,40 @@ const MetricCard = ({
 
   return (
     <motion.div
-      whileHover={{ scale: canInteract ? 1.02 : 1.0 }}
+      // [3] Ganti semua `canInteract` jadi `isCardClickable`
+      whileHover={{ scale: isCardClickable ? 1.02 : 1.0 }}
       transition={{ duration: 0.2 }}
       className={`relative w-full h-[156px] rounded-xl overflow-hidden ${
-        canInteract ? "cursor-pointer" : "cursor-not-allowed"
+        isCardClickable ? "cursor-pointer" : "cursor-not-allowed"
       }`}
       style={getCardStyle()}
-      onClick={canInteract ? onCardClick : undefined}
+      onClick={isCardClickable ? onCardClick : undefined}
     >
-      {/* === MULAI DARI SINI PERUBAHANNYA === */}
       <div className="h-full flex flex-col py-4 px-7 sm:py-5">
         {/* Bagian Atas (Angka Gede & Ikon) */}
         <div className="flex justify-between items-start">
           <motion.h2
-            className={`text-3xl sm:text-4xl lg:text-5xl font-bold leading-none ${!canInteract ? "opacity-50" : ""}`}
+            // [4] Opacity angka gede sekarang juga ngikutin `isCardClickable`
+            className={`text-3xl sm:text-4xl lg:text-5xl font-bold leading-none ${!isCardClickable ? "opacity-50" : ""}`}
             style={{ color: getColor() }}
           >
             {count}
           </motion.h2>
 
           <div
+            // [5] Ganti semua logika disabled di sini pake `canSendReport`
             className={`flex flex-col items-center justify-center -mr-2 transition-opacity ${
-              !isReportEnabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              !canSendReport ? "cursor-not-allowed opacity-50" : "cursor-pointer"
             }`}
             onClick={(e) => {
               e.stopPropagation()
-              if (isReportEnabled) onReportClick()
+              if (canSendReport) onReportClick()
             }}
           >
             <motion.span
               className="material-icons text-2xl sm:text-3xl mb-1"
               style={{ color: getColor() }}
-              whileHover={isReportEnabled ? { scale: 1.1 } : {}}
+              whileHover={canSendReport ? { scale: 1.1 } : {}}
             >
               {getCardIcon()}
             </motion.span>
@@ -135,27 +137,21 @@ const MetricCard = ({
           </div>
         </div>
 
-        {/* Spacer baru untuk ngedorong konten ke bawah */}
         <div className="flex-grow" />
 
-        {/* Bagian Bawah (Title, Divider, dll) */}
+        {/* Bagian Bawah (Title, Divider, dll) - ini juga ga berubah */}
         <div>
           <p className="text-xs sm:text-sm font-medium leading-tight" style={{ color: getTextColor() }}>
             {title}
           </p>
-
-          {/* Pengaturan jarak divider sekarang di sini, lebih pasti */}
           <div className="mt-[6px] mb-[7px] w-full">
             <SVGDivider />
           </div>
-
-          {/* Teks count/total bersih dari class aneh-aneh */}
           <p className="text-xs sm:text-sm font-medium leading-tight" style={{ color: getTextColor() }}>
             {count}/{total}
           </p>
         </div>
       </div>
-       {/* === SELESAI === */}
     </motion.div>
   )
 }
