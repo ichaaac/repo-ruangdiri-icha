@@ -13,7 +13,6 @@ const MetricCard = ({
   onCardClick,
   onReportClick,
 }) => {
-  // --- Helper Functions (ini ga gua ubah, udah oke) ---
   const getCardIcon = () => {
     if (title.includes("Berisiko")) return "assignment_late"
     if (title.includes("Belum Skrining")) return "article"
@@ -64,13 +63,7 @@ const MetricCard = ({
   }
 
   const getTextColor = () => (isInactive ? "#8B8B8B" : "#6B7280")
-  
-  // --- PERUBAHAN LOGIKA UTAMA ADA DI SINI ---
-  
-  // [1] Logika untuk nge-klik KARTU-nya. Cuma butuh !isDisabled.
   const isCardClickable = !isDisabled
-
-  // [2] Logika untuk tombol "Kirim Laporan". Harus aktif DAN report-nya emang enabled.
   const canSendReport = isActive && isReportEnabled
 
   const SVGDivider = () => {
@@ -91,7 +84,6 @@ const MetricCard = ({
 
   return (
     <motion.div
-      // [3] Ganti semua `canInteract` jadi `isCardClickable`
       whileHover={{ scale: isCardClickable ? 1.02 : 1.0 }}
       transition={{ duration: 0.2 }}
       className={`relative w-full h-[156px] rounded-xl overflow-hidden ${
@@ -101,10 +93,8 @@ const MetricCard = ({
       onClick={isCardClickable ? onCardClick : undefined}
     >
       <div className="h-full flex flex-col py-4 px-7 sm:py-5">
-        {/* Bagian Atas (Angka Gede & Ikon) */}
         <div className="flex justify-between items-start">
           <motion.h2
-            // [4] Opacity angka gede sekarang juga ngikutin `isCardClickable`
             className={`text-3xl sm:text-4xl lg:text-5xl font-bold leading-none ${!isCardClickable ? "opacity-50" : ""}`}
             style={{ color: getColor() }}
           >
@@ -112,7 +102,6 @@ const MetricCard = ({
           </motion.h2>
 
           <div
-            // [5] Ganti semua logika disabled di sini pake `canSendReport`
             className={`flex flex-col items-center justify-center -mr-2 transition-opacity ${
               !canSendReport ? "cursor-not-allowed opacity-50" : "cursor-pointer"
             }`}
@@ -139,7 +128,6 @@ const MetricCard = ({
 
         <div className="flex-grow" />
 
-        {/* Bagian Bawah (Title, Divider, dll) - ini juga ga berubah */}
         <div>
           <p className="text-xs sm:text-sm font-medium leading-tight" style={{ color: getTextColor() }}>
             {title}

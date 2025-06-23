@@ -32,26 +32,29 @@ const Sidebar = ({
   const collapseTimeoutRef = useRef(null)
   const sidebarRef = useRef(null)
   const hoverAreaRef = useRef(null)
-  const contentRef = useRef(null)
+  const hoverableContentRef = useRef(null) // Ref untuk area yang bisa di-hover
 
   const expandedWidth = isMobile ? 200 : 237
   const collapsedWidth = isMobile ? 50 : 60
-//...
-const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
+  const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
 
-// <<< TAMBAH BLOK INI >>>
-useEffect(() => {
-  const dropdownIsVisible = showProfileDropdown && (expanded || hovered);
-  if (dropdownIsVisible && profileDropdownRef.current) {
-    // Kalo dropdown keliatan, ukur tingginya
-    setProfileDropdownHeight(profileDropdownRef.current.scrollHeight);
-  } else {
-    // Kalo ilang, reset tingginya jadi 0
-    setProfileDropdownHeight(0);
-  }
-}, [showProfileDropdown, expanded, hovered]); // << Pantau semua state yg relevan
+  // Calculate menu items height dynamically
+  const profileSectionHeight = isMobile ? 80 : 100 // Profile section + padding
+  const menuItemHeight = isMobile ? 40 : 47
+  const totalMenuHeight = menuItems.length * menuItemHeight
+  const dividerHeight = 20 // Divider height + margin
+  const hoverableContentHeight = profileSectionHeight + dividerHeight + totalMenuHeight
 
-  const handleContentMouseEnter = () => {
+  useEffect(() => {
+    const dropdownIsVisible = showProfileDropdown && (expanded || hovered);
+    if (dropdownIsVisible && profileDropdownRef.current) {
+      setProfileDropdownHeight(profileDropdownRef.current.scrollHeight);
+    } else {
+      setProfileDropdownHeight(0);
+    }
+  }, [showProfileDropdown, expanded, hovered]);
+
+  const handleHoverableContentMouseEnter = () => {
     if (!expanded && !isMobile) {
       clearTimeout(collapseTimeoutRef.current)
       expandTimeoutRef.current = setTimeout(() => {
@@ -61,7 +64,7 @@ useEffect(() => {
     }
   }
 
-  const handleContentMouseLeave = () => {
+  const handleHoverableContentMouseLeave = () => {
     if (!expanded && !isMobile) {
       clearTimeout(expandTimeoutRef.current)
       collapseTimeoutRef.current = setTimeout(() => {
@@ -218,13 +221,14 @@ useEffect(() => {
           </motion.div>
         </div>
 
-        {/* Content wrapper for profile and menu items - WITH HOVER TRIGGER */}
+        {/* Hoverable content wrapper - ONLY for profile and menu items */}
         <div 
-          ref={contentRef}
-          className="flex-1 flex flex-col overflow-y-auto"
-          onMouseEnter={handleContentMouseEnter}
-          onMouseLeave={handleContentMouseLeave}
+          ref={hoverableContentRef}
+          className="flex-shrink-0"
+          onMouseEnter={handleHoverableContentMouseEnter}
+          onMouseLeave={handleHoverableContentMouseLeave}
         >
+          {/* Profile Section */}
           <div className={`${isMobile ? "px-3 pt-10" : "px-2.5 pt-16"} relative mb-6`}>
             <div
               className="flex items-center cursor-pointer relative min-h-[40px] gap-3"
@@ -257,8 +261,8 @@ useEffect(() => {
               {showProfileDropdown && (expanded || hovered) && (
                 <motion.div
                   ref={profileDropdownRef}
-                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} absolute w-full`} // <== POSISINYA ABSOLUTE
-                  style={{ zIndex: 10 }} // Kasih z-index biar di atas
+                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} absolute w-full`}
+                  style={{ zIndex: 10 }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -282,7 +286,7 @@ useEffect(() => {
             </AnimatePresence>
           </div>
 
-          {/* <<< INI GANJELANNYA, DIPINDAH KE LUAR SEBAGAI SIBLING >>> */}
+          {/* Profile dropdown spacer */}
           <motion.div
             className="overflow-hidden w-full"
             animate={{ height: profileDropdownHeight }}
@@ -380,10 +384,10 @@ useEffect(() => {
               </div>
             ))}
           </div>
-
-          {/* Empty space below menu - NO HOVER TRIGGER */}
-          <div className="flex-1"></div>
         </div>
+
+        {/* Empty space below menu - NO HOVER TRIGGER */}
+        <div className="flex-1 overflow-hidden"></div>
 
         {/* Mobile overlay when sidebar is expanded */}
         {isMobile && expanded && (
@@ -396,19 +400,19 @@ useEffect(() => {
         )}
       </motion.div>
 
-      {/* Extended hover area - positioned to cover profile and menu area only */}
+      {/* Extended hover area - positioned to cover ONLY profile and menu area */}
       {!expanded && !isMobile && (
         <div 
           ref={hoverAreaRef}
           className="fixed z-30 pointer-events-auto"
           style={{
-            top: isMobile ? '130px' : '160px', // Start at profile section (logo height + profile padding)
+            top: isMobile ? '130px' : '160px', // Start at profile section
             left: sidebarWidth,
-            width: '20px', // Wider hover area for better UX
-            height: `${menuItems.length * (isMobile ? 40 : 47) + (isMobile ? 140 : 180)}px`, // Profile area + menu items height
+            width: '20px', // Hover trigger area width
+            height: `${hoverableContentHeight}px`, // Only cover hoverable content height
           }}
-          onMouseEnter={handleContentMouseEnter}
-          onMouseLeave={handleContentMouseLeave}
+          onMouseEnter={handleHoverableContentMouseEnter}
+          onMouseLeave={handleHoverableContentMouseLeave}
         />
       )}
     </>
