@@ -18,23 +18,28 @@ const EmailNotificationModal = ({
           exit={{ opacity: 0 }}
         >
           <motion.section 
-            className="relative flex flex-col shrink-0 gap-2.5 justify-center items-center p-5 mx-auto my-0 max-w-none bg-white rounded-xl shadow-xl h-[174px] w-[386px] max-md:p-5 max-md:w-full max-md:h-auto max-md:max-w-[386px] max-md:min-h-[174px] max-sm:p-4 max-sm:mx-4 max-sm:my-0 max-sm:w-full max-sm:max-w-[350px]"
+            className="relative flex flex-col justify-center items-center p-5 bg-white rounded-xl shadow-xl w-[386px] h-[174px] max-md:w-full max-md:max-w-[386px] max-md:min-h-[174px] max-sm:mx-4 max-sm:w-full max-sm:max-w-[350px]"
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", duration: 0.5 }}
           >
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Tutup modal"
-            className="absolute top-2 right-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#488BBE] p-0"
-          >
-            <span className="material-icons-outlined text-[#488BBE] text-[20px] leading-none">
+          <div className="absolute top-3 right-3">
+            <span
+              className="material-icons-outlined text-[#488BBE] text-[24px] leading-none cursor-pointer hover:scale-110 transition-transform"
+              role="button"
+              aria-label="Tutup modal"
+              onClick={onClose}
+              style={{
+                pointerEvents: 'auto', 
+                display: 'inline-flex', 
+              }}
+            >
               cancel
             </span>
-          </button>
-            <div className="flex relative flex-col gap-5 items-center w-[346px] max-md:w-full max-md:max-w-[346px] max-sm:gap-4 max-sm:w-full">
+          </div>
+            {/* Content */}
+            <div className="flex flex-col gap-5 items-center w-full">
               <EmailIcon />
               <NotificationMessage 
                 reportName={reportName}
@@ -42,6 +47,7 @@ const EmailNotificationModal = ({
                 userEmail={userEmail}
               />
             </div>
+
           </motion.section>
         </motion.div>
       )}
@@ -49,10 +55,9 @@ const EmailNotificationModal = ({
   )
 }
 
-// Komponen EmailIcon dan NotificationMessage di bawah sini biarin aja, ga perlu diubah.
 const EmailIcon = () => {
   return (
-    <div className="flex flex-col items-center gap-2.5 relative w-[346px] h-20">
+    <div className="flex flex-col items-center">
       <motion.span
         className="material-icons-outlined text-[#488BBE]"
         style={{ fontSize: '80px', lineHeight: '80px' }}
@@ -69,18 +74,12 @@ const EmailIcon = () => {
 const NotificationMessage = ({ reportName, entityName, userEmail }) => {
   return (
     <motion.p 
-      className="relative self-stretch text-xs leading-4 text-center max-sm:text-xs max-sm:leading-4"
+      className="text-center text-zinc-500 text-xs leading-4"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4, duration: 0.3 }}
     >
-      <span className="text-xs text-zinc-500">
-        {reportName} berhasil dikirim ke email{" "}
-      </span>
-      <span className="text-xs text-blue-500 underline">
-        {userEmail}
-      </span>
-      <span className="text-xs text-blue-500">.</span>
+      {reportName} berhasil dikirim ke email <span className="underline">{userEmail}</span><span className="text-blue-500">.</span>
     </motion.p>
   )
 }
