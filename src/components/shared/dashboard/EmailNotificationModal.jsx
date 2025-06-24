@@ -59,7 +59,7 @@ const EmailIcon = () => {
   return (
     <div className="flex flex-col items-center">
       <motion.span
-        className="material-icons-outlined text-[#488BBE]"
+        className="material-icons-outlined text-[#9BCA61]"
         style={{ fontSize: '80px', lineHeight: '80px' }}
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
