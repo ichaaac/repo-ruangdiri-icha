@@ -1,4 +1,4 @@
-// src/routes/routeConfig.jsx - Simplified with existing layouts
+// src/routes/routeConfig.jsx - Updated with Schedule Routes
 import React from "react";
 import { Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
@@ -18,12 +18,14 @@ import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
 import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
 import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage";
 import EmployeeDetailPage from "@/pages/organization/company/EmployeeDetailPage";
+import CompanySchedule from "../pages/organization/company/CompanySchedule";
 
 // School pages
 import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
 import StudentListPage from "../pages/organization/school/StudentListPage";
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
 import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
+import SchoolSchedule from "../pages/organization/school/SchoolSchedule";
 
 import OnboardingForm from "@/pages/shared/OnboardingForm";
 import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
@@ -99,11 +101,32 @@ const routes = [
               Company Layout  
             </a>
             
+            {/* Schedule Demo Links */}
+            <div className="border-t pt-3 mt-4">
+              <p className="text-gray-500 text-xs text-center mb-3">Schedule Management</p>
+              <div className="space-y-2">
+                <a 
+                  href="/dev/school/schedule" 
+                  className="block w-full bg-purple-600 hover:bg-purple-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                  <span className="material-icons text-sm">schedule</span>
+                  School Schedule
+                </a>
+                <a 
+                  href="/dev/company/schedule" 
+                  className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                >
+                  <span className="material-icons text-sm">calendar_today</span>
+                  Company Schedule
+                </a>
+              </div>
+            </div>
+            
             <div className="border-t pt-3 mt-4">
               <p className="text-gray-500 text-xs text-center mb-3">Legacy Demo Routes</p>
               <a 
                 href="/demo/organization/school/student-list" 
-                className="block w-full bg-purple-600 hover:bg-purple-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                className="block w-full bg-gray-600 hover:bg-gray-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
               >
                 <span className="material-icons text-sm">assignment</span>
                 Demo Routes
@@ -120,7 +143,7 @@ const routes = [
       </div>
     )
   },
-
+  
   // School development routes (No backend required) - Using existing SchoolLayout
   {
     path: "/dev/school",
@@ -152,20 +175,7 @@ const routes = [
       },
       {
         path: "schedule",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">schedule</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Schedule Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-700 text-sm">
-                  🚧 Coming soon: Class scheduling, teacher assignments, and timetable management
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        element: <SchoolSchedule />
       }
     ]
   },
@@ -235,20 +245,7 @@ const routes = [
       },
       {
         path: "schedule",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">schedule</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Schedule Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Employee schedules, shift management, and time tracking
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        element: <CompanySchedule />
       }
     ]
   },
@@ -286,7 +283,7 @@ const routes = [
         path: "settings",
         element: <Navigate to="profile" replace />
       },
-    {
+      {
         path: "employee/:employeeId",
         element: <EmployeeDetailPage />
       },
@@ -326,20 +323,7 @@ const routes = [
       },
       {
         path: "schedule",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">schedule</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Schedule Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Employee schedules, shift management, and time tracking
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        element: <CompanySchedule />
       }
     ]
   },
@@ -379,20 +363,7 @@ const routes = [
       },
       {
         path: "schedule",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">schedule</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Schedule Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-700 text-sm">
-                  🚧 Coming soon: Class scheduling, teacher assignments, and timetable management
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        element: <SchoolSchedule />
       }
     ]
   },
@@ -461,20 +432,7 @@ const routes = [
       },
       {
         path: "schedule",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">schedule</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Schedule Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Employee schedules, shift management, and time tracking
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        element: <CompanySchedule />
       }
     ]
   },
@@ -509,20 +467,7 @@ const routes = [
       },
       {
         path: "schedule",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">schedule</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Schedule Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-700 text-sm">
-                  🚧 Coming soon: Class scheduling, teacher assignments, and timetable management
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        element: <SchoolSchedule />
       }
     ]
   },
