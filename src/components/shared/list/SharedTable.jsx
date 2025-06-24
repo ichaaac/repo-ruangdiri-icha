@@ -159,7 +159,7 @@ const SharedTable = forwardRef(
   ) => {
     const [showHelpTooltip, setShowHelpTooltip] = useState(false)
     const [hoveredStatus, setHoveredStatus] = useState(null)
-    const [showEditTooltip, setShowEditTooltip] = useState(null)
+    const [hoveredEdit, setHoveredEdit] = useState(null)
     const helpIconRef = useRef(null)
     const observerRef = useRef(null)
     const contentRef = useRef(null)
@@ -240,10 +240,11 @@ const SharedTable = forwardRef(
     }
 
     const startEditing = (id) => {
+      setHoveredEdit(null) 
       if (editHook?.editingItemId) return
       const item = data.find((d) => d.id === id)
       if (!item) return
-
+  
       editHook?.startEditing(id, item)
     }
 
@@ -695,20 +696,21 @@ const SharedTable = forwardRef(
                             </div>
                           ) : (
                           <div className="flex items-center justify-center">
-                            <button
-                              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors relative"
-                              onClick={() => startEditing(item.id)}
-                              disabled={editHook?.editingItemId !== null}
-                              onMouseEnter={() => setShowEditTooltip(item.id)}
-                              onMouseLeave={() => setShowEditTooltip(null)}
-                            >
-                              <span className="material-icons text-lg">edit</span>
-                              {showEditTooltip === item.id && (
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-black/80 text-white text-xs rounded whitespace-nowrap shadow-lg z-[9999]">
-                                  Edit
-                                </div>
-                              )}
-                            </button>
+                           <button
+                          className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors"
+                          onClick={() => startEditing(item.id)}
+                          disabled={editHook?.editingItemId !== null}
+                          onMouseEnter={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setHoveredEdit({
+                              x: rect.left + rect.width / 2,
+                              y: rect.top,
+                            });
+                          }}
+                          onMouseLeave={() => setHoveredEdit(null)}
+                        >
+                          <span className="material-icons text-lg">edit</span>
+                        </button>
                           </div>
                         )}
                       </td>
@@ -736,6 +738,23 @@ const SharedTable = forwardRef(
             </motion.div>
           )}
         </AnimatePresence>
+        <AnimatePresence>
+  {hoveredEdit && (
+    <motion.div
+      className="fixed bg-black/80 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-[9999] shadow-lg"
+      style={{
+        left: hoveredEdit.x,
+        top: hoveredEdit.y - 35,
+        transform: "translateX(-50%)"
+      }}
+      initial={{ opacity: 0, y: -5 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -5 }}
+    >
+      Edit
+    </motion.div>
+  )}
+</AnimatePresence>
         {data.length === 0 && !isFetchingNextPage && !isDebouncingSearch && (
           <div className="text-center py-8">
             <span className="material-icons text-gray-400 text-4xl">{config.emptyIcon}</span>
