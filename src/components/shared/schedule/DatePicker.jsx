@@ -1,42 +1,70 @@
-// src/components/shared/schedule/DatePicker.jsx
+// src/components/shared/schedule/DatePicker.jsx - Fixed Sizing
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
-const DatePicker = () => {
+const DatePicker = ({ 
+  containerWidth = 335,
+  sidebarExpanded = false 
+}) => {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
-  const [selectedDates, setSelectedDates] = useState([]) // Array to store multiple selected dates
+  const [selectedDates, setSelectedDates] = useState([])
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState(null)
   const [dragEnd, setDragEnd] = useState(null)
+  const containerRef = useRef(null)
+
+  // Close month/year picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setShowMonthYearPicker(false)
+      }
+    }
+
+    if (showMonthYearPicker) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showMonthYearPicker])
+
+  // Base dimensions (Figma: 335x290)
+  const baseWidth = 335;
+  const baseHeight = 290;
+  const actualWidth = Math.min(baseWidth, containerWidth);
+  const actualHeight = baseHeight;
 
   // Days of week
   const daysOfWeek = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
 
   // Month names in Indonesian
   const monthNames = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ]
+
+  // Day names in Indonesian
+  const dayNames = [
+    "Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"
+  ]
+
+  // Get current day name
+  const getCurrentDayName = () => {
+    return dayNames[currentDate.getDay()];
+  }
 
   // Get week number for a date
   const getWeekNumber = (date) => {
     const year = date.getFullYear()
     const month = date.getMonth()
     const firstDayOfMonth = new Date(year, month, 1)
-    const dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7 // Adjust for Monday start
+    const dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7
     const dayOfMonth = date.getDate()
     return Math.floor((dayOfMonth + dayOfWeek - 1) / 7)
   }
@@ -48,11 +76,6 @@ const DatePicker = () => {
       date1.getMonth() === date2.getMonth() &&
       getWeekNumber(date1) === getWeekNumber(date2)
     )
-  }
-
-  // Get day of week (0 = Monday, 6 = Sunday)
-  const getDayOfWeek = (date) => {
-    return (date.getDay() + 6) % 7
   }
 
   // Get selection position for styling
@@ -79,7 +102,6 @@ const DatePicker = () => {
     const lastDay = new Date(year, month + 1, 0)
     const startDate = new Date(firstDay)
 
-    // Adjust to start from Monday (0 = Sunday, 1 = Monday, etc.)
     const dayOfWeek = (firstDay.getDay() + 6) % 7
     startDate.setDate(startDate.getDate() - dayOfWeek)
 
@@ -94,7 +116,6 @@ const DatePicker = () => {
       const isToday = date.toDateString() === today.toDateString()
       const isSelected = selectedDates.some((selectedDate) => selectedDate.toDateString() === date.toDateString())
 
-      // Check if date is in drag range
       let isInDragRange = false
       const dragRangeDates = []
       if (isDragging && dragStart && dragEnd) {
@@ -106,7 +127,6 @@ const DatePicker = () => {
           dateTime <= Math.max(dragStartTime, dragEndTime) &&
           isSameWeek(date, dragStart)
 
-        // Create drag range dates for position calculation
         if (isInDragRange) {
           let currentTime = Math.min(dragStartTime, dragEndTime)
           const endTime = Math.max(dragStartTime, dragEndTime)
@@ -140,11 +160,6 @@ const DatePicker = () => {
 
   const calendarDays = generateCalendarDays()
 
-  // Group days into weeks
-  const weeks = []
-  for (let i = 0; i < calendarDays.length; i += 7) {
-    weeks.push(calendarDays.slice(i, i + 7))
-  }
   const handleMouseDown = (day) => {
     if (!day.isCurrentMonth) return;
     setSelectedDates([]); 
@@ -155,9 +170,7 @@ const DatePicker = () => {
   
   const handleMouseEnter = (day) => {
     if (!isDragging || !day.isCurrentMonth) return;
-    
     if (!isSameWeek(dragStart, day.fullDate)) return;
-  
     setDragEnd(day.fullDate);
   };
   
@@ -189,7 +202,6 @@ const DatePicker = () => {
     setDragStart(null);
     setDragEnd(null);
   };
-  
 
   const handleMonthYearClick = () => {
     setShowMonthYearPicker(!showMonthYearPicker)
@@ -201,126 +213,141 @@ const DatePicker = () => {
     setSelectedMonth(month)
     setSelectedYear(year)
     setShowMonthYearPicker(false)
-    // Clear selection when changing month/year
     setSelectedDates([])
   }
 
   const handleYearChange = (direction) => {
-    setSelectedYear((prev) => prev + direction)
-  }
-
-  // Get border radius class based on selection position
-  const getBorderRadiusClass = (position) => {
-    switch (position) {
-      case "single":
-        return "rounded-full"
-      case "start":
-        return "rounded-l-full"
-      case "end":
-        return "rounded-r-full"
-      case "middle":
-        return ""
-      default:
-        return ""
-    }
+    setSelectedYear(prev => prev + direction)
   }
 
   return (
-    <div className="rounded-md border border-zinc-500 bg-white p-3.5">
-      <div className="space-y-4">
-        {/* Header with date and calendar icon */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 bg-zinc-100 rounded-md">
-          <h3 className="text-base font-bold text-neutral-600">
-            {monthNames[currentDate.getMonth()]}, {currentDate.getFullYear()}
-          </h3>
-          <button onClick={handleMonthYearClick} className="hover:bg-zinc-200 p-1 rounded transition-colors">
-            <span className="material-icons text-neutral-600 text-lg">calendar_month</span>
-          </button>
-        </div>
+    <div 
+      ref={containerRef}
+      className="rounded-md border border-zinc-500 bg-white flex flex-col transition-all duration-300 relative"
+      style={{ 
+        width: `${actualWidth}px`, 
+        height: `${actualHeight}px`
+      }}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-2 py-2 bg-zinc-100 rounded-t-md flex-none">
+        <h3 className="text-sm font-bold text-neutral-600 truncate">
+          {getCurrentDayName()}, {currentDate.getDate()} {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+        </h3>
+        <button onClick={handleMonthYearClick} className="hover:bg-zinc-200 p-1 rounded transition-colors">
+          <span className="material-icons text-neutral-600 text-sm">calendar_month</span>
+        </button>
+      </div>
 
-        {/* Month/Year Picker Dropdown */}
+      {/* Month/Year Picker Modal */}
+      <AnimatePresence>
         {showMonthYearPicker && (
-          <div className="absolute z-50 bg-white border border-zinc-300 rounded-md shadow-lg p-4 min-w-[280px]">
+          <motion.div 
+            className="absolute bg-white border border-zinc-300 rounded-md shadow-lg z-50 p-4"
+            style={{
+              top: '45px',
+              left: '8px',
+              right: '8px'
+            }}
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
             {/* Year selector */}
             <div className="flex items-center justify-between mb-4">
-              <button onClick={() => handleYearChange(-1)} className="p-1 hover:bg-gray-100 rounded">
-                <span className="material-icons">chevron_left</span>
+              <button 
+                onClick={() => handleYearChange(-1)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <span className="material-icons text-sm">chevron_left</span>
               </button>
-              <span className="font-bold text-lg">{selectedYear}</span>
-              <button onClick={() => handleYearChange(1)} className="p-1 hover:bg-gray-100 rounded">
-                <span className="material-icons">chevron_right</span>
+              <span className="font-semibold">{selectedYear}</span>
+              <button 
+                onClick={() => handleYearChange(1)}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <span className="material-icons text-sm">chevron_right</span>
               </button>
             </div>
-
+            
             {/* Month grid */}
             <div className="grid grid-cols-3 gap-2">
               {monthNames.map((month, index) => (
-                <button
-                  key={month}
+                <motion.button
+                  key={index}
                   onClick={() => handleMonthYearSelect(index, selectedYear)}
-                  className={`p-2 text-sm rounded hover:bg-blue-100 transition-colors ${
-                    index === selectedMonth ? "bg-blue-500 text-white" : "text-neutral-600"
+                  className={`p-2 text-xs rounded hover:bg-blue-100 ${
+                    index === selectedMonth && selectedYear === currentDate.getFullYear()
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-700'
                   }`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {month.slice(0, 3)}
-                </button>
+                </motion.button>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
-
-        {/* Calendar */}
-        <div className="space-y-5" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-          {/* Days of week header */}
-          <div className="grid grid-cols-7 gap-3">
-            {daysOfWeek.map((day) => (
-              <div key={day} className="text-base font-semibold text-center text-neutral-600">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar grid */}
-          <div className="space-y-3">
-              {weeks.map((week, weekIndex) => (
-                <div key={weekIndex} className="grid grid-cols-7">
-                  {week.map((day, dayIndex) => (
-                    <div key={dayIndex} className="relative">
-                      
-                      {day.isSelected && (
-                        <div className={`
-                          absolute z-0
-                          ${day.selectionPosition === 'single' 
-                            ? 'top-1/2 left-1/2 w-[32px] h-[32px] -translate-x-1/2 -translate-y-1/2 rounded-full'
-                            : day.selectionPosition === 'start' 
-                              ? 'top-1/2 -translate-y-1/2 left-[30%] right-0 h-[32px] rounded-l-full'
-                              : day.selectionPosition === 'end'
-                                ? 'top-1/2 -translate-y-1/2 left-0 right-[30%] h-[32px] rounded-r-full'
-                                : 'top-1/2 -translate-y-1/2 left-0 right-0 h-[32px]'
-                          }
-                          bg-[#488BBA]
-                        `} />
-                      )}
-                      <button
-                        onMouseDown={() => handleMouseDown(day)}
-                        onMouseEnter={() => handleMouseEnter(day)}
-                        className={`relative z-10 w-full h-[50px] flex items-center justify-center text-sm transition-colors 
-                          ${day.isSelected ? 'text-white font-bold' 
-                          : day.isCurrentMonth ? 'text-neutral-600' 
-                          : 'text-gray-300 cursor-not-allowed'}`}
-                      >
-                        {/* Background highlight absolute layer */}
-                        {day.isToday && !day.isSelected && (
-                          <div className="absolute top-1/2 left-1/2 w-[32px] h-[32px] bg-blue-100 rounded-full -translate-x-1/2 -translate-y-1/2 z-0" />
-                        )}
-                        <span className="relative z-10">{day.date}</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ))}
+      </AnimatePresence>
+  
+      {/* Calendar Content */}
+      <div className="flex-grow flex flex-col px-2 py-2">
+  
+        {/* Days of week */}
+        <div className="grid grid-cols-7 mb-1">
+          {daysOfWeek.map((day) => (
+            <div key={day} className="text-[10px] text-center font-semibold text-neutral-600">
+              {day}
             </div>
+          ))}
+        </div>
+  
+        {/* Calendar dates */}
+        <div className="grid grid-rows-5 grid-cols-7 flex-grow">
+          {calendarDays.map((day, i) => (
+            <div key={i} className="relative flex items-center justify-center">
+  
+              {/* Background highlight pill for selected dates */}
+              {day.isSelected && (
+                <div className={`
+                  absolute z-0
+                  ${day.selectionPosition === 'single' 
+                    ? 'top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full'
+                    : day.selectionPosition === 'start' 
+                      ? 'top-1/2 -translate-y-1/2 left-[20%] right-0 h-[60%] rounded-l-full'
+                      : day.selectionPosition === 'end'
+                        ? 'top-1/2 -translate-y-1/2 left-0 right-[20%] h-[60%] rounded-r-full'
+                        : 'top-1/2 -translate-y-1/2 left-0 right-0 h-[60%]'}
+                  bg-[#488BBA]
+                `} />
+              )}
 
+              {/* Background for today's date */}
+              {day.isToday && !day.isSelected && (
+                <div className="absolute z-0 top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-100" />
+              )}
+  
+              <button
+                onMouseDown={() => handleMouseDown(day)}
+                onMouseEnter={() => handleMouseEnter(day)}
+                onMouseUp={handleMouseUp}
+                className={`relative z-10 w-full h-full flex items-center justify-center text-xs transition-colors 
+                  ${day.isSelected ? 'text-white font-bold' 
+                  : day.isToday ? 'text-blue-600 font-bold'
+                  : day.isCurrentMonth ? 'text-neutral-600' 
+                  : 'text-gray-300 cursor-not-allowed'}
+                `}
+              >
+                {day.date}
+              </button>
+  
+            </div>
+          ))}
         </div>
       </div>
     </div>

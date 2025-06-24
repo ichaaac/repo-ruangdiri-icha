@@ -1,22 +1,44 @@
-// src/components/shared/schedule/NotificationsPanel.jsx
+// src/components/shared/schedule/NotificationsPanel.jsx - Fixed Layout and Sizing
 
-const NotificationPanel = () => {
+import { motion } from "framer-motion"
+
+const NotificationPanel = ({ 
+  containerWidth = 335,
+  sidebarExpanded = false 
+}) => {
   // Sample notification data - in real app this would come from props or API
   const notifications = [];
 
+  // Base dimensions (Figma: 335x293)
+  const baseWidth = 335;
+  const baseHeight = 293;
+  const actualWidth = Math.min(baseWidth, containerWidth);
+  const actualHeight = baseHeight;
+
   return (
-    <div className="rounded-md border border-zinc-500 bg-white p-3.5">
-      <div className="space-y-2.5">
-        {/* Header */}
-        <header className="flex items-center gap-4 px-5 py-3">
+    <div 
+      className="rounded-md border border-zinc-500 bg-white transition-all duration-300"
+      style={{ 
+        width: `${actualWidth}px`, 
+        height: `${actualHeight}px`
+      }}
+    >
+      <div className="h-full flex flex-col">
+        {/* Header - integrated with content */}
+        <div className="flex items-center p-3.5">
           <div className="w-[30px] h-[30px] bg-[#488BBE] rounded flex items-center justify-center">
             <span className="material-icons text-white text-lg">notifications</span>
           </div>
-          <h2 className="text-xl font-semibold text-blue-500">Notifikasi</h2>
-        </header>
+          <h2 
+            className="text-xl font-semibold text-[#488BBA]" 
+            style={{ marginLeft: '15px' }}
+          >
+            Notifikasi
+          </h2>
+        </div>
 
         {/* Notification Content */}
-        <div className="min-h-[150px] flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center px-3.5 pb-3.5">
           {notifications.length === 0 ? (
             <p className="text-xs text-zinc-500">Belum ada notifikasi</p>
           ) : (

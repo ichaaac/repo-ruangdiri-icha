@@ -1,20 +1,30 @@
-// src/components/shared/schedule/ScheduleGrid.jsx
+// src/components/shared/schedule/ScheduleGrid.jsx - Fixed Scrollbars and Layout
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
-// Constants
-const HOUR_WIDTH = 80;
-const DAY_ROW_HEIGHT = 50;
-const TIME_HEADER_HEIGHT = 30;
-const DAY_COLUMN_WIDTH = 70;
-const CONTAINER_WIDTH = 808;
-const CONTAINER_HEIGHT = 254;
-
-const ScheduleGrid = ({ onTimeSlotSelect }) => {
+const ScheduleGrid = ({ 
+  onTimeSlotSelect, 
+  containerWidth = 808,
+  sidebarExpanded = false 
+}) => {
   const [selectedArea, setSelectedArea] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const viewportRef = useRef(null);
+
+  // Base dimensions (Figma: 808x254)
+  const baseWidth = 808;
+  const baseHeight = 254;
+  const actualWidth = Math.max(baseWidth, containerWidth);
+  const actualHeight = baseHeight;
+
+  // Grid constants
+  const HOUR_WIDTH = 80;
+  const DAY_ROW_HEIGHT = 50;
+  const TIME_HEADER_HEIGHT = 30;
+  const DAY_COLUMN_WIDTH = 70;
+  const HEADER_HEIGHT = 66;
+  const GRID_CONTENT_HEIGHT = actualHeight - HEADER_HEIGHT;
 
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
@@ -35,7 +45,7 @@ const ScheduleGrid = ({ onTimeSlotSelect }) => {
   useEffect(() => {
     if (viewportRef.current) {
       viewportRef.current.scrollLeft = 6 * HOUR_WIDTH; // jam 06:00
-      viewportRef.current.scrollTop = 0; // default di 3 hari pertama
+      viewportRef.current.scrollTop = 0;
     }
   }, []);
 
@@ -123,186 +133,162 @@ const ScheduleGrid = ({ onTimeSlotSelect }) => {
     );
   };
 
-  const renderHalfHourMarkers = () => {
-    return (
-      <>
-        {/* Penanda 30 menit di tengah setiap jam - hanya di header waktu */}
-        {timeSlots.map((_, i) => (
-          <div 
-            key={`half-hour-${i}`} 
-            className="absolute pointer-events-none" 
-            style={{ 
-              left: `${(i * HOUR_WIDTH) + (HOUR_WIDTH / 2)}px`,
-              top: '50%',
-              transform: 'translate(-50%, -50%)'
-            }}
-          >
-            <svg 
-              width="1" 
-              height="7" 
-              viewBox="0 0 1 7" 
-              fill="none" 
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path 
-                d="M0.287914 6.466L0.284914 0.544H0.719914V6.466H0.287914Z" 
-                fill="#FF7D7D"
-              />
-            </svg>
-          </div>
-        ))}
-      </>
-    );
-  };
-
   return (
     <div 
-      className="rounded-md border border-zinc-400 bg-white select-none"
-      style={{ width: `${CONTAINER_WIDTH}px`, height: `${CONTAINER_HEIGHT}px` }}
+      className="rounded-md border border-zinc-400 bg-white select-none transition-all duration-300"
+      style={{ 
+        width: `${actualWidth}px`, 
+        height: `${actualHeight}px`
+      }}
     >
-      {/* Header atas */}
-      <div className="flex items-center px-5 py-3">
-        <div className="flex items-center gap-[15px]">
+      {/* Header */}
+      <div className="flex items-center px-5 py-3 border-b border-zinc-200" style={{ height: `${HEADER_HEIGHT}px` }}>
+        <div className="flex items-center">
           <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
             <span className="material-icons text-white text-lg">calendar_month</span>
           </div>
-          <h2 className="text-xl font-semibold text-[#488BBA]">Jadwal</h2>
+          <h2 
+            className="text-xl font-semibold text-[#488BBA]" 
+            style={{ marginLeft: '15px' }}
+          >
+            Jadwal
+          </h2>
         </div>
       </div>
 
-      {/* Grid area */}
-      <div className="relative overflow-hidden" style={{ height: `${CONTAINER_HEIGHT - 66}px` }}>
-        {/* Header waktu - dengan scroll horizontal */}
-        <div className="absolute left-[70px] top-0 right-0 overflow-hidden">
-          <div 
-            className="flex relative" 
-            style={{ 
-              width: `${24 * HOUR_WIDTH}px`, 
-              transform: `translateX(-${viewportRef.current?.scrollLeft || 0}px)` 
-            }}
-          >
-            {timeSlots.map((time) => (
-              <div 
-                key={time} 
-                className="flex-shrink-0 text-center pt-1 relative" 
-                style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
-              >
-                <span className="text-sm text-neutral-600">{time}</span>
-              </div>
-            ))}
-            {/* Penanda 30 menit di header waktu */}
-            {timeSlots.map((_, i) => (
-              <div 
-                key={`half-hour-header-${i}`} 
-                className="absolute pointer-events-none" 
-                style={{ 
-                  left: `${(i * HOUR_WIDTH) + (HOUR_WIDTH / 2)}px`,
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <svg 
-                  width="1" 
-                  height="7" 
-                  viewBox="0 0 1 7" 
-                  fill="none" 
-                  xmlns="http://www.w3.org/2000/svg"
+      {/* Grid Container */}
+      <div className="relative overflow-hidden" style={{ height: `${GRID_CONTENT_HEIGHT}px` }}>
+        
+        {/* Fixed Time Header */}
+        <div 
+          className="absolute top-0 bg-white border-b border-zinc-200 z-10"
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH}px`,
+            right: '0px',
+            height: `${TIME_HEADER_HEIGHT}px`
+          }}
+        >
+          <div className="overflow-hidden h-full">
+            <div 
+              className="flex relative h-full"
+              style={{ 
+                width: `${24 * HOUR_WIDTH}px`,
+                transform: `translateX(-${viewportRef.current?.scrollLeft || 0}px)`
+              }}
+            >
+              {timeSlots.map((time, i) => (
+                <div 
+                  key={time} 
+                  className="flex-shrink-0 text-center relative"
+                  style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
                 >
-                  <path 
-                    d="M0.287914 6.466L0.284914 0.544H0.719914V6.466H0.287914Z" 
-                    fill="#FF7D7D"
-                  />
-                </svg>
-              </div>
-            ))}
+                  <span className="text-sm text-neutral-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                    {time}
+                  </span>
+                </div>
+              ))}
+              
+              {/* Red dividers between hours (30-minute markers) */}
+              {timeSlots.slice(0, -1).map((_, i) => (
+                <div 
+                  key={`divider-${i}`}
+                  className="absolute pointer-events-none" 
+                  style={{ 
+                    left: `${(i + 1) * HOUR_WIDTH}px`,
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <svg width="1" height="7" viewBox="0 0 1 7" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0.287914 6.466L0.284914 0.544H0.719914V6.466H0.287914Z" fill="#FF7D7D"/>
+                  </svg>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Scrollable area */}
+        {/* Scrollable Content Area */}
         <div 
           ref={viewportRef}
-          className="absolute top-[30px] left-0 right-0 bottom-0 overflow-auto flex"
+          className="absolute inset-0 overflow-auto"
+          style={{ 
+            top: `${TIME_HEADER_HEIGHT}px`,
+            overflowX: 'auto',
+            overflowY: 'auto'
+          }}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => isDragging && handleMouseUp()}
           onScroll={(e) => {
-            // Update header waktu position saat scroll horizontal
-            const headerElement = e.target.parentElement.querySelector('.absolute.left-\\[70px\\].top-0');
-            if (headerElement) {
-              const headerContent = headerElement.firstChild;
-              if (headerContent) {
-                headerContent.style.transform = `translateX(-${e.target.scrollLeft}px)`;
+            // Update time header position
+            const timeHeader = e.target.parentElement.querySelector('[style*="left: 70px"]');
+            if (timeHeader) {
+              const timeHeaderContent = timeHeader.querySelector('.flex.relative');
+              if (timeHeaderContent) {
+                timeHeaderContent.style.transform = `translateX(-${e.target.scrollLeft}px)`;
               }
             }
           }}
         >
-          {/* Kolom hari */}
-          <div className="flex flex-col flex-shrink-0" style={{ width: `${DAY_COLUMN_WIDTH}px` }}>
-            {days.map((day, index) => (
-              <div 
-                key={day.short} 
-                className="flex items-center justify-center relative" 
-                style={{ height: `${DAY_ROW_HEIGHT}px` }}
-              >
-                <span 
-                  className="text-base font-bold text-neutral-600"
-                  style={{ 
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)'
-                  }}
-                >
-                  {day.short}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Main grid */}
-          <div 
-            className="relative"
-            style={{ width: `${24 * HOUR_WIDTH}px`, height: `${days.length * DAY_ROW_HEIGHT}px` }}
-            onMouseDown={handleMouseDown}
-          >
-            {/* Grid lines - garis horizontal sepanjang 24 jam */}
-            {days.map((_, i) => (
-              i > 0 && (
-                <div 
-                  key={i} 
-                  className="absolute h-px bg-zinc-200" 
-                  style={{ 
-                    top: `${i * DAY_ROW_HEIGHT}px`,
-                    left: 0,
-                    width: `${24 * HOUR_WIDTH}px`
-                  }} 
-                />
-              )
-            ))}
-
-            {renderSelectionBox()}
-
-            {/* Current time line with tooltip */}
+          <div className="flex">
+            {/* Fixed Day Column */}
             <div 
-              className="absolute top-0 bottom-0 z-30 pointer-events-none" 
-              style={{ left: `${getCurrentTimePosition()}px` }}
+              className="flex-shrink-0 bg-white sticky left-0 z-5"
+              style={{ width: `${DAY_COLUMN_WIDTH}px` }}
             >
-              <div className="relative w-px h-full bg-red-500">
-                <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full -translate-x-1/2" />
-                {/* Tooltip di sebelah kanan garis */}
+              {days.map((day, index) => (
                 <div 
-                  className="absolute"
-                  style={{ 
-                    left: '8px',
-                    top: '10px'
-                  }}
+                  key={day.short} 
+                  className="flex items-center justify-center"
+                  style={{ height: `${DAY_ROW_HEIGHT}px` }}
                 >
-                  <svg width="35" height="15" viewBox="0 0 35 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="35" height="15" rx="3" fill="black" fillOpacity="0.35"/>
-                    <text x="17.5" y="10" textAnchor="middle" fill="white" fontSize="10" fontFamily="monospace">
-                      {getCurrentTimeString()}
-                    </text>
-                  </svg>
+                  <span className="text-base font-bold text-neutral-600">
+                    {day.short}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Time Grid */}
+            <div 
+              className="relative"
+              style={{ 
+                width: `${24 * HOUR_WIDTH}px`, 
+                height: `${days.length * DAY_ROW_HEIGHT}px` 
+              }}
+              onMouseDown={handleMouseDown}
+            >
+              {/* Horizontal day lines only */}
+              {days.map((_, i) => (
+                i > 0 && (
+                  <div 
+                    key={`hline-${i}`}
+                    className="absolute left-0 right-0 h-px bg-zinc-200"
+                    style={{ top: `${i * DAY_ROW_HEIGHT}px` }}
+                  />
+                )
+              ))}
+
+              {renderSelectionBox()}
+
+              {/* Current time line */}
+              <div 
+                className="absolute top-0 bottom-0 z-30 pointer-events-none" 
+                style={{ left: `${getCurrentTimePosition()}px` }}
+              >
+                <div className="relative w-px h-full bg-red-500">
+                  <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full -translate-x-1/2 -top-1" />
+                  
+                  {/* Time tooltip */}
+                  <div className="absolute left-2 top-2">
+                    <svg width="35" height="15" viewBox="0 0 35 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect width="35" height="15" rx="3" fill="black" fillOpacity="0.35"/>
+                      <text x="17.5" y="10" textAnchor="middle" fill="white" fontSize="10" fontFamily="monospace">
+                        {getCurrentTimeString()}
+                      </text>
+                    </svg>
+                  </div>
                 </div>
               </div>
             </div>
