@@ -1,250 +1,313 @@
 // src/components/shared/schedule/ScheduleGrid.jsx
 
-import { useState, useEffect, useRef } from "react";
-import { getCurrentDateInfo } from "@/lib/date";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+
+// Constants
+const HOUR_WIDTH = 80;
+const DAY_ROW_HEIGHT = 50;
+const TIME_HEADER_HEIGHT = 30;
+const DAY_COLUMN_WIDTH = 70;
+const CONTAINER_WIDTH = 808;
+const CONTAINER_HEIGHT = 254;
 
 const ScheduleGrid = ({ onTimeSlotSelect }) => {
-  const [selectedRange, setSelectedRange] = useState(null);
+  const [selectedArea, setSelectedArea] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [schedules, setSchedules] = useState([]);
-  const gridRef = useRef(null);
+  const viewportRef = useRef(null);
 
-  // Update current time every minute
+  const days = useMemo(() => [
+    { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
+    { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
+    { short: "Jum", full: "Jumat" }, { short: "Sab", full: "Sabtu" },
+    { short: "Min", full: "Minggu" }
+  ], []);
+
+  const timeSlots = useMemo(() => 
+    Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`), []
+  );
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Time slots from 6:00 to 14:00
-  const timeSlots = [];
-  for (let hour = 6; hour <= 14; hour++) {
-    timeSlots.push(`${hour.toString().padStart(2, '0')}.00`);
-  }
+  useEffect(() => {
+    if (viewportRef.current) {
+      viewportRef.current.scrollLeft = 6 * HOUR_WIDTH; // jam 06:00
+      viewportRef.current.scrollTop = 0; // default di 3 hari pertama
+    }
+  }, []);
 
-  // Days of the week
-  const days = [
-    { short: "Sen", full: "Senin" },
-    { short: "Sel", full: "Selasa" },
-    { short: "Rab", full: "Rabu" },
-    { short: "Kam", full: "Kamis" },
-    { short: "Jum", full: "Jumat" },
-    { short: "Sab", full: "Sabtu" },
-    { short: "Min", full: "Minggu" }
-  ];
-
-  // Visible days (can be scrolled)
-  const [visibleDays, setVisibleDays] = useState(days.slice(0, 3));
-  const [dayStartIndex, setDayStartIndex] = useState(0);
-
-  // Calculate current time position for the red needle
-  const getCurrentTimePosition = () => {
+  const getCurrentTimePosition = useCallback(() => {
     const now = currentTime;
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    const totalMinutes = now.getHours() * 60 + now.getMinutes();
+    return (totalMinutes / (24 * 60)) * (24 * HOUR_WIDTH);
+  }, [currentTime]);
 
-    if (hours < 6 || hours > 14) return null;
+  const getCurrentTimeString = useCallback(() => {
+    const now = currentTime;
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${hours}.${minutes}`;
+  }, [currentTime]);
 
-    const totalMinutes = (hours - 6) * 60 + minutes;
-    const totalGridMinutes = 8 * 60; // 6:00 to 14:00 = 8 hours
-    const percentage = (totalMinutes / totalGridMinutes) * 100;
+  const getInfoFromPosition = useCallback((clientX, clientY) => {
+    if (!viewportRef.current) return null;
+    const rect = viewportRef.current.getBoundingClientRect();
+    const scrollLeft = viewportRef.current.scrollLeft;
+    const scrollTop = viewportRef.current.scrollTop;
 
-    return Math.min(Math.max(percentage, 0), 100);
+    const relativeX = clientX - rect.left - DAY_COLUMN_WIDTH + scrollLeft;
+    const relativeY = clientY - rect.top - TIME_HEADER_HEIGHT + scrollTop;
+
+    if (relativeX < 0 || relativeY < 0) return null;
+
+    const hour = relativeX / HOUR_WIDTH;
+    const dayIndex = Math.floor(relativeY / DAY_ROW_HEIGHT);
+
+    return { hour, dayIndex };
+  }, []);
+
+  const handleMouseDown = (e) => {
+    const info = getInfoFromPosition(e.clientX, e.clientY);
+    if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
+      setIsDragging(true);
+      setSelectedArea({
+        startDay: info.dayIndex, endDay: info.dayIndex,
+        startHour: info.hour, endHour: info.hour,
+      });
+      e.preventDefault();
+    }
   };
 
-  const timePosition = getCurrentTimePosition();
-
-  // Handle mouse events for drag selection
-  const handleMouseDown = (dayIndex, timeIndex) => {
-    setIsDragging(true);
-    setSelectedRange({
-      startDay: dayIndex,
-      endDay: dayIndex,
-      startTime: timeIndex,
-      endTime: timeIndex
-    });
-  };
-
-  const handleMouseEnter = (dayIndex, timeIndex) => {
-    if (isDragging && selectedRange) {
-      setSelectedRange(prev => ({
-        ...prev,
-        endDay: dayIndex,
-        endTime: timeIndex
-      }));
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const info = getInfoFromPosition(e.clientX, e.clientY);
+    if (info) {
+      setSelectedArea(prev => ({ ...prev, endDay: info.dayIndex, endHour: info.hour }));
     }
   };
 
   const handleMouseUp = () => {
-    if (isDragging && selectedRange) {
-      // Create time slot data for modal
-      const startHour = Math.min(selectedRange.startTime, selectedRange.endTime) + 6;
-      const endHour = Math.max(selectedRange.startTime, selectedRange.endTime) + 7;
-      const dayName = visibleDays[selectedRange.startDay]?.full || "Senin";
+    if (isDragging && selectedArea) {
+      const startHour = Math.floor(Math.min(selectedArea.startHour, selectedArea.endHour));
+      const endHour = Math.ceil(Math.max(selectedArea.startHour, selectedArea.endHour));
+      const dayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
 
-      const today = new Date();
-      const startDateTime = new Date(today);
-      startDateTime.setHours(startHour, 0, 0, 0);
-
-      const endDateTime = new Date(today);
-      endDateTime.setHours(endHour, 0, 0, 0);
-
-      onTimeSlotSelect({
-        startDateTime,
-        endDateTime,
-        day: dayName
-      });
+      if (dayIndex >= 0 && dayIndex < days.length && endHour > startHour) {
+        const dayName = days[dayIndex]?.full;
+        const today = new Date();
+        const startDateTime = new Date(today.setHours(startHour, 0, 0, 0));
+        const endDateTime = new Date(today.setHours(endHour, 0, 0, 0));
+        onTimeSlotSelect({ startDateTime, endDateTime, day: dayName });
+      }
     }
-
     setIsDragging(false);
-    setSelectedRange(null);
+    setSelectedArea(null);
   };
 
-  // Check if a cell is selected
-  const isCellSelected = (dayIndex, timeIndex) => {
-    if (!selectedRange) return false;
+  const renderSelectionBox = () => {
+    if (!selectedArea) return null;
 
-    const minDay = Math.min(selectedRange.startDay, selectedRange.endDay);
-    const maxDay = Math.max(selectedRange.startDay, selectedRange.endDay);
-    const minTime = Math.min(selectedRange.startTime, selectedRange.endTime);
-    const maxTime = Math.max(selectedRange.startTime, selectedRange.endTime);
+    const top = Math.min(selectedArea.startDay, selectedArea.endDay) * DAY_ROW_HEIGHT;
+    const height = (Math.abs(selectedArea.startDay - selectedArea.endDay) + 1) * DAY_ROW_HEIGHT;
+    const left = Math.min(selectedArea.startHour, selectedArea.endHour) * HOUR_WIDTH;
+    const width = Math.abs(selectedArea.startHour - selectedArea.endHour) * HOUR_WIDTH;
 
-    return dayIndex >= minDay && dayIndex <= maxDay &&
-           timeIndex >= minTime && timeIndex <= maxTime;
+    return (
+      <div
+        className="absolute bg-blue-400/20 border-2 border-blue-500 rounded-sm pointer-events-none z-20"
+        style={{ top, left, width, height }}
+      />
+    );
   };
 
-  // Handle day scrolling
-  const scrollDays = (direction) => {
-    if (direction === 'left' && dayStartIndex > 0) {
-      const newIndex = Math.max(0, dayStartIndex - 1);
-      setDayStartIndex(newIndex);
-      setVisibleDays(days.slice(newIndex, newIndex + 3));
-    } else if (direction === 'right' && dayStartIndex < days.length - 3) {
-      const newIndex = Math.min(days.length - 3, dayStartIndex + 1);
-      setDayStartIndex(newIndex);
-      setVisibleDays(days.slice(newIndex, newIndex + 3));
-    }
+  const renderHalfHourMarkers = () => {
+    return (
+      <>
+        {/* Penanda 30 menit di tengah setiap jam - hanya di header waktu */}
+        {timeSlots.map((_, i) => (
+          <div 
+            key={`half-hour-${i}`} 
+            className="absolute pointer-events-none" 
+            style={{ 
+              left: `${(i * HOUR_WIDTH) + (HOUR_WIDTH / 2)}px`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <svg 
+              width="1" 
+              height="7" 
+              viewBox="0 0 1 7" 
+              fill="none" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                d="M0.287914 6.466L0.284914 0.544H0.719914V6.466H0.287914Z" 
+                fill="#FF7D7D"
+              />
+            </svg>
+          </div>
+        ))}
+      </>
+    );
   };
 
   return (
-    <div className="rounded-md border border-zinc-500 bg-white">
-      {/* Header */}
-      <header className="flex items-center gap-4 px-5 py-3 border-b border-zinc-200">
-        <div className="w-[30px] h-[30px] bg-[#488BBE] rounded flex items-center justify-center">
-          <span className="material-icons text-white text-lg">calendar_month</span>
-        </div>
-        <h2 className="text-xl font-semibold text-blue-500">Jadwal</h2>
-      </header>
-
-      {/* Time Header */}
-      <div className="flex items-center px-5 py-2.5 border-b border-zinc-200 overflow-x-auto scrollbar-custom">
-        <div className="w-[35px] flex-shrink-0"></div>
-        <div className="flex items-center gap-6 min-w-max">
-          {timeSlots.map((time, index) => (
-            <div key={time} className="flex items-center gap-6">
-              <span className="text-xs text-neutral-600 whitespace-nowrap">{time}</span>
-              {index < timeSlots.length - 1 && (
-                <span className="text-xs text-rose-400">|</span>
-              )}
-            </div>
-          ))}
+    <div 
+      className="rounded-md border border-zinc-400 bg-white select-none"
+      style={{ width: `${CONTAINER_WIDTH}px`, height: `${CONTAINER_HEIGHT}px` }}
+    >
+      {/* Header atas */}
+      <div className="flex items-center px-5 py-3">
+        <div className="flex items-center gap-[15px]">
+          <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
+            <span className="material-icons text-white text-lg">calendar_month</span>
+          </div>
+          <h2 className="text-xl font-semibold text-[#488BBA]">Jadwal</h2>
         </div>
       </div>
 
-      {/* Schedule Grid */}
-      <div className="relative">
-        {/* Progress bars */}
-        <div className="absolute bottom-0 left-[97px] right-[16px] h-[3px] bg-zinc-300 z-10"></div>
-        <div className="absolute bottom-0 left-[97px] w-[234px] h-[5px] bg-zinc-500 z-20"></div>
-
-        {/* Current time needle */}
-        {timePosition !== null && (
-          <div
-            className="absolute top-0 bottom-0 z-30 pointer-events-none"
-            style={{ left: `calc(97px + ${timePosition}% * (100% - 113px) / 100)` }}
+      {/* Grid area */}
+      <div className="relative overflow-hidden" style={{ height: `${CONTAINER_HEIGHT - 66}px` }}>
+        {/* Header waktu - dengan scroll horizontal */}
+        <div className="absolute left-[70px] top-0 right-0 overflow-hidden">
+          <div 
+            className="flex relative" 
+            style={{ 
+              width: `${24 * HOUR_WIDTH}px`, 
+              transform: `translateX(-${viewportRef.current?.scrollLeft || 0}px)` 
+            }}
           >
-            <svg width="6" height="134" viewBox="0 0 6 134" fill="none" className="absolute top-0">
-              <circle cx="3.39573" cy="2.5969" r="2.5969" fill="#FF0000"/>
-              <rect x="2.875" y="4.15503" width="1.03876" height="129.845" fill="#FF0000"/>
-            </svg>
+            {timeSlots.map((time) => (
+              <div 
+                key={time} 
+                className="flex-shrink-0 text-center pt-1 relative" 
+                style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
+              >
+                <span className="text-sm text-neutral-600">{time}</span>
+              </div>
+            ))}
+            {/* Penanda 30 menit di header waktu */}
+            {timeSlots.map((_, i) => (
+              <div 
+                key={`half-hour-header-${i}`} 
+                className="absolute pointer-events-none" 
+                style={{ 
+                  left: `${(i * HOUR_WIDTH) + (HOUR_WIDTH / 2)}px`,
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                <svg 
+                  width="1" 
+                  height="7" 
+                  viewBox="0 0 1 7" 
+                  fill="none" 
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path 
+                    d="M0.287914 6.466L0.284914 0.544H0.719914V6.466H0.287914Z" 
+                    fill="#FF7D7D"
+                  />
+                </svg>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Day rows */}
-        <div
-          className="space-y-0"
-          ref={gridRef}
-          onMouseLeave={() => {
-            if (isDragging) {
-              setIsDragging(false);
-              setSelectedRange(null);
+        {/* Scrollable area */}
+        <div 
+          ref={viewportRef}
+          className="absolute top-[30px] left-0 right-0 bottom-0 overflow-auto flex"
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={() => isDragging && handleMouseUp()}
+          onScroll={(e) => {
+            // Update header waktu position saat scroll horizontal
+            const headerElement = e.target.parentElement.querySelector('.absolute.left-\\[70px\\].top-0');
+            if (headerElement) {
+              const headerContent = headerElement.firstChild;
+              if (headerContent) {
+                headerContent.style.transform = `translateX(-${e.target.scrollLeft}px)`;
+              }
             }
           }}
         >
-          {visibleDays.map((day, dayIndex) => (
-            <div key={`${day.short}-${dayStartIndex + dayIndex}`}>
-              <div className="flex items-center min-h-[29px] border-b border-zinc-200 last:border-b-0">
-                {/* Day label */}
-                <div className="w-[35px] flex-shrink-0 px-2">
-                  <span className="text-base font-bold text-neutral-600">{day.short}</span>
-                </div>
+          {/* Kolom hari */}
+          <div className="flex flex-col flex-shrink-0" style={{ width: `${DAY_COLUMN_WIDTH}px` }}>
+            {days.map((day, index) => (
+              <div 
+                key={day.short} 
+                className="flex items-center justify-center relative" 
+                style={{ height: `${DAY_ROW_HEIGHT}px` }}
+              >
+                <span 
+                  className="text-base font-bold text-neutral-600"
+                  style={{ 
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  {day.short}
+                </span>
+              </div>
+            ))}
+          </div>
 
-                {/* Time slots */}
-                <div className="flex-1 flex relative">
-                  <div className="flex items-center bg-white rounded-md min-h-[29px] flex-1 overflow-x-auto scrollbar-custom">
-                    <div className="flex min-w-max">
-                      {timeSlots.map((time, timeIndex) => (
-                        <div
-                          key={`${day.short}-${time}`}
-                          className={`
-                            w-[77px] h-[29px] border-r border-zinc-100 last:border-r-0
-                            cursor-pointer transition-colors relative
-                            ${isCellSelected(dayIndex, timeIndex)
-                              ? 'bg-blue-200 border-blue-300'
-                              : 'hover:bg-gray-50'
-                            }
-                          `}
-                          onMouseDown={() => handleMouseDown(dayIndex, timeIndex)}
-                          onMouseEnter={() => handleMouseEnter(dayIndex, timeIndex)}
-                          onMouseUp={handleMouseUp}
-                        >
-                          {/* Empty schedule placeholder */}
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-xs text-zinc-500">
-                              {dayIndex === 0 && timeIndex === 0 ? "Belum ada jadwal" : ""}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+          {/* Main grid */}
+          <div 
+            className="relative"
+            style={{ width: `${24 * HOUR_WIDTH}px`, height: `${days.length * DAY_ROW_HEIGHT}px` }}
+            onMouseDown={handleMouseDown}
+          >
+            {/* Grid lines - garis horizontal sepanjang 24 jam */}
+            {days.map((_, i) => (
+              i > 0 && (
+                <div 
+                  key={i} 
+                  className="absolute h-px bg-zinc-200" 
+                  style={{ 
+                    top: `${i * DAY_ROW_HEIGHT}px`,
+                    left: 0,
+                    width: `${24 * HOUR_WIDTH}px`
+                  }} 
+                />
+              )
+            ))}
+
+            {renderSelectionBox()}
+
+            {/* Current time line with tooltip */}
+            <div 
+              className="absolute top-0 bottom-0 z-30 pointer-events-none" 
+              style={{ left: `${getCurrentTimePosition()}px` }}
+            >
+              <div className="relative w-px h-full bg-red-500">
+                <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full -translate-x-1/2" />
+                {/* Tooltip di sebelah kanan garis */}
+                <div 
+                  className="absolute"
+                  style={{ 
+                    left: '8px',
+                    top: '10px'
+                  }}
+                >
+                  <svg width="35" height="15" viewBox="0 0 35 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="35" height="15" rx="3" fill="black" fillOpacity="0.35"/>
+                    <text x="17.5" y="10" textAnchor="middle" fill="white" fontSize="10" fontFamily="monospace">
+                      {getCurrentTimeString()}
+                    </text>
+                  </svg>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Day scroll controls */}
-        {days.length > 3 && (
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col gap-2">
-            <button
-              onClick={() => scrollDays('left')}
-              disabled={dayStartIndex === 0}
-              className="w-6 h-6 bg-white border border-zinc-300 rounded flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              <span className="material-icons text-xs">keyboard_arrow_up</span>
-            </button>
-            <button
-              onClick={() => scrollDays('right')}
-              disabled={dayStartIndex >= days.length - 3}
-              className="w-6 h-6 bg-white border border-zinc-300 rounded flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-            >
-              <span className="material-icons text-xs">keyboard_arrow_down</span>
-            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
