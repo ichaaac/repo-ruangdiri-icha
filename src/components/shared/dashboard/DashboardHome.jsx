@@ -343,9 +343,8 @@ const DashboardHome = ({
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
       <TopRightControl isAbsolute />
-
-      <div className="px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 pt-[72px]">
-        <div className="w-full lg:w-auto">
+      <div className="px-4 sm:px-6 lg:px-8 xl:px-20 mt-6 sm:mt-8 pt-[72px]">
+      <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>
