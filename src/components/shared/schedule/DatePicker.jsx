@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - Fixed Sizing
+// src/components/shared/schedule/DatePicker.jsx - Fixed Layout Consistency
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"

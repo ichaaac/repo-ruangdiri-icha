@@ -1,15 +1,27 @@
-// src/components/shared/schedule/CounselingQueue.jsx - FIXED
+// src/components/shared/schedule/CounselingQueue.jsx - Fixed Layout Consistency
 
-const CounselingQueue = ({ sidebarExpanded = false }) => {
+const CounselingQueue = ({ 
+  containerWidth = 808,
+  sidebarExpanded = false 
+}) => {
   const queueData = [];
 
+  // Base dimensions from Figma: 808x329px
+  const baseWidth = 808;
+  const baseHeight = 329;
+  const actualWidth = Math.max(baseWidth, containerWidth);
+
   return (
-    // Lebar dan tinggi diatur oleh class Tailwind, bukan inline style
-    <div className="w-full rounded-md border border-zinc-500 bg-white transition-all duration-300">
+    <div 
+      className="w-full rounded-md border border-zinc-500 bg-white transition-all duration-300"
+      style={{ 
+        width: `${actualWidth}px`,
+        height: `${baseHeight}px`
+      }}
+    >
       
       {/* Header */}
-      <header className="flex items-center px-5 py-3 border-b border-zinc-200">
-        {/* INI DIA PERBAIKANNYA: Tambahkan div pembungkus di sini */}
+      <header className="flex items-center px-5 py-3 border-b border-zinc-200" style={{ height: '66px' }}>
         <div className="flex items-center gap-x-[15px]">
           <div className="w-[30px] h-[30px] bg-[#488BBE] rounded flex items-center justify-center flex-shrink-0">
             <span className="material-icons text-white text-lg">people</span>

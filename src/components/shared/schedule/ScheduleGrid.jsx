@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - Fixed Scrollbars and Layout
+// src/components/shared/schedule/ScheduleGrid.jsx - Fixed Current Time and Google Calendar Behavior
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -9,6 +9,7 @@ const ScheduleGrid = ({
 }) => {
   const [selectedArea, setSelectedArea] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const viewportRef = useRef(null);
 
@@ -51,6 +52,30 @@ const ScheduleGrid = ({
     return slots;
   }, []);
 
+  // FIXED: Convert actual hour to display index
+  const getHourDisplayIndex = useCallback((hour) => {
+    if (hour >= 6 && hour <= 22) {
+      return hour - 6; // 6:00-22:00 -> index 0-16
+    } else if (hour === 23) {
+      return 17; // 23:00 -> index 17
+    } else if (hour >= 0 && hour <= 5) {
+      return hour + 18; // 0:00-5:00 -> index 18-23
+    }
+    return 0;
+  }, []);
+
+  // FIXED: Convert display index to actual hour
+  const getActualHour = useCallback((index) => {
+    if (index >= 0 && index <= 16) {
+      return index + 6; // index 0-16 -> 6:00-22:00
+    } else if (index === 17) {
+      return 23; // index 17 -> 23:00
+    } else if (index >= 18 && index <= 23) {
+      return index - 18; // index 18-23 -> 0:00-5:00
+    }
+    return 6;
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -58,22 +83,32 @@ const ScheduleGrid = ({
 
   useEffect(() => {
     if (viewportRef.current) {
-      viewportRef.current.scrollLeft = 6 * HOUR_WIDTH; // jam 06:00
+      viewportRef.current.scrollLeft = 0; // Start at beginning (6:00)
       viewportRef.current.scrollTop = 0;
     }
   }, []);
 
+  // FIXED: Current time position calculation
   const getCurrentTimePosition = useCallback(() => {
     const now = currentTime;
-    const totalMinutes = now.getHours() * 60 + now.getMinutes();
-    return (totalMinutes / (24 * 60)) * (24 * HOUR_WIDTH);
-  }, [currentTime]);
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // Get display index for current hour
+    const hourDisplayIndex = getHourDisplayIndex(currentHour);
+    
+    // Calculate position based on display index
+    const basePosition = hourDisplayIndex * HOUR_WIDTH;
+    const minuteOffset = (currentMinutes / 60) * HOUR_WIDTH;
+    
+    return basePosition + minuteOffset;
+  }, [currentTime, getHourDisplayIndex]);
 
   const getCurrentTimeString = useCallback(() => {
     const now = currentTime;
     const hours = now.getHours().toString().padStart(2, '0');
     const minutes = now.getMinutes().toString().padStart(2, '0');
-    return `${hours}.${minutes}`;
+    return `${hours}:${minutes}`;
   }, [currentTime]);
 
   const getInfoFromPosition = useCallback((clientX, clientY) => {
@@ -82,39 +117,47 @@ const ScheduleGrid = ({
     const scrollLeft = viewportRef.current.scrollLeft;
     const scrollTop = viewportRef.current.scrollTop;
 
+    // Calculate position relative to the time grid (excluding headers)
     const relativeX = clientX - rect.left - DAY_COLUMN_WIDTH + scrollLeft;
     const relativeY = clientY - rect.top - TIME_HEADER_HEIGHT + scrollTop;
 
+    // Must be within the time grid area (not in headers)
     if (relativeX < 0 || relativeY < 0) return null;
 
     const hourIndex = Math.floor(relativeX / HOUR_WIDTH);
     const dayIndex = Math.floor(relativeY / DAY_ROW_HEIGHT);
 
-    // Convert hour index back to actual hour for time slot selection
-    let actualHour;
-    if (hourIndex >= 0 && hourIndex <= 16) {
-      actualHour = hourIndex + 6; // 6:00 - 22:00
-    } else if (hourIndex === 17) {
-      actualHour = 23; // 23:00
-    } else if (hourIndex >= 18 && hourIndex <= 23) {
-      actualHour = hourIndex - 18; // 0:00 - 5:00
-    } else {
-      actualHour = 6; // fallback
+    // Validate bounds - must be within valid grid area
+    if (hourIndex < 0 || hourIndex >= 24 || dayIndex < 0 || dayIndex >= days.length) {
+      return null;
     }
 
-    return { hour: actualHour, hourIndex, dayIndex };
-  }, []);
+    // Additional check: ensure we're actually in the time grid area, not day labels
+    const timeGridRect = viewportRef.current.getBoundingClientRect();
+    const timeGridLeft = timeGridRect.left + DAY_COLUMN_WIDTH;
+    const timeGridTop = timeGridRect.top + TIME_HEADER_HEIGHT;
+    
+    if (clientX < timeGridLeft || clientY < timeGridTop) {
+      return null;
+    }
 
+    const actualHour = getActualHour(hourIndex);
+
+    return { hour: actualHour, hourIndex, dayIndex };
+  }, [getActualHour]);
+
+  // IMPROVED: Google Calendar-like behavior
   const handleMouseDown = (e) => {
     const info = getInfoFromPosition(e.clientX, e.clientY);
     if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
       setIsDragging(true);
+      setDragStartPos({ x: e.clientX, y: e.clientY });
       setSelectedArea({
         startDay: info.dayIndex, 
         endDay: info.dayIndex,
-        startHour: info.hour, // Use actual hour
+        startHour: info.hour,
         endHour: info.hour,
-        startHourIndex: info.hourIndex, // Keep index for rendering
+        startHourIndex: info.hourIndex,
         endHourIndex: info.hourIndex
       });
       e.preventDefault();
@@ -122,7 +165,8 @@ const ScheduleGrid = ({
   };
 
   const handleMouseMove = (e) => {
-    if (!isDragging) return;
+    if (!isDragging || !dragStartPos) return;
+    
     const info = getInfoFromPosition(e.clientX, e.clientY);
     if (info) {
       setSelectedArea(prev => ({ 
@@ -134,33 +178,69 @@ const ScheduleGrid = ({
     }
   };
 
-  const handleMouseUp = () => {
-    if (isDragging && selectedArea) {
-      const startHour = Math.min(selectedArea.startHour, selectedArea.endHour);
-      const endHour = Math.max(selectedArea.startHour, selectedArea.endHour);
-      const dayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
-
-      if (dayIndex >= 0 && dayIndex < days.length) {
-        const dayName = days[dayIndex]?.full;
-        const today = new Date();
-        const startDateTime = new Date(today.setHours(startHour, 0, 0, 0));
-        const endDateTime = new Date(today.setHours(endHour + 1, 0, 0, 0)); // +1 hour for end time
-        onTimeSlotSelect({ startDateTime, endDateTime, day: dayName });
-      }
+  const handleMouseUp = (e) => {
+    if (!isDragging || !selectedArea || !dragStartPos) {
+      setIsDragging(false);
+      setSelectedArea(null);
+      setDragStartPos(null);
+      return;
     }
+
+    // Check if it's a click (not drag)
+    const dragDistance = Math.sqrt(
+      Math.pow(e.clientX - dragStartPos.x, 2) + Math.pow(e.clientY - dragStartPos.y, 2)
+    );
+    
+    const isClick = dragDistance < 5; // 5px threshold
+
+    const startHour = Math.min(selectedArea.startHour, selectedArea.endHour);
+    const endHour = Math.max(selectedArea.startHour, selectedArea.endHour);
+    const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
+    const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
+
+    if (startDay >= 0 && startDay < days.length) {
+      const dayName = days[startDay]?.full;
+      
+      // For click: create 1-hour slot, for drag: use selected range
+      let finalEndHour = endHour;
+      if (isClick) {
+        finalEndHour = startHour + 1;
+      } else {
+        finalEndHour = endHour + 1; // Add 1 hour for end time
+      }
+
+      const today = new Date();
+      const startDateTime = new Date(today);
+      startDateTime.setHours(startHour, 0, 0, 0);
+      
+      const endDateTime = new Date(today);
+      endDateTime.setHours(finalEndHour, 0, 0, 0);
+
+      onTimeSlotSelect({ 
+        startDateTime, 
+        endDateTime, 
+        day: dayName,
+        isMultipleDays: startDay !== endDay
+      });
+    }
+    
     setIsDragging(false);
     setSelectedArea(null);
+    setDragStartPos(null);
   };
 
   const renderSelectionBox = () => {
     if (!selectedArea) return null;
 
-    const top = Math.min(selectedArea.startDay, selectedArea.endDay) * DAY_ROW_HEIGHT;
-    const height = (Math.abs(selectedArea.startDay - selectedArea.endDay) + 1) * DAY_ROW_HEIGHT;
-    
-    // Use hourIndex for positioning since that matches the visual grid
-    const left = Math.min(selectedArea.startHourIndex || 0, selectedArea.endHourIndex || 0) * HOUR_WIDTH;
-    const width = (Math.abs((selectedArea.startHourIndex || 0) - (selectedArea.endHourIndex || 0)) + 1) * HOUR_WIDTH;
+    const startDayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
+    const endDayIndex = Math.max(selectedArea.startDay, selectedArea.endDay);
+    const startHourIndex = Math.min(selectedArea.startHourIndex || 0, selectedArea.endHourIndex || 0);
+    const endHourIndex = Math.max(selectedArea.startHourIndex || 0, selectedArea.endHourIndex || 0);
+
+    const top = startDayIndex * DAY_ROW_HEIGHT;
+    const height = (endDayIndex - startDayIndex + 1) * DAY_ROW_HEIGHT;
+    const left = startHourIndex * HOUR_WIDTH;
+    const width = (endHourIndex - startHourIndex + 1) * HOUR_WIDTH;
 
     return (
       <div
@@ -176,7 +256,7 @@ const ScheduleGrid = ({
       style={{ 
         width: `${actualWidth}px`, 
         height: `${actualHeight}px`,
-        overflow: 'hidden' // Only hide overflow on main container
+        overflow: 'hidden'
       }}
     >
       {/* Header */}
@@ -193,19 +273,6 @@ const ScheduleGrid = ({
           </h2>
         </div>
       </div>
-
-      {/* Debug info for scroll (development only) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute top-16 right-2 bg-yellow-100 border border-yellow-300 p-2 rounded text-xs z-50">
-          <div>Grid: {actualWidth}x{actualHeight}</div>
-          <div>Time order: 6-22, 23, 0-5</div>
-          <div>Hours: 24 x {HOUR_WIDTH}px = {24 * HOUR_WIDTH}px</div>
-          <div>Viewport: {(actualWidth - DAY_COLUMN_WIDTH)}px</div>
-          <div>Default scroll: 0px (starts at 6:00)</div>
-          <div>Visible: ~{Math.floor((actualWidth - DAY_COLUMN_WIDTH) / HOUR_WIDTH)} hours</div>
-          <div>Current time: {getCurrentTimeString()}</div>
-        </div>
-      )}
 
       {/* Grid Container */}
       <div className="relative overflow-hidden" style={{ height: `${GRID_CONTENT_HEIGHT}px` }}>
@@ -225,7 +292,7 @@ const ScheduleGrid = ({
               className="flex relative h-full"
               style={{ 
                 width: `${24 * HOUR_WIDTH}px`,
-                minWidth: `${24 * HOUR_WIDTH}px`, // Ensure minimum width
+                minWidth: `${24 * HOUR_WIDTH}px`, 
                 transform: `translateX(-${viewportRef.current?.scrollLeft || 0}px)`
               }}
             >
@@ -241,7 +308,7 @@ const ScheduleGrid = ({
                 </div>
               ))}
               
-              {/* Red dividers between hours (every 30 minutes) */}
+              {/* Red dividers between hours */}
               {timeSlots.slice(0, -1).map((_, i) => (
                 <div 
                   key={`divider-${i}`}
@@ -267,14 +334,10 @@ const ScheduleGrid = ({
           className="absolute inset-0"
           style={{ 
             top: `${TIME_HEADER_HEIGHT}px`,
-            overflowX: 'scroll', // Force horizontal scrollbar
+            overflowX: 'scroll',
             overflowY: 'auto'
           }}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={() => isDragging && handleMouseUp()}
           onScroll={(e) => {
-            // Update time header position
             const timeHeader = e.target.parentElement.querySelector('[style*="left: 70px"]');
             if (timeHeader) {
               const timeHeaderContent = timeHeader.querySelector('.flex.relative');
@@ -285,7 +348,7 @@ const ScheduleGrid = ({
           }}
         >
           <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (24 * HOUR_WIDTH)}px` }}>
-            {/* Fixed Day Column - NO BORDERS */}
+            {/* Fixed Day Column */}
             <div 
               className="flex-shrink-0 bg-white sticky left-0 z-5"
               style={{ width: `${DAY_COLUMN_WIDTH}px` }}
@@ -305,20 +368,28 @@ const ScheduleGrid = ({
 
             {/* Time Grid */}
             <div 
-              className="relative"
+              className="relative cursor-pointer"
               style={{ 
                 width: `${24 * HOUR_WIDTH}px`, 
                 height: `${days.length * DAY_ROW_HEIGHT}px`,
-                minWidth: `${24 * HOUR_WIDTH}px` // Force minimum width for scrolling
+                minWidth: `${24 * HOUR_WIDTH}px`
               }}
-              onMouseDown={handleMouseDown}
             >
-              {/* Horizontal day lines only */}
+              {/* Invisible overlay for mouse events - ensures events only in grid area */}
+              <div
+                className="absolute inset-0 z-10"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={() => isDragging && handleMouseUp()}
+              />
+
+              {/* Horizontal day lines */}
               {days.map((_, i) => (
                 i > 0 && (
                   <div 
                     key={`hline-${i}`}
-                    className="absolute left-0 right-0 h-px bg-zinc-200"
+                    className="absolute left-0 right-0 h-px bg-zinc-200 pointer-events-none"
                     style={{ top: `${i * DAY_ROW_HEIGHT}px` }}
                   />
                 )
@@ -326,7 +397,7 @@ const ScheduleGrid = ({
 
               {renderSelectionBox()}
 
-              {/* Current time line */}
+              {/* Current time line - FIXED position */}
               <div 
                 className="absolute top-0 bottom-0 z-30 pointer-events-none" 
                 style={{ left: `${getCurrentTimePosition()}px` }}

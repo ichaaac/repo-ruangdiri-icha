@@ -1,4 +1,4 @@
-// src/components/shared/schedule/SchedulePage.jsx - Simple Responsive
+// src/components/shared/schedule/SchedulePage.jsx - Fixed Layout and Responsive
 
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -27,48 +27,35 @@ const SchedulePage = () => {
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
 
-  // Calculate available width
+  // Calculate available width - FIXED calculation
   const sidebarWidth = sidebarExpanded ? 257 : 80;
-  const paddingLeft = 20; // 20px from sidebar
-  const paddingRight = 24; // Reduced from 32px to 24px
+  const paddingLeft = 20;
+  const paddingRight = 24;
   const availableWidth = windowWidth - sidebarWidth - paddingLeft - paddingRight;
   
-  // More aggressive calculation for 1440x810
-  // At 1440x810 with expanded sidebar: availableWidth = 1440 - 257 - 20 - 24 = 1139px
-  // Force side-by-side if we have at least 1120px (should work for 1440 expanded)
-  const isDesktop = availableWidth >= 1120;
+  // Desktop threshold - more conservative
+  const isDesktop = availableWidth >= 1100;
 
-  // Component dimensions based on sidebar state
+  // Component dimensions - IMPROVED calculation
   const getLeftColumnWidth = () => {
     if (isDesktop) {
-      // Desktop: different behavior based on available space
-      if (availableWidth >= 1300) {
-        // Plenty of space (sidebar collapsed): expand left column, keep right at 335px
-        const rightSpace = 335;
-        const gap = 24;
-        return availableWidth - rightSpace - gap;
-      } else {
-        // Tight space (sidebar expanded): keep left fixed, adaptive right
-        return 808;
-      }
+      // Desktop: keep consistent layout
+      const rightColumnSpace = 335;
+      const gap = 24;
+      const leftWidth = availableWidth - rightColumnSpace - gap;
+      return Math.max(808, leftWidth); // Minimum 808px
     }
-    // Mobile: full available width
-    return Math.min(808, availableWidth);
+    // Mobile: full available width, minimum 808
+    return Math.max(808, Math.min(availableWidth, 1000));
   };
 
   const getRightColumnWidth = () => {
     if (isDesktop) {
-      if (availableWidth >= 1300) {
-        // Plenty of space: right column stays at 335px
-        return 335;
-      } else {
-        // Tight space: adaptive right column
-        const gap = 16;
-        const rightSpace = availableWidth - 808 - gap;
-        return Math.min(335, Math.max(280, rightSpace));
-      }
+      // Desktop: fixed 335px for right column
+      return 335;
     }
-    return Math.min(335, availableWidth);
+    // Mobile: adaptive but minimum 280, max 335
+    return Math.min(335, Math.max(280, availableWidth));
   };
 
   const leftColumnWidth = getLeftColumnWidth();
@@ -79,6 +66,7 @@ const SchedulePage = () => {
     setModalData({
       startDateTime: timeSlot.startDateTime,
       endDateTime: timeSlot.endDateTime,
+      day: timeSlot.day
     });
     setIsModalOpen(true);
   };
@@ -101,21 +89,24 @@ const SchedulePage = () => {
       <TopRightControl />
 
       <div 
-        className="pt-16"
+        className="transition-all duration-300"
         style={{ 
+          paddingTop: '86.5px', // 86.5px below TopRightControl as per Figma 1440x810
           paddingLeft: `${paddingLeft}px`, 
           paddingRight: `${paddingRight}px` 
         }}
       >
-        <div className="max-w-none mx-auto space-y-4 sm:space-y-6 lg:space-y-8">
+        <div className="max-w-none mx-auto space-y-6">
 
-          {/* MAIN LAYOUT */}
+          {/* MAIN LAYOUT - FIXED */}
           <div className={`grid transition-all duration-300 ${
-            isDesktop ? (availableWidth >= 1300 ? 'grid-cols-[1fr_auto] gap-6' : 'grid-cols-[1fr_auto] gap-4') : 'grid-cols-1 gap-4 sm:gap-6 lg:gap-8'
+            isDesktop 
+              ? 'grid-cols-[1fr_auto] gap-6' 
+              : 'grid-cols-1 gap-6'
           }`}>
 
             {/* LEFT COLUMN - Schedule and Queue */}
-            <div className="space-y-4 sm:space-y-6 lg:space-y-8 min-w-0">
+            <div className="space-y-6 min-w-0 overflow-hidden">
               
               {/* Schedule Grid */}
               <div className="w-full">
@@ -136,12 +127,12 @@ const SchedulePage = () => {
             </div>
 
             {/* RIGHT COLUMN - DatePicker and Notifications */}
-            <div className={`space-y-4 sm:space-y-6 lg:space-y-8 ${
-              isDesktop ? 'w-auto flex-shrink-0' : 'w-full'
+            <div className={`space-y-6 ${
+              isDesktop ? 'w-auto flex-shrink-0' : 'w-full flex flex-col items-center'
             }`}>
               
               {/* DatePicker */}
-              <div className={`w-full ${isDesktop ? '' : 'flex justify-center'}`}>
+              <div className="w-full flex justify-center">
                 <DatePicker 
                   containerWidth={rightColumnWidth}
                   sidebarExpanded={sidebarExpanded}
@@ -149,7 +140,7 @@ const SchedulePage = () => {
               </div>
 
               {/* Notification Panel */}
-              <div className={`w-full ${isDesktop ? '' : 'flex justify-center'}`}>
+              <div className="w-full flex justify-center">
                 <NotificationPanel 
                   containerWidth={rightColumnWidth}
                   sidebarExpanded={sidebarExpanded}
