@@ -103,7 +103,7 @@ const DashboardTabList = ({
               <div key={metric.cardId} className="w-full relative">
                 {isActive && (
                   <div 
-                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl z-0 -mt-3"
+                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl z-0 -mt-2"
                     style={{
                       top: "-12px",
                       left: "-12px", 
