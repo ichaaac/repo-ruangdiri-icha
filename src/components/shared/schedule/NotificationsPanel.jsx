@@ -1,4 +1,4 @@
-// src/components/shared/schedule/NotificationsPanel.jsx - Exact Figma Design
+// src/components/shared/schedule/NotificationsPanel.jsx - Optimized without styled-jsx
 
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
@@ -11,7 +11,7 @@ const NotificationPanel = ({
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Sample notification data - matches figma design exactly
+  // Sample notification data - 5 notifications as requested
   const sampleNotifications = [
     {
       id: 1,
@@ -51,8 +51,8 @@ const NotificationPanel = ({
   ];
 
   useEffect(() => {
-    // Load initial notifications
-    setNotifications(sampleNotifications.slice(0, 4));
+    // Load all 5 notifications initially
+    setNotifications(sampleNotifications);
   }, []);
 
   const loadMoreNotifications = () => {
@@ -60,14 +60,8 @@ const NotificationPanel = ({
 
     setIsLoading(true);
     setTimeout(() => {
-      const currentCount = notifications.length;
-      const newNotifications = sampleNotifications.slice(currentCount, currentCount + 2);
-      
-      if (newNotifications.length > 0) {
-        setNotifications(prev => [...prev, ...newNotifications]);
-      } else {
-        setHasMore(false);
-      }
+      // Simulate loading more (for websocket preparation)
+      setHasMore(false);
       setIsLoading(false);
     }, 500);
   };
@@ -88,6 +82,38 @@ const NotificationPanel = ({
   // Header height to match other components
   const headerHeight = 66;
   const contentHeight = actualHeight - headerHeight;
+
+  // Custom scrollbar styles
+  const scrollbarStyles = {
+    scrollbarWidth: 'thin',
+    scrollbarColor: '#CBD5E0 #F7FAFC',
+  };
+
+  // Add custom scrollbar CSS to document if not already added
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #F7FAFC;
+        border-radius: 2px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #CBD5E0;
+        border-radius: 2px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #A0AEC0;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   return (
     <div 
@@ -124,15 +150,14 @@ const NotificationPanel = ({
             </div>
           ) : (
             <div 
-              className="h-full overflow-y-auto"
+              className="h-full overflow-y-auto custom-scrollbar"
               onScroll={handleScroll}
               style={{ 
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#CBD5E0 #F7FAFC',
+                ...scrollbarStyles,
                 padding: '15px' // 15px margin from sides
               }}
             >
-              <div className="space-y-[3px]"> {/* 3px gap between notifications */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                 {notifications.map((notification, index) => (
                   <motion.div 
                     key={notification.id}
@@ -141,59 +166,104 @@ const NotificationPanel = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     style={{
-                      width: '312px', // Fixed width as per Figma
-                      height: '50px',  // Fixed height as per Figma
-                      backgroundColor: '#F3F3F3', // Background color as per Figma
+                      width: '312px', 
+                      height: '50px',  
+                      backgroundColor: '#F3F3F3',
                       borderRadius: '5px',
-                      padding: '12px' // 12px padding from all sides
+                      padding: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
                     }}
                   >
-                    <div className="flex items-center gap-3 h-full">
-                      {/* Profile Image - circular */}
+                    {/* Left side: Avatar + Name + Message */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+                      {/* Avatar */}
                       <div 
-                        className="rounded-full overflow-hidden flex-shrink-0"
-                        style={{ width: '18px', height: '18px' }} // Adjusted for 50px height with 12px padding
+                        style={{ 
+                          width: '18px', 
+                          height: '18px',
+                          borderRadius: '50%',
+                          overflow: 'hidden',
+                          flexShrink: 0
+                        }}
                       >
                         <img 
-                          className="w-full h-full object-cover" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           alt="Profile" 
                           src={notification.avatar}
                         />
                       </div>
-                      
-                      {/* Content - Name, Message, and Time layout as per Figma */}
-                      <div className="flex-1 min-w-0 h-full flex flex-col justify-center">
-                        {/* Name (bold) on first line */}
-                        <div className="text-xs leading-tight">
-                          <span className="font-bold text-[#535353] block">
-                            {notification.name}
-                          </span>
-                        </div>
-                        {/* Message and Time on same line, aligned with name */}
-                        <div className="flex items-center justify-between text-xs leading-tight mt-0.5">
-                          <span className="text-[#535353] truncate">
-                            {notification.message}
-                          </span>
-                          <span className="text-[#8B8B8B] ml-2 flex-shrink-0">
-                            {notification.time}
-                          </span>
-                        </div>
+
+                      {/* Name + Message */}
+                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                        <span 
+                          style={{ 
+                            fontWeight: 'bold', 
+                            color: '#535353', 
+                            fontSize: '12px', 
+                            lineHeight: '1.2',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {notification.name}
+                        </span>
+                        <span 
+                          style={{ 
+                            color: '#535353', 
+                            fontSize: '14px', // Increased from 12px to 14px
+                            lineHeight: '1.2',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {notification.message}
+                        </span>
                       </div>
+                    </div>
+
+                    {/* Timestamp (always centered in card) */}
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      height: '100%', 
+                      flexShrink: 0,
+                      marginLeft: '8px'
+                    }}>
+                      <span style={{ 
+                        color: '#8B8B8B', 
+                        fontSize: '12px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {notification.time}
+                      </span>
                     </div>
                   </motion.div>
                 ))}
 
                 {/* Loading indicator */}
                 {isLoading && (
-                  <div className="flex justify-center py-3">
-                    <div className="w-5 h-5 border-2 border-[#488BBA] border-t-transparent rounded-full animate-spin"></div>
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+                    <div style={{
+                      width: '20px',
+                      height: '20px', 
+                      border: '2px solid #488BBA',
+                      borderTop: '2px solid transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
                   </div>
                 )}
 
                 {/* No more notifications */}
                 {!hasMore && notifications.length > 0 && (
-                  <div className="text-center py-3">
-                    <span className="text-xs text-gray-400">Tidak ada notifikasi lagi</span>
+                  <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>
+                      Semua notifikasi telah dimuat
+                    </span>
                   </div>
                 )}
               </div>
@@ -201,27 +271,6 @@ const NotificationPanel = ({
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        /* Custom scrollbar styling */
-        div::-webkit-scrollbar {
-          width: 4px;
-        }
-        
-        div::-webkit-scrollbar-track {
-          background: #F7FAFC;
-          border-radius: 2px;
-        }
-        
-        div::-webkit-scrollbar-thumb {
-          background: #CBD5E0;
-          border-radius: 2px;
-        }
-        
-        div::-webkit-scrollbar-thumb:hover {
-          background: #A0AEC0;
-        }
-      `}</style>
     </div>
   );
 };

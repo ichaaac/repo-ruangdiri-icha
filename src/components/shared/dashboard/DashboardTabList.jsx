@@ -103,14 +103,12 @@ const DashboardTabList = ({
               <div key={metric.cardId} className="w-full relative">
                 {isActive && (
                   <div 
-                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl z-0"
+                    className="absolute bg-[#D7EDFF] rounded-tl-xl rounded-tr-xl z-0 -mt-3"
                     style={{
                       top: "-12px",
                       left: "-12px", 
                       right: "-12px",
-                      bottom: "-20px",
-                      borderBottomLeftRadius: "0px",
-                      borderBottomRightRadius: "0px"
+                      bottom: "-12px",
                     }}
                   />
                 )}
@@ -126,7 +124,6 @@ const DashboardTabList = ({
                     isDisabled={isCountZero}
                     isReportEnabled={isReportEnabled}
                     onCardClick={() => {
-                      // Jangan lakukan apa-apa kalo count=0. Kalo aktif, balik ke home. Kalo ga aktif, klik.
                       if (isCountZero) return
                       if (isActive) {
                         onReturnHome()

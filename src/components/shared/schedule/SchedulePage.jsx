@@ -91,7 +91,7 @@ const SchedulePage = () => {
       <div 
         className="transition-all duration-300"
         style={{ 
-          paddingTop: '86.5px', // 86.5px below TopRightControl as per Figma 1440x810
+          paddingTop: '120px', // Increased from 86.5px to 120px for more spacing
           paddingLeft: `${paddingLeft}px`, 
           paddingRight: `${paddingRight}px` 
         }}
