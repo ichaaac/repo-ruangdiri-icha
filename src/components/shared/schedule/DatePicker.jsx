@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - Fixed Layout Consistency
+// src/components/shared/schedule/DatePicker.jsx - Week Selection on Click
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -12,9 +12,6 @@ const DatePicker = ({
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
   const [selectedDates, setSelectedDates] = useState([])
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState(null)
-  const [dragEnd, setDragEnd] = useState(null)
   const containerRef = useRef(null)
 
   // Close month/year picker when clicking outside
@@ -78,6 +75,25 @@ const DatePicker = ({
     )
   }
 
+  // Get all dates in the same week as the given date (Monday to Sunday)
+  const getWeekDates = (date) => {
+    const weekDates = []
+    const dayOfWeek = (date.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0
+    
+    // Find Monday of the week
+    const mondayDate = new Date(date)
+    mondayDate.setDate(date.getDate() - dayOfWeek)
+    
+    // Generate all 7 days of the week
+    for (let i = 0; i < 7; i++) {
+      const weekDate = new Date(mondayDate)
+      weekDate.setDate(mondayDate.getDate() + i)
+      weekDates.push(weekDate)
+    }
+    
+    return weekDates
+  }
+
   // Get selection position for styling
   const getSelectionPosition = (date, selectedDates) => {
     if (selectedDates.length === 0) return null
@@ -116,41 +132,14 @@ const DatePicker = ({
       const isToday = date.toDateString() === today.toDateString()
       const isSelected = selectedDates.some((selectedDate) => selectedDate.toDateString() === date.toDateString())
 
-      let isInDragRange = false
-      const dragRangeDates = []
-      if (isDragging && dragStart && dragEnd) {
-        const dragStartTime = dragStart.getTime()
-        const dragEndTime = dragEnd.getTime()
-        const dateTime = date.getTime()
-        isInDragRange =
-          dateTime >= Math.min(dragStartTime, dragEndTime) &&
-          dateTime <= Math.max(dragStartTime, dragEndTime) &&
-          isSameWeek(date, dragStart)
-
-        if (isInDragRange) {
-          let currentTime = Math.min(dragStartTime, dragEndTime)
-          const endTime = Math.max(dragStartTime, dragEndTime)
-          while (currentTime <= endTime) {
-            const tempDate = new Date(currentTime)
-            if (isSameWeek(tempDate, dragStart)) {
-              dragRangeDates.push(new Date(tempDate))
-            }
-            currentTime += 24 * 60 * 60 * 1000
-          }
-        }
-      }
-
-      const finalSelected = isSelected || isInDragRange
-      const finalSelectedDates = isInDragRange ? dragRangeDates : selectedDates
-      const selectionPosition = finalSelected ? getSelectionPosition(date, finalSelectedDates) : null
+      const selectionPosition = isSelected ? getSelectionPosition(date, selectedDates) : null
 
       days.push({
         date: date.getDate(),
         isCurrentMonth,
         isToday,
-        isSelected: finalSelected,
+        isSelected,
         fullDate: new Date(date),
-        isInDragRange,
         selectionPosition,
       })
     }
@@ -160,48 +149,29 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  const handleMouseDown = (day) => {
+  // Handle date click - select entire week
+  const handleDateClick = (day) => {
     if (!day.isCurrentMonth) return;
-    setSelectedDates([]); 
-    setIsDragging(true);
-    setDragStart(day.fullDate);
-    setDragEnd(day.fullDate);
-  };
-  
-  const handleMouseEnter = (day) => {
-    if (!isDragging || !day.isCurrentMonth) return;
-    if (!isSameWeek(dragStart, day.fullDate)) return;
-    setDragEnd(day.fullDate);
-  };
-  
-  const handleMouseUp = () => {
-    if (!isDragging || !dragStart || !dragEnd) {
-      resetDrag();
-      return;
+    
+    const clickedWeekDates = getWeekDates(day.fullDate)
+    
+    // Check if this week is already selected
+    const isWeekSelected = clickedWeekDates.every(weekDate => 
+      selectedDates.some(selectedDate => selectedDate.toDateString() === weekDate.toDateString())
+    )
+    
+    if (isWeekSelected) {
+      // Deselect the week
+      setSelectedDates(prev => 
+        prev.filter(selectedDate => 
+          !clickedWeekDates.some(weekDate => weekDate.toDateString() === selectedDate.toDateString())
+        )
+      )
+    } else {
+      // Select the entire week
+      setSelectedDates(clickedWeekDates)
     }
-  
-    const startTime = Math.min(dragStart.getTime(), dragEnd.getTime());
-    const endTime = Math.max(dragStart.getTime(), dragEnd.getTime());
-    const newSelectedDates = [];
-  
-    let currentTime = startTime;
-    while (currentTime <= endTime) {
-      const tempDate = new Date(currentTime);
-      if (isSameWeek(dragStart, tempDate)) {
-        newSelectedDates.push(new Date(tempDate));
-      }
-      currentTime += 24 * 60 * 60 * 1000;
-    }
-  
-    setSelectedDates(newSelectedDates);
-    resetDrag();
-  };
-  
-  const resetDrag = () => {
-    setIsDragging(false);
-    setDragStart(null);
-    setDragEnd(null);
-  };
+  }
 
   const handleMonthYearClick = () => {
     setShowMonthYearPicker(!showMonthYearPicker)
@@ -228,8 +198,6 @@ const DatePicker = ({
         width: `${actualWidth}px`, 
         height: `${actualHeight}px`
       }}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-2 py-2 bg-zinc-100 rounded-t-md flex-none">
@@ -322,7 +290,7 @@ const DatePicker = ({
                       ? 'top-1/2 -translate-y-1/2 left-[20%] right-0 h-[60%] rounded-l-full'
                       : day.selectionPosition === 'end'
                         ? 'top-1/2 -translate-y-1/2 left-0 right-[20%] h-[60%] rounded-r-full'
-                        : 'top-1/2 -translate-y-1/2 left-0 right-0 h-[60%]'}
+                        : 'top-1/2 -translate-y-1/2 left-0 ri`ght-0 h-[60%]'}
                   bg-[#488BBA]
                 `} />
               )}
@@ -333,9 +301,7 @@ const DatePicker = ({
               )}
   
               <button
-                onMouseDown={() => handleMouseDown(day)}
-                onMouseEnter={() => handleMouseEnter(day)}
-                onMouseUp={handleMouseUp}
+                onClick={() => handleDateClick(day)}
                 className={`relative z-10 w-full h-full flex items-center justify-center text-xs transition-colors 
                   ${day.isSelected ? 'text-white font-bold' 
                   : day.isToday ? 'text-blue-600 font-bold'

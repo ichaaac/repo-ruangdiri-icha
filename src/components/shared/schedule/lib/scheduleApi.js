@@ -2,10 +2,7 @@
 
 import { apiClient } from "../../../../lib/api.js"
 
-/**
- * Enhanced API client for schedule-related operations
- * Uses existing base API client with interceptors and auth handling
- */
+
 export const createScheduleApi = (organizationType = "school") => {
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {

@@ -17,7 +17,7 @@ import ResetPassword from "../pages/shared/auth/ResetPassword";
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
 import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
 import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage";
-import EmployeeDetailPage from "@/pages/organization/company/EmployeeDetailPage";
+import EmployeeDetailPage from "../pages/organization/company/EmployeeDetailPage";
 import CompanySchedule from "../pages/organization/company/CompanySchedule";
 
 // School pages

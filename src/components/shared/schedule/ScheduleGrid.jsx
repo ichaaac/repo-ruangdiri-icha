@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - Optimized Google Calendar Behavior
+// src/components/shared/schedule/ScheduleGrid.jsx - Fixed Current Time & 30min Dividers
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -11,11 +11,11 @@ const ScheduleGrid = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartPos, setDragStartPos] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [scrollLeft, setScrollLeft] = useState(0);
   const viewportRef = useRef(null);
   const animationFrameRef = useRef(null);
   const lastMousePosRef = useRef(null);
 
-  // Base dimensions (Figma: 808x254)
   const baseWidth = 808;
   const baseHeight = 254;
   const actualWidth = Math.max(baseWidth, containerWidth);
@@ -57,10 +57,17 @@ const ScheduleGrid = ({
     } else if (hour === 23) {
       return 17; // 23:00 -> index 17
     } else if (hour >= 0 && hour <= 5) {
-      return hour + 18; // 0:00-5:00 -> index 18-23
+      return hour + 18; 
     }
     return 0;
   }, []);
+
+  const halfHourDividers = useMemo(() => {
+    return Array.from({ length: 24 }, (_, i) => ({
+      position: (i + 1) * HOUR_WIDTH
+    }));
+  }, []);
+  
 
   // FIXED: Convert display index to actual hour
   const getActualHour = useCallback((index) => {
@@ -281,6 +288,12 @@ const ScheduleGrid = ({
     );
   }, [selectedArea]);
 
+  // Handle scroll event to update sync elements
+  const handleScroll = useCallback((e) => {
+    const newScrollLeft = e.target.scrollLeft;
+    setScrollLeft(newScrollLeft);
+  }, []);
+
   // Cleanup animation frame on unmount
   useEffect(() => {
     return () => {
@@ -333,7 +346,7 @@ const ScheduleGrid = ({
               style={{ 
                 width: `${24 * HOUR_WIDTH}px`,
                 minWidth: `${24 * HOUR_WIDTH}px`, 
-                transform: `translateX(-${viewportRef.current?.scrollLeft || 0}px)`
+                transform: `translateX(-${scrollLeft}px)`
               }}
             >
               {timeSlots.map((time, i) => (
@@ -348,22 +361,46 @@ const ScheduleGrid = ({
                 </div>
               ))}
               
-              {/* Red dividers between hours */}
-              {timeSlots.slice(0, -1).map((_, i) => (
+              {/* FIXED: 30-minute dividers with correct positioning and scroll compensation */}
+              {halfHourDividers.map((divider, i) => (
                 <div 
-                  key={`divider-${i}`}
-                  className="absolute pointer-events-none" 
+                  key={`divider-30min-${i}`}
+                  className="absolute pointer-events-none bg-red-400" 
                   style={{ 
-                    left: `${(i + 1) * HOUR_WIDTH}px`,
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)'
+                    left: `${divider.position}px`,
+                    top: '40%',
+                    width: '1px',
+                    height: '8px',
+                    zIndex: 15
                   }}
-                >
-                  <svg width="1" height="7" viewBox="0 0 1 7" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M0.287914 6.466L0.284914 0.544H0.719914V6.466H0.287914Z" fill="#FF7D7D"/>
-                  </svg>
-                </div>
+                />
               ))}
+
+            </div>
+          </div>
+        </div>
+
+        {/* FIXED: Current time line - stays in place during scroll */}
+        <div 
+          className="absolute pointer-events-none" 
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
+            top: `${TIME_HEADER_HEIGHT}px`,
+            bottom: '0px',
+            zIndex: 40,
+            width: '2px'
+          }}
+        >
+          <div className="relative w-full h-full bg-red-500">
+            {/* Red dot at top */}
+            <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full" 
+                 style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
+            
+            {/* Compact time tooltip */}
+            <div className="absolute" style={{ left: '6px', top: '2px' }}>
+              <div className="bg-black bg-opacity-80 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-lg">
+                {getCurrentTimeString()}
+              </div>
             </div>
           </div>
         </div>
@@ -377,15 +414,7 @@ const ScheduleGrid = ({
             overflowX: 'scroll',
             overflowY: 'auto'
           }}
-          onScroll={(e) => {
-            const timeHeader = e.target.parentElement.querySelector('[style*="left: 70px"]');
-            if (timeHeader) {
-              const timeHeaderContent = timeHeader.querySelector('.flex.relative');
-              if (timeHeaderContent) {
-                timeHeaderContent.style.transform = `translateX(-${e.target.scrollLeft}px)`;
-              }
-            }
-          }}
+          onScroll={handleScroll}
         >
           <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (24 * HOUR_WIDTH)}px` }}>
             {/* Fixed Day Column */}
@@ -419,8 +448,8 @@ const ScheduleGrid = ({
               <div
                 className="absolute inset-0 cursor-pointer"
                 style={{ 
-                  zIndex: 10,
-                  backgroundColor: 'transparent' // For debugging
+                  zIndex: 5,
+                  backgroundColor: 'transparent'
                 }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleOptimizedMouseMove}
@@ -434,32 +463,13 @@ const ScheduleGrid = ({
                   <div 
                     key={`hline-${i}`}
                     className="absolute left-0 right-0 h-px bg-zinc-200 pointer-events-none"
-                    style={{ top: `${i * DAY_ROW_HEIGHT}px`, zIndex: 5 }}
+                    style={{ top: `${i * DAY_ROW_HEIGHT}px`, zIndex: 1 }}
                   />
                 )
               ))}
 
               {selectionBox}
 
-              {/* Current time line */}
-              <div 
-                className="absolute top-0 bottom-0 pointer-events-none" 
-                style={{ left: `${getCurrentTimePosition()}px`, zIndex: 30 }}
-              >
-                <div className="relative w-px h-full bg-red-500">
-                  <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full -translate-x-1/2 -top-1" />
-                  
-                  {/* Time tooltip */}
-                  <div className="absolute left-2 top-2">
-                    <svg width="35" height="15" viewBox="0 0 35 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="35" height="15" rx="3" fill="black" fillOpacity="0.35"/>
-                      <text x="17.5" y="10" textAnchor="middle" fill="white" fontSize="10" fontFamily="monospace">
-                        {getCurrentTimeString()}
-                      </text>
-                    </svg>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
