@@ -1,37 +1,58 @@
-// src/routes/routeConfig.jsx - Updated with Schedule Routes
+// src/routes/routeConfig.jsx - SIMPLIFIED ROUTES
+
 import React from "react";
 import { Navigate } from "react-router-dom";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 
-// Layouts - using existing ones
+// === LAYOUTS ===
 import CompanyLayout from "../components/organization/company/layout/CompanyLayout";
 import SchoolLayout from "../components/organization/school/layout/SchoolLayout";
 
-// Public pages
+// === PUBLIC PAGES ===
 import Homepage from "../pages/shared/HomePage";
 import Login from "../pages/shared/auth/Login";
 import ForgotPassword from "../pages/shared/auth/ForgotPassword";
 import ResetPassword from "../pages/shared/auth/ResetPassword";
 
-// Company pages
+// === ONBOARDING PAGES ===
+import OnboardingForm from "@/pages/shared/OnboardingForm";
+import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
+
+// === COMPANY PAGES ===
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
 import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
 import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage";
 import EmployeeDetailPage from "../pages/organization/company/EmployeeDetailPage";
 import CompanySchedule from "../pages/organization/company/CompanySchedule";
 
-// School pages
+// === SCHOOL PAGES ===
 import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
 import StudentListPage from "../pages/organization/school/StudentListPage";
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
 import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
 import SchoolSchedule from "../pages/organization/school/SchoolSchedule";
 
-import OnboardingForm from "@/pages/shared/OnboardingForm";
-import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
+// === SHARED COMPONENTS ===
+const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
+  <div className="p-8 text-center">
+    <div className="max-w-md mx-auto">
+      <span className="material-icons text-gray-400 text-6xl mb-4 block">{icon}</span>
+      <h2 className="text-xl font-semibold text-gray-700 mb-2">{title}</h2>
+      <p className="text-gray-500 mb-4">{description}</p>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <p className="text-green-700 text-sm">
+          🚧 Feature ini sedang dalam pengembangan
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
+// === MAIN ROUTES CONFIGURATION ===
 const routes = [
-  // Public routes
+  // ==========================================
+  // PUBLIC ROUTES
+  // ==========================================
   {
     path: "/",
     element: <Homepage />
@@ -48,6 +69,10 @@ const routes = [
     path: "/reset-password",
     element: <ResetPassword />
   },
+
+  // ==========================================
+  // ONBOARDING ROUTES (PROTECTED)
+  // ==========================================
   {
     path: "/onboarding",
     element: (
@@ -64,271 +89,10 @@ const routes = [
       </ProtectedRoute>
     )
   },
-  
 
-  // ========================================
-  // DEVELOPMENT ROUTES - NO BACKEND REQUIRED
-  // Uses existing layouts but bypasses authentication
-  // ========================================
-  
-  // Development landing page
-  {
-    path: "/dev",
-    element: (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="material-icons text-white text-2xl">developer_mode</span>
-            </div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Development Mode</h1>
-            <p className="text-gray-600 text-sm">Access layouts without backend authentication</p>
-          </div>
-          
-          <div className="space-y-3">
-            <a 
-              href="/dev/school/student-list" 
-              className="block w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-3 px-4 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-            >
-              <span className="material-icons">school</span>
-              School Layout
-            </a>
-            <a 
-              href="/dev/company/employee-list" 
-              className="block w-full bg-green-600 hover:bg-green-700 text-white text-center py-3 px-4 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-            >
-              <span className="material-icons">business</span>
-              Company Layout  
-            </a>
-            
-            {/* Schedule Demo Links */}
-            <div className="border-t pt-3 mt-4">
-              <p className="text-gray-500 text-xs text-center mb-3">Schedule Management</p>
-              <div className="space-y-2">
-                <a 
-                  href="/dev/school/schedule" 
-                  className="block w-full bg-purple-600 hover:bg-purple-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  <span className="material-icons text-sm">schedule</span>
-                  School Schedule
-                </a>
-                <a 
-                  href="/dev/company/schedule" 
-                  className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-                >
-                  <span className="material-icons text-sm">calendar_today</span>
-                  Company Schedule
-                </a>
-              </div>
-            </div>
-            
-            <div className="border-t pt-3 mt-4">
-              <p className="text-gray-500 text-xs text-center mb-3">Legacy Demo Routes</p>
-              <a 
-                href="/demo/organization/school/student-list" 
-                className="block w-full bg-gray-600 hover:bg-gray-700 text-white text-center py-2 px-4 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <span className="material-icons text-sm">assignment</span>
-                Demo Routes
-              </a>
-            </div>
-          </div>
-          
-          <div className="mt-6 p-3 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 text-xs text-center">
-              💡 These routes work without backend server running
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  },
-  
-  // School development routes (No backend required) - Using existing SchoolLayout
-  {
-    path: "/dev/school",
-    element: <SchoolLayout />,
-    children: [
-      {
-        index: true,
-        element: <Navigate to="student-list" replace />
-      },
-      {
-        path: "dashboard",
-        element: <SchoolDashboard />
-      },
-      {
-        path: "profile",
-        element: <SchoolProfilePage />
-      },
-      {
-        path: "student-list",
-        element: <StudentListPage />
-      },
-      {
-        path: "student/:studentId",
-        element: <StudentDetailPage />
-      },
-      {
-        path: "settings",
-        element: <Navigate to="profile" replace />
-      },
-      {
-        path: "schedule",
-        element: <SchoolSchedule />
-      }
-    ]
-  },
-
-  // Company development routes (No backend required) - Using existing CompanyLayout
-  {
-    path: "/dev/company",
-    element: <CompanyLayout />,
-    children: [
-      {
-        index: true,
-        element: <Navigate to="employee-list" replace />
-      },
-      {
-        path: "dashboard",
-        element: <CompanyDashboard />
-      },
-      {
-        path: "profile",
-        element: <CompanyProfilePage />
-      },
-      {
-        path: "employee-list",
-        element: <EmployeeListPage />
-      },
-      {
-        path: "settings",
-        element: <Navigate to="profile" replace />
-      },
-      {
-        path: "employee/:employeeId",
-        element: <EmployeeDetailPage />
-      },
-      {
-        path: "candidates",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">people</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Candidates Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Candidate profiles, application tracking, and recruitment pipeline
-                </p>
-              </div>
-            </div>
-          </div>
-        )
-      },
-      {
-        path: "jobs",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">work</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Jobs Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Job postings, requirements management, and application processing
-                </p>
-              </div>
-            </div>
-          </div>
-        )
-      },
-      {
-        path: "schedule",
-        element: <CompanySchedule />
-      }
-    ]
-  },
-
-  // ========================================
-  // PRODUCTION ROUTES - BACKEND REQUIRED
-  // ========================================
-
-  // Organization routes - Company (Protected)
-  {
-    path: "/organization/company",
-    element: (
-      <ProtectedRoute requiredOrgType="company">
-        <CompanyLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        index: true,
-        element: <Navigate to="dashboard" replace />
-      },
-      {
-        path: "dashboard",
-        element: <CompanyDashboard />
-      },
-      {
-        path: "profile",
-        element: <CompanyProfilePage />
-      },
-      {
-        path: "employee-list",
-        element: <EmployeeListPage />
-      },
-      {
-        path: "settings",
-        element: <Navigate to="profile" replace />
-      },
-      {
-        path: "employee/:employeeId",
-        element: <EmployeeDetailPage />
-      },
-      {
-        path: "candidates",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">people</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Candidates Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Candidate profiles, application tracking, and recruitment pipeline
-                </p>
-              </div>
-            </div>
-          </div>
-        )
-      },
-      {
-        path: "jobs",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">work</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Jobs Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Job postings, requirements management, and application processing
-                </p>
-              </div>
-            </div>
-          </div>
-        )
-      },
-      {
-        path: "schedule",
-        element: <CompanySchedule />
-      }
-    ]
-  },
-
-  // Organization routes - School (Protected)
+  // ==========================================
+  // SCHOOL ORGANIZATION ROUTES (PROTECTED)
+  // ==========================================
   {
     path: "/organization/school",
     element: (
@@ -358,27 +122,30 @@ const routes = [
         element: <StudentDetailPage />
       },
       {
-        path: "settings",
-        element: <Navigate to="profile" replace />
-      },
-      {
         path: "schedule",
         element: <SchoolSchedule />
+      },
+      {
+        path: "settings",
+        element: <Navigate to="profile" replace />
       }
     ]
   },
 
-  // ========================================
-  // LEGACY DEMO ROUTES (kept for compatibility)
-  // ========================================
-  
+  // ==========================================
+  // COMPANY ORGANIZATION ROUTES (PROTECTED)
+  // ==========================================
   {
-    path: "/demo/organization/company",
-    element: <CompanyLayout />,
+    path: "/organization/company",
+    element: (
+      <ProtectedRoute requiredOrgType="company">
+        <CompanyLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         index: true,
-        element: <CompanyDashboard />
+        element: <Navigate to="dashboard" replace />
       },
       {
         path: "dashboard",
@@ -393,96 +160,59 @@ const routes = [
         element: <EmployeeListPage />
       },
       {
-        path: "settings",
-        element: <Navigate to="profile" replace />
-      },
-      {
-        path: "candidates",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">people</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Candidates Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Candidate profiles, application tracking, and recruitment pipeline
-                </p>
-              </div>
-            </div>
-          </div>
-        )
-      },
-      {
-        path: "jobs",
-        element: (
-          <div className="p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <span className="material-icons text-gray-400 text-6xl mb-4 block">work</span>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Jobs Management</h2>
-              <p className="text-gray-500 mb-4">This feature is currently under development</p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-green-700 text-sm">
-                  🚧 Coming soon: Job postings, requirements management, and application processing
-                </p>
-              </div>
-            </div>
-          </div>
-        )
+        path: "employee/:employeeId",
+        element: <EmployeeDetailPage />
       },
       {
         path: "schedule",
         element: <CompanySchedule />
-      }
-    ]
-  },
-
-  {
-    path: "/demo/organization/school",
-    element: <SchoolLayout />,
-    children: [
-      {
-        index: true,
-        element: <SchoolDashboard />
       },
       {
-        path: "dashboard",
-        element: <SchoolDashboard />
+        path: "candidates",
+        element: <UnderDevelopmentPage 
+          title="Candidates Management" 
+          description="Candidate profiles, application tracking, dan recruitment pipeline"
+          icon="people"
+        />
       },
       {
-        path: "profile",
-        element: <SchoolProfilePage />
-      },
-      {
-        path: "student-list",
-        element: <StudentListPage />
-      },
-      {
-        path: "student/:studentId",
-        element: <StudentDetailPage />
+        path: "jobs",
+        element: <UnderDevelopmentPage 
+          title="Jobs Management" 
+          description="Job postings, requirements management, dan application processing"
+          icon="work"
+        />
       },
       {
         path: "settings",
         element: <Navigate to="profile" replace />
-      },
-      {
-        path: "schedule",
-        element: <SchoolSchedule />
       }
     ]
   },
 
-  // Legacy redirect routes
+  // ==========================================
+  // LEGACY REDIRECTS
+  // ==========================================
   {
     path: "/school/*",
-    element: <Navigate to="/organization/school/*" replace />
+    element: <Navigate to="/organization/school" replace />
   },
   {
     path: "/company/*",
-    element: <Navigate to="/organization/company/*" replace />
+    element: <Navigate to="/organization/company" replace />
+  },
+  {
+    path: "/demo/*",
+    element: <Navigate to="/" replace />
+  },
+  {
+    path: "/dev/*",
+    element: <Navigate to="/" replace />
   },
 
-  // Catch-all fallback
+  // ==========================================
+  // FALLBACK ROUTE
+  // ==========================================
   {
     path: "*",
     element: <Navigate to="/" replace />

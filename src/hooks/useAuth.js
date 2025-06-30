@@ -1,16 +1,13 @@
-// src/hooks/useAuth.js - Updated to support development routes
+// src/hooks/useAuth.js - FIXED API CALL ISSUE
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useLocation } from "react-router-dom";
-import api, { getMe } from "../lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate, useLocation } from "react-router-dom"
+import api, { getMe } from "../lib/api"
 
 export const useAuth = () => {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  // Check if we're in development mode (accessing /dev routes)
-  const isDevelopmentMode = location.pathname.startsWith('/dev');
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const {
     data: user,
@@ -20,220 +17,185 @@ export const useAuth = () => {
   } = useQuery({
     queryKey: ["currentUser"],
     queryFn: async () => {
-      // Skip API call for development routes
-      if (isDevelopmentMode) {
-        // Return mock user data for development
-        const mockUser = {
-          id: "dev-user-123",
-          fullName: "Development User",
-          email: "dev@example.com",
-          organization: {
-            id: "dev-org-123",
-            name: "Development Organization",
-            type: location.pathname.includes('/dev/school') ? "school" : "company",
-            profilePicture: null
-          }
-        };
-        return mockUser;
-      }
+      const token = localStorage.getItem("token")
 
-      const token = localStorage.getItem("token");
-
-      // If no token, return null (not authenticated)
-      if (!token) return null;
+      if (!token) return null
 
       try {
-        // Use the consolidated getMe function
-        const response = await getMe();
-        
-        // Directly access the response structure as shown in the API example
+        const response = await getMe()
+
         if (response?.status === "success") {
-          const userData = response.data;
-          
-          // Save user type to localStorage and query cache
-          const orgType = userData?.organization?.type || localStorage.getItem("organizationType");
-          
+          const userData = response.data
+
+          const orgType = userData?.organization?.type
           if (orgType) {
-            // Set data for organization-specific profile queries
-            queryClient.setQueryData([`${orgType}-profile`], userData);
+            localStorage.setItem("organizationType", orgType)
+            queryClient.setQueryData([`${orgType}-profile`], userData)
           }
-          
-          return userData;
+
+          return userData
         }
 
-        return null;
+        return null
       } catch (e) {
-        console.error("Error fetching user data:", e);
-        return null;
+        console.error("Error fetching user data:", e)
+        if (e.response?.status === 401) {
+          localStorage.removeItem("token")
+          localStorage.removeItem("organizationType")
+        }
+        return null
       }
     },
     retry: false,
-    // Don't refetch automatically for development routes
-    refetchOnWindowFocus: !isDevelopmentMode,
-    refetchOnMount: !isDevelopmentMode,
-  });
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    staleTime: 1 * 60 * 1000, // 1 minute - shorter to catch updates faster
+    cacheTime: 5 * 60 * 1000, // 5 minutes
+  })
 
-  /**
-   * Login mutation
-   * Handles user authentication and stores tokens
-   */
   const login = useMutation({
     mutationFn: async (credentials) => {
       try {
-        const loginResponse = await api.auth.login(credentials);
+        const loginResponse = await api.auth.login(credentials)
 
         if (loginResponse?.status !== "success") {
-          throw new Error(loginResponse?.message || "Login failed");
+          throw new Error(loginResponse?.message || "Login failed")
         }
 
-        const accessToken = loginResponse.data.accessToken;
-        const organizationType = loginResponse.data.organizationType;
+        const { accessToken, organizationType } = loginResponse.data
 
         if (!accessToken) {
-          throw new Error("Access token tidak ditemukan dalam respons");
+          throw new Error("Access token tidak ditemukan dalam respons")
         }
 
-        return { accessToken, organizationType };
+        localStorage.setItem("token", accessToken)
+        localStorage.setItem("organizationType", organizationType)
+
+        return { accessToken, organizationType }
       } catch (error) {
-        console.error("Login error:", error);
-        throw error;
+        console.error("Login error:", error)
+        throw error
       }
     },
-    onSuccess: () => {
-      // Cukup invalidasi query biar data user ke-fetch ulang.
-      // Gak perlu navigate, biarin ProtectedRoute yang urus.
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-    
-      // Atau kalo mau lebih cepet, navigate ke homepage aja dulu
-      navigate("/");
-    },
-  });
+    onSuccess: async (data) => {
+      console.log("Login success, fetching user data...")
 
-  /**
-   * Forgot password mutation
-   */
+      try {
+        const userResponse = await getMe()
+
+        if (userResponse?.status === "success") {
+          const userData = userResponse.data
+
+          queryClient.setQueryData(["currentUser"], userData)
+
+          // FIXED: Correct logic for isOnboarded
+          console.log("User isOnboarded status:", userData.isOnboarded)
+
+          if (userData.isOnboarded === false) {
+            // User needs onboarding
+            console.log("User needs onboarding, redirecting to onboarding...")
+            navigate("/onboarding")
+          } else {
+            // User completed onboarding, redirect to dashboard
+            console.log("User completed onboarding, redirecting to dashboard...")
+            const orgType = userData.organization?.type
+
+            if (orgType === "school") {
+              navigate("/organization/school/dashboard")
+            } else if (orgType === "company") {
+              navigate("/organization/company/dashboard")
+            } else {
+              navigate("/")
+            }
+          }
+        } else {
+          queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+          navigate("/")
+        }
+      } catch (error) {
+        console.error("Error fetching user data after login:", error)
+        queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+        navigate("/")
+      }
+    },
+    onError: (error) => {
+      console.error("Login failed:", error)
+      localStorage.removeItem("token")
+      localStorage.removeItem("organizationType")
+    },
+  })
+
   const forgotPassword = useMutation({
     mutationFn: async (email) => {
-      const response = await api.auth.forgotPassword(email);
-      return response;
+      const response = await api.auth.forgotPassword(email)
+      return response
     },
-  });
+  })
 
-  /**
-   * Reset password mutation
-   */
   const resetPassword = useMutation({
     mutationFn: async ({ token, newPassword }) => {
-      const response = await api.auth.resetPassword(token, newPassword);
-      return response;
+      const response = await api.auth.resetPassword(token, newPassword)
+      return response
     },
     onSuccess: () => {
       setTimeout(() => {
-        navigate("/login");
-      }, 2000);
+        navigate("/login")
+      }, 2000)
     },
-  });
+  })
 
-  /**
-   * Change password mutation
-   */
   const changePassword = useMutation({
     mutationFn: async ({ oldPassword, newPassword }) => {
-      // Skip API call for development mode
-      if (isDevelopmentMode) {
-        // Mock successful password change
-        return { status: "success", message: "Password changed successfully" };
-      }
-
       try {
-        // Set a custom header to prevent 401 intercept redirect
-        const response = await api.auth.changePassword(oldPassword, newPassword, true);
-        return response;
+        const response = await api.auth.changePassword(oldPassword, newPassword)
+        return response
       } catch (error) {
-        // Explicitly handle 401 error here
         if (error.response?.status === 401) {
-          throw new Error("Password lama tidak valid");
+          throw new Error("Password lama tidak valid")
         }
-        throw error;
+        throw error
       }
     },
-  });
+  })
 
-  /**
-   * Logout function
-   */
   const logout = useMutation({
     mutationFn: async () => {
-      // Skip API call for development mode
-      if (isDevelopmentMode) {
-        return { status: "success" };
-      }
-
       try {
-        await api.auth.logout();
+        await api.auth.logout()
       } catch (error) {
-        console.error("Logout error:", error);
+        console.error("Logout error:", error)
       }
     },
     onSettled: () => {
-      // Clear user data and tokens
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("organizationType");
-
-      // Clear query cache
-      queryClient.setQueryData(["currentUser"], null);
-      queryClient.setQueryData(["school-profile"], null);
-      queryClient.setQueryData(["company-profile"], null);
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-
-      // Redirect based on current mode
-      if (isDevelopmentMode) {
-        navigate("/dev");
-      } else {
-        navigate("/login");
-      }
+      localStorage.removeItem("token")
+      localStorage.removeItem("user")
+      localStorage.removeItem("organizationType")
+      queryClient.clear()
+      navigate("/login")
     },
-  });
+  })
 
-  /**
-   * Check if user is authenticated
-   */
   const isAuthenticated = () => {
-    // Always authenticated for development routes
-    if (isDevelopmentMode) return true;
-    
-    const token = localStorage.getItem("token");
-    if (!token) return false;
-    if (isLoading) return true;
-    return !!token;
-  };
+    const token = localStorage.getItem("token")
+    if (!token) return false
+    if (isLoading) return true
+    return !!user
+  }
 
-  /**
-   * Get user's organization type
-   */
   const getOrganizationType = () => {
-    // Return organization type based on development route
-    if (isDevelopmentMode) {
-      return location.pathname.includes('/dev/school') ? 'school' : 'company';
-    }
-    
-    const storedType = localStorage.getItem("organizationType");
-    if (storedType) return storedType;
-    return user?.organization?.type || null;
-  };
+    const userOrgType = user?.organization?.type
+    const storedType = localStorage.getItem("organizationType")
+    return userOrgType || storedType || null
+  }
 
-  /**
-   * Check if we're in development mode
-   */
-  const isDevelopment = () => {
-    return isDevelopmentMode;
-  };
+  const needsOnboarding = () => {
+    return user?.isOnboarded === false
+  }
 
   return {
     user,
-    isLoading: isDevelopmentMode ? false : isLoading, // No loading for dev mode
-    error: isDevelopmentMode ? null : error, // No errors for dev mode
+    isLoading,
+    error,
     login,
     forgotPassword,
     resetPassword,
@@ -241,7 +203,7 @@ export const useAuth = () => {
     logout,
     isAuthenticated,
     getOrganizationType,
-    isDevelopment,
+    needsOnboarding,
     refetchUser: refetch,
-  };
-};
+  }
+}

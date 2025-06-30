@@ -1,8 +1,7 @@
-// src/pages/shared/auth/Login.jsx - latest commit with sessionStorage logic
-import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+// src/pages/shared/auth/Login.jsx - CORRECTED WITH useAuth
 
-import api, { apiClient } from "../../../lib/api";
+import { useState, useRef, useEffect } from "react";
+import { useAuth } from "../../../hooks/useAuth";
 import { loginSchema } from "../../../schemas/validationSchema";
 
 const Login = () => {
@@ -22,14 +21,16 @@ const Login = () => {
 	const passwordRef = useRef(null);
 
 	const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-	const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+	// Use the useAuth hook
+	const { login } = useAuth();
 
 	useEffect(() => {
 		const navEntries = performance.getEntriesByType("navigation");
 		const isRefresh = navEntries[0]?.type === "reload";
 	
 		if (isRefresh) {
-			// Kalau user REFRESH halaman login -> kosongin semuanya
+			// Clear everything on refresh
 			setEmail("");
 			setPassword("");
 			sessionStorage.removeItem("tempEmail");
@@ -37,7 +38,7 @@ const Login = () => {
 			localStorage.removeItem("rememberedPassword");
 			localStorage.removeItem("rememberMe");
 		} else {
-			// Kalau user DATANG dari forgot password / normal navigation
+			// Load saved data on normal navigation
 			const savedEmail = localStorage.getItem("rememberedEmail");
 			const tempEmail = sessionStorage.getItem("tempEmail");
 	
@@ -47,168 +48,8 @@ const Login = () => {
 			} else if (tempEmail) {
 				setEmail(tempEmail);
 			}
-	
-		
 		}
 	}, []);
-	
-	
-	
-
-	// Gunakan loginMutation yang sudah ada dari kode asli tanpa diubah
-	const loginMutation = useMutation({
-		mutationFn: async (credentials) => {
-			try {
-				// Just do the login, no profile fetch
-				const loginResponse = await apiClient.post(
-					`${API_URL}/auth/login`,
-					credentials
-				);
-				console.log("Login Response:", loginResponse.data);
-
-				if (loginResponse.data?.status !== "success") {
-					throw new Error(loginResponse.data?.message || "Login failed");
-				}
-
-				// Extract token and organization type
-				const { accessToken, organizationType } = loginResponse.data.data;
-
-				if (!accessToken) {
-					console.error("Token not found in response:", loginResponse.data);
-					throw new Error("Access token tidak ditemukan dalam respons");
-				}
-
-				return { accessToken, organizationType };
-			} catch (error) {
-				console.error("Login error:", error);
-				throw error;
-			}
-		},
-		onSuccess: (data) => {
-			console.log("Login Success Data:", data);
-
-			// Clear any existing data
-			localStorage.removeItem("token");
-			localStorage.removeItem("organizationType");
-			localStorage.removeItem("user");
-
-			// Save token to localStorage
-			localStorage.setItem("token", data.accessToken);
-
-			// Save organization type to localStorage
-			localStorage.setItem("organizationType", data.organizationType);
-
-			// Clear temporary sessionStorage data after successful login
-			sessionStorage.removeItem("tempEmail");
-
-			console.log("Token and organizationType saved to localStorage");
-
-			// For testing purpose, make a dummy API call to /users/me to pre-populate cache
-			// This is to reduce the chance of infinite redirect loops
-			try {
-				api
-					.get(`${API_URL}/users/me`, {
-						headers: {
-							Authorization: `Bearer ${data.accessToken}`,
-						},
-					})
-					.then(() => {
-						// Navigate after ensuring profile data is fetched
-						if (data.organizationType === "school") {
-							// Use the demo route first to avoid protected route issues
-							window.location.href = "/demo/organization/school/profile";
-						} else if (data.organizationType === "company") {
-							window.location.href = "/demo/organization/company/profile";
-						} else {
-							window.location.href = "/";
-						}
-					})
-					.catch(() => {
-						// Even if profile fetch fails, still redirect
-						if (data.organizationType === "school") {
-							window.location.href = "/demo/organization/school/profile";
-						} else if (data.organizationType === "company") {
-							window.location.href = "/demo/organization/company/profile";
-						} else {
-							window.location.href = "/";
-						}
-					});
-			} catch (error) {
-				console.error("Error fetching profile after login:", error);
-				// Still try to navigate
-				if (data.organizationType === "school") {
-					window.location.href = "/demo/organization/school/profile";
-				} else if (data.organizationType === "company") {
-					window.location.href = "/demo/organization/company/profile";
-				} else {
-					window.location.href = "/";
-				}
-			}
-		},
-		onError: (error) => {
-			console.error("Login error:", error);
-
-			// Detailed error logging
-			if (error.response) {
-				console.log("Error response:", {
-					status: error.response.status,
-					data: error.response.data,
-					headers: error.response.headers,
-				});
-
-				if (error.response.data && error.response.data.status === "fail") {
-					if (
-						error.response.data.errors &&
-						error.response.data.errors.length > 0
-					) {
-						// error.response.data.errors.forEach(err => {
-						// 	if (err.field === "email") {
-						// 		setEmailError(true);
-						// 		setErrorMessage(err.message);
-						// 	} else if (err.field === "password") {
-						// 		setPasswordError(true);
-						// 		setErrorMessage(err.message);
-						// 	}
-						// });
-					} else {
-						// General error message
-						setErrorMessage(error.response.data.message || "Validation failed");
-					}
-				} else if (error.response.status === 401) {
-					setErrorMessage("Email atau password tidak sesuai");
-					setEmailError(true);
-					setPasswordError(true);
-				} else if (error.response.status === 400) {
-					setErrorMessage("Invalid request");
-					setEmailError(true);
-					setPasswordError(true);
-				} else if (
-					error.response.data &&
-					typeof error.response.data === "object"
-				) {
-					// Try to extract message from various potential structures
-					const message =
-						error.response.data.message ||
-						error.response.data.error ||
-						(error.response.data.data && error.response.data.data.message) ||
-						"Error occurred";
-					setErrorMessage(message);
-					setEmailError(true);
-					setPasswordError(true);
-				} else {
-					setErrorMessage("Error occurred");
-				}
-			} else if (error.request) {
-				// The request was made but no response was received
-				console.log("Error request:", error.request);
-				setErrorMessage("No server response");
-			} else {
-				// Something happened in setting up the request
-				console.log("Error message:", error.message);
-				setErrorMessage(error.message || "Request error");
-			}
-		},
-	});
 
 	const togglePasswordVisibility = () => {
 		setShowPassword(!showPassword);
@@ -217,11 +58,8 @@ const Login = () => {
 	const handleGoogleSignIn = async () => {
 		setIsGoogleSubmitting(true);
 		try {
-			// Simulate Google sign-in process
 			await new Promise((resolve) => setTimeout(resolve, 1200));
 			console.log("Google Sign-in initiated");
-
-			// In a real implementation, this would redirect to Google Auth
 		} catch (error) {
 			console.error("Google Sign-in error:", error);
 			setErrorMessage("Google sign-in error");
@@ -230,9 +68,8 @@ const Login = () => {
 		}
 	};
 
-	// Validasi dengan Zod
+	// Validation with Zod
 	const validateWithZod = (formData, field = null) => {
-		// Validasi khusus untuk field kosong (prioritas lebih tinggi)
 		if (field === "email" || field === null) {
 			if (!formData.email || !formData.email.trim()) {
 				return { valid: false, message: "Email harus diisi", field: "email" };
@@ -276,18 +113,15 @@ const Login = () => {
 			}
 		}
 
-		// Kalau sudah sampai di sini dan field spesifik, berarti valid
 		if (field) {
 			return { valid: true, message: "" };
 		}
 
-		// Validasi keseluruhan dengan Zod
 		try {
 			loginSchema.parse(formData);
 			return { valid: true, message: "" };
 		} catch (error) {
 			if (error.errors && error.errors.length > 0) {
-				// Ambil pesan error pertama (sudah dihandle kasus umum di atas, ini untuk kasus khusus)
 				return {
 					valid: false,
 					message: error.errors[0].message,
@@ -302,36 +136,26 @@ const Login = () => {
 		}
 	};
 
-	// Handler untuk input email
 	const handleEmailChange = (e) => {
 		setEmail(e.target.value);
-		
-		// Save temporarily to sessionStorage for forgot password navigation
 		sessionStorage.setItem("tempEmail", e.target.value);
 		
-		// Reset error saat user mengetik
 		if (emailError) {
 			setEmailError(false);
 			setErrorMessage("");
 		}
 	};
 
-	// Handler untuk input password
 	const handlePasswordChange = (e) => {
 		setPassword(e.target.value);
 		
-		// Save temporarily to sessionStorage for forgot password navigation
-
-		// Reset error saat user mengetik
 		if (passwordError) {
 			setPasswordError(false);
 			setErrorMessage("");
 		}
 	};
 
-	// Validasi email saat blur
 	const validateEmail = () => {
-		// Tandai field sebagai diinteraksi
 		setEmailTouched(true);
 
 		if (!email.trim()) {
@@ -340,7 +164,6 @@ const Login = () => {
 			return false;
 		}
 
-		// Validasi dengan Zod
 		const validation = validateWithZod(
 			{ email, password, rememberMe },
 			"email"
@@ -352,16 +175,13 @@ const Login = () => {
 		}
 
 		setEmailError(false);
-		// Jangan reset errorMessage jika ada error di field password
 		if (!passwordError) {
 			setErrorMessage("");
 		}
 		return true;
 	};
 
-	// Validasi password saat blur
 	const validatePassword = () => {
-		// Tandai field sebagai diinteraksi
 		setPasswordTouched(true);
 
 		if (!password) {
@@ -370,7 +190,6 @@ const Login = () => {
 			return false;
 		}
 
-		// Validasi dengan Zod
 		const validation = validateWithZod(
 			{ email, password, rememberMe },
 			"password"
@@ -382,38 +201,26 @@ const Login = () => {
 		}
 
 		setPasswordError(false);
-		// Jangan reset errorMessage jika ada error di field email
 		if (!emailError) {
 			setErrorMessage("");
 		}
 		return true;
 	};
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
-		const lowercasedEmail = email.trim().toLowerCase();
-		loginMutation.mutate({ 
-		email: lowercasedEmail, 
-		password, 
-		rememberMe 
-		});
-		// Tandai semua field sebagai telah diinteraksi
+		
+		// Mark all fields as touched
 		setEmailTouched(true);
 		setPasswordTouched(true);
-
-		// Reset error message
 		setErrorMessage("");
 
-		// Validasi form dengan zod
+		// Validate form
 		const validation = validateWithZod({ email, password, rememberMe });
 
-		console.log(validation, "va");
-
 		if (!validation.valid) {
-			// Tetapkan pesan error
 			setErrorMessage(validation.message);
 
-			// Tandai field yang error
 			if (validation.field === "email") {
 				setEmailError(true);
 				setPasswordError(false);
@@ -438,24 +245,44 @@ const Login = () => {
 			return;
 		}
 
+		// Handle remember me
 		if (rememberMe) {
 			localStorage.setItem("rememberedEmail", email);
-			localStorage.setItem("rememberedPassword", password); // optional, not secure
 			localStorage.setItem("rememberMe", "true");
 		} else {
 			localStorage.removeItem("rememberedEmail");
 			localStorage.removeItem("rememberedPassword");
 			localStorage.removeItem("rememberMe");
 		}
-		
 
-		// If all validations pass, proceed with login
-		loginMutation.mutate({ 
-			email: email.toLowerCase(), 
-			password, 
-			rememberMe 
-		  });
-			  };
+		try {
+			// Use the login mutation from useAuth - redirect akan dihandle otomatis
+			await login.mutateAsync({ 
+				email: email.toLowerCase().trim(), 
+				password, 
+				rememberMe 
+			});
+
+			// Clear temporary session data after successful login
+			sessionStorage.removeItem("tempEmail");
+			
+			// Redirect will be handled automatically by useAuth based on isOnboarded status
+			
+		} catch (error) {
+			console.error("Login error:", error);
+
+			// Handle different error scenarios
+			if (error.response?.status === 401) {
+				setErrorMessage("Email atau password tidak sesuai");
+				setEmailError(true);
+				setPasswordError(true);
+			} else if (error.response?.data?.message) {
+				setErrorMessage(error.response.data.message);
+			} else {
+				setErrorMessage("Terjadi kesalahan saat login");
+			}
+		}
+	};
 
 	return (
 		<div className="flex flex-col md:flex-row w-full min-h-screen overflow-hidden">
@@ -500,7 +327,6 @@ const Login = () => {
 					>
 						{/* Email input */}
 						<div className="mb-6 relative">
-							{/* Email input field */}
 							<div
 								className={`flex gap-2.5 items-center px-6 py-3 bg-white border-solid border ${emailError ? "border-rose-500" : "border-zinc-500"} h-[52px] rounded-[50px] max-sm:px-4 max-sm:py-2.5 shadow-sm`}
 							>
@@ -517,7 +343,7 @@ const Login = () => {
 									value={email}
 									onChange={handleEmailChange}
 									onFocus={() => setEmailTouched(true)}
-									disabled={loginMutation.isPending}
+									disabled={login.isPending}
 									required
 									maxLength={50}
 									ref={emailRef}
@@ -544,18 +370,14 @@ const Login = () => {
 									value={password}
 									onChange={handlePasswordChange}
 									onFocus={() => setPasswordTouched(true)}
-									disabled={loginMutation.isPending}
+									disabled={login.isPending}
 									required
 									ref={passwordRef}
 									autoComplete="current-password"
 								/>
 								<span
 									className={`material-icons cursor-pointer hover:scale-110 transition-transform ${passwordError ? "text-rose-500" : "text-[#8B8B8B]"}`}
-									onClick={
-										!loginMutation.isPending
-											? togglePasswordVisibility
-											: undefined
-									}
+									onClick={!login.isPending ? togglePasswordVisibility : undefined}
 								>
 									{showPassword ? "visibility" : "visibility_off"}
 								</span>
@@ -564,34 +386,34 @@ const Login = () => {
 
 						{/* Remember me and forgot password */}
 						<div className="flex justify-between items-center mb-5 mt-8">
-						<label className="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer hover:scale-[1.02] transition-transform select-none">
-							<input
-								id="rememberMeCheckbox"
-								type="checkbox"
-								checked={rememberMe}
-								onChange={(e) => {
-								if (!loginMutation.isPending) {
-									setRememberMe(e.target.checked);
-								}
-								}}
-								disabled={loginMutation.isPending}
-								className="absolute w-0 h-0 opacity-0 pointer-events-none"
-							/>
+							<label className="flex items-center gap-2 text-xs text-zinc-500 cursor-pointer hover:scale-[1.02] transition-transform select-none">
+								<input
+									id="rememberMeCheckbox"
+									type="checkbox"
+									checked={rememberMe}
+									onChange={(e) => {
+										if (!login.isPending) {
+											setRememberMe(e.target.checked);
+										}
+									}}
+									disabled={login.isPending}
+									className="absolute w-0 h-0 opacity-0 pointer-events-none"
+								/>
 
-							<span
-								className={`material-icons text-[18px] leading-none align-middle transition-colors ${
-								rememberMe ? "text-[#488BBE]" : "text-zinc-400"
-								}`}
-							>
-								{rememberMe ? "check_circle" : "radio_button_unchecked"}
-							</span>
+								<span
+									className={`material-icons text-[18px] leading-none align-middle transition-colors ${
+									rememberMe ? "text-[#488BBE]" : "text-zinc-400"
+									}`}
+								>
+									{rememberMe ? "check_circle" : "radio_button_unchecked"}
+								</span>
 
-							<span className="leading-none">Ingat Saya</span>
+								<span className="leading-none">Ingat Saya</span>
 							</label>
 							<a
 								href="/forgot-password"
 								className="text-xs text-primary no-underline hover:underline hover:scale-[1.05] transition-transform"
-								tabIndex={loginMutation.isPending ? -1 : 0}
+								tabIndex={login.isPending ? -1 : 0}
 							>
 								Lupa Password?
 							</a>
@@ -601,7 +423,7 @@ const Login = () => {
 						<button
 							type="button"
 							onClick={handleGoogleSignIn}
-							disabled={isGoogleSubmitting || loginMutation.isPending}
+							disabled={isGoogleSubmitting || login.isPending}
 							className="w-full mb-4 flex items-center justify-center gap-3 h-[52px] rounded-[50px] border border-zinc-300 bg-white text-zinc-800 font-medium hover:bg-gray-50 transition-colors hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-transform"
 						>
 							{isGoogleSubmitting ? (
@@ -628,11 +450,11 @@ const Login = () => {
 						{/* Submit button */}
 						<button
 							type="submit"
-							disabled={loginMutation.isPending || isGoogleSubmitting}
+							disabled={login.isPending || isGoogleSubmitting}
 							className={`mb-4 w-full text-base text-white bg-primary cursor-pointer border-none h-[52px] rounded-[50px] hover:bg-primary-variant1 transition-colors flex items-center justify-center hover:scale-[1.01] active:scale-[0.99] transition-transform
-                        ${loginMutation.isPending ? "opacity-70 cursor-not-allowed" : ""}`}
+                        ${login.isPending ? "opacity-70 cursor-not-allowed" : ""}`}
 						>
-							{loginMutation.isPending ? (
+							{login.isPending ? (
 								<span className="flex items-center">
 									<span className="material-icons animate-spin mr-2">sync</span>
 									<span>Masuk...</span>
@@ -648,7 +470,7 @@ const Login = () => {
 							<a
 								href="#"
 								className="font-bold text-orange-400 underline hover:text-orange-500 hover:scale-[1.05] inline-block transition-transform"
-								tabIndex={loginMutation.isPending ? -1 : 0}
+								tabIndex={login.isPending ? -1 : 0}
 							>
 								Kontak Kami
 							</a>

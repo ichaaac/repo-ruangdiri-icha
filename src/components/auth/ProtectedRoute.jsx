@@ -1,14 +1,20 @@
-// src/components/auth/ProtectedRoute.jsx - FINAL FIX LOGIC
-
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+// src/components/auth/ProtectedRoute.jsx
+import { Navigate, useLocation } from "react-router-dom"
+import { useAuth } from "../../hooks/useAuth"
 
 const ProtectedRoute = ({ children, requiredOrgType }) => {
-  const { user, isLoading, getOrganizationType } = useAuth();
-  const location = useLocation();
+  const { user, isLoading, getOrganizationType } = useAuth()
+  const location = useLocation()
 
-  if (isLoading) {
+  // ===================================================
+  // CRITICAL: Handle refresh scenarios safely
+  // ===================================================
+
+  const token = localStorage.getItem("token")
+  const hasToken = !!token
+
+  // If we have a token but still loading, wait for user data
+  if (hasToken && isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex items-center space-x-2">
@@ -16,36 +22,66 @@ const ProtectedRoute = ({ children, requiredOrgType }) => {
           <span className="text-primary">Loading...</span>
         </div>
       </div>
-    );
+    )
   }
 
+  // If no token and not loading, redirect to login
+  if (!hasToken && !isLoading) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // If we have token but no user data after loading completed, redirect to login
+  if (hasToken && !isLoading && !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // At this point, we should have a valid user
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  // ==========================================================
-  // !!! INI DIA LOGIKA YANG SUDAH DIBENERIN TOTAL !!!
-  // ==========================================================
-  // Sekarang kita cek apakah user BELUM onboarding (isOnboarded === true)
-  if (user.isOnboarded === true && !location.pathname.startsWith('/onboarding')) {
-    // Kalo BELUM onboarding & coba akses halaman lain, paksa ke splash screen
-    return <Navigate to="/onboarding" replace />;
+  // ===================================================
+  // ONBOARDING LOGIC - FIXED LOGIC
+  // ===================================================
+
+  const isOnboardingPage = location.pathname.startsWith("/onboarding")
+
+  // CASE 1: User NEEDS onboarding (isOnboarded = true) but NOT on onboarding page
+  if (user.isOnboarded === false && !isOnboardingPage) {
+    return <Navigate to="/onboarding" replace />
   }
 
-  // --- Cek required org type ---
+  // CASE 2: User COMPLETED onboarding (isOnboarded = false) but still on onboarding page
+  if (user.isOnboarded === true && isOnboardingPage) {
+    const orgType = getOrganizationType()
+
+    if (orgType === "school") {
+      return <Navigate to="/organization/school/dashboard" replace />
+    } else if (orgType === "company") {
+      return <Navigate to="/organization/company/dashboard" replace />
+    } else {
+      return <Navigate to="/" replace />
+    }
+  }
+
+  // ===================================================
+  // ORGANIZATION TYPE CHECK
+  // ===================================================
+
   if (requiredOrgType) {
-    const currentOrgType = getOrganizationType();
+    const currentOrgType = getOrganizationType()
 
     if (currentOrgType && currentOrgType !== requiredOrgType) {
-      if (currentOrgType === 'school') {
-        return <Navigate to="/organization/school/profile" replace />;
-      } else if (currentOrgType === 'company') {
-        return <Navigate to="/organization/company/profile" replace />;
+      if (currentOrgType === "school") {
+        return <Navigate to="/organization/school/dashboard" replace />
+      } else if (currentOrgType === "company") {
+        return <Navigate to="/organization/company/dashboard" replace />
       }
     }
   }
 
-  return children;
-};
+  // All checks passed, render the page
+  return children
+}
 
-export default ProtectedRoute;
+export default ProtectedRoute
