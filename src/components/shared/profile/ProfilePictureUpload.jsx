@@ -1,5 +1,6 @@
-// src/components/shared/profile/ProfilePictureUpload.jsx
-import React, { useState, useRef, useEffect } from "react"
+"use client"
+
+import { useState, useRef, useEffect } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "framer-motion"
 import clsx from "clsx"
@@ -7,19 +8,13 @@ import api from "../../../lib/api"
 import { toast } from "sonner"
 
 // --- KOMPONEN MODAL DENGAN LAYOUT YANG DIPOLES ---
-const ConfirmationModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  previewUrl,
-  isUploading
-}) => {
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading }) => {
   if (!isOpen) return null
 
   return (
-    <div 
+    <div
       className="fixed inset-0 flex items-center justify-center z-[9999] p-4"
-      style={{ backgroundColor: '#55555580' }}
+      style={{ backgroundColor: "#55555580" }}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
@@ -30,50 +25,42 @@ const ConfirmationModal = ({
       >
         {/* Konten Atas dengan Padding */}
         <div className="p-6 text-center relative">
-            <button
-                onClick={onClose}
-                disabled={isUploading}
-                className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-            >
-                <span className="material-icons text-xl">close</span>
-            </button>
-
-            <h3 className="text-lg font-bold text-[#488BBA] mb-2">Ganti Foto Profil?</h3>
-            <p className="text-sm text-gray-500">
-                Foto ini akan ditampilkan sebagai foto profil baru Anda.
-            </p>
+          <button
+            onClick={onClose}
+            disabled={isUploading}
+            className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          >
+            <span className="material-icons text-xl">close</span>
+          </button>
+          <h3 className="text-lg font-bold text-[#488BBA] mb-2">Ganti Foto Profil?</h3>
+          <p className="text-sm text-gray-500">Foto ini akan ditampilkan sebagai foto profil baru Anda.</p>
         </div>
-        
+
         {/* Preview Foto di Tengah */}
         <div className="px-6 py-4 flex justify-center">
-            <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow-inner">
-                {previewUrl ? (
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                    <div className="w-full h-full bg-gray-200" />
-                )}
-            </div>
+          <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow-inner">
+            {previewUrl ? (
+              <img src={previewUrl || "/placeholder.svg"} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gray-200" />
+            )}
+          </div>
         </div>
 
         {/* Tombol Aksi di Bawah dengan Padding */}
         <div className="w-full p-6 pt-4">
-            <button
-                onClick={onConfirm}
-                disabled={isUploading}
-                className="w-full h-12 px-6 bg-primary text-white font-bold rounded-full hover:bg-primary-variant1 transition-colors disabled:bg-gray-400 flex items-center justify-center"
-            >
-                {isUploading ? (
-                <span className="material-icons animate-spin">refresh</span>
-                ) : (
-                "Simpan"
-                )}
-            </button>
+          <button
+            onClick={onConfirm}
+            disabled={isUploading}
+            className="w-full h-12 px-6 bg-primary text-white font-bold rounded-full hover:bg-primary-variant1 transition-colors disabled:bg-gray-400 flex items-center justify-center"
+          >
+            {isUploading ? <span className="material-icons animate-spin">refresh</span> : "Simpan"}
+          </button>
         </div>
       </motion.div>
     </div>
   )
 }
-
 
 const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "school" }) => {
   const fileInputRef = useRef(null)
@@ -84,7 +71,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   const [selectedFile, setSelectedFile] = useState(null)
   const [tempPreviewUrl, setTempPreviewUrl] = useState(null)
   const queryClient = useQueryClient()
-  
+
   const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
   const maxSize = 2 * 1024 * 1024 // 2MB
 
@@ -112,54 +99,64 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
     maxWidth: "200px",
   }
 
+  // FIXED: Upload foto profil saja, JANGAN ubah status onboarding
   const uploadProfilePicture = useMutation({
     mutationFn: async (file) => {
       const token = localStorage.getItem("token")
       if (!token) throw new Error("No authentication token found")
+
+      // PERBAIKAN: Gunakan API endpoint khusus untuk upload foto profil
       return api.organization.updateProfilePicture(file)
     },
     onSuccess: (response) => {
+      // PERBAIKAN: Hanya refresh user data, JANGAN redirect
       queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       toast.success("Foto profil berhasil diubah!")
-      
-      const newImageUrl = response?.data?.profilePicture || response?.data?.organization?.profilePicture;
+
+      const newImageUrl = response?.data?.profilePicture || response?.data?.organization?.profilePicture
       if (newImageUrl) {
         setPreviewImage(newImageUrl)
         setImageError(false)
       }
       handleCloseConfirmation()
+
+      // HAPUS redirect logic dari sini!
+      // User tetap di halaman onboarding
     },
     onError: (error) => {
-      const message = error.response?.data?.message || "Gagal mengupload foto profil.";
-      toast.error(message, { style: toastStyle, closeButton: false });
+      const message = error.response?.data?.message || "Gagal mengupload foto profil."
+      toast.error(message, { style: toastStyle, closeButton: false })
       handleCloseConfirmation()
-    }
+    },
   })
 
+  // Kembalikan semua copytext validasi ke yang asli
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
-  
-    e.target.value = ''
-  
+
+    e.target.value = ""
+
+    // KEMBALIKAN copytext validasi yang asli
     if (!allowedTypes.includes(file.type)) {
       toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
-      return
+      return // LANGSUNG return, jangan buka modal preview
     }
     if (file.size > maxSize) {
       toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
-      return
+      return // LANGSUNG return, jangan buka modal preview
     }
-  
+
+    // Jika validasi lolos, baru buka modal preview
     const previewUrl = URL.createObjectURL(file)
     setSelectedFile(file)
     setTempPreviewUrl(previewUrl)
     setShowConfirmation(true)
     setImageError(false)
   }
-  
+
   const handleButtonClick = () => {
-    if (uploadProfilePicture.isPending) return;
+    if (uploadProfilePicture.isPending) return
     fileInputRef.current.click()
   }
 
@@ -193,7 +190,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
           <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
             {previewImage && !imageError ? (
               <img
-                src={previewImage}
+                src={previewImage || "/placeholder.svg"}
                 alt="Profile"
                 className="w-full h-full object-cover"
                 onError={handleImageError}
