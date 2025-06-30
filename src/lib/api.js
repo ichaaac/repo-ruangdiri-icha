@@ -75,12 +75,10 @@ apiClient.dashboard = {
   },
 }
 
-// Export for merging with your existing api object
 
-// Consolidated API object with all endpoints
 const api = {
-  // ===== User endpoints =====
-  user: {
+`  // ===== User endpoints =====
+`  user: {
     /**
      * Get current user data
      * This is a high-frequency endpoint that's used throughout the app
@@ -595,7 +593,7 @@ export default api;
 
 export { apiClient };
 export const getMe = async () => {
-  try {
+try {
     const response = await apiClient.get("/users/me");
     return response.data; // Return response.data instead of response
   } catch (error) {

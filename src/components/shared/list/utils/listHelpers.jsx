@@ -26,7 +26,7 @@ export const highlightSearchTerm = (text, searchTerm) => {
     part.toLowerCase() === searchTerm.toLowerCase() ? (
       <span key={i} className="font-bold bg-yellow-200">
         {part}
-      </span> // ini tolong perbaiki, harusnya menggunakan js karena ada span jadi harus jsx.
+      </span> 
     ) : (
       part
     ),

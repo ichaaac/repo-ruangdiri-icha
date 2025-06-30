@@ -290,7 +290,7 @@ const DatePicker = ({
                       ? 'top-1/2 -translate-y-1/2 left-[20%] right-0 h-[60%] rounded-l-full'
                       : day.selectionPosition === 'end'
                         ? 'top-1/2 -translate-y-1/2 left-0 right-[20%] h-[60%] rounded-r-full'
-                        : 'top-1/2 -translate-y-1/2 left-0 ri`ght-0 h-[60%]'}
+                        : 'top-1/2 -translate-y-1/2 left-0 right-0 h-[60%]'}
                   bg-[#488BBA]
                 `} />
               )}

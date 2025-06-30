@@ -133,10 +133,10 @@ const NotificationPanel = ({
             <div className="w-[30px] h-[30px] bg-[#488BBE] rounded flex items-center justify-center flex-shrink-0">
               <span className="material-icons text-white text-lg">notifications</span>
             </div>
-            <h2 className="text-xl font-semibold text-[#488BBA]">
+            <h1 className="text-xl font-semibold text-[#488BBA]">
               Notifikasi
-            </h2>
-          </div>
+            </h1>
+        </div>
         </div>
 
         {/* Notification Content */}
