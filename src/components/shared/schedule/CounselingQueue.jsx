@@ -1,110 +1,30 @@
-// src/components/shared/schedule/CounselingQueue.jsx - Fixed Height with Infinite Scroll
+// src/components/shared/schedule/CounselingQueue.jsx - Backend Integration
 
 import { useState, useEffect } from "react";
 
 const CounselingQueue = ({ 
   containerWidth = 808,
-  sidebarExpanded = false 
+  sidebarExpanded = false,
+  queueData = [], // Real data from backend
+  loading = false
 }) => {
-  const [queueData, setQueueData] = useState([]);
+  const [displayData, setDisplayData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Sample data as shown in Figma - expandable for infinite scroll
-  const allQueueData = [
-    {
-      id: 1,
-      nama: "Armani",
-      kategori: "Berisiko",
-      tanggal: "03.06.25",
-      waktu: "10.00",
-      lokasi: "Daring",
-      keterangan: "Pertama"
-    },
-    {
-      id: 2,
-      nama: "Comenni",
-      kategori: "Berisiko", 
-      tanggal: "03.06.25",
-      waktu: "10.00",
-      lokasi: "Jiwaku Sehat",
-      keterangan: "Pertama"
-    },
-    {
-      id: 3,
-      nama: "Elberto",
-      kategori: "Berisiko",
-      tanggal: "03.06.25", 
-      waktu: "10.00",
-      lokasi: "Daring",
-      keterangan: "Pertama"
-    },
-    {
-      id: 4,
-      nama: "Berthold",
-      kategori: "Berisiko",
-      tanggal: "03.06.25",
-      waktu: "10.00", 
-      lokasi: "My Life is Good",
-      keterangan: "Pertama"
-    },
-    {
-      id: 5,
-      nama: "Berthold",
-      kategori: "Berisiko",
-      tanggal: "03.06.25",
-      waktu: "10.00",
-      lokasi: "Daring", 
-      keterangan: "Pertama"
-    },
-    // Additional data for infinite scroll demo
-    {
-      id: 6,
-      nama: "Sarah",
-      kategori: "Berisiko",
-      tanggal: "04.06.25",
-      waktu: "11.00",
-      lokasi: "Daring",
-      keterangan: "Kedua"
-    },
-    {
-      id: 7,
-      nama: "Michael",
-      kategori: "Berisiko",
-      tanggal: "04.06.25",
-      waktu: "11.30",
-      lokasi: "Offline",
-      keterangan: "Pertama"
-    },
-    {
-      id: 8,
-      nama: "Jessica",
-      kategori: "Berisiko",
-      tanggal: "04.06.25",
-      waktu: "12.00",
-      lokasi: "Jiwaku Sehat",
-      keterangan: "Pertama"
-    }
-  ];
-
   useEffect(() => {
-    // Load initial data (first 5 items)
-    setQueueData(allQueueData.slice(0, 5));
-  }, []);
+    // Set the real data from backend
+    setDisplayData(queueData);
+    setHasMore(queueData.length > 0); // Only show "load more" if there's data
+  }, [queueData]);
 
   const loadMoreData = () => {
-    if (isLoading || !hasMore) return;
+    if (isLoading || !hasMore || loading) return;
 
     setIsLoading(true);
+    // Simulate loading more data (for pagination when implemented)
     setTimeout(() => {
-      const currentCount = queueData.length;
-      const newData = allQueueData.slice(currentCount, currentCount + 3);
-      
-      if (newData.length > 0) {
-        setQueueData(prev => [...prev, ...newData]);
-      } else {
-        setHasMore(false);
-      }
+      setHasMore(false); // No more data to load for now
       setIsLoading(false);
     }, 500);
   };
@@ -116,16 +36,15 @@ const CounselingQueue = ({
     }
   };
 
-  // CORRECT dimensions from Figma: 808x329px 
+  // Correct dimensions from Figma: 808x329px 
   const baseWidth = 808;
-  const baseHeight = 329; // CORRECT height as per original Figma design
+  const baseHeight = 329;
   const actualWidth = Math.max(baseWidth, containerWidth);
   const actualHeight = baseHeight;
 
   // Header height consistent with other components
   const headerHeight = 66;
-  // Content area should fill the remaining space
-  const contentHeight = actualHeight - headerHeight; // 329 - 66 = 263px
+  const contentHeight = actualHeight - headerHeight;
 
   // Custom scrollbar styles
   const scrollbarStyles = {
@@ -164,7 +83,7 @@ const CounselingQueue = ({
       className="w-full rounded-md border border-zinc-500 bg-white transition-all duration-300 overflow-hidden"
       style={{ 
         width: `${actualWidth}px`,
-        height: `${actualHeight}px` // Fixed height for alignment
+        height: `${actualHeight}px`
       }}
     >
       
@@ -181,12 +100,15 @@ const CounselingQueue = ({
             Antrean Konseling
           </h2>
         </div>
+        {loading && (
+          <div className="ml-auto text-sm text-gray-500">Loading...</div>
+        )}
       </header>
 
-      {/* Table Header + Content Area - Correct 263px height for CounselingQueue */}
+      {/* Table Header + Content Area */}
       <div 
         className="flex flex-col overflow-hidden"
-        style={{ height: `${contentHeight}px` }} // Exactly 263px for CounselingQueue
+        style={{ height: `${contentHeight}px` }}
       >
         {/* Table Header */}
         <div className="bg-[#E8F5FF] px-9 py-2 border-b border-zinc-200 flex-shrink-0">
@@ -202,9 +124,16 @@ const CounselingQueue = ({
 
         {/* Scrollable Table Content */}
         <div className="bg-white flex-1 overflow-hidden">
-          {queueData.length === 0 ? (
+          {loading && displayData.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-zinc-500">Belum ada antrean</p>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#488BBA] border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm text-zinc-500">Memuat antrean...</p>
+              </div>
+            </div>
+          ) : displayData.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-zinc-500">Belum ada antrean konseling</p>
             </div>
           ) : (
             <div 
@@ -213,38 +142,38 @@ const CounselingQueue = ({
               style={scrollbarStyles}
             >
               <div className="w-full">
-                {queueData.map((item, index) => (
-                  <div key={item.id}>
+                {displayData.map((item, index) => (
+                  <div key={item.id || index}>
                     <div className="px-9 py-3 hover:bg-gray-50 transition-colors">
                       <div className="grid grid-cols-6 gap-4 lg:gap-8 items-center">
                         <div className="text-sm font-normal text-[#535353]">
-                          {item.nama}
+                          {item.name}
                         </div>
                         <div className="text-sm font-normal text-[#FF6B6B]">
-                          {item.kategori}
+                          {item.category}
                         </div>
                         <div className="text-sm font-normal text-[#535353]">
-                          {item.tanggal}
+                          {item.date}
                         </div>
                         <div className="text-sm font-normal text-[#535353]">
-                          {item.waktu}
+                          {item.time}
                         </div>
                         <div className="text-sm font-normal text-[#535353]">
-                          {item.lokasi}
+                          {item.lokasi || item.location || "TBD"}
                         </div>
                         <div className="text-sm font-normal text-[#535353]">
-                          {item.keterangan}
+                          {item.status || item.keterangan || "Pertama"}
                         </div>
                       </div>
                     </div>
                     {/* Gradient Divider */}
-                    {index < queueData.length - 1 && (
+                    {index < displayData.length - 1 && (
                       <div className="h-px w-full bg-gradient-to-r from-white via-[#488BBE] to-white" />
                     )}
                   </div>
                 ))}
 
-                {/* Loading indicator */}
+                {/* Loading indicator for pagination */}
                 {isLoading && (
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
                     <div style={{
@@ -259,7 +188,7 @@ const CounselingQueue = ({
                 )}
 
                 {/* No more data */}
-                {!hasMore && queueData.length > 0 && (
+                {!hasMore && displayData.length > 0 && (
                   <div style={{ textAlign: 'center', padding: '8px 0' }}>
                     <span style={{ fontSize: '12px', color: '#9ca3af' }}>
                       Semua antrean telah dimuat

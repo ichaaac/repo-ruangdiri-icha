@@ -1,18 +1,30 @@
-// src/components/shared/schedule/DatePicker.jsx - Week Selection on Click
+// src/components/shared/schedule/DatePicker.jsx - Fixed Week Selection
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
 const DatePicker = ({ 
   containerWidth = 335,
-  sidebarExpanded = false 
+  sidebarExpanded = false,
+  selectedDate = new Date(),
+  onDateSelect = () => {},
+  onWeekSelect = () => {}
 }) => {
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(selectedDate || new Date())
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false)
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [selectedYear, setSelectedYear] = useState((selectedDate || new Date()).getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState((selectedDate || new Date()).getMonth())
   const [selectedDates, setSelectedDates] = useState([])
   const containerRef = useRef(null)
+
+  // Sync with external selectedDate prop
+  useEffect(() => {
+    if (selectedDate) {
+      setCurrentDate(selectedDate);
+      setSelectedYear(selectedDate.getFullYear());
+      setSelectedMonth(selectedDate.getMonth());
+    }
+  }, [selectedDate]);
 
   // Close month/year picker when clicking outside
   useEffect(() => {
@@ -64,15 +76,6 @@ const DatePicker = ({
     const dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7
     const dayOfMonth = date.getDate()
     return Math.floor((dayOfMonth + dayOfWeek - 1) / 7)
-  }
-
-  // Check if two dates are in the same week
-  const isSameWeek = (date1, date2) => {
-    return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      getWeekNumber(date1) === getWeekNumber(date2)
-    )
   }
 
   // Get all dates in the same week as the given date (Monday to Sunday)
@@ -149,7 +152,7 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  // Handle date click - select entire week
+  // Handle date click - select entire week and notify parent
   const handleDateClick = (day) => {
     if (!day.isCurrentMonth) return;
     
@@ -160,16 +163,25 @@ const DatePicker = ({
       selectedDates.some(selectedDate => selectedDate.toDateString() === weekDate.toDateString())
     )
     
+    let newSelectedDates = [];
+    
     if (isWeekSelected) {
       // Deselect the week
-      setSelectedDates(prev => 
-        prev.filter(selectedDate => 
-          !clickedWeekDates.some(weekDate => weekDate.toDateString() === selectedDate.toDateString())
-        )
-      )
+      newSelectedDates = selectedDates.filter(selectedDate => 
+        !clickedWeekDates.some(weekDate => weekDate.toDateString() === selectedDate.toDateString())
+      );
     } else {
       // Select the entire week
-      setSelectedDates(clickedWeekDates)
+      newSelectedDates = clickedWeekDates;
+    }
+    
+    setSelectedDates(newSelectedDates);
+    setCurrentDate(day.fullDate);
+    
+    // Notify parent components
+    onDateSelect(newSelectedDates);
+    if (newSelectedDates.length > 0) {
+      onWeekSelect(clickedWeekDates[0]); // Send Monday as week start
     }
   }
 
@@ -184,6 +196,9 @@ const DatePicker = ({
     setSelectedYear(year)
     setShowMonthYearPicker(false)
     setSelectedDates([])
+    
+    // Notify parent of date change
+    onDateSelect([]);
   }
 
   const handleYearChange = (direction) => {
@@ -305,9 +320,10 @@ const DatePicker = ({
                 className={`relative z-10 w-full h-full flex items-center justify-center text-xs transition-colors 
                   ${day.isSelected ? 'text-white font-bold' 
                   : day.isToday ? 'text-blue-600 font-bold'
-                  : day.isCurrentMonth ? 'text-neutral-600' 
+                  : day.isCurrentMonth ? 'text-neutral-600 hover:bg-gray-100' 
                   : 'text-gray-300 cursor-not-allowed'}
                 `}
+                disabled={!day.isCurrentMonth}
               >
                 {day.date}
               </button>

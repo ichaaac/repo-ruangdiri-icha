@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - Fixed Multiple Date & Colors
+// src/components/shared/schedule/AddScheduleModal.jsx - Backend API Integration
 
 import { useState, useEffect } from "react";
 
@@ -11,7 +11,7 @@ const AddScheduleModal = ({
 }) => {
   const [formData, setFormData] = useState({
     agenda: "",
-    eventType: "counseling",
+    type: "counseling", // Changed from eventType to type to match backend
     date: new Date().toISOString().split('T')[0],
     startTime: "09:00",
     endTime: "10:00",
@@ -19,13 +19,13 @@ const AddScheduleModal = ({
     notificationOffset: 60,
     multipleDate: false,
     additionalDates: [],
-    userEmails: [],
+    userEmails: [], // Backend expects userEmails, will be converted to userIds
     locations: [],
     description: ""
   });
 
   const [dropdowns, setDropdowns] = useState({
-    eventType: false,
+    type: false,
     startTime: false,
     endTime: false,
     timezone: false,
@@ -37,6 +37,7 @@ const AddScheduleModal = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Event types matching backend expectations
   const eventTypes = [
     { label: "Konseling", value: "counseling", color: "#9986FF" },
     { label: "Kelas", value: "class", color: "#3CE69E" },
@@ -78,7 +79,7 @@ const AddScheduleModal = ({
     if (initialData) {
       setFormData({
         agenda: initialData.agenda || "",
-        eventType: initialData.type || "counseling",
+        type: initialData.type || "counseling",
         date: initialData.startDateTime ? 
           new Date(initialData.startDateTime).toISOString().split('T')[0] : 
           new Date().toISOString().split('T')[0],
@@ -90,16 +91,16 @@ const AddScheduleModal = ({
           "10:00",
         timezone: initialData.timezone || "Asia/Jakarta",
         notificationOffset: initialData.notificationOffset || 60,
-        multipleDate: initialData.isMultipleDays || false,
+        multipleDate: initialData.isMultipleDates || false,
         additionalDates: [],
-        userEmails: initialData.usersSchedules?.map(us => us.user.email) || [],
+        userEmails: initialData.participants?.map(p => p.email) || initialData.userEmails || [],
         locations: initialData.location ? [initialData.location] : [],
         description: initialData.description || ""
       });
     } else {
       setFormData({
         agenda: "",
-        eventType: "counseling",
+        type: "counseling",
         date: new Date().toISOString().split('T')[0],
         startTime: "09:00",
         endTime: "10:00",
@@ -235,6 +236,7 @@ const AddScheduleModal = ({
   const handleSubmit = () => {
     if (!validateForm()) return;
     
+    // Prepare dates array for backend
     const dates = [{
       date: formData.date,
       startTime: formData.startTime,
@@ -246,17 +248,19 @@ const AddScheduleModal = ({
       dates.push(...formData.additionalDates);
     }
 
+    // Format data for backend API
     const submitData = {
       agenda: formData.agenda,
-      type: formData.eventType,
-      location: formData.locations[0] || "",
+      type: formData.type, // Backend expects 'type' not 'eventType'
+      location: formData.locations[0] || "", // Backend expects single location string
       description: formData.description,
       notificationOffset: formData.notificationOffset,
-      userEmails: formData.userEmails,
-      dates: dates,
-      isMultipleDates: formData.multipleDate
+      userEmails: formData.userEmails, // Backend will convert to userIds
+      dates: dates, // Backend expects dates array with proper format
+      timezone: formData.timezone
     };
     
+    console.log('Submitting schedule data:', submitData);
     onSubmit(submitData);
   };
 
@@ -272,7 +276,7 @@ const AddScheduleModal = ({
   };
 
   const getSelectedEventType = () => {
-    return eventTypes.find(type => type.value === formData.eventType) || eventTypes[0];
+    return eventTypes.find(type => type.value === formData.type) || eventTypes[0];
   };
 
   const getTimezoneLabel = (timezone = formData.timezone) => {
@@ -316,7 +320,7 @@ const AddScheduleModal = ({
                   {/* Event Type Dropdown */}
                   <div className="relative">
                     <button
-                      onClick={() => toggleDropdown('eventType')}
+                      onClick={() => toggleDropdown('type')}
                       className="flex items-center px-2.5 py-3 text-sm whitespace-nowrap rounded-md border border-gray-300 min-h-[35px] w-[113px] focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
                       style={{ color: getSelectedEventType().color }}
                     >
@@ -325,12 +329,12 @@ const AddScheduleModal = ({
                         <span className="material-icons text-xs">keyboard_arrow_down</span>
                       </div>
                     </button>
-                    {dropdowns.eventType && (
+                    {dropdowns.type && (
                       <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
                         {eventTypes.map((type) => (
                           <button
                             key={type.value}
-                            onClick={() => selectOption('eventType', type.value)}
+                            onClick={() => selectOption('type', type.value)}
                             className="w-full px-2.5 py-2 text-left hover:bg-gray-100 transition-colors"
                             style={{ color: type.color }}
                           >
@@ -447,7 +451,7 @@ const AddScheduleModal = ({
                       <p className="text-red-500 text-xs mt-1 ml-8">{validationErrors.time}</p>
                     )}
 
-                    {/* Multiple Date Checkbox - FIXED STYLING */}
+                    {/* Multiple Date Checkbox */}
                     <div className="flex gap-2.5 items-center self-start ml-8 mt-2.5 text-xs">
                       <button
                         onClick={handleMultipleDateToggle}

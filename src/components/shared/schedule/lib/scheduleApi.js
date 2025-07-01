@@ -1,9 +1,9 @@
-// src/components/shared/schedule/lib/scheduleApi.js
+// src/components/shared/schedule/lib/scheduleApi.js - Fixed Backend Integration
 
 import { apiClient } from "../../../../lib/api.js"
 
-
 export const createScheduleApi = (organizationType = "school") => {
+  // Transform schedule data from backend to frontend format
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
       const baseTransform = {
@@ -14,6 +14,7 @@ export const createScheduleApi = (organizationType = "school") => {
             ...us.user,
             role: us.user.role,
             displayRole: getDisplayRole(us.user.role, orgType),
+            email: us.user.email,
             ...(orgType === "school"
               ? {
                   studentId: us.user.profile?.studentId,
@@ -26,9 +27,10 @@ export const createScheduleApi = (organizationType = "school") => {
                   position: us.user.profile?.position,
                 }),
           })) || [],
+        // Add timezone display
+        timezoneDisplay: getTimezoneDisplay(schedule.timezone),
       }
 
-      // Add organization-specific metadata
       if (orgType === "school") {
         return {
           ...baseTransform,
@@ -39,10 +41,9 @@ export const createScheduleApi = (organizationType = "school") => {
       } else {
         return {
           ...baseTransform,
-          isMeeting: schedule.type === "meeting",
           isCounselingSchedule: schedule.type === "counseling",
           isTraining: schedule.type === "training",
-          requiresMeetingRoom: ["meeting", "training", "seminar"].includes(schedule.type),
+          requiresMeetingRoom: ["training", "seminar"].includes(schedule.type),
           priority: schedule.usersSchedules?.some((us) => ["manager", "director", "ceo"].includes(us.user.role))
             ? "high"
             : "normal",
@@ -51,30 +52,31 @@ export const createScheduleApi = (organizationType = "school") => {
     })
   }
 
-  const transformQueueData = (queueData, orgType) => {
-    return queueData.map((item) => {
-      const user = item.usersSchedules?.[0]?.user
+  // Transform counseling queue data
+  const transformCounselingData = (counselings, orgType) => {
+    return counselings.map((counseling) => {
+      const user = counseling.user
       const screening = user?.screenings?.[0]
 
       const baseTransform = {
-        ...item,
+        id: counseling.id,
         name: user?.fullName || "Unknown",
         category: getCategoryLabel(screening?.screeningStatus),
-        date: new Date(item.startDateTime)
+        date: new Date(counseling.scheduledAt || counseling.createdAt)
           .toLocaleDateString("id-ID", {
             day: "2-digit",
             month: "2-digit",
             year: "2-digit",
           })
           .replace(/\//g, "."),
-        time: new Date(item.startDateTime).toLocaleTimeString("id-ID", {
+        time: new Date(counseling.scheduledAt || counseling.createdAt).toLocaleTimeString("id-ID", {
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
         }),
-        status: user?.counselings?.length > 0 ? "Kontinuasi" : "Pertama",
-        counselorName:
-          item.usersSchedules?.find((us) => us.user.role === "counselor")?.user?.fullName || "Belum ditentukan",
+        status: counseling.status || "Pending",
+        location: counseling.location || "TBD",
+        counselorName: counseling.psychologist?.fullName || "Belum ditentukan",
       }
 
       if (orgType === "school") {
@@ -103,7 +105,7 @@ export const createScheduleApi = (organizationType = "school") => {
       const schoolRoles = {
         student: "Siswa",
         teacher: "Guru",
-        counselor: "Konselor",
+        psychologist: "Konselor",
         principal: "Kepala Sekolah",
         admin: "Admin",
       }
@@ -113,7 +115,7 @@ export const createScheduleApi = (organizationType = "school") => {
         employee: "Karyawan",
         manager: "Manager",
         hr: "HR",
-        counselor: "Konselor",
+        psychologist: "Konselor",
         director: "Direktur",
         ceo: "CEO",
       }
@@ -130,36 +132,31 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
-  // Helper function to format date to YYYY-MM-DD
-  const formatDateForAPI = (date) => {
-    const d = new Date(date)
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, "0")
-    const day = String(d.getDate()).padStart(2, "0")
-    return `${year}-${month}-${day}`
+  // Get timezone display
+  const getTimezoneDisplay = (timezone) => {
+    const timezoneMap = {
+      "Asia/Jakarta": "WIB",
+      "Asia/Makassar": "WITA",
+      "Asia/Jayapura": "WIT",
+    }
+    return timezoneMap[timezone] || "WIB"
   }
 
-  // Return enhanced API methods (using existing apiClient)
+  // Return API methods
   return {
     async getSchedules(params = {}) {
       try {
-        // Format dates to simple YYYY-MM-DD format
         const formattedParams = {
-          ...params,
+          from: params.from,
+          to: params.to,
           timezone: params.timezone || "Asia/Jakarta",
-        }
-
-        // Convert ISO datetime strings to simple date format
-        if (params.from) {
-          formattedParams.from = formatDateForAPI(params.from)
-        }
-        if (params.to) {
-          formattedParams.to = formatDateForAPI(params.to)
         }
 
         console.log("Fetching schedules with params:", formattedParams)
 
-        const response = await apiClient.get("/schedules", { params: formattedParams })
+        const response = await apiClient.get("/v1/schedules", {
+          params: formattedParams,
+        })
 
         if (response.data?.status === "success") {
           return {
@@ -177,38 +174,46 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    async createSchedule(scheduleData) {
+    async checkScheduleExists(params) {
       try {
-        // Transform dates array to match API format
-        const transformedDates = scheduleData.dates.map((dateItem) => {
-          const dateStr = dateItem.date
-          const startTime = dateItem.startTime
-          const endTime = dateItem.endTime
+        console.log("Checking schedule availability:", params)
 
-          // Create full datetime strings
-          const startDateTime = new Date(`${dateStr}T${startTime}:00.000Z`)
-          const endDateTime = new Date(`${dateStr}T${endTime}:00.000Z`)
-
-          return {
-            startDateTime: startDateTime.toISOString(),
-            endDateTime: endDateTime.toISOString(),
-          }
+        const response = await apiClient.post("/v1/schedules/check-exists", {
+          date: params.date,
+          startTime: params.startTime,
+          endTime: params.endTime,
+          timezone: params.timezone,
         })
 
+        return response
+      } catch (error) {
+        console.error("Error checking schedule existence:", error)
+        throw error
+      }
+    },
+
+    async createSchedule(scheduleData) {
+      try {
+        // Transform frontend data to backend format
         const transformedData = {
           agenda: scheduleData.agenda,
-          location: scheduleData.location || getDefaultLocation(organizationType),
-          description: scheduleData.description,
+          location: scheduleData.location,
+          description: scheduleData.description || "",
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
-          timezone: scheduleData.timezone,
-          userEmails: scheduleData.userEmails,
-          dates: transformedDates,
+          userIds: scheduleData.userIds || [], // Backend expects userIds
+          dates: scheduleData.dates.map((dateItem) => ({
+            date: dateItem.date,
+            startTime: dateItem.startTime,
+            endTime: dateItem.endTime,
+            timezone: dateItem.timezone,
+          })),
         }
 
         console.log("Creating schedule with data:", transformedData)
 
-        return await apiClient.post("/schedules", transformedData)
+        const response = await apiClient.post("/v1/schedules", transformedData)
+        return response
       } catch (error) {
         console.error("Error creating schedule:", error)
         throw error
@@ -217,34 +222,25 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async updateSchedule(scheduleId, scheduleData) {
       try {
-        // Transform dates array to match API format
-        const transformedDates = scheduleData.dates.map((dateItem) => {
-          const dateStr = dateItem.date
-          const startTime = dateItem.startTime
-          const endTime = dateItem.endTime
-
-          // Create full datetime strings
-          const startDateTime = new Date(`${dateStr}T${startTime}:00.000Z`)
-          const endDateTime = new Date(`${dateStr}T${endTime}:00.000Z`)
-
-          return {
-            startDateTime: startDateTime.toISOString(),
-            endDateTime: endDateTime.toISOString(),
-          }
-        })
-
         const transformedData = {
           agenda: scheduleData.agenda,
-          location: scheduleData.location || getDefaultLocation(organizationType),
-          description: scheduleData.description,
+          location: scheduleData.location,
+          description: scheduleData.description || "",
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
-          timezone: scheduleData.timezone,
-          userEmails: scheduleData.userEmails,
-          dates: transformedDates,
+          userIds: scheduleData.userIds || [],
+          dates: scheduleData.dates?.map((dateItem) => ({
+            date: dateItem.date,
+            startTime: dateItem.startTime,
+            endTime: dateItem.endTime,
+            timezone: dateItem.timezone,
+          })),
         }
 
-        return await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
+        console.log("Updating schedule with data:", transformedData)
+
+        const response = await apiClient.patch(`/v1/schedules/${scheduleId}`, transformedData)
+        return response
       } catch (error) {
         console.error("Error updating schedule:", error)
         throw error
@@ -253,37 +249,26 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async deleteSchedule(scheduleId) {
       try {
-        return await apiClient.delete(`/schedules/${scheduleId}`)
+        const response = await apiClient.delete(`/v1/schedules/${scheduleId}`)
+        return response
       } catch (error) {
         console.error("Error deleting schedule:", error)
         throw error
       }
     },
 
-    async checkScheduleExists(params) {
-      try {
-        const formattedParams = {
-          ...params,
-          date: formatDateForAPI(params.date),
-        }
-
-        return await apiClient.post("/schedules/check-exists", formattedParams)
-      } catch (error) {
-        console.error("Error checking schedule existence:", error)
-        throw error
-      }
-    },
-
     async getCounselingQueue(params = {}) {
       try {
-        const response = await apiClient.get("/counselings", { params })
+        console.log("Fetching counseling queue...")
+
+        const response = await apiClient.get("/v1/counselings", { params })
 
         if (response.data?.status === "success") {
           return {
             ...response,
             data: {
               ...response.data,
-              data: transformQueueData(response.data.data, organizationType),
+              data: transformCounselingData(response.data.data, organizationType),
             },
           }
         }
@@ -293,11 +278,27 @@ export const createScheduleApi = (organizationType = "school") => {
         throw error
       }
     },
-  }
-}
 
-const getDefaultLocation = (orgType) => {
-  return orgType === "school" ? "Ruang Kelas" : "Meeting Room"
+    async getScheduleById(scheduleId) {
+      try {
+        const response = await apiClient.get(`/v1/schedules/${scheduleId}`)
+
+        if (response.data?.status === "success") {
+          return {
+            ...response,
+            data: {
+              ...response.data,
+              data: transformScheduleData([response.data.data], organizationType)[0],
+            },
+          }
+        }
+        return response
+      } catch (error) {
+        console.error("Error fetching schedule by ID:", error)
+        throw error
+      }
+    },
+  }
 }
 
 /**
@@ -313,7 +314,7 @@ export const getScheduleConfig = (organizationType) => {
     enableDragDrop: true,
     enableScheduleEdit: true,
     enableScheduleDelete: true,
-    timeSlotDuration: 60,
+    timeSlotDuration: 5, // 5 minutes intervals
   }
 
   if (organizationType === "school") {
@@ -321,21 +322,14 @@ export const getScheduleConfig = (organizationType) => {
       ...baseConfig,
       startHour: 7,
       endHour: 16,
-      defaultLocations: ["Ruang Kelas", "Laboratorium", "Perpustakaan", "Aula", "Ruang Konseling", "Online/Daring"],
+      defaultLocations: ["offline", "online", "organization"],
     }
   } else {
     return {
       ...baseConfig,
       startHour: 8,
       endHour: 18,
-      defaultLocations: [
-        "Meeting Room A",
-        "Meeting Room B",
-        "Conference Hall",
-        "Training Room",
-        "Counseling Room",
-        "Online/Virtual",
-      ],
+      defaultLocations: ["organization", "online", "offline"],
     }
   }
 }

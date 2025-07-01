@@ -1,66 +1,30 @@
-// src/components/shared/schedule/NotificationsPanel.jsx - Optimized without styled-jsx
+// src/components/shared/schedule/NotificationsPanel.jsx - Backend Integration
 
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
 
 const NotificationPanel = ({ 
   containerWidth = 335,
-  sidebarExpanded = false 
+  sidebarExpanded = false,
+  notifications = [], // Real data from backend
+  loading = false
 }) => {
-  const [notifications, setNotifications] = useState([]);
+  const [displayNotifications, setDisplayNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Sample notification data - 5 notifications as requested
-  const sampleNotifications = [
-    {
-      id: 1,
-      name: "Antony Martial",
-      message: "Made a appointment",
-      time: "1 Jam yang lalu",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-    },
-    {
-      id: 2,
-      name: "Jessica Chen", 
-      message: "Made a appointment",
-      time: "1 Jam yang lalu",
-      avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-    },
-    {
-      id: 3,
-      name: "David Kumar",
-      message: "Made a appointment", 
-      time: "1 Jam yang lalu",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-    },
-    {
-      id: 4,
-      name: "Sarah Wilson",
-      message: "Made a appointment",
-      time: "1 Jam yang lalu", 
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-    },
-    {
-      id: 5,
-      name: "Michael Brown",
-      message: "Made a appointment",
-      time: "1 Jam yang lalu",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-    }
-  ];
-
   useEffect(() => {
-    // Load all 5 notifications initially
-    setNotifications(sampleNotifications);
-  }, []);
+    // Set the real notifications from backend
+    setDisplayNotifications(notifications);
+    setHasMore(notifications.length > 0);
+  }, [notifications]);
 
   const loadMoreNotifications = () => {
-    if (isLoading || !hasMore) return;
+    if (isLoading || !hasMore || loading) return;
 
     setIsLoading(true);
+    // Simulate loading more (for pagination when implemented)
     setTimeout(() => {
-      // Simulate loading more (for websocket preparation)
       setHasMore(false);
       setIsLoading(false);
     }, 500);
@@ -115,6 +79,44 @@ const NotificationPanel = ({
     };
   }, []);
 
+  // Helper function to format time
+  const formatTime = (timeString) => {
+    if (!timeString) return "Baru saja";
+    
+    // If it's already formatted (e.g., "1 jam yang lalu"), return as is
+    if (timeString.includes("yang lalu") || timeString.includes("ago")) {
+      return timeString;
+    }
+    
+    // If it's an ISO date, format it
+    try {
+      const date = new Date(timeString);
+      const now = new Date();
+      const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+      
+      if (diffInMinutes < 1) return "Baru saja";
+      if (diffInMinutes < 60) return `${diffInMinutes} menit yang lalu`;
+      if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} jam yang lalu`;
+      return `${Math.floor(diffInMinutes / 1440)} hari yang lalu`;
+    } catch {
+      return timeString;
+    }
+  };
+
+  // Get avatar URL
+  const getAvatarUrl = (notification) => {
+    // If there's a direct avatar URL, use it
+    if (notification.avatar) return notification.avatar;
+    
+    // If there's user data with avatar
+    if (notification.user?.avatar) return notification.user.avatar;
+    
+    // Generate placeholder avatar based on name
+    const name = notification.user?.fullName || notification.name || "User";
+    const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=488BBA&color=fff&size=256`;
+  };
+
   return (
     <div 
       className="rounded-md border border-zinc-500 bg-white transition-all duration-300"
@@ -136,7 +138,10 @@ const NotificationPanel = ({
             <h1 className="text-xl font-semibold text-[#488BBA]">
               Notifikasi
             </h1>
-        </div>
+          </div>
+          {loading && (
+            <div className="ml-auto text-sm text-gray-500">Loading...</div>
+          )}
         </div>
 
         {/* Notification Content */}
@@ -144,9 +149,16 @@ const NotificationPanel = ({
           className="flex-1 overflow-hidden"
           style={{ height: `${contentHeight}px` }}
         >
-          {notifications.length === 0 ? (
+          {loading && displayNotifications.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-zinc-500">Belum ada notifikasi</p>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-[#488BBA] border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm text-zinc-500">Memuat notifikasi...</p>
+              </div>
+            </div>
+          ) : displayNotifications.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-zinc-500">Belum ada notifikasi</p>
             </div>
           ) : (
             <div 
@@ -154,13 +166,13 @@ const NotificationPanel = ({
               onScroll={handleScroll}
               style={{ 
                 ...scrollbarStyles,
-                padding: '15px' // 15px margin from sides
+                padding: '15px'
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                {notifications.map((notification, index) => (
+                {displayNotifications.map((notification, index) => (
                   <motion.div 
-                    key={notification.id}
+                    key={notification.id || index}
                     className="hover:opacity-80 transition-opacity cursor-pointer"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -191,7 +203,11 @@ const NotificationPanel = ({
                         <img 
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           alt="Profile" 
-                          src={notification.avatar}
+                          src={getAvatarUrl(notification)}
+                          onError={(e) => {
+                            // Fallback to default avatar on error
+                            e.target.src = "https://ui-avatars.com/api/?name=User&background=488BBA&color=fff&size=256";
+                          }}
                         />
                       </div>
 
@@ -208,24 +224,24 @@ const NotificationPanel = ({
                             whiteSpace: 'nowrap'
                           }}
                         >
-                          {notification.name}
+                          {notification.user?.fullName || notification.name || "Unknown User"}
                         </span>
                         <span 
                           style={{ 
                             color: '#535353', 
-                            fontSize: '14px', // Increased from 12px to 14px
+                            fontSize: '14px',
                             lineHeight: '1.2',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
                           }}
                         >
-                          {notification.message}
+                          {notification.action || notification.message || "Made an action"}
                         </span>
                       </div>
                     </div>
 
-                    {/* Timestamp (always centered in card) */}
+                    {/* Timestamp */}
                     <div style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -238,7 +254,7 @@ const NotificationPanel = ({
                         fontSize: '12px',
                         whiteSpace: 'nowrap'
                       }}>
-                        {notification.time}
+                        {formatTime(notification.time || notification.createdAt)}
                       </span>
                     </div>
                   </motion.div>
@@ -259,7 +275,7 @@ const NotificationPanel = ({
                 )}
 
                 {/* No more notifications */}
-                {!hasMore && notifications.length > 0 && (
+                {!hasMore && displayNotifications.length > 0 && (
                   <div style={{ textAlign: 'center', padding: '12px 0' }}>
                     <span style={{ fontSize: '12px', color: '#9ca3af' }}>
                       Semua notifikasi telah dimuat
