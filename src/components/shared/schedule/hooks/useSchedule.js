@@ -284,22 +284,24 @@ export const useSchedule = (type = "school") => {
     },
   });
 
-  // Check Schedule Exists Mutation
+  // Check Schedule Exists Mutation with proper error handling
   const checkScheduleExistsMutation = useMutation({
-    mutationFn: async ({ date, startTime, endTime }) => {
+    mutationFn: async ({ date, startTime, endTime, timezone }) => {
       try {
         const response = await scheduleApi.checkScheduleExists({
           date,
           startTime,
           endTime,
-          timezone: 'Asia/Jakarta'
+          timezone: timezone || 'Asia/Jakarta'
         });
         
-        // Return true if schedule exists, false otherwise
-        return response.data?.status === 'fail'; // API returns fail if schedule exists
+        console.log('Check exists mutation response:', response);
+        
+        // Return the response data directly - API handles the logic
+        return response;
       } catch (error) {
         console.error('Error checking schedule existence:', error);
-        return false; // Assume it doesn't exist on error
+        throw new Error(error.response?.data?.message || 'Failed to check schedule availability');
       }
     },
     retry: false, // Don't retry this check
@@ -370,8 +372,9 @@ export const useSchedule = (type = "school") => {
     return daySchedules.find(schedule => {
       const scheduleTime = new Date(schedule.startDateTime);
       const hour = scheduleTime.getHours();
-      const timeHour = parseInt(timeSlot.split(':')[0]);
-      return hour === timeHour;
+      const minute = scheduleTime.getMinutes();
+      const [timeHour, timeMinute] = timeSlot.split(':').map(Number);
+      return hour === timeHour && minute === timeMinute;
     });
   }, [schedulesQuery.data]);
 

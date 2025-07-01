@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - Best Practices with React Query
+// src/components/shared/schedule/ScheduleGrid.jsx - Best Practices with React Query + Enhanced Features
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -62,6 +62,15 @@ const ScheduleGrid = ({
       other: "#979797"
     };
     return colors[type] || colors.other;
+  }, []);
+
+  const getTimezoneDisplay = useCallback((timezone) => {
+    const timezoneMap = {
+      "Asia/Jakarta": "WIB",
+      "Asia/Makassar": "WITA", 
+      "Asia/Jayapura": "WIT"
+    };
+    return timezoneMap[timezone] || "WIB";
   }, []);
 
   const getHourDisplayIndex = useCallback((hour) => {
@@ -138,6 +147,8 @@ const ScheduleGrid = ({
           platform: schedule.location || "Location",
           type: schedule.type || "other",
           color: getTypeColor(schedule.type),
+          timezone: schedule.timezone || "Asia/Jakarta",
+          timezoneDisplay: getTimezoneDisplay(schedule.timezone),
           participants: schedule.participants || [],
           originalData: schedule
         };
@@ -147,7 +158,7 @@ const ScheduleGrid = ({
     });
 
     return scheduleData;
-  }, [schedules, selectedDates, days, getTypeColor]);
+  }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
 
   // Check functions
   const isTimeSlotOccupied = useCallback((dayIndex, hour, minute = 0) => {
@@ -167,9 +178,15 @@ const ScheduleGrid = ({
     });
   }, [days, getScheduleToDisplay]);
 
-  const isTimeRangeOccupied = useCallback((dayIndex, startHour, endHour) => {
-    for (let hour = startHour; hour < endHour; hour++) {
-      if (isTimeSlotOccupied(dayIndex, hour)) {
+  const isTimeRangeOccupied = useCallback((dayIndex, startHour, endHour, startMinute = 0, endMinute = 0) => {
+    // Enhanced to check 5-minute intervals
+    const startTimeInMinutes = startHour * 60 + startMinute;
+    const endTimeInMinutes = endHour * 60 + endMinute;
+    
+    for (let minutes = startTimeInMinutes; minutes < endTimeInMinutes; minutes += 5) {
+      const hour = Math.floor(minutes / 60);
+      const minute = minutes % 60;
+      if (isTimeSlotOccupied(dayIndex, hour, minute)) {
         return true;
       }
     }
@@ -206,7 +223,7 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // Position calculation
+  // Enhanced position calculation for 5-minute precision
   const getInfoFromPosition = useCallback((clientX, clientY) => {
     if (!viewportRef.current) return null;
     
@@ -230,10 +247,21 @@ const ScheduleGrid = ({
     }
 
     const actualHour = getActualHour(hourIndex);
-    return { hour: actualHour, hourIndex, dayIndex };
+    
+    // Calculate 5-minute precision within the hour
+    const pixelWithinHour = gridX % HOUR_WIDTH;
+    const minuteWithinHour = Math.floor((pixelWithinHour / HOUR_WIDTH) * 60);
+    const actualMinute = Math.floor(minuteWithinHour / 5) * 5; // Round to 5-minute intervals
+    
+    return { 
+      hour: actualHour, 
+      minute: actualMinute,
+      hourIndex, 
+      dayIndex 
+    };
   }, [getActualHour, days.length]);
 
-  // Mouse event handlers
+  // Enhanced mouse event handlers with 5-minute precision
   const handleOptimizedMouseMove = useCallback((e) => {
     if (!isDragging) return;
 
@@ -244,13 +272,14 @@ const ScheduleGrid = ({
     animationFrameRef.current = requestAnimationFrame(() => {
       const info = getInfoFromPosition(e.clientX, e.clientY);
       if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-        const currentPos = `${info.dayIndex}-${info.hourIndex}`;
+        const currentPos = `${info.dayIndex}-${info.hourIndex}-${info.minute}`;
         if (lastMousePosRef.current !== currentPos) {
           lastMousePosRef.current = currentPos;
           setSelectedArea(prev => ({ 
             ...prev, 
             endDay: info.dayIndex, 
             endHour: info.hour,
+            endMinute: info.minute,
             endHourIndex: info.hourIndex
           }));
         }
@@ -265,7 +294,7 @@ const ScheduleGrid = ({
     const info = getInfoFromPosition(e.clientX, e.clientY);
     
     if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-      if (isTimeSlotOccupied(info.dayIndex, info.hour)) {
+      if (isTimeSlotOccupied(info.dayIndex, info.hour, info.minute)) {
         console.log('Time slot occupied, cannot select');
         return;
       }
@@ -277,10 +306,12 @@ const ScheduleGrid = ({
         endDay: info.dayIndex,
         startHour: info.hour,
         endHour: info.hour,
+        startMinute: info.minute,
+        endMinute: info.minute,
         startHourIndex: info.hourIndex,
         endHourIndex: info.hourIndex
       });
-      lastMousePosRef.current = `${info.dayIndex}-${info.hourIndex}`;
+      lastMousePosRef.current = `${info.dayIndex}-${info.hourIndex}-${info.minute}`;
     }
   }, [getInfoFromPosition, days, isTimeSlotOccupied]);
 
@@ -303,11 +334,46 @@ const ScheduleGrid = ({
     );
     
     const isClick = dragDistance < 5;
+    
+    // Calculate selection bounds with 5-minute precision
     const startHour = Math.min(selectedArea.startHour, selectedArea.endHour);
     const endHour = Math.max(selectedArea.startHour, selectedArea.endHour);
+    const startMinute = Math.min(selectedArea.startMinute || 0, selectedArea.endMinute || 0);
+    const endMinute = Math.max(selectedArea.startMinute || 0, selectedArea.endMinute || 0);
     const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
+    const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
 
-    if (isTimeRangeOccupied(startDay, startHour, endHour + 1)) {
+    // For clicks, extend by minimum 5 minutes
+    let finalEndHour = endHour;
+    let finalEndMinute = endMinute;
+    
+    if (isClick) {
+      finalEndMinute = startMinute + 5;
+      if (finalEndMinute >= 60) {
+        finalEndHour = startHour + 1;
+        finalEndMinute = finalEndMinute - 60;
+      } else {
+        finalEndHour = startHour;
+      }
+    } else {
+      // For drags, add 5 minutes to end time
+      finalEndMinute = endMinute + 5;
+      if (finalEndMinute >= 60) {
+        finalEndHour = endHour + 1;
+        finalEndMinute = finalEndMinute - 60;
+      }
+    }
+
+    // Check for conflicts across all selected days
+    let hasConflict = false;
+    for (let day = startDay; day <= endDay; day++) {
+      if (isTimeRangeOccupied(day, startHour, finalEndHour, startMinute, finalEndMinute)) {
+        hasConflict = true;
+        break;
+      }
+    }
+
+    if (hasConflict) {
       console.log('Selected time range overlaps with existing schedule');
       setIsDragging(false);
       setSelectedArea(null);
@@ -317,21 +383,38 @@ const ScheduleGrid = ({
     }
 
     if (startDay >= 0 && startDay < days.length) {
-      const dayName = days[startDay]?.full;
-      let finalEndHour = isClick ? startHour + 1 : endHour + 1;
-
       const today = new Date();
       const startDateTime = new Date(today);
-      startDateTime.setHours(startHour, 0, 0, 0);
+      startDateTime.setHours(startHour, startMinute, 0, 0);
       
       const endDateTime = new Date(today);
-      endDateTime.setHours(finalEndHour, 0, 0, 0);
+      endDateTime.setHours(finalEndHour, finalEndMinute, 0, 0);
+
+      const dayName = days[startDay]?.full;
+      const isMultipleDays = startDay !== endDay;
+
+      // Create dates array for multiple days if applicable
+      const dates = [];
+      for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
+        const dayDate = new Date(today);
+        // Adjust date based on day difference (assuming current week)
+        dayDate.setDate(today.getDate() + (dayIndex - today.getDay()));
+        
+        dates.push({
+          date: dayDate.toISOString().split('T')[0],
+          startTime: `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
+          endTime: `${finalEndHour.toString().padStart(2, '0')}:${finalEndMinute.toString().padStart(2, '0')}`,
+          timezone: 'Asia/Jakarta'
+        });
+      }
 
       onTimeSlotSelect({ 
         startDateTime, 
         endDateTime, 
         day: dayName,
-        isMultipleDays: selectedArea.startDay !== selectedArea.endDay
+        isMultipleDays,
+        dates,
+        draggedDays: endDay - startDay + 1
       });
     }
     
@@ -346,7 +429,7 @@ const ScheduleGrid = ({
     setScrollLeft(newScrollLeft);
   }, []);
 
-  // Selection box rendering
+  // Selection box rendering with original design
   const selectionBox = useMemo(() => {
     if (!selectedArea) return null;
 
@@ -468,14 +551,14 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* Current time line */}
+        {/* Current time line - ENHANCED Z-INDEX */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
             left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
             bottom: '0px',
-            zIndex: 15,
+            zIndex: 50, // HIGHER than schedule cards (z-30)
             width: '2px'
           }}
         >
@@ -503,7 +586,7 @@ const ScheduleGrid = ({
           onScroll={handleScroll}
         >
           <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (24 * HOUR_WIDTH)}px` }}>
-            {/* Day Column */}
+            {/* Day Column - SIMPLIFIED CLASSES */}
             <div 
               className="flex-shrink-0 bg-white sticky left-0"
               style={{ 
@@ -514,11 +597,6 @@ const ScheduleGrid = ({
               {days.map((day, index) => (
                 <div 
                   key={day.short} 
-                  className={`flex items-center justify-center border-b border-zinc-100 ${
-                    selectedDates.length > 0 && selectedDates.some(date => days[date.getDay()]?.short === day.short) 
-                      ? 'bg-blue-50 font-bold' 
-                      : ''
-                  }`}
                   style={{ height: `${DAY_ROW_HEIGHT}px` }}
                 >
                   <span className="text-base font-bold text-neutral-600">
@@ -561,7 +639,7 @@ const ScheduleGrid = ({
                 )
               ))}
 
-              {/* Render Schedule Events from Backend */}
+              {/* Render Schedule Events with TIMEZONE DISPLAY */}
               {Object.entries(getScheduleToDisplay).map(([dayName, events]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -586,14 +664,14 @@ const ScheduleGrid = ({
                         flexDirection: 'column',
                         justifyContent: 'center',
                         overflow: 'hidden',
-                        zIndex: 30
+                        zIndex: 30 // Lower than current time indicator (z-50)
                       }}
                     >
                       <div className="text-white text-xs font-semibold truncate">
                         {event.name}
                       </div>
                       <div className="text-white text-xs truncate">
-                        {event.startTime} - {event.endTime} | {event.platform}
+                        {event.startTime} - {event.endTime} {event.timezoneDisplay} | {event.platform}
                       </div>
                     </div>
                   );

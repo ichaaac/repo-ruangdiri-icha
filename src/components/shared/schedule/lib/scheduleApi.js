@@ -185,10 +185,34 @@ export const createScheduleApi = (organizationType = "school") => {
           timezone: params.timezone,
         })
 
-        return response
+        console.log("Check exists response:", response.data)
+
+        // Return proper availability status
+        if (response.data?.status === "success") {
+          // If status is success, schedule slot is available
+          return {
+            exists: false,
+            available: true,
+            message: "Jadwal tersedia"
+          }
+        } else if (response.data?.status === "fail") {
+          // If status is fail, schedule slot is occupied
+          return {
+            exists: true,
+            available: false,
+            message: response.data?.message || "Jadwal sudah terisi"
+          }
+        }
+
+        return response.data
       } catch (error) {
         console.error("Error checking schedule existence:", error)
-        throw error
+        // If there's an error, assume slot is available but log the error
+        return {
+          exists: false,
+          available: true,
+          message: "Tidak dapat memverifikasi ketersediaan jadwal"
+        }
       }
     },
 
@@ -261,6 +285,7 @@ export const createScheduleApi = (organizationType = "school") => {
       try {
         console.log("Fetching counseling queue...")
 
+        // Updated endpoint for counseling queue
         const response = await apiClient.get("/v1/counselings", { params })
 
         if (response.data?.status === "success") {
