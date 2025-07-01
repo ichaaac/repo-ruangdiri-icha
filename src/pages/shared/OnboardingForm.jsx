@@ -1,6 +1,6 @@
 // src/pages/shared/OnboardingForm.jsx
-import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
+import { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -11,11 +11,121 @@ import api from "@/lib/api"
 import clsx from "clsx"
 
 // Components & utilities
-import ProfilePictureUpload from "@/components/shared/profile/ProfilePictureUpload"
 import TextareaAutosize from "react-textarea-autosize"
 import { PhoneInput } from "react-international-phone"
 import "react-international-phone/style.css"
 import { validatePhoneNumber, isEmptyPhone, extractDigits } from "@/lib/phoneUtils"
+import { toast } from "sonner"
+
+// --- KOMPONEN UPLOAD PROFILE PICTURE KHUSUS ONBOARDING ---
+const OnboardingProfilePictureUpload = ({ currentProfilePicture, organizationType = "school", onFileSelect }) => {
+  const fileInputRef = useRef(null)
+  const [previewImage, setPreviewImage] = useState(currentProfilePicture)
+  const [isHovering, setIsHovering] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
+  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+  const maxSize = 2 * 1024 * 1024 // 2MB
+
+  useEffect(() => {
+    setPreviewImage(currentProfilePicture)
+    setImageError(false)
+  }, [currentProfilePicture])
+
+  const toastStyle = {
+    backgroundColor: "#FEE2E2",
+    color: "#B91C1C",
+    fontSize: "0.75rem",
+    textAlign: "center",
+    padding: "6px 12px",
+    borderRadius: "6px",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+    maxWidth: "200px",
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) {
+      console.log("No file selected - user canceled file picker")
+      return
+    }
+
+    console.log("File selected for onboarding:", file.name)
+    e.target.value = ""
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
+      return
+    }
+    if (file.size > maxSize) {
+      toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
+      return
+    }
+
+    // Set preview dan notify parent component
+    const previewUrl = URL.createObjectURL(file)
+    setPreviewImage(previewUrl)
+    setImageError(false)
+    
+    // Notify parent component about file selection
+    onFileSelect(file, previewUrl)
+  }
+
+  const handleButtonClick = () => {
+    console.log("Onboarding profile picture button clicked - opening file picker")
+    fileInputRef.current.click()
+  }
+
+  const getFallbackIcon = () => {
+    return organizationType === "company" ? "business" : "person"
+  }
+
+  const handleImageError = () => {
+    setImageError(true)
+  }
+
+  return (
+    <div className="relative z-10">
+      <div className="relative" onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+          {previewImage && !imageError ? (
+            <img
+              src={previewImage || "/placeholder.svg"}
+              alt="Profile"
+              className="w-full h-full object-cover"
+              onError={handleImageError}
+            />
+          ) : (
+            <span className="material-icons text-gray-400" style={{ fontSize: "2.5rem" }}>
+              {getFallbackIcon()}
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleButtonClick}
+          className={clsx(
+            "absolute right-0 bottom-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center",
+            "transition-all duration-200",
+            isHovering ? "opacity-100 scale-110" : "opacity-75"
+          )}
+          aria-label="Upload profile picture"
+        >
+          <span className="material-icons text-white text-xs sm:text-sm">photo_camera</span>
+        </button>
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/jpeg, image/png, image/gif, image/webp"
+          className="hidden"
+        />
+      </div>
+    </div>
+  )
+}
 
 // Validation schema
 const onboardingSchema = z.object({
@@ -38,6 +148,8 @@ const OnboardingForm = () => {
   const queryClient = useQueryClient()
   const [phoneValidationError, setPhoneValidationError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedProfilePicture, setSelectedProfilePicture] = useState(null)
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null)
 
   const {
     register,
@@ -50,51 +162,93 @@ const OnboardingForm = () => {
     resolver: zodResolver(onboardingSchema),
     mode: "onBlur",
     defaultValues: {
-      address: "",
-      phone: "",
+      address: user?.address || "",
+      phone: user?.phone || "",
     },
   })
 
   // Pre-fill form with existing user data
   useEffect(() => {
     if (user) {
-      if (user.address) setValue("address", user.address)
-      if (user.phone) setValue("phone", user.phone)
+      console.log("Pre-filling onboarding form with user data:", {
+        address: user.address,
+        phone: user.phone,
+        fullName: user.fullName
+      })
+      
+      // Pre-fill address jika ada
+      if (user.address) {
+        setValue("address", user.address)
+      }
+      // Pre-fill phone jika ada  
+      if (user.phone) {
+        setValue("phone", user.phone)
+      }
     }
   }, [user, setValue])
 
-  // FIXED: Based on backend analysis
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (profilePicturePreview) {
+        URL.revokeObjectURL(profilePicturePreview)
+      }
+    }
+  }, [profilePicturePreview])
+
+  const handleProfilePictureSelect = (file, previewUrl) => {
+    console.log("Profile picture selected for onboarding:", file.name)
+    
+    // Cleanup previous preview
+    if (profilePicturePreview) {
+      URL.revokeObjectURL(profilePicturePreview)
+    }
+    
+    setSelectedProfilePicture(file)
+    setProfilePicturePreview(previewUrl)
+  }
+
+  // FIXED: Complete onboarding with address and phone data
   const completeOnboarding = async (formData = {}) => {
     setIsSubmitting(true)
 
     try {
       console.log("Starting onboarding completion...")
 
-      // CRITICAL FIX: Based on seed data evidence
-      // Seed shows: isOnboarded: true = completed onboarding
-      // So we need to send onboarded: true to mark as completed
+      // Step 1: Upload profile picture first if selected
+      if (selectedProfilePicture) {
+        console.log("Uploading profile picture...")
+        try {
+          await api.organization.updateProfilePicture(selectedProfilePicture)
+          console.log("Profile picture uploaded successfully")
+        } catch (error) {
+          console.error("Profile picture upload failed:", error)
+          // Continue with onboarding even if profile picture fails
+          toast.error("Foto profil gagal diupload, tapi onboarding akan dilanjutkan")
+        }
+      }
+
+      // Step 2: Complete onboarding with address and phone data
       const payload = {
         onboarded: true, // Mark onboarding as completed
       }
 
-      // Add organizational data if provided
-      if (formData.address?.trim() || (formData.phone?.trim() && !isEmptyPhone(formData.phone))) {
-        payload.organizationData = {}
-        
+      // Only add address and phone if form data is provided (not skipped)
+      if (formData && typeof formData === 'object') {
         if (formData.address?.trim()) {
-          payload.organizationData.address = formData.address.trim()
+          payload.address = formData.address.trim()
         }
         
         if (formData.phone?.trim() && !isEmptyPhone(formData.phone)) {
-          payload.organizationData.phone = formData.phone.trim()
+          payload.phone = formData.phone.trim()
         }
       }
 
-      console.log("Sending payload:", payload)
+      console.log("Sending onboarding payload:", payload)
 
       // Call API
       const response = await api.organization.updateProfile(payload)
-      console.log("API Response:", response)
+      console.log("Onboarding API Response:", response)
 
       if (response?.status === "success") {
         // Clear cache and redirect
@@ -124,6 +278,7 @@ const OnboardingForm = () => {
   }
 
   const onSubmit = async (data) => {
+    console.log("Form submitted with data:", data)
     setPhoneValidationError("")
 
     // Validate phone if provided
@@ -140,7 +295,53 @@ const OnboardingForm = () => {
 
   const handleSkip = async () => {
     console.log("Skipping onboarding form...")
-    await completeOnboarding() // Skip with no form data
+    setIsSubmitting(true)
+    
+    try {
+      // Upload profile picture if selected
+      if (selectedProfilePicture) {
+        console.log("Uploading profile picture during skip...")
+        try {
+          await api.organization.updateProfilePicture(selectedProfilePicture)
+          console.log("Profile picture uploaded during skip")
+        } catch (error) {
+          console.error("Profile picture upload failed during skip:", error)
+          toast.error("Foto profil gagal diupload")
+        }
+      }
+      
+      // Complete onboarding without form data - only send onboarded: true
+      const payload = { onboarded: true }
+      console.log("Sending skip payload:", payload)
+      
+      const response = await api.organization.updateProfile(payload)
+      console.log("Skip API Response:", response)
+
+      if (response?.status === "success") {
+        // Clear cache and redirect
+        queryClient.clear()
+        await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+
+        // Wait for cache refresh then redirect
+        setTimeout(() => {
+          const orgType = getOrganizationType()
+          const redirectPath = orgType === "school" 
+            ? "/organization/school/dashboard"
+            : orgType === "company"
+            ? "/organization/company/dashboard"
+            : "/"
+          
+          console.log(`Onboarding skipped! Redirecting to: ${redirectPath}`)
+          window.location.replace(redirectPath)
+        }, 1000)
+      } else {
+        throw new Error("API response unsuccessful")
+      }
+    } catch (error) {
+      console.error("Skip onboarding failed:", error)
+      alert("Gagal melewati onboarding. Silakan coba lagi.")
+      setIsSubmitting(false)
+    }
   }
 
   const handlePhoneChange = (value, field) => {
@@ -200,11 +401,12 @@ const OnboardingForm = () => {
             Lengkapi Profil
           </h2>
 
-          {/* Profile Picture */}
+          {/* Profile Picture Upload - ONBOARDING VERSION */}
           <div className="flex flex-col items-start">
-            <ProfilePictureUpload
+            <OnboardingProfilePictureUpload
               currentProfilePicture={user?.profilePicture || null}
               organizationType={user?.organization?.type || "school"}
+              onFileSelect={handleProfilePictureSelect}
             />
           </div>
 

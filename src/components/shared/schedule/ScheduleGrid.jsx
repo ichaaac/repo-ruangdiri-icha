@@ -1,11 +1,118 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - Fixed Current Time & 30min Dividers
+// src/components/shared/schedule/ScheduleGrid.jsx - Fixed Z-Index & Schedule Cards
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+
+// Dummy data berdasarkan Figma design
+const dummyScheduleData = {
+  "Senin": [
+    {
+      id: "sen1",
+      name: "Armani",
+      startTime: "06:00",
+      endTime: "08:00",
+      platform: "Zoom",
+      type: "seminar", // Maps to "#FF886D"
+      color: "#FF886D"
+    },
+    {
+      id: "sen2", 
+      name: "Armani",
+      startTime: "08:30",
+      endTime: "12:30",
+      platform: "Zoom",
+      type: "other", // Maps to "#979797"
+      color: "#979797"
+    },
+    {
+      id: "sen3",
+      name: "Armani", 
+      startTime: "12:30",
+      endTime: "14:00",
+      platform: "Zoom",
+      type: "counseling", // Maps to "#9986FF"
+      color: "#9986FF"
+    }
+  ],
+  "Selasa": [], // Kosong seperti di Figma
+  "Rabu": [
+    {
+      id: "rab1",
+      name: "Armani",
+      startTime: "06:00", 
+      endTime: "08:30",
+      platform: "Zoom",
+      type: "class", // Maps to "#3CE69E"
+      color: "#3CE69E"
+    },
+    {
+      id: "rab2",
+      name: "Armani",
+      startTime: "08:30",
+      endTime: "11:00", 
+      platform: "Zoom",
+      type: "meeting", // Maps to "#3399E9"
+      color: "#3399E9"
+    },
+    {
+      id: "rab3",
+      name: "Bahlil Nikel",
+      startTime: "11:00",
+      endTime: "13:00",
+      platform: "Zoom", 
+      type: "seminar", // Maps to "#FF886D"
+      color: "#FF886D"
+    },
+    {
+      id: "rab4",
+      name: "Armani",
+      startTime: "13:00",
+      endTime: "14:00",
+      platform: "Offline",
+      type: "counseling", // Maps to "#9986FF"
+      color: "#9986FF"
+    }
+  ],
+  "Kamis": [
+    {
+      id: "kam1",
+      name: "Sarah Johnson",
+      startTime: "09:00",
+      endTime: "10:30", 
+      platform: "Teams",
+      type: "meeting", // Maps to "#3399E9"
+      color: "#3399E9"
+    }
+  ],
+  "Jumat": [
+    {
+      id: "jum1", 
+      name: "Team Meeting",
+      startTime: "10:00",
+      endTime: "11:30",
+      platform: "Google Meet",
+      type: "meeting", // Maps to "#3399E9"
+      color: "#3399E9"
+    }
+  ],
+  "Sabtu": [
+    {
+      id: "sab1",
+      name: "Workshop",
+      startTime: "08:00", 
+      endTime: "12:00",
+      platform: "Offline",
+      type: "class", // Maps to "#3CE69E"
+      color: "#3CE69E"
+    }
+  ],
+  "Minggu": []
+};
 
 const ScheduleGrid = ({ 
   onTimeSlotSelect, 
   containerWidth = 808,
-  sidebarExpanded = false 
+  sidebarExpanded = false,
+  selectedDates = [] // Prop untuk tanggal yang dipilih dari DatePicker
 }) => {
   const [selectedArea, setSelectedArea] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -16,6 +123,7 @@ const ScheduleGrid = ({
   const animationFrameRef = useRef(null);
   const lastMousePosRef = useRef(null);
 
+  // Base dimensions (Figma: 808x254)
   const baseWidth = 808;
   const baseHeight = 254;
   const actualWidth = Math.max(baseWidth, containerWidth);
@@ -50,6 +158,57 @@ const ScheduleGrid = ({
     return slots;
   }, []);
 
+  // Get schedule data for selected dates or show all if none selected
+  const getScheduleToDisplay = useMemo(() => {
+    if (selectedDates.length === 0) {
+      // Jika tidak ada tanggal dipilih, tampilkan semua data
+      return dummyScheduleData;
+    }
+    
+    const scheduleData = {};
+    selectedDates.forEach(date => {
+      const dayName = days[date.getDay()]?.full;
+      if (dayName && dummyScheduleData[dayName]) {
+        scheduleData[dayName] = dummyScheduleData[dayName];
+      }
+    });
+    return scheduleData;
+  }, [selectedDates, days]);
+
+  // Check if a time slot is occupied by existing schedule
+  const isTimeSlotOccupied = useCallback((dayIndex, hour, minute = 0) => {
+    const dayName = days[dayIndex]?.full;
+    if (!dayName || !getScheduleToDisplay[dayName]) return false;
+
+    const currentTimeInMinutes = hour * 60 + minute;
+    
+    return getScheduleToDisplay[dayName].some(event => {
+      const [startHour, startMinute] = event.startTime.split(':').map(Number);
+      const [endHour, endMinute] = event.endTime.split(':').map(Number);
+      
+      const eventStartMinutes = startHour * 60 + startMinute;
+      const eventEndMinutes = endHour * 60 + endMinute;
+      
+      return currentTimeInMinutes >= eventStartMinutes && currentTimeInMinutes < eventEndMinutes;
+    });
+  }, [days, getScheduleToDisplay]);
+
+  // Convert time string to position
+  const timeToPosition = useCallback((timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const hourIndex = getHourDisplayIndex(hours);
+    const basePosition = hourIndex * HOUR_WIDTH;
+    const minuteOffset = (minutes / 60) * HOUR_WIDTH;
+    return basePosition + minuteOffset;
+  }, []);
+
+  // Convert time string to width
+  const calculateEventWidth = useCallback((startTime, endTime) => {
+    const startPos = timeToPosition(startTime);
+    const endPos = timeToPosition(endTime);
+    return endPos - startPos;
+  }, [timeToPosition]);
+
   // FIXED: Convert actual hour to display index
   const getHourDisplayIndex = useCallback((hour) => {
     if (hour >= 6 && hour <= 22) {
@@ -62,12 +221,21 @@ const ScheduleGrid = ({
     return 0;
   }, []);
 
+  // FIXED: 30-minute dividers - now positioned BETWEEN hours, not overlapping
   const halfHourDividers = useMemo(() => {
-    return Array.from({ length: 24 }, (_, i) => ({
-      position: (i + 1) * HOUR_WIDTH
-    }));
-  }, []);
-  
+    const dividers = [];
+    
+    // Create dividers between each hour (not in the middle of hours)
+    for (let hourIndex = 0; hourIndex < timeSlots.length - 1; hourIndex++) {
+      const position = (hourIndex + 1) * HOUR_WIDTH; // Position at the boundary between hours
+      dividers.push({
+        position,
+        hourIndex,
+      });
+    }
+    
+    return dividers;
+  }, [timeSlots.length]);
 
   // FIXED: Convert display index to actual hour
   const getActualHour = useCallback((index) => {
@@ -177,7 +345,7 @@ const ScheduleGrid = ({
     });
   }, [isDragging, getInfoFromPosition, days.length]);
 
-  // OPTIMIZED: Mouse down handler with debugging
+  // OPTIMIZED: Mouse down handler with debugging and occupied slot check
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -193,6 +361,12 @@ const ScheduleGrid = ({
     });
     
     if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
+      // Check if this time slot is already occupied
+      if (isTimeSlotOccupied(info.dayIndex, info.hour)) {
+        console.log('Time slot occupied, cannot select');
+        return;
+      }
+
       setIsDragging(true);
       setDragStartPos({ x: e.clientX, y: e.clientY });
       setSelectedArea({
@@ -205,7 +379,7 @@ const ScheduleGrid = ({
       });
       lastMousePosRef.current = `${info.dayIndex}-${info.hourIndex}`;
     }
-  }, [getInfoFromPosition, days]);
+  }, [getInfoFromPosition, days, isTimeSlotOccupied]);
 
   // OPTIMIZED: Mouse up handler
   const handleMouseUp = useCallback((e) => {
@@ -361,17 +535,17 @@ const ScheduleGrid = ({
                 </div>
               ))}
               
-              {/* FIXED: 30-minute dividers with correct positioning and scroll compensation */}
+              {/* FIXED: 30-minute dividers - now positioned BETWEEN hours */}
               {halfHourDividers.map((divider, i) => (
                 <div 
                   key={`divider-30min-${i}`}
                   className="absolute pointer-events-none bg-red-400" 
                   style={{ 
-                    left: `${divider.position}px`,
-                    top: '40%',
-                    width: '1px',
-                    height: '8px',
-                    zIndex: 15
+                    left: `${divider.position - 1}px`, // Position at boundary between hours
+                    top: '20%',
+                    width: '2px',
+                    height: '60%',
+                    zIndex: 2 // Lower than current time line
                   }}
                 />
               ))}
@@ -380,14 +554,14 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* FIXED: Current time line - stays in place during scroll */}
+        {/* FIXED: Current time line - higher z-index than dividers but lower than day column */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
             left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
             bottom: '0px',
-            zIndex: 40,
+            zIndex: 15, // Higher than dividers (2) but lower than day column (60)
             width: '2px'
           }}
         >
@@ -417,15 +591,22 @@ const ScheduleGrid = ({
           onScroll={handleScroll}
         >
           <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (24 * HOUR_WIDTH)}px` }}>
-            {/* Fixed Day Column */}
+            {/* FIXED: Day Column with higher z-index */}
             <div 
-              className="flex-shrink-0 bg-white sticky left-0 z-5"
-              style={{ width: `${DAY_COLUMN_WIDTH}px` }}
+              className="flex-shrink-0 bg-white sticky left-0"
+              style={{ 
+                width: `${DAY_COLUMN_WIDTH}px`,
+                zIndex: 60 // Highest z-index to stay above everything including current time line
+              }}
             >
               {days.map((day, index) => (
                 <div 
                   key={day.short} 
-                  className="flex items-center justify-center"
+                  className={`flex items-center justify-center border-b border-zinc-100 ${
+                    selectedDates.length > 0 && selectedDates.some(date => days[date.getDay()]?.short === day.short) 
+                      ? 'bg-blue-50 font-bold' 
+                      : ''
+                  }`}
                   style={{ height: `${DAY_ROW_HEIGHT}px` }}
                 >
                   <span className="text-base font-bold text-neutral-600">
@@ -448,7 +629,7 @@ const ScheduleGrid = ({
               <div
                 className="absolute inset-0 cursor-pointer"
                 style={{ 
-                  zIndex: 5,
+                  zIndex: 5, // Lower than schedule events and current time line
                   backgroundColor: 'transparent'
                 }}
                 onMouseDown={handleMouseDown}
@@ -468,9 +649,79 @@ const ScheduleGrid = ({
                 )
               ))}
 
+              {/* Render Schedule Events */}
+              {Object.entries(getScheduleToDisplay).map(([dayName, events]) => {
+                const dayIndex = days.findIndex(d => d.full === dayName);
+                if (dayIndex === -1) return null;
+
+                return events.map((event, eventIndex) => {
+                  const left = timeToPosition(event.startTime);
+                  const width = calculateEventWidth(event.startTime, event.endTime);
+                  const top = dayIndex * DAY_ROW_HEIGHT + 5; // Small padding
+                  const height = DAY_ROW_HEIGHT - 10; // Small padding
+
+                  return (
+                    <div
+                      key={`${event.id}-${eventIndex}`}
+                      className="absolute rounded-md px-2 py-1 pointer-events-none"
+                      style={{
+                        left: `${left}px`,
+                        top: `${top}px`,
+                        width: `${width}px`,
+                        height: `${height}px`,
+                        backgroundColor: event.color,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        zIndex: 30 // Higher than current time line (15) and mouse overlay (5)
+                      }}
+                    >
+                      <div className="text-white text-xs font-semibold truncate">
+                        {event.name}
+                      </div>
+                      <div className="text-white text-xs truncate">
+                        {event.startTime} - {event.endTime} WIB | {event.platform}
+                      </div>
+                    </div>
+                  );
+                });
+              })}
+
+              {/* Show "Belum ada jadwal" for empty rows when specific dates selected */}
+              {selectedDates.length > 0 && days.map((day, dayIndex) => {
+                const hasEvents = getScheduleToDisplay[day.full] && getScheduleToDisplay[day.full].length > 0;
+                const isDaySelected = selectedDates.some(date => days[date.getDay()]?.full === day.full);
+                
+                if (isDaySelected && !hasEvents) {
+                  const top = dayIndex * DAY_ROW_HEIGHT + 5;
+                  const height = DAY_ROW_HEIGHT - 10;
+                  
+                  return (
+                    <div
+                      key={`empty-${dayIndex}`}
+                      className="absolute rounded-md px-2 py-1 pointer-events-none flex items-center justify-center"
+                      style={{
+                        left: '200px',
+                        top: `${top}px`,
+                        width: '200px',
+                        height: `${height}px`,
+                        backgroundColor: 'transparent',
+                        zIndex: 25 // Between mouse overlay and schedule events
+                      }}
+                    >
+                      <div className="text-gray-400 text-xs">
+                        Belum ada jadwal
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+
               {selectionBox}
 
-            </div>
+          </div>
           </div>
         </div>
       </div>

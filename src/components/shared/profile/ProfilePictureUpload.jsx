@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/profile/ProfilePictureUpload.jsx
 
 import { useState, useRef, useEffect } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -10,6 +10,16 @@ import { toast } from "sonner"
 // --- KOMPONEN MODAL DENGAN LAYOUT YANG DIPOLES ---
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading }) => {
   if (!isOpen) return null
+
+  const handleClose = () => {
+    console.log("Confirmation modal closed by user - no upload occurred")
+    onClose()
+  }
+
+  const handleConfirm = () => {
+    console.log("User confirmed upload")
+    onConfirm()
+  }
 
   return (
     <div
@@ -26,7 +36,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
         {/* Konten Atas dengan Padding */}
         <div className="p-6 text-center relative">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isUploading}
             className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
           >
@@ -50,7 +60,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
         {/* Tombol Aksi di Bawah dengan Padding */}
         <div className="w-full p-6 pt-4">
           <button
-            onClick={onConfirm}
+            onClick={handleConfirm}
             disabled={isUploading}
             className="w-full h-12 px-6 bg-primary text-white font-bold rounded-full hover:bg-primary-variant1 transition-colors disabled:bg-gray-400 flex items-center justify-center"
           >
@@ -62,7 +72,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
   )
 }
 
-const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "school" }) => {
+const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "school", isOnboarding = false }) => {
   const fileInputRef = useRef(null)
   const [previewImage, setPreviewImage] = useState(currentProfilePicture)
   const [isHovering, setIsHovering] = useState(false)
@@ -99,18 +109,15 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
     maxWidth: "200px",
   }
 
-  // FIXED: Upload foto profil saja, JANGAN ubah status onboarding
+  // FIXED: Upload foto profil dengan handling khusus untuk onboarding
   const uploadProfilePicture = useMutation({
     mutationFn: async (file) => {
       const token = localStorage.getItem("token")
       if (!token) throw new Error("No authentication token found")
 
-      // PERBAIKAN: Gunakan API endpoint khusus untuk upload foto profil
       return api.organization.updateProfilePicture(file)
     },
     onSuccess: (response) => {
-      // PERBAIKAN: Hanya refresh user data, JANGAN redirect
-      queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       toast.success("Foto profil berhasil diubah!")
 
       const newImageUrl = response?.data?.profilePicture || response?.data?.organization?.profilePicture
@@ -120,8 +127,14 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
       }
       handleCloseConfirmation()
 
-      // HAPUS redirect logic dari sini!
-      // User tetap di halaman onboarding
+      // PERBAIKAN: Jika dalam mode onboarding, JANGAN invalidate user query
+      // untuk menghindari auto-redirect karena perubahan status onboarding
+      if (!isOnboarding) {
+        // ProfilePage: Normal auto-save behavior dengan query invalidation
+        queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+      }
+      // OnboardingForm: TIDAK ada query update, cuma local state update
+      // Ini mencegah auto-trigger useEffect yang bisa submit form
     },
     onError: (error) => {
       const message = error.response?.data?.message || "Gagal mengupload foto profil."
@@ -130,24 +143,25 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
     },
   })
 
-  // Kembalikan semua copytext validasi ke yang asli
   const handleFileChange = (e) => {
     const file = e.target.files[0]
-    if (!file) return
+    if (!file) {
+      console.log("No file selected - user canceled file picker")
+      return
+    }
 
+    console.log("File selected:", file.name)
     e.target.value = ""
 
-    // KEMBALIKAN copytext validasi yang asli
     if (!allowedTypes.includes(file.type)) {
       toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
-      return // LANGSUNG return, jangan buka modal preview
+      return
     }
     if (file.size > maxSize) {
       toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
-      return // LANGSUNG return, jangan buka modal preview
+      return
     }
 
-    // Jika validasi lolos, baru buka modal preview
     const previewUrl = URL.createObjectURL(file)
     setSelectedFile(file)
     setTempPreviewUrl(previewUrl)
@@ -157,6 +171,8 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
 
   const handleButtonClick = () => {
     if (uploadProfilePicture.isPending) return
+    
+    console.log("Profile picture button clicked - opening file picker")
     fileInputRef.current.click()
   }
 
@@ -167,12 +183,18 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   }
 
   const handleCloseConfirmation = () => {
+    // PERBAIKAN: Pastikan hanya cleanup state, TIDAK ada query invalidation
+    console.log("Modal closed without upload - no side effects should occur")
+    
     setShowConfirmation(false)
     setSelectedFile(null)
     if (tempPreviewUrl) {
       URL.revokeObjectURL(tempPreviewUrl)
       setTempPreviewUrl(null)
     }
+    
+    // TIDAK ada queryClient.invalidateQueries di sini!
+    // Ini hanya dipanggil saat user close modal tanpa upload
   }
 
   const getFallbackIcon = () => {

@@ -1,6 +1,3 @@
-// src/components/shared/list/utils/listHelpers.js
-import React from 'react'
-
 /**
  * Truncate text with ellipsis
  * @param {string} text - Text to truncate
@@ -10,27 +7,6 @@ import React from 'react'
 export const truncateText = (text, maxLength = 30) => {
   if (!text) return ""
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text
-}
-
-/**
- * Highlight search terms in text
- * @param {string} text - Text to highlight
- * @param {string} searchTerm - Search term
- * @returns {React.Element|string} Highlighted text
- */
-export const highlightSearchTerm = (text, searchTerm) => {
-  if (!searchTerm || !text) return text
-
-  const parts = text.split(new RegExp(`(${searchTerm})`, "gi"))
-  return parts.map((part, i) =>
-    part.toLowerCase() === searchTerm.toLowerCase() ? (
-      <span key={i} className="font-bold bg-yellow-200">
-        {part}
-      </span> 
-    ) : (
-      part
-    ),
-  )
 }
 
 /**
@@ -80,9 +56,8 @@ export const getScreeningStatusInfo = (status) => {
       bgColor: "bg-gray-50",
       text: "Belum Skrining",
       iconClass: "material-icons text-[24px] leading-none align-middle mr-1.5 text-gray-500",
-    }
+    },
   }
-
   return statusMap[status] || statusMap.stable
 }
 
@@ -95,7 +70,7 @@ export const getCounselingStatusInfo = (status) => {
   return {
     text: status ? "Sudah" : "Belum",
     color: status ? "text-[#6DAF31]" : "text-[#EE4266]",
-    bgColor: status ? "bg-green-50" : "bg-red-50"
+    bgColor: status ? "bg-green-50" : "bg-red-50",
   }
 }
 
@@ -108,10 +83,8 @@ export const getCounselingStatusInfo = (status) => {
 export const calculateTableWidth = (sidebarExpanded, type = "student") => {
   const sidebarWidth = sidebarExpanded ? 237 : 60
   const availableWidth = window.innerWidth - sidebarWidth - 48
-
   if (availableWidth <= 768) return "100%"
   if (availableWidth <= 1024) return "100%"
-
   const minWidth = type === "student" ? 800 : 900
   return `${Math.max(availableWidth, minWidth)}px`
 }
@@ -123,13 +96,13 @@ export const calculateTableWidth = (sidebarExpanded, type = "student") => {
  */
 export const formatDate = (dateString) => {
   if (!dateString) return "-"
-  
+
   try {
     const date = new Date(dateString)
-    return date.toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return date.toLocaleDateString("id-ID", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     })
   } catch (e) {
     return dateString || "-"
@@ -144,7 +117,7 @@ export const formatDate = (dateString) => {
 export const getGenderDisplay = (gender) => {
   const genderMap = {
     male: "L",
-    female: "P"
+    female: "P",
   }
   return genderMap[gender] || "-"
 }

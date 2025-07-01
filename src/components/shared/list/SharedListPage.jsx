@@ -2,7 +2,7 @@
 import { useState, useRef } from "react"
 import { AnimatePresence } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"
-import { useList } from "./hooks/useList" // ENHANCEMENT: Use integrated hook
+import { useList } from "./hooks/useList" 
 import SharedTable from "./SharedTable"
 import FloatingTableScrollbar from "./FloatingTableScrollbar"
 import TopRightControl from "../layout/TopRightControl"
@@ -15,12 +15,8 @@ const SharedListPage = ({
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState("")
   const [showFilterModal, setShowFilterModal] = useState(false)
-  const tableRef = useRef(null)
-  
-  // ENHANCEMENT: Use the integrated hooks
+  const tableRef = useRef(null)  
   const { data, filters, sort, edit, options } = useList(type, searchTerm)
-  
-  // Local state for filter inputs (temporary before applying)
   const [filtersInput, setFiltersInput] = useState(filters.filters)
 
   const config = {
@@ -48,7 +44,7 @@ const SharedListPage = ({
 
   const currentConfig = config[type]
 
-  // Handle filter operations
+// Handle filter operations
   const handleFilterSelect = (filterType, value) => {
     // Special handling for dependent filters
     if (type === "student" && filterType === "classroom") {
@@ -66,7 +62,6 @@ const SharedListPage = ({
   }
 
   const handleApplyFilters = () => {
-    // Apply all filters at once
     Object.entries(filtersInput).forEach(([key, value]) => {
       filters.updateFilter(key, value)
     })
@@ -94,7 +89,6 @@ const SharedListPage = ({
     filters.clearAllFilters()
   }
 
-  // Reset filter inputs when modal opens
   const handleOpenFilterModal = () => {
     setFiltersInput(filters.filters)
     setShowFilterModal(true)

@@ -1,17 +1,16 @@
-// src/components/shared/list/SharedTable.jsx
+"use client"
 
 import React, { useState, useRef, useCallback, forwardRef, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Menu, Transition } from "@headlessui/react"
 import useDebounce from "@/hooks/useDebounce"
 import clsx from "clsx"
-import { 
-  truncateText, 
-  highlightSearchTerm, 
-  getScreeningStatusInfo, 
+import {
+  truncateText,
+  getScreeningStatusInfo,
   getCounselingStatusInfo,
-  getGenderDisplay 
-} from '../list/utils/listHelpers'
+  getGenderDisplay,
+} from "../list/utils/listHelpers"
 
 const CustomDropdown = ({ name, value, onChange, options, className = "", disabled = false }) => {
   const currentOption = options.find((opt) => (opt.value !== undefined ? opt.value : opt) === value)
@@ -82,9 +81,9 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
                     onClick={() => handleSelect(optionValue)}
                     className={clsx(
                       "w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center justify-between",
-                        "transition-colors duration-100",
-                        active ? "bg-[#E2F9FF]" : "",
-                        isSelected ? "bg-[#E2F9FF] text-[#488BBE] font-medium" : ""
+                      "transition-colors duration-100",
+                      active ? "bg-[#E2F9FF]" : "",
+                      isSelected ? "bg-[#E2F9FF] text-[#488BBE] font-medium" : "",
                     )}
                     style={{ backgroundColor: active ? "#E2F9FF" : "white" }}
                   >
@@ -164,6 +163,24 @@ const SharedTable = forwardRef(
     const observerRef = useRef(null)
     const contentRef = useRef(null)
 
+    const debouncedHighlightSearch = useDebounce(searchInput, 300) // 400ms delay for highlighting
+
+    // Highlight search function - moved directly into component
+    const highlightSearchTerm = (text, searchTerm) => {
+      if (!searchTerm || !text) return text
+
+      // Escape special regex characters in search term
+      const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+      // Replace matching text with highlighted HTML
+      const highlightedText = text.replace(
+        new RegExp(`(${escapedSearchTerm})`, "gi"),
+        '<span class="font-bold bg-yellow-200 px-1 rounded">$1</span>',
+      )
+
+      return highlightedText
+    }
+
     const tableConfig = {
       student: {
         emptyIcon: "school",
@@ -182,10 +199,10 @@ const SharedTable = forwardRef(
     useEffect(() => {
       const updateTableLayout = () => {
         if (contentRef.current) {
-          contentRef.current.style.width = 'auto'
+          contentRef.current.style.width = "auto"
           setTimeout(() => {
             if (contentRef.current) {
-              contentRef.current.style.width = '100%'
+              contentRef.current.style.width = "100%"
             }
           }, 10)
         }
@@ -199,9 +216,9 @@ const SharedTable = forwardRef(
     const tableContainerRef = useCallback(
       (node) => {
         contentRef.current = node
-        
+
         if (ref) {
-          if (typeof ref === 'function') {
+          if (typeof ref === "function") {
             ref(node)
           } else {
             ref.current = node
@@ -233,18 +250,18 @@ const SharedTable = forwardRef(
         e.preventDefault()
         e.stopPropagation()
       }
-    
+
       if (editHook?.editingItemId !== null) return
-    
+
       window.open(`${config.detailPath}/${id}`, "_blank")
     }
 
     const startEditing = (id) => {
-      setHoveredEdit(null) 
+      setHoveredEdit(null)
       if (editHook?.editingItemId) return
       const item = data.find((d) => d.id === id)
       if (!item) return
-  
+
       editHook?.startEditing(id, item)
     }
 
@@ -274,9 +291,12 @@ const SharedTable = forwardRef(
         }
       }
 
-      updateItem.mutate({ id, data: changes }, { 
-        onSuccess: () => editHook?.stopEditing() 
-      })
+      updateItem.mutate(
+        { id, data: changes },
+        {
+          onSuccess: () => editHook?.stopEditing(),
+        },
+      )
     }
 
     const handleEditChange = (e) => {
@@ -286,7 +306,7 @@ const SharedTable = forwardRef(
 
     const debouncedSearchInput = useDebounce(searchInput, 7000)
     const isDebouncingSearch = searchInput !== debouncedSearchInput
-    
+
     const hasChanges = editHook?.hasUnsavedChanges() && editHook?.editData?.fullName?.trim()
 
     const LinearGradientDivider = () => (
@@ -295,7 +315,8 @@ const SharedTable = forwardRef(
           <div
             style={{
               height: "1px",
-              background: "linear-gradient(to right, rgba(255,255,255,0), rgba(72,139,190,0.2) 20%, rgba(72,139,190,0.4) 50%, rgba(72,139,190,0.2) 80%, rgba(255,255,255,0))",
+              background:
+                "linear-gradient(to right, rgba(255,255,255,0), rgba(72,139,190,0.2) 20%, rgba(72,139,190,0.4) 50%, rgba(72,139,190,0.2) 80%, rgba(255,255,255,0))",
             }}
           />
         </td>
@@ -345,10 +366,16 @@ const SharedTable = forwardRef(
                 </th>
                 {type === "student" ? (
                   <>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "120px" }}
+                    >
                       KELAS
                     </th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "120px" }}
+                    >
                       JENIS KELAMIN
                     </th>
                     <th
@@ -357,7 +384,7 @@ const SharedTable = forwardRef(
                     >
                       <div className="flex items-center justify-center gap-1">
                         <span>NIS</span>
-                        <span 
+                        <span
                           className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
                           onClick={() => requestSort("nis")}
                         >
@@ -371,7 +398,7 @@ const SharedTable = forwardRef(
                     >
                       <div className="flex items-center justify-center gap-1">
                         <span>SKOR IQ</span>
-                        <span 
+                        <span
                           className="material-icons text-sm text-gray-400 cursor-pointer hover:text-[#3399e9] transition-colors"
                           onClick={() => requestSort("iqScore")}
                         >
@@ -382,13 +409,22 @@ const SharedTable = forwardRef(
                   </>
                 ) : (
                   <>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "150px" }}>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "150px" }}
+                    >
                       DEPARTEMEN
                     </th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "150px" }}>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "150px" }}
+                    >
                       JABATAN
                     </th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                    <th
+                      className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                      style={{ minWidth: "120px" }}
+                    >
                       JENIS KELAMIN
                     </th>
                     <th
@@ -421,7 +457,10 @@ const SharedTable = forwardRef(
                     </th>
                   </>
                 )}
-                <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                <th
+                  className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                  style={{ minWidth: "120px" }}
+                >
                   <div className="flex items-center justify-center">
                     SKRINING
                     <span
@@ -435,7 +474,10 @@ const SharedTable = forwardRef(
                     <HelpTooltip helpIconRef={helpIconRef} showHelpTooltip={showHelpTooltip} />
                   </div>
                 </th>
-                <th className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap" style={{ minWidth: "120px" }}>
+                <th
+                  className="px-3 py-2 text-center text-xs font-medium text-[#488BBE] uppercase tracking-wider whitespace-nowrap"
+                  style={{ minWidth: "120px" }}
+                >
                   KONSELING
                 </th>
                 <th className="px-3 py-2 text-center whitespace-nowrap" style={{ minWidth: "80px" }}></th>
@@ -461,15 +503,23 @@ const SharedTable = forwardRef(
                             className="text-sm font-medium text-gray-900 border border-gray-300 rounded-md px-2 py-1 w-full min-w-[200px] hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                           />
                         ) : (
-                        <div
-                          className="text-sm font-medium text-gray-900 transition-colors"
-                          onClick={(e) => handleNameClick(item.id, e)}
-                          title={item.fullName}
-                        >
-                          <span className="cursor-pointer hover:text-[#488BBE] transition-colors">
-                            {truncateText(item.fullName, 30)}
-                          </span>
-                        </div>
+                          <div
+                            className="text-sm font-medium text-gray-900 transition-colors"
+                            onClick={(e) => handleNameClick(item.id, e)}
+                            title={item.fullName}
+                          >
+                            <span className="cursor-pointer hover:text-[#488BBE] transition-colors">
+                              {/* Use debounced search for highlighting */}
+                              <span
+                                dangerouslySetInnerHTML={{
+                                  __html: highlightSearchTerm(
+                                    truncateText(item.fullName, 30),
+                                    debouncedHighlightSearch,
+                                  ),
+                                }}
+                              />
+                            </span>
+                          </div>
                         )}
                       </td>
                       {type === "student" ? (
@@ -529,7 +579,14 @@ const SharedTable = forwardRef(
                                 className="text-sm text-gray-600 border border-gray-300 rounded-md px-2 py-1 w-16 sm:w-24 text-center hover:border-[#488BBE] focus:outline-none focus:border-[#488BBE] focus:ring-1 focus:ring-[#488BBE] transition-[border-color,box-shadow] duration-150"
                               />
                             ) : (
-                              <div className="text-sm text-gray-600">{item.nis}</div>
+                              <div className="text-sm text-gray-600">
+                                {/* Use debounced search for highlighting */}
+                                <span
+                                  dangerouslySetInnerHTML={{
+                                    __html: highlightSearchTerm(item.nis, debouncedHighlightSearch),
+                                  }}
+                                />
+                              </div>
                             )}
                           </td>
                           <td className="px-3 py-2 text-center whitespace-nowrap">
@@ -563,7 +620,15 @@ const SharedTable = forwardRef(
                               </div>
                             ) : (
                               <div className="text-sm text-gray-600 truncate" title={item.department}>
-                                {truncateText(item.department, 20)}
+                                {/* Use debounced search for highlighting */}
+                                <span
+                                  dangerouslySetInnerHTML={{
+                                    __html: highlightSearchTerm(
+                                      truncateText(item.department, 20),
+                                      debouncedHighlightSearch,
+                                    ),
+                                  }}
+                                />
                               </div>
                             )}
                           </td>
@@ -580,7 +645,15 @@ const SharedTable = forwardRef(
                               </div>
                             ) : (
                               <div className="text-sm text-gray-600 truncate" title={item.position}>
-                                {truncateText(item.position, 20)}
+                                {/* Use debounced search for highlighting */}
+                                <span
+                                  dangerouslySetInnerHTML={{
+                                    __html: highlightSearchTerm(
+                                      truncateText(item.position, 20),
+                                      debouncedHighlightSearch,
+                                    ),
+                                  }}
+                                />
                               </div>
                             )}
                           </td>
@@ -663,54 +736,51 @@ const SharedTable = forwardRef(
                         </span>
                       </td>
                       <td className="px-3 py-2 text-center whitespace-nowrap">
-                        <span className={clsx("text-sm", counselingUI.color)}>
-                          {counselingUI.text}
-                        </span>
+                        <span className={clsx("text-sm", counselingUI.color)}>{counselingUI.text}</span>
                       </td>
-                        <td className="px-3 py-2 text-center relative whitespace-nowrap">
-                          {isEditing ? (
-                            <div className="flex items-center justify-center">
-                              {/* UBAH BAGIAN INI LAGI YAK */}
-                              <div className="flex items-center relative -translate-x-[22px]"> {/* BALIKIN: translate-x dengan nilai baru */}
-                                <button
-                                  className={clsx(
-                                    "w-9 h-9 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
-                                    updateItem.isPending && "opacity-50 cursor-not-allowed",
-                                  )}
-                                  onClick={cancelEditing}
-                                  disabled={updateItem.isPending}
-                                >
-                                  <span className="material-icons text-2xl">cancel</span>
-                                </button>
-                                <button
-                                  className={clsx(
-                                    "w-9 h-9 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
-                                    (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
-                                  )}
-                                  onClick={() => saveEditing(item.id)}
-                                  disabled={!hasChanges || updateItem.isPending}
-                                >
-                                  <span className="material-icons text-2xl">check_circle</span>
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
+                      <td className="px-3 py-2 text-center relative whitespace-nowrap">
+                        {isEditing ? (
                           <div className="flex items-center justify-center">
-                           <button
-                          className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors"
-                          onClick={() => startEditing(item.id)}
-                          disabled={editHook?.editingItemId !== null}
-                          onMouseEnter={(e) => {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setHoveredEdit({
-                              x: rect.left + rect.width / 2,
-                              y: rect.top,
-                            });
-                          }}
-                          onMouseLeave={() => setHoveredEdit(null)}
-                        >
-                          <span className="material-icons text-lg">edit</span>
-                        </button>
+                            <div className="flex items-center relative -translate-x-[22px]">
+                              <button
+                                className={clsx(
+                                  "w-9 h-9 flex items-center justify-center rounded-full text-[#EE4266] hover:text-[#b53434] hover:bg-red-50 transition-colors",
+                                  updateItem.isPending && "opacity-50 cursor-not-allowed",
+                                )}
+                                onClick={cancelEditing}
+                                disabled={updateItem.isPending}
+                              >
+                                <span className="material-icons text-2xl">cancel</span>
+                              </button>
+                              <button
+                                className={clsx(
+                                  "w-9 h-9 flex items-center justify-center rounded-full text-[#9BCA61] hover:text-[#6DAF31] hover:bg-green-50 transition-colors",
+                                  (!hasChanges || updateItem.isPending) && "opacity-50 cursor-not-allowed",
+                                )}
+                                onClick={() => saveEditing(item.id)}
+                                disabled={!hasChanges || updateItem.isPending}
+                              >
+                                <span className="material-icons text-2xl">check_circle</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center">
+                            <button
+                              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-[#488BBE] hover:bg-blue-50 transition-colors"
+                              onClick={() => startEditing(item.id)}
+                              disabled={editHook?.editingItemId !== null}
+                              onMouseEnter={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                setHoveredEdit({
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.top,
+                                })
+                              }}
+                              onMouseLeave={() => setHoveredEdit(null)}
+                            >
+                              <span className="material-icons text-lg">edit</span>
+                            </button>
                           </div>
                         )}
                       </td>
@@ -739,22 +809,22 @@ const SharedTable = forwardRef(
           )}
         </AnimatePresence>
         <AnimatePresence>
-  {hoveredEdit && (
-    <motion.div
-      className="fixed bg-black/80 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-[9999] shadow-lg"
-      style={{
-        left: hoveredEdit.x,
-        top: hoveredEdit.y - 35,
-        transform: "translateX(-50%)"
-      }}
-      initial={{ opacity: 0, y: -5 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -5 }}
-    >
-      Edit
-    </motion.div>
-  )}
-</AnimatePresence>
+          {hoveredEdit && (
+            <motion.div
+              className="fixed bg-black/80 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-[9999] shadow-lg"
+              style={{
+                left: hoveredEdit.x,
+                top: hoveredEdit.y - 35,
+                transform: "translateX(-50%)",
+              }}
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+            >
+              Edit
+            </motion.div>
+          )}
+        </AnimatePresence>
         {data.length === 0 && !isFetchingNextPage && !isDebouncingSearch && (
           <div className="text-center py-8">
             <span className="material-icons text-gray-400 text-4xl">{config.emptyIcon}</span>

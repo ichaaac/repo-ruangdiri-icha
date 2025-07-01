@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js - FIXED API CALL ISSUE
+// src/hooks/useAuth.js - FIXED AUTO REFETCH ISSUE
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -48,9 +48,11 @@ export const useAuth = () => {
     },
     retry: false,
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    staleTime: 1 * 60 * 1000, // 1 minute - shorter to catch updates faster
-    cacheTime: 5 * 60 * 1000, // 5 minutes
+    // FIXED: Ubah refetchOnMount jadi false untuk mencegah auto-refetch saat di onboarding
+    refetchOnMount: false,
+    // FIXED: Perbesar staleTime untuk mencegah refetch yang tidak perlu
+    staleTime: 10 * 60 * 1000, // 10 minutes - lebih lama untuk stability
+    cacheTime: 15 * 60 * 1000, // 15 minutes
   })
 
   const login = useMutation({
