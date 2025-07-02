@@ -154,7 +154,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
         console.log("Fetching schedules with params:", formattedParams)
 
-        const response = await apiClient.get("/v1/schedules", {
+        const response = await apiClient.get("/schedules", {
           params: formattedParams,
         })
 
@@ -178,7 +178,7 @@ export const createScheduleApi = (organizationType = "school") => {
       try {
         console.log("Checking schedule availability:", params)
 
-        const response = await apiClient.post("/v1/schedules/check-exists", {
+        const response = await apiClient.post("/schedules/check-exists", {
           date: params.date,
           startTime: params.startTime,
           endTime: params.endTime,
@@ -236,7 +236,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
         console.log("Creating schedule with data:", transformedData)
 
-        const response = await apiClient.post("/v1/schedules", transformedData)
+        const response = await apiClient.post("/schedules", transformedData)
         return response
       } catch (error) {
         console.error("Error creating schedule:", error)
@@ -263,7 +263,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
         console.log("Updating schedule with data:", transformedData)
 
-        const response = await apiClient.patch(`/v1/schedules/${scheduleId}`, transformedData)
+        const response = await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
         return response
       } catch (error) {
         console.error("Error updating schedule:", error)
@@ -273,7 +273,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async deleteSchedule(scheduleId) {
       try {
-        const response = await apiClient.delete(`/v1/schedules/${scheduleId}`)
+        const response = await apiClient.delete(`/schedules/${scheduleId}`)
         return response
       } catch (error) {
         console.error("Error deleting schedule:", error)
@@ -286,7 +286,7 @@ export const createScheduleApi = (organizationType = "school") => {
         console.log("Fetching counseling queue...")
 
         // Updated endpoint for counseling queue
-        const response = await apiClient.get("/v1/counselings", { params })
+        const response = await apiClient.get("/counselings", { params })
 
         if (response.data?.status === "success") {
           return {
@@ -306,7 +306,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async getScheduleById(scheduleId) {
       try {
-        const response = await apiClient.get(`/v1/schedules/${scheduleId}`)
+        const response = await apiClient.get(`/schedules/${scheduleId}`)
 
         if (response.data?.status === "success") {
           return {

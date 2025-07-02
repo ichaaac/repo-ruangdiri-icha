@@ -42,15 +42,14 @@ const ScheduleGrid = ({
 
   const timeSlots = useMemo(() => {
     const slots = [];
-    for (let i = 6; i <= 22; i++) {
-      slots.push(`${i.toString().padStart(2, '0')}:00`);
-    }
-    slots.push('23:00');
-    for (let i = 0; i <= 5; i++) {
+    // Sesuaikan dengan AddScheduleModal: 6 AM - 9:55 PM (22:00 tidak termasuk dalam options)
+    for (let i = 6; i < 24; i++) {
       slots.push(`${i.toString().padStart(2, '0')}:00`);
     }
     return slots;
   }, []);
+
+ 
 
   // Helper functions - defined before useMemo that uses them
   const getTypeColor = useCallback((type) => {
@@ -73,33 +72,35 @@ const ScheduleGrid = ({
     return timezoneMap[timezone] || "WIB";
   }, []);
 
-  const getHourDisplayIndex = useCallback((hour) => {
-    if (hour >= 6 && hour <= 22) {
-      return hour - 6;
-    } else if (hour === 23) {
-      return 17;
-    } else if (hour >= 0 && hour <= 5) {
-      return hour + 18; 
-    }
-    return 0;
-  }, []);
+const getHourDisplayIndex = useCallback((hour) => {
+  // Biar gak return 0 sembarangan kalau hour di luar range
+  return Math.max(0, Math.min(18, hour - 6));
+}, []);
 
-  const getActualHour = useCallback((index) => {
-    if (index >= 0 && index <= 16) {
-      return index + 6;
-    } else if (index === 17) {
-      return 23;
-    } else if (index >= 18 && index <= 23) {
-      return index - 18;
-    }
-    return 6;
-  }, []);
+
+const getActualHour = useCallback((index) => {
+  if (index >= 0 && index <= 18) return (index + 6) % 24;
+  return 6;
+}, []);
+
+
+const halfHourDividers = useMemo(() => {
+  const dividers = [];
+  for (let i = 0; i < timeSlots.length - 1; i++) { // terakhir di antara 23:00-00:00
+    const position = i * HOUR_WIDTH + HOUR_WIDTH / -3.5;
+    dividers.push({ position, hourIndex: i });
+  }
+  return dividers;
+}, [timeSlots.length]);
+
+
 
   const timeToPosition = useCallback((timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     const hourIndex = getHourDisplayIndex(hours);
     const basePosition = hourIndex * HOUR_WIDTH;
     const minuteOffset = (minutes / 60) * HOUR_WIDTH;
+    // Remove 30-minute offset - schedule cards should be at exact time position
     return basePosition + minuteOffset;
   }, [getHourDisplayIndex]);
 
@@ -193,28 +194,21 @@ const ScheduleGrid = ({
     return false;
   }, [isTimeSlotOccupied]);
 
-  // Dividers calculation
-  const halfHourDividers = useMemo(() => {
-    const dividers = [];
-    for (let hourIndex = 0; hourIndex < timeSlots.length - 1; hourIndex++) {
-      const position = (hourIndex + 1) * HOUR_WIDTH;
-      dividers.push({ position, hourIndex });
-    }
-    return dividers;
-  }, [timeSlots.length]);
+const getCurrentTimePosition = useCallback(() => {
+  const now = currentTime;
+  const hour = now.getHours();
+  const minutes = now.getMinutes();
 
-  // Current time functions
-  const getCurrentTimePosition = useCallback(() => {
-    const now = currentTime;
-    const currentHour = now.getHours();
-    const currentMinutes = now.getMinutes();
-    
-    const hourDisplayIndex = getHourDisplayIndex(currentHour);
-    const basePosition = hourDisplayIndex * HOUR_WIDTH;
-    const minuteOffset = (currentMinutes / 60) * HOUR_WIDTH;
-    
-    return basePosition + minuteOffset;
-  }, [currentTime, getHourDisplayIndex]);
+  const startHour = 6; // sesuai grid lo mulai dari jam 06:00
+  const hourOffset = hour - startHour;
+  const minuteOffset = (minutes / 60);
+
+  const totalOffset = hourOffset + minuteOffset;
+  return totalOffset * HOUR_WIDTH; // ← ⬅️ ini yang penting banget
+}, [currentTime]);
+
+
+
 
   const getCurrentTimeString = useCallback(() => {
     const now = currentTime;
@@ -242,7 +236,8 @@ const ScheduleGrid = ({
     const hourIndex = Math.floor(gridX / HOUR_WIDTH);
     const dayIndex = Math.floor(gridY / DAY_ROW_HEIGHT);
 
-    if (hourIndex < 0 || hourIndex >= 24 || dayIndex < 0 || dayIndex >= days.length) {
+    // Sesuaikan dengan timeSlots baru (16 slots: 6AM-9PM)
+    if (hourIndex < 0 || hourIndex >= timeSlots.length || dayIndex < 0 || dayIndex >= days.length) {
       return null;
     }
 
@@ -253,13 +248,19 @@ const ScheduleGrid = ({
     const minuteWithinHour = Math.floor((pixelWithinHour / HOUR_WIDTH) * 60);
     const actualMinute = Math.floor(minuteWithinHour / 5) * 5; // Round to 5-minute intervals
     
+    // Calculate exact pixel position for smooth dragging
+    const exactPixelX = gridX;
+    const exactPixelY = gridY;
+    
     return { 
       hour: actualHour, 
       minute: actualMinute,
       hourIndex, 
-      dayIndex 
+      dayIndex,
+      exactPixelX,
+      exactPixelY
     };
-  }, [getActualHour, days.length]);
+  }, [getActualHour, days.length, timeSlots.length]);
 
   // Enhanced mouse event handlers with 5-minute precision
   const handleOptimizedMouseMove = useCallback((e) => {
@@ -280,7 +281,9 @@ const ScheduleGrid = ({
             endDay: info.dayIndex, 
             endHour: info.hour,
             endMinute: info.minute,
-            endHourIndex: info.hourIndex
+            endHourIndex: info.hourIndex,
+            endPixelX: info.exactPixelX,
+            endPixelY: info.exactPixelY
           }));
         }
       }
@@ -309,7 +312,11 @@ const ScheduleGrid = ({
         startMinute: info.minute,
         endMinute: info.minute,
         startHourIndex: info.hourIndex,
-        endHourIndex: info.hourIndex
+        endHourIndex: info.hourIndex,
+        startPixelX: info.exactPixelX,
+        endPixelX: info.exactPixelX,
+        startPixelY: info.exactPixelY,
+        endPixelY: info.exactPixelY
       });
       lastMousePosRef.current = `${info.dayIndex}-${info.hourIndex}-${info.minute}`;
     }
@@ -429,29 +436,30 @@ const ScheduleGrid = ({
     setScrollLeft(newScrollLeft);
   }, []);
 
-  // Selection box rendering with original design
+  // Selection box rendering with exact pixel positioning
   const selectionBox = useMemo(() => {
     if (!selectedArea) return null;
 
     const startDayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
     const endDayIndex = Math.max(selectedArea.startDay, selectedArea.endDay);
-    const startHourIndex = Math.min(selectedArea.startHourIndex || 0, selectedArea.endHourIndex || 0);
-    const endHourIndex = Math.max(selectedArea.startHourIndex || 0, selectedArea.endHourIndex || 0);
+    
+    // Use exact pixel positions for more precise selection
+    const startPixelX = Math.min(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
+    const endPixelX = Math.max(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
 
     const top = startDayIndex * DAY_ROW_HEIGHT;
     const height = (endDayIndex - startDayIndex + 1) * DAY_ROW_HEIGHT;
-    const left = startHourIndex * HOUR_WIDTH;
-    const width = (endHourIndex - startHourIndex + 1) * HOUR_WIDTH;
+    const left = startPixelX;
+    const width = Math.max(endPixelX - startPixelX, 10); // Minimum 10px width
 
     return (
       <div
-        className="absolute bg-blue-400/20 border-2 border-blue-500 rounded-sm pointer-events-none z-20"
-        style={{ top, left, width, height }}
+        className="absolute bg-blue-400/20 border-2 border-blue-500 rounded-sm pointer-events-none"
+        style={{ top, left, width, height, zIndex: 40 }}
       />
     );
   }, [selectedArea]);
 
-  // Effects
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -480,6 +488,7 @@ const ScheduleGrid = ({
         height: `${actualHeight}px`,
         overflow: 'hidden'
       }}
+      
     >
       {/* Header */}
       <div className="flex items-center px-5 py-3 border-b border-zinc-200" style={{ height: `${HEADER_HEIGHT}px` }}>
@@ -504,99 +513,80 @@ const ScheduleGrid = ({
         
         {/* Fixed Time Header */}
         <div 
-          className="absolute top-0 bg-white border-b border-zinc-200 z-10"
+          className="absolute top-0 bg-white border-b border-zinc-200"
           style={{ 
             left: `${DAY_COLUMN_WIDTH}px`,
             right: '0px',
             height: `${TIME_HEADER_HEIGHT}px`,
-            overflow: 'hidden'
+            overflow: 'hidden',
+            zIndex: 10
           }}
         >
           <div className="h-full" style={{ overflow: 'hidden' }}>
             <div 
               className="flex relative h-full"
               style={{ 
-                width: `${24 * HOUR_WIDTH}px`,
-                minWidth: `${24 * HOUR_WIDTH}px`, 
+                width: `${timeSlots.length * HOUR_WIDTH}px`,
+                minWidth: `${timeSlots.length * HOUR_WIDTH}px`, 
                 transform: `translateX(-${scrollLeft}px)`
               }}
             >
               {timeSlots.map((time, i) => (
                 <div 
                   key={time} 
-                  className="flex-shrink-0 text-center relative"
+                  className="flex-shrink-0 relative"
                   style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
                 >
-                  <span className="text-sm text-neutral-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <span className="text-sm text-neutral-600 absolute top-1/2 transform -translate-y-1/2"
+                  >
                     {time}
                   </span>
                 </div>
               ))}
               
-              {/* 30-minute dividers */}
-              {halfHourDividers.map((divider, i) => (
-                <div 
-                  key={`divider-30min-${i}`}
-                  className="absolute pointer-events-none bg-red-400" 
-                  style={{ 
-                    left: `${divider.position - 1}px`,
-                    top: '20%',
-                    width: '2px',
-                    height: '60%',
-                    zIndex: 2
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+                  {/* 30-minute dividers */}
+            {halfHourDividers.map((divider, i) => (
+              <div 
+                key={`divider-30min-${i}`}
+                className="absolute pointer-events-none bg-red-400" 
+                style={{ 
+                  left: `${divider.position }px`,
+                  top: '40%',
+                  width: '1px',         // ✅ from 1px → 2px
+                  height: '8px',        // ✅ from 60% → 4px
+                  zIndex: 2
+                }}
+              />
+            ))}
 
-        {/* Current time line - ENHANCED Z-INDEX */}
-        <div 
-          className="absolute pointer-events-none" 
-          style={{ 
-            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
-            top: `${TIME_HEADER_HEIGHT}px`,
-            bottom: '0px',
-            zIndex: 50, // HIGHER than schedule cards (z-30)
-            width: '2px'
-          }}
-        >
-          <div className="relative w-full h-full bg-red-500">
-            <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full" 
-                 style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
-            
-            <div className="absolute" style={{ left: '6px', top: '2px' }}>
-              <div className="bg-black bg-opacity-80 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-lg">
-                {getCurrentTimeString()}
-              </div>
             </div>
           </div>
         </div>
 
         {/* Scrollable Content Area */}
-        <div 
-          ref={viewportRef}
-          className="absolute inset-0"
-          style={{ 
-            top: `${TIME_HEADER_HEIGHT}px`,
-            overflowX: 'scroll',
-            overflowY: 'auto'
-          }}
-          onScroll={handleScroll}
-        >
-          <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (24 * HOUR_WIDTH)}px` }}>
-            {/* Day Column - SIMPLIFIED CLASSES */}
+  {/* Scrollable Content Area with higher z-index than current-time indicator */}
+<div 
+  className="absolute inset-0 z-[999]" 
+  style={{ top: `${TIME_HEADER_HEIGHT}px` }}
+>
+  <div
+    ref={viewportRef}
+    className="w-full h-full overflow-x-scroll overflow-y-auto"
+    onScroll={handleScroll}
+  >
+          <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (timeSlots.length * HOUR_WIDTH)}px` }}>
+            {/* Day Column */}
             <div 
               className="flex-shrink-0 bg-white sticky left-0"
               style={{ 
                 width: `${DAY_COLUMN_WIDTH}px`,
-                zIndex: 60
+                zIndex: 15
               }}
             >
               {days.map((day, index) => (
                 <div 
                   key={day.short} 
+                  className="flex items-center justify-center"
                   style={{ height: `${DAY_ROW_HEIGHT}px` }}
                 >
                   <span className="text-base font-bold text-neutral-600">
@@ -610,9 +600,9 @@ const ScheduleGrid = ({
             <div 
               className="relative"
               style={{ 
-                width: `${24 * HOUR_WIDTH}px`, 
+                width: `${timeSlots.length * HOUR_WIDTH}px`, 
                 height: `${days.length * DAY_ROW_HEIGHT}px`,
-                minWidth: `${24 * HOUR_WIDTH}px`
+                minWidth: `${timeSlots.length * HOUR_WIDTH}px`
               }}
             >
               {/* Mouse event overlay */}
@@ -639,7 +629,7 @@ const ScheduleGrid = ({
                 )
               ))}
 
-              {/* Render Schedule Events with TIMEZONE DISPLAY */}
+              {/* Render Schedule Events */}
               {Object.entries(getScheduleToDisplay).map(([dayName, events]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -664,7 +654,7 @@ const ScheduleGrid = ({
                         flexDirection: 'column',
                         justifyContent: 'center',
                         overflow: 'hidden',
-                        zIndex: 30 // Lower than current time indicator (z-50)
+                        zIndex: 12 // Lower than day column (15)
                       }}
                     >
                       <div className="text-white text-xs font-semibold truncate">
@@ -697,7 +687,7 @@ const ScheduleGrid = ({
                         width: '200px',
                         height: `${height}px`,
                         backgroundColor: 'transparent',
-                        zIndex: 25
+                        zIndex: 8
                       }}
                     >
                       <div className="text-gray-400 text-xs">
@@ -710,12 +700,38 @@ const ScheduleGrid = ({
               })}
 
               {selectionBox}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Current time line - OUTSIDE SCROLLABLE CONTAINER FOR FIXED POSITION */}
+        <div 
+          className="absolute pointer-events-none" 
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
+            top: `${TIME_HEADER_HEIGHT}px`,
+            bottom: '0px',
+            zIndex: 50,
+            width: '2px'
+          }}
+        >
+          <div className="relative w-full h-full bg-red-500">
+            <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full" 
+                 style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
+            
+            <div className="absolute" style={{ left: '6px', top: '2px' }}>
+              <div className="bg-black bg-opacity-80 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-lg">
+                {getCurrentTimeString()}
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+    
   );
 };
+
 
 export default ScheduleGrid;

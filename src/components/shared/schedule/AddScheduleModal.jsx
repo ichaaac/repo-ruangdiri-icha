@@ -67,10 +67,10 @@ const AddScheduleModal = ({
     { label: "Organisasi", value: "organization" }
   ];
 
-  // Generate time options with 5-minute intervals
+  // Generate time options with 5-minute intervals - SESUAIKAN DENGAN SCHEDULEGRID (6 AM - 9:55 PM)
   const generateTimeOptions = () => {
     const times = [];
-    for (let hour = 6; hour < 22; hour++) {
+    for (let hour = 6; hour < 22; hour++) { // 6 AM to 9 PM (21:55 max)
       for (let minute = 0; minute < 60; minute += 5) {
         const hourStr = hour.toString().padStart(2, '0');
         const minuteStr = minute.toString().padStart(2, '0');
@@ -87,30 +87,44 @@ const AddScheduleModal = ({
     if (initialData) {
       const isMultipleDays = initialData.dates && initialData.dates.length > 1;
       
+      // Handle data from drag selection
+      let startTime = "09:00";
+      let endTime = "10:00";
+      let date = new Date().toISOString().split('T')[0];
+
+      if (initialData.startDateTime) {
+        const startDate = new Date(initialData.startDateTime);
+        startTime = startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        date = startDate.toISOString().split('T')[0];
+      }
+
+      if (initialData.endDateTime) {
+        const endDate = new Date(initialData.endDateTime);
+        endTime = endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      // Handle data from multi-day drag
+      if (initialData.dates && initialData.dates.length > 0) {
+        date = initialData.dates[0].date;
+        startTime = initialData.dates[0].startTime;
+        endTime = initialData.dates[0].endTime;
+      }
+      
       setFormData({
         agenda: initialData.agenda || "",
         type: initialData.type || "counseling",
-        date: initialData.startDateTime ? 
-          new Date(initialData.startDateTime).toISOString().split('T')[0] : 
-          new Date().toISOString().split('T')[0],
-        startTime: initialData.startDateTime ? 
-          new Date(initialData.startDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 
-          "09:00",
-        endTime: initialData.endDateTime ? 
-          new Date(initialData.endDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 
-          "10:00",
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
         timezone: initialData.timezone || "Asia/Jakarta",
         notificationOffset: initialData.notificationOffset || 60,
-        multipleDate: isMultipleDays,
+        multipleDate: isMultipleDays || (initialData.draggedDays > 1),
         additionalDates: initialData.dates?.slice(1) || [],
         userEmails: initialData.participants?.map(p => p.email) || initialData.userEmails || [],
         locations: initialData.location ? [initialData.location] : [],
         description: initialData.description || ""
       });
     } else {
-      // Check if data comes from multi-day drag
-      const isMultipleDays = initialData?.draggedDays > 1;
-      
       setFormData({
         agenda: "",
         type: "counseling",
@@ -119,8 +133,8 @@ const AddScheduleModal = ({
         endTime: "10:00",
         timezone: "Asia/Jakarta",
         notificationOffset: 60,
-        multipleDate: isMultipleDays,
-        additionalDates: isMultipleDays ? (initialData?.dates?.slice(1) || []) : [],
+        multipleDate: false,
+        additionalDates: [],
         userEmails: [],
         locations: [],
         description: ""
@@ -143,6 +157,18 @@ const AddScheduleModal = ({
     
     if (validationErrors[field]) {
       setValidationErrors(prev => ({ ...prev, [field]: null }));
+    }
+
+    // Auto-adjust end time if start time changes and end time is before start time
+    if (field === 'startTime') {
+      const startTimeIndex = timeOptions.indexOf(value);
+      const endTimeIndex = timeOptions.indexOf(formData.endTime);
+      
+      if (startTimeIndex >= endTimeIndex) {
+        // Set end time to at least 5 minutes after start time
+        const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
+        setFormData(prev => ({ ...prev, [field]: value, endTime: timeOptions[newEndTimeIndex] }));
+      }
     }
   };
 
@@ -198,6 +224,18 @@ const AddScheduleModal = ({
   const updateAdditionalDate = (index, field, value) => {
     const newDates = [...formData.additionalDates];
     newDates[index] = { ...newDates[index], [field]: value };
+    
+    // Auto-adjust end time for additional dates
+    if (field === 'startTime') {
+      const startTimeIndex = timeOptions.indexOf(value);
+      const endTimeIndex = timeOptions.indexOf(newDates[index].endTime);
+      
+      if (startTimeIndex >= endTimeIndex) {
+        const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
+        newDates[index].endTime = timeOptions[newEndTimeIndex];
+      }
+    }
+    
     handleInputChange('additionalDates', newDates);
   };
 
@@ -240,14 +278,21 @@ const AddScheduleModal = ({
       errors.userEmails = "Minimal satu peserta harus ditambahkan untuk konseling";
     }
     
-    if (formData.startTime >= formData.endTime) {
+    // Check if start time is before end time
+    const startTimeIndex = timeOptions.indexOf(formData.startTime);
+    const endTimeIndex = timeOptions.indexOf(formData.endTime);
+    
+    if (startTimeIndex >= endTimeIndex) {
       errors.time = "Waktu selesai harus lebih besar dari waktu mulai";
     }
 
     // Validate additional dates
     if (formData.multipleDate) {
       formData.additionalDates.forEach((dateSlot, index) => {
-        if (dateSlot.startTime >= dateSlot.endTime) {
+        const startIdx = timeOptions.indexOf(dateSlot.startTime);
+        const endIdx = timeOptions.indexOf(dateSlot.endTime);
+        
+        if (startIdx >= endIdx) {
           errors[`additionalTime_${index}`] = "Waktu selesai harus lebih besar dari waktu mulai";
         }
       });
@@ -495,6 +540,11 @@ const AddScheduleModal = ({
                         )}
                       </div>
                       <span className="text-[#535353]">Multiple Date</span>
+                      {formData.multipleDate && (
+                        <span className="text-gray-500 text-xs">
+                          (dari drag selection)
+                        </span>
+                      )}
                     </div>
 
                     {/* Additional Date Fields */}

@@ -204,20 +204,6 @@ const SchedulePage = ({ type = "school" }) => {
       >
         <div className="max-w-none mx-auto space-y-6">
 
-          {/* Loading indicator */}
-          {loading.schedules && (
-            <div className="fixed top-20 right-6 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg z-50">
-              Loading schedules...
-            </div>
-          )}
-
-          {/* Error indicator */}
-          {error.schedules && (
-            <div className="fixed top-20 right-6 bg-red-500 text-white px-4 py-2 rounded-md shadow-lg z-50">
-              Error: {error.schedules}
-            </div>
-          )}
-
           {/* MAIN LAYOUT */}
           <div className={`grid transition-all duration-300 ${
             isDesktop 
