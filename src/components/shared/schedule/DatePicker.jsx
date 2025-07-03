@@ -1,5 +1,3 @@
-// src/components/shared/schedule/DatePicker.jsx - Fixed Current Date Highlighting & Month Behavior
-
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -150,14 +148,17 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  // Handle date click - select entire week and stay in the clicked date's month
+  // Handle date click - FIXED CROSS-MONTH WEEK SELECTION
   const handleDateClick = (day) => {
+    // For dates not in current month, navigate to that month first but don't select
     if (!day.isCurrentMonth) {
-      // If clicking on a date from previous/next month, navigate to that month first
       const newDate = new Date(day.fullDate)
       setCurrentDate(newDate)
       setSelectedYear(newDate.getFullYear())
       setSelectedMonth(newDate.getMonth())
+      // Clear any previous selection when navigating
+      setSelectedDates([])
+      onDateSelect([])
       return
     }
     
@@ -194,14 +195,9 @@ const DatePicker = ({
     
     setSelectedDates(newSelectedDates);
     
-    // IMPORTANT: Keep the current view month as the clicked date's month
-    // Don't change currentDate to maintain month view
-    const clickedDate = new Date(day.fullDate)
-    if (clickedDate.getMonth() !== currentDate.getMonth() || clickedDate.getFullYear() !== currentDate.getFullYear()) {
-      setCurrentDate(clickedDate)
-      setSelectedYear(clickedDate.getFullYear())
-      setSelectedMonth(clickedDate.getMonth())
-    }
+    // IMPORTANT FIX: Don't change currentDate/month view when selecting dates
+    // Keep the calendar view stable in the current month
+    // Only update the internal date for display purposes, not the view
     
     // Notify parent components
     onDateSelect(newSelectedDates);
@@ -230,6 +226,25 @@ const DatePicker = ({
     setSelectedYear(prev => prev + direction)
   }
 
+  // Handle navigation arrows
+  const handlePreviousMonth = () => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(currentDate.getMonth() - 1)
+    setCurrentDate(newDate)
+    setSelectedMonth(newDate.getMonth())
+    setSelectedYear(newDate.getFullYear())
+    // Keep selected dates when navigating
+  }
+
+  const handleNextMonth = () => {
+    const newDate = new Date(currentDate)
+    newDate.setMonth(currentDate.getMonth() + 1)
+    setCurrentDate(newDate)
+    setSelectedMonth(newDate.getMonth())
+    setSelectedYear(newDate.getFullYear())
+    // Keep selected dates when navigating
+  }
+
   return (
     <div 
       ref={containerRef}
@@ -241,9 +256,27 @@ const DatePicker = ({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-2 py-2 bg-zinc-100 rounded-t-md flex-none">
-        <h3 className="text-sm font-bold text-neutral-600 truncate">
+        {/* Navigation Arrows */}
+        <button 
+          onClick={handlePreviousMonth}
+          className="hover:bg-zinc-200 p-1 rounded transition-colors"
+          title="Previous Month"
+        >
+          <span className="material-icons text-neutral-600 text-sm">chevron_left</span>
+        </button>
+
+        <h3 className="text-sm font-bold text-neutral-600 truncate flex-1 text-center">
           {getCurrentDayName()}, {currentDate.getDate()} {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
+
+        <button 
+          onClick={handleNextMonth}
+          className="hover:bg-zinc-200 p-1 rounded transition-colors mr-2"
+          title="Next Month"
+        >
+          <span className="material-icons text-neutral-600 text-sm">chevron_right</span>
+        </button>
+
         <button onClick={handleMonthYearClick} className="hover:bg-zinc-200 p-1 rounded transition-colors">
           <span className="material-icons text-neutral-600 text-sm">calendar_month</span>
         </button>
@@ -335,7 +368,7 @@ const DatePicker = ({
                 `} />
               )}
 
-              {/* Background for today's date - SAME COLOR AS SELECTION */}
+              {/* Background for today's date */}
               {day.isToday && !day.isSelected && (
                 <div className="absolute z-0 top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#488BBA] opacity-30" />
               )}
@@ -356,6 +389,13 @@ const DatePicker = ({
           ))}
         </div>
       </div>
+
+      {/* Week Selection Info */}
+      {selectedDates.length > 0 && (
+        <div className="px-2 py-1 text-xs text-center text-[#488BBA] bg-gray-50 rounded-b-md">
+          {selectedDates.length} hari dipilih
+        </div>
+      )}
     </div>
   )
 }

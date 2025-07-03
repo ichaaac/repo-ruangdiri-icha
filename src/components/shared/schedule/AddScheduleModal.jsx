@@ -1,5 +1,3 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - Enhanced UI & WYSIWYG Editor
-
 import { useState, useEffect, useRef } from "react";
 
 const AddScheduleModal = ({ 
@@ -7,7 +5,8 @@ const AddScheduleModal = ({
   onClose, 
   onSubmit, 
   initialData = null, 
-  loading = false 
+  loading = false,
+  mode = "create" // "create" or "edit"
 }) => {
   const [formData, setFormData] = useState({
     agenda: "",
@@ -39,7 +38,31 @@ const AddScheduleModal = ({
   const [validationErrors, setValidationErrors] = useState({});
   const editorRef = useRef(null);
 
-  // Event types - removed meeting
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isOpen]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        handleCancel();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
+
+  // Event types
   const eventTypes = [
     { label: "Konseling", value: "counseling", color: "#9986FF" },
     { label: "Kelas", value: "class", color: "#3CE69E" },
@@ -60,17 +83,16 @@ const AddScheduleModal = ({
     { label: "WIT", value: "Asia/Jayapura" }
   ];
 
-  // Location options - updated
   const locationOptions = [
     { label: "Online", value: "online" },
     { label: "Offline", value: "offline" },
     { label: "Organisasi", value: "organization" }
   ];
 
-  // Generate time options with 5-minute intervals - SESUAIKAN DENGAN SCHEDULEGRID (6 AM - 9:55 PM)
+  // Generate time options with 5-minute intervals (6 AM - 9:55 PM)
   const generateTimeOptions = () => {
     const times = [];
-    for (let hour = 6; hour < 22; hour++) { // 6 AM to 9 PM (21:55 max)
+    for (let hour = 6; hour < 22; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
         const hourStr = hour.toString().padStart(2, '0');
         const minuteStr = minute.toString().padStart(2, '0');
@@ -84,47 +106,116 @@ const AddScheduleModal = ({
 
   // Initialize form data
   useEffect(() => {
+    if (!isOpen) return;
+
+    console.log('Initializing AddScheduleModal:', { mode, initialData });
+
     if (initialData) {
-      const isMultipleDays = initialData.dates && initialData.dates.length > 1;
-      
-      // Handle data from drag selection
-      let startTime = "09:00";
-      let endTime = "10:00";
-      let date = new Date().toISOString().split('T')[0];
+      let formValues = {
+        agenda: "",
+        type: "counseling",
+        date: new Date().toISOString().split('T')[0],
+        startTime: "09:00",
+        endTime: "10:00",
+        timezone: "Asia/Jakarta",
+        notificationOffset: 60,
+        multipleDate: false,
+        additionalDates: [],
+        userEmails: [],
+        locations: [],
+        description: ""
+      };
 
-      if (initialData.startDateTime) {
-        const startDate = new Date(initialData.startDateTime);
-        startTime = startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        date = startDate.toISOString().split('T')[0];
+      // Extract data based on mode
+      if (mode === "edit") {
+        // Edit mode - extract from existing schedule
+        formValues.agenda = initialData.agenda || initialData.name || "";
+        formValues.type = initialData.type || "counseling";
+        formValues.timezone = initialData.timezone || "Asia/Jakarta";
+        formValues.notificationOffset = initialData.notificationOffset || 60;
+        formValues.description = initialData.description || "";
+
+        // Extract participants
+        if (initialData.participants && initialData.participants.length > 0) {
+          formValues.userEmails = initialData.participants.map(p => p.email || p.name).filter(Boolean);
+        } else if (initialData.userEmails && initialData.userEmails.length > 0) {
+          formValues.userEmails = [...initialData.userEmails];
+        }
+
+        // Extract location
+        if (initialData.location) {
+          const locationOption = locationOptions.find(opt => opt.value === initialData.location || opt.label === initialData.location);
+          if (locationOption) {
+            formValues.locations = [locationOption.value];
+          } else {
+            formValues.locations = [initialData.location];
+          }
+        }
+
+        // Extract dates and times
+        if (initialData.dates && initialData.dates.length > 0) {
+          const firstDate = initialData.dates[0];
+          formValues.date = firstDate.date;
+          formValues.startTime = firstDate.startTime;
+          formValues.endTime = firstDate.endTime;
+          formValues.timezone = firstDate.timezone || formValues.timezone;
+          
+          if (initialData.dates.length > 1) {
+            formValues.multipleDate = true;
+            formValues.additionalDates = initialData.dates.slice(1);
+          }
+        } else {
+          // Single date from datetime fields
+          if (initialData.startDateTime) {
+            const startDate = new Date(initialData.startDateTime);
+            formValues.date = startDate.toISOString().split('T')[0];
+            formValues.startTime = startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          } else if (initialData.date) {
+            formValues.date = initialData.date;
+          }
+
+          if (initialData.endDateTime) {
+            const endDate = new Date(initialData.endDateTime);
+            formValues.endTime = endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          } else if (initialData.startTime && initialData.endTime) {
+            formValues.startTime = initialData.startTime;
+            formValues.endTime = initialData.endTime;
+          }
+        }
+      } else {
+        // Create mode - extract from drag selection
+        if (initialData.startDateTime) {
+          const startDate = new Date(initialData.startDateTime);
+          formValues.startTime = startDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          formValues.date = startDate.toISOString().split('T')[0];
+        }
+
+        if (initialData.endDateTime) {
+          const endDate = new Date(initialData.endDateTime);
+          formValues.endTime = endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Handle multi-day drag
+        if (initialData.dates && initialData.dates.length > 0) {
+          formValues.date = initialData.dates[0].date;
+          formValues.startTime = initialData.dates[0].startTime;
+          formValues.endTime = initialData.dates[0].endTime;
+          formValues.timezone = initialData.dates[0].timezone || formValues.timezone;
+          
+          if (initialData.dates.length > 1) {
+            formValues.multipleDate = true;
+            formValues.additionalDates = initialData.dates.slice(1);
+          }
+        }
+
+        if (initialData.draggedDays > 1) {
+          formValues.multipleDate = true;
+        }
       }
 
-      if (initialData.endDateTime) {
-        const endDate = new Date(initialData.endDateTime);
-        endTime = endDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      }
-
-      // Handle data from multi-day drag
-      if (initialData.dates && initialData.dates.length > 0) {
-        date = initialData.dates[0].date;
-        startTime = initialData.dates[0].startTime;
-        endTime = initialData.dates[0].endTime;
-      }
-      
-      setFormData({
-        agenda: initialData.agenda || "",
-        type: initialData.type || "counseling",
-        date: date,
-        startTime: startTime,
-        endTime: endTime,
-        timezone: initialData.timezone || "Asia/Jakarta",
-        notificationOffset: initialData.notificationOffset || 60,
-        multipleDate: isMultipleDays || (initialData.draggedDays > 1),
-        additionalDates: initialData.dates?.slice(1) || [],
-        userEmails: initialData.participants?.map(p => p.email) || initialData.userEmails || [],
-        locations: initialData.location ? [initialData.location] : [],
-        description: initialData.description || ""
-      });
+      setFormData(formValues);
     } else {
+      // Reset form for new schedule
       setFormData({
         agenda: "",
         type: "counseling",
@@ -140,16 +231,50 @@ const AddScheduleModal = ({
         description: ""
       });
     }
+    
     setHasChanges(false);
     setValidationErrors({});
-  }, [initialData, isOpen]);
+    setUserInput("");
+    setLocationInput("");
+    
+    // Reset all dropdowns
+    setDropdowns({
+      type: false,
+      startTime: false,
+      endTime: false,
+      timezone: false,
+      notification: false,
+      location: false
+    });
+  }, [initialData, isOpen, mode]);
 
-  // Simple WYSIWYG editor implementation
+  // WYSIWYG editor implementation
   useEffect(() => {
     if (isOpen && editorRef.current) {
       editorRef.current.innerHTML = formData.description;
     }
   }, [isOpen, formData.description]);
+
+  // Close all dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.dropdown-container')) {
+        setDropdowns({
+          type: false,
+          startTime: false,
+          endTime: false,
+          timezone: false,
+          notification: false,
+          location: false
+        });
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [isOpen]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -159,13 +284,12 @@ const AddScheduleModal = ({
       setValidationErrors(prev => ({ ...prev, [field]: null }));
     }
 
-    // Auto-adjust end time if start time changes and end time is before start time
+    // Auto-adjust end time if start time changes
     if (field === 'startTime') {
       const startTimeIndex = timeOptions.indexOf(value);
       const endTimeIndex = timeOptions.indexOf(formData.endTime);
       
       if (startTimeIndex >= endTimeIndex) {
-        // Set end time to at least 5 minutes after start time
         const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
         setFormData(prev => ({ ...prev, [field]: value, endTime: timeOptions[newEndTimeIndex] }));
       }
@@ -184,21 +308,18 @@ const AddScheduleModal = ({
     setDropdowns(prev => ({ ...prev, [dropdown]: false }));
   };
 
-  // Handle description change from WYSIWYG editor
   const handleDescriptionChange = () => {
     if (editorRef.current) {
       handleInputChange('description', editorRef.current.innerHTML);
     }
   };
 
-  // Format text functions for WYSIWYG
   const formatText = (command, value = null) => {
     document.execCommand(command, false, value);
     editorRef.current.focus();
     handleDescriptionChange();
   };
 
-  // Add new date slot
   const addDateSlot = () => {
     const newSlot = {
       date: new Date().toISOString().split('T')[0],
@@ -209,23 +330,19 @@ const AddScheduleModal = ({
     handleInputChange('additionalDates', [...formData.additionalDates, newSlot]);
   };
 
-  // Remove date slot
   const removeDateSlot = (index) => {
     const newDates = formData.additionalDates.filter((_, i) => i !== index);
     handleInputChange('additionalDates', newDates);
     
-    // If no additional dates left, uncheck multiple date
     if (newDates.length === 0) {
       handleInputChange('multipleDate', false);
     }
   };
 
-  // Update additional date
   const updateAdditionalDate = (index, field, value) => {
     const newDates = [...formData.additionalDates];
     newDates[index] = { ...newDates[index], [field]: value };
     
-    // Auto-adjust end time for additional dates
     if (field === 'startTime') {
       const startTimeIndex = timeOptions.indexOf(value);
       const endTimeIndex = timeOptions.indexOf(newDates[index].endTime);
@@ -255,17 +372,6 @@ const AddScheduleModal = ({
     handleInputChange('userEmails', formData.userEmails.filter((_, i) => i !== index));
   };
 
-  const addLocation = () => {
-    if (locationInput.trim()) {
-      handleInputChange('locations', [...formData.locations, locationInput.trim()]);
-      setLocationInput("");
-    }
-  };
-
-  const removeLocation = (index) => {
-    handleInputChange('locations', formData.locations.filter((_, i) => i !== index));
-  };
-
   const validateForm = () => {
     const errors = {};
     
@@ -273,12 +379,10 @@ const AddScheduleModal = ({
       errors.agenda = "Agenda wajib diisi";
     }
     
-    // Only require participants for counseling
     if (formData.type === "counseling" && formData.userEmails.length === 0) {
       errors.userEmails = "Minimal satu peserta harus ditambahkan untuk konseling";
     }
     
-    // Check if start time is before end time
     const startTimeIndex = timeOptions.indexOf(formData.startTime);
     const endTimeIndex = timeOptions.indexOf(formData.endTime);
     
@@ -286,7 +390,6 @@ const AddScheduleModal = ({
       errors.time = "Waktu selesai harus lebih besar dari waktu mulai";
     }
 
-    // Validate additional dates
     if (formData.multipleDate) {
       formData.additionalDates.forEach((dateSlot, index) => {
         const startIdx = timeOptions.indexOf(dateSlot.startTime);
@@ -305,7 +408,6 @@ const AddScheduleModal = ({
   const handleSubmit = () => {
     if (!validateForm()) return;
     
-    // Prepare dates array for backend
     const dates = [{
       date: formData.date,
       startTime: formData.startTime,
@@ -317,7 +419,6 @@ const AddScheduleModal = ({
       dates.push(...formData.additionalDates);
     }
 
-    // Format data for backend API
     const submitData = {
       agenda: formData.agenda,
       type: formData.type,
@@ -328,8 +429,12 @@ const AddScheduleModal = ({
       dates: dates,
       timezone: formData.timezone
     };
+
+    if (mode === "edit" && initialData?.id) {
+      submitData.id = initialData.id;
+    }
     
-    console.log('Submitting schedule data:', submitData);
+    console.log(`${mode === "edit" ? "Updating" : "Creating"} schedule:`, submitData);
     onSubmit(submitData);
   };
 
@@ -341,6 +446,12 @@ const AddScheduleModal = ({
       }
     } else {
       onClose();
+    }
+  };
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      handleCancel();
     }
   };
 
@@ -365,10 +476,28 @@ const AddScheduleModal = ({
   if (!isOpen) return null;
 
   const showParticipants = formData.type === "counseling";
+  const modalTitle = mode === "edit" ? "Edit Jadwal" : "Tambah Jadwal";
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="flex flex-col justify-center items-center p-6 bg-white rounded-lg max-w-[558px] w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
+      style={{ zIndex: 9999 }}
+      onClick={handleOverlayClick}
+    >
+      <div className="flex flex-col justify-center items-center p-6 bg-white rounded-lg max-w-[558px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center w-full max-w-[508px] mb-4">
+          <h2 className="text-xl font-semibold text-[#488BBA]">{modalTitle}</h2>
+          <button
+            onClick={handleCancel}
+            disabled={loading}
+            className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+          >
+            <span className="material-icons text-[20px]">close</span>
+          </button>
+        </div>
+
         <div className="flex flex-col items-end w-full max-w-[508px]">
           <div className="flex flex-col items-end w-full">
             <div className="w-full">
@@ -387,7 +516,8 @@ const AddScheduleModal = ({
                         value={formData.agenda}
                         onChange={(e) => handleInputChange('agenda', e.target.value)}
                         placeholder="Masukkan agenda"
-                        className={`w-full pl-6 pr-2.5 py-3 text-base font-semibold rounded-md border border-gray-300 min-h-[35px] text-[#535353] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#488BBA] ${
+                        disabled={loading}
+                        className={`w-full pl-6 pr-2.5 py-3 text-base font-semibold rounded-md border border-gray-300 min-h-[35px] text-[#535353] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
                           validationErrors.agenda ? 'border-red-500' : ''
                         }`}
                       />
@@ -395,17 +525,18 @@ const AddScheduleModal = ({
                   </div>
 
                   {/* Event Type Dropdown */}
-                  <div className="relative">
+                  <div className="relative dropdown-container">
                     <button
-                      onClick={() => toggleDropdown('type')}
-                      className="flex items-center px-2.5 py-3 text-sm whitespace-nowrap rounded-md border border-gray-300 min-h-[35px] w-[113px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] text-[#535353]"
+                      onClick={() => !loading && toggleDropdown('type')}
+                      disabled={loading}
+                      className="flex items-center px-2.5 py-3 text-sm whitespace-nowrap rounded-md border border-gray-300 min-h-[35px] w-[113px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] text-[#535353] disabled:bg-gray-100"
                     >
                       <div className="flex gap-1.5 justify-center items-center w-full">
                         <span>{getSelectedEventType().label}</span>
                         <span className="material-icons text-xs font-bold">keyboard_arrow_down</span>
                       </div>
                     </button>
-                    {dropdowns.type && (
+                    {dropdowns.type && !loading && (
                       <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
                         {eventTypes.map((type) => (
                           <button
@@ -439,22 +570,24 @@ const AddScheduleModal = ({
                               type="date"
                               value={formData.date}
                               onChange={(e) => handleInputChange('date', e.target.value)}
-                              className="w-full bg-transparent outline-none text-[#535353] focus:ring-2 focus:ring-[#488BBA]"
+                              disabled={loading}
+                              className="w-full bg-transparent outline-none text-[#535353] focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                             />
                           </div>
 
                           {/* Time Inputs */}
                           <div className="flex gap-1.5 items-center">
                             {/* Start Time */}
-                            <div className="relative">
+                            <div className="relative dropdown-container">
                               <button
-                                onClick={() => toggleDropdown('startTime')}
-                                className="flex justify-center items-center py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                                onClick={() => !loading && toggleDropdown('startTime')}
+                                disabled={loading}
+                                className="flex justify-center items-center py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                               >
                                 <span className="text-sm">{formData.startTime}</span>
                                 <span className="material-icons text-xs ml-1 font-bold">keyboard_arrow_down</span>
                               </button>
-                              {dropdowns.startTime && (
+                              {dropdowns.startTime && !loading && (
                                 <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                   {timeOptions.map((time) => (
                                     <button
@@ -472,15 +605,16 @@ const AddScheduleModal = ({
                             <span className="text-base text-[#488BBA]">-</span>
 
                             {/* End Time */}
-                            <div className="relative">
+                            <div className="relative dropdown-container">
                               <button
-                                onClick={() => toggleDropdown('endTime')}
-                                className="flex justify-center items-center py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                                onClick={() => !loading && toggleDropdown('endTime')}
+                                disabled={loading}
+                                className="flex justify-center items-center py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                               >
                                 <span className="text-sm">{formData.endTime}</span>
                                 <span className="material-icons text-xs ml-1 font-bold">keyboard_arrow_down</span>
                               </button>
-                              {dropdowns.endTime && (
+                              {dropdowns.endTime && !loading && (
                                 <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
                                   {timeOptions.map((time) => (
                                     <button
@@ -496,15 +630,16 @@ const AddScheduleModal = ({
                             </div>
 
                             {/* Timezone */}
-                            <div className="relative">
+                            <div className="relative dropdown-container">
                               <button
-                                onClick={() => toggleDropdown('timezone')}
-                                className="flex justify-center items-center px-2.5 py-2.5 whitespace-nowrap rounded-md border border-gray-300 min-h-9 w-[66px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                                onClick={() => !loading && toggleDropdown('timezone')}
+                                disabled={loading}
+                                className="flex justify-center items-center px-2.5 py-2.5 whitespace-nowrap rounded-md border border-gray-300 min-h-9 w-[66px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                               >
                                 <span className="text-sm">{getTimezoneLabel()}</span>
                                 <span className="material-icons text-xs ml-1 font-bold">keyboard_arrow_down</span>
                               </button>
-                              {dropdowns.timezone && (
+                              {dropdowns.timezone && !loading && (
                                 <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
                                   {timezoneOptions.map((tz) => (
                                     <button
@@ -526,25 +661,28 @@ const AddScheduleModal = ({
                       <p className="text-red-500 text-xs mt-1 ml-8">{validationErrors.time}</p>
                     )}
 
-                    {/* Multiple Date Display (Read-only, controlled by drag) */}
+                    {/* Multiple Date Toggle */}
                     <div className="flex gap-2.5 items-center self-start ml-8 mt-2.5 text-xs">
-                      <div
-                        className={`flex shrink-0 w-3.5 h-3.5 border rounded-sm transition-colors ${
+                      <button
+                        type="button"
+                        onClick={() => !loading && handleInputChange('multipleDate', !formData.multipleDate)}
+                        disabled={loading}
+                        className={`flex shrink-0 w-3.5 h-3.5 border rounded-sm transition-colors disabled:opacity-50 ${
                           formData.multipleDate
                             ? 'bg-[#535353] border-[#000000]'
-                            : 'border-gray-400'
+                            : 'border-gray-400 hover:border-gray-600'
                         }`}
                       >
                         {formData.multipleDate && (
                           <span className="material-icons text-white text-xs leading-none">check</span>
                         )}
-                      </div>
-                      <span className="text-[#535353]">Multiple Date</span>
-                      {formData.multipleDate && (
-                        <span className="text-gray-500 text-xs">
-                          (dari drag selection)
-                        </span>
-                      )}
+                      </button>
+                      <span 
+                        className={`text-[#535353] cursor-pointer ${loading ? 'opacity-50' : ''}`}
+                        onClick={() => !loading && handleInputChange('multipleDate', !formData.multipleDate)}
+                      >
+                        Multiple Date
+                      </span>
                     </div>
 
                     {/* Additional Date Fields */}
@@ -552,21 +690,21 @@ const AddScheduleModal = ({
                       <div className="ml-8 mt-4 space-y-3">
                         {formData.additionalDates.map((dateSlot, index) => (
                           <div key={index} className="flex gap-2.5 items-center flex-wrap">
-                            {/* Date Input */}
                             <div className="flex flex-col justify-center py-2.5 px-2.5 whitespace-nowrap rounded-md border border-gray-300 min-h-9 w-[127px]">
                               <input
                                 type="date"
                                 value={dateSlot.date}
                                 onChange={(e) => updateAdditionalDate(index, 'date', e.target.value)}
-                                className="w-full bg-transparent outline-none text-[#535353] focus:ring-2 focus:ring-[#488BBA]"
+                                disabled={loading}
+                                className="w-full bg-transparent outline-none text-[#535353] focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                               />
                             </div>
 
-                            {/* Start Time */}
                             <select
                               value={dateSlot.startTime}
                               onChange={(e) => updateAdditionalDate(index, 'startTime', e.target.value)}
-                              className="py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                              disabled={loading}
+                              className="py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                             >
                               {timeOptions.map((time) => (
                                 <option key={time} value={time}>{time}</option>
@@ -575,32 +713,32 @@ const AddScheduleModal = ({
 
                             <span className="text-base text-[#488BBA]">-</span>
 
-                            {/* End Time */}
                             <select
                               value={dateSlot.endTime}
                               onChange={(e) => updateAdditionalDate(index, 'endTime', e.target.value)}
-                              className="py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                              disabled={loading}
+                              className="py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[85px] text-[#535353] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                             >
                               {timeOptions.map((time) => (
                                 <option key={time} value={time}>{time}</option>
                               ))}
                             </select>
 
-                            {/* Timezone */}
                             <select
                               value={dateSlot.timezone}
                               onChange={(e) => updateAdditionalDate(index, 'timezone', e.target.value)}
-                              className="py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[66px] text-[#535353] focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                              disabled={loading}
+                              className="py-2.5 px-2.5 rounded-md border border-gray-300 min-h-9 w-[66px] text-[#535353] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                             >
                               {timezoneOptions.map((tz) => (
                                 <option key={tz.value} value={tz.value}>{tz.label}</option>
                               ))}
                             </select>
 
-                            {/* Remove Button */}
                             <button
                               onClick={() => removeDateSlot(index)}
-                              className="text-red-500 hover:text-red-700 p-1"
+                              disabled={loading}
+                              className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50"
                             >
                               <span className="material-icons text-sm">close</span>
                             </button>
@@ -611,10 +749,10 @@ const AddScheduleModal = ({
                           </div>
                         ))}
                         
-                        {/* Add Date Button */}
                         <button
                           onClick={addDateSlot}
-                          className="text-[#488BBA] hover:text-blue-700 text-xs flex items-center gap-1"
+                          disabled={loading}
+                          className="text-[#488BBA] hover:text-blue-700 text-xs flex items-center gap-1 disabled:opacity-50"
                         >
                           <span className="material-icons text-sm font-bold">add</span>
                           Tambah tanggal
@@ -629,15 +767,16 @@ const AddScheduleModal = ({
                   <div className="flex gap-2.5 items-center py-1.5 w-[25px]">
                     <span className="material-icons text-[#488BBA] text-[25px] font-bold">notifications_active</span>
                   </div>
-                  <div className="relative">
+                  <div className="relative dropdown-container">
                     <button
-                      onClick={() => toggleDropdown('notification')}
-                      className="flex gap-1.5 items-center rounded border border-gray-300 px-2.5 py-2 min-h-[30px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                      onClick={() => !loading && toggleDropdown('notification')}
+                      disabled={loading}
+                      className="flex gap-1.5 items-center rounded border border-gray-300 px-2.5 py-2 min-h-[30px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                     >
                       <span>{getNotificationLabel()}</span>
                       <span className="material-icons text-xs font-bold">keyboard_arrow_down</span>
                     </button>
-                    {dropdowns.notification && (
+                    {dropdowns.notification && !loading && (
                       <div className="absolute top-full left-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[120px]">
                         {notificationOptions.map((option) => (
                           <button
@@ -660,7 +799,7 @@ const AddScheduleModal = ({
                     <div className="flex-1 min-h-[35px]">
                       <div className={`flex flex-wrap items-center py-2.5 px-2.5 w-full rounded-md border min-h-[35px] ${
                         validationErrors.userEmails ? 'border-red-500' : 'border-gray-300'
-                      }`}>
+                      } ${loading ? 'bg-gray-100' : ''}`}>
                         <span className="text-sm text-red-500 pointer-events-none mr-2">*</span>
                         <div className="flex flex-wrap gap-2 flex-1">
                           {formData.userEmails.map((email, index) => (
@@ -668,7 +807,8 @@ const AddScheduleModal = ({
                               <span className="text-[#535353]">{email}</span>
                               <button
                                 onClick={() => removeUser(index)}
-                                className="text-blue-600 hover:text-blue-800 font-bold"
+                                disabled={loading}
+                                className="text-blue-600 hover:text-blue-800 font-bold disabled:opacity-50"
                               >
                                 ×
                               </button>
@@ -680,12 +820,14 @@ const AddScheduleModal = ({
                             onChange={(e) => setUserInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addUser())}
                             placeholder="Email/nama"
-                            className="flex-1 min-w-[100px] bg-transparent outline-none text-sm text-[#535353] placeholder:text-zinc-400"
+                            disabled={loading}
+                            className="flex-1 min-w-[100px] bg-transparent outline-none text-sm text-[#535353] placeholder:text-zinc-400 disabled:opacity-50"
                           />
                         </div>
                         <button
                           onClick={addUser}
-                          className="ml-2 text-xs text-[#488BBA] whitespace-nowrap hover:text-blue-700"
+                          disabled={loading}
+                          className="ml-2 text-xs text-[#488BBA] whitespace-nowrap hover:text-blue-700 disabled:opacity-50"
                         >
                           + tambah individu
                         </button>
@@ -704,15 +846,16 @@ const AddScheduleModal = ({
                 <div className="flex gap-4 items-start mt-4 text-sm text-center min-h-[35px] text-[#488BBA]">
                   <span className="material-icons text-[#488BBA] text-[25px] mt-1.5 font-bold">location_on</span>
                   <div className="flex-1 min-h-[35px]">
-                    <div className="relative">
+                    <div className="relative dropdown-container">
                       <button
-                        onClick={() => toggleDropdown('location')}
-                        className="flex items-center justify-between py-2.5 px-2.5 w-full rounded-md border border-gray-300 min-h-[35px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA]"
+                        onClick={() => !loading && toggleDropdown('location')}
+                        disabled={loading}
+                        className="flex items-center justify-between py-2.5 px-2.5 w-full rounded-md border border-gray-300 min-h-[35px] text-[#535353] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                       >
                         <span className="text-sm">{getLocationLabel()}</span>
                         <span className="material-icons text-xs font-bold">keyboard_arrow_down</span>
                       </button>
-                      {dropdowns.location && (
+                      {dropdowns.location && !loading && (
                         <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
                           {locationOptions.map((option) => (
                             <button
@@ -732,31 +875,34 @@ const AddScheduleModal = ({
                   </div>
                 </div>
 
-                {/* Description Section with Simple WYSIWYG */}
+                {/* Description Section with WYSIWYG */}
                 <div className="flex gap-4 items-start mt-4 w-full text-sm leading-loose text-[#488BBA]">
                   <span className="material-icons text-[#488BBA] text-[25px] mt-1.5 font-bold">description</span>
                   <div className="flex-1 min-h-32">
                     <div className="relative flex flex-col py-2.5 px-2 w-full rounded-md border border-gray-300 min-h-32">
-                      {/* Simple formatting toolbar */}
+                      {/* Formatting toolbar */}
                       <div className="flex gap-2 mb-2 pb-2 border-b border-gray-200">
                         <button 
                           type="button"
-                          onClick={() => formatText('bold')}
-                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100 font-bold"
+                          onClick={() => !loading && formatText('bold')}
+                          disabled={loading}
+                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100 font-bold disabled:opacity-50"
                         >
                           B
                         </button>
                         <button 
                           type="button"
-                          onClick={() => formatText('italic')}
-                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100 italic"
+                          onClick={() => !loading && formatText('italic')}
+                          disabled={loading}
+                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100 italic disabled:opacity-50"
                         >
                           I
                         </button>
                         <button 
                           type="button"
-                          onClick={() => formatText('underline')}
-                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100 underline"
+                          onClick={() => !loading && formatText('underline')}
+                          disabled={loading}
+                          className="px-2 py-1 text-xs border rounded hover:bg-gray-100 underline disabled:opacity-50"
                         >
                           U
                         </button>
@@ -765,10 +911,10 @@ const AddScheduleModal = ({
                       {/* Editable content area */}
                       <div
                         ref={editorRef}
-                        contentEditable
+                        contentEditable={!loading}
                         onInput={handleDescriptionChange}
                         onBlur={handleDescriptionChange}
-                        className="flex-1 w-full bg-transparent outline-none resize-none text-[#535353] min-h-[80px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
+                        className={`flex-1 w-full bg-transparent outline-none resize-none text-[#535353] min-h-[80px] focus:ring-2 focus:ring-[#488BBA] rounded p-1 ${loading ? 'opacity-50' : ''}`}
                         style={{ wordBreak: 'break-word' }}
                         suppressContentEditableWarning={true}
                         data-placeholder="Masukkan deskripsi"
@@ -777,14 +923,16 @@ const AddScheduleModal = ({
                       <div className="flex gap-2 items-center mt-2">
                         <button 
                           type="button"
-                          className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
+                          disabled={loading}
+                          className="flex items-center justify-center hover:text-[#488BBA] transition-colors disabled:opacity-50"
                           title="Attach file"
                         >
                           <span className="material-icons text-gray-400 font-bold" style={{ fontSize: '18px' }}>attach_file</span>
                         </button>
                         <button 
                           type="button"
-                          className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
+                          disabled={loading}
+                          className="flex items-center justify-center hover:text-[#488BBA] transition-colors disabled:opacity-50"
                           title="Add image"
                         >
                           <span className="material-icons text-gray-400 font-bold" style={{ fontSize: '18px' }}>add_photo_alternate</span>
@@ -798,7 +946,7 @@ const AddScheduleModal = ({
             </div>
           </div>
 
-          {/* Required Field Notice - Aligned with document icons */}
+          {/* Required Field Notice */}
           <div className="flex items-center mt-4 text-xs" style={{ marginLeft: '50px' }}>
             <span className="text-red-500">*</span>
             <span className="text-gray-600 ml-1"> Wajib diisi</span>
@@ -808,8 +956,8 @@ const AddScheduleModal = ({
           <div className="flex gap-2.5 items-center mt-4 w-full text-base font-semibold leading-5">
             <button
               onClick={handleCancel}
-              className="px-7 py-2.5 text-[#488BBA] rounded-md border border-[#488BBA] min-h-8 w-[114px] hover:bg-blue-50 transition-colors disabled:opacity-50"
               disabled={loading}
+              className="px-7 py-2.5 text-[#488BBA] rounded-md border border-[#488BBA] min-h-8 w-[114px] hover:bg-blue-50 transition-colors disabled:opacity-50"
             >
               Batal
             </button>
@@ -818,10 +966,20 @@ const AddScheduleModal = ({
               disabled={loading || !formData.agenda || (showParticipants && formData.userEmails.length === 0)}
               className="px-7 py-2.5 bg-[#488BBA] rounded-md min-h-8 text-white w-[114px] hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              {loading ? 'Menyimpan...' : (initialData ? 'Update' : 'Tambah')}
+              {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}
             </button>
           </div>
         </div>
+
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488abe]"></div>
+              <span className="text-[#488abe] font-medium">Menyimpan...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
