@@ -1,3 +1,5 @@
+// src/comp[o]nents/shared/schedule/ScheduleGrid.jsx
+
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
 const ScheduleGrid = ({ 
