@@ -1,4 +1,4 @@
-// src/comp[o]nents/shared/schedule/ScheduleGrid.jsx
+// src/components/shared/schedule/ScheduleGrid.jsx - With Schedule Stacking
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -29,17 +29,19 @@ const ScheduleGrid = ({
   const baseWidth = 808;
   const baseHeight = 254;
   const actualWidth = Math.max(baseWidth, containerWidth);
-  const actualHeight = baseHeight;
   const HOUR_WIDTH = 80;
-  const DAY_ROW_HEIGHT = 50;
+  const MIN_DAY_ROW_HEIGHT = 50;
+  const MAX_STACKED_SCHEDULES = 20;
+  const SCHEDULE_HEIGHT = 35;
+  const SCHEDULE_MARGIN = 2;
   const TIME_HEADER_HEIGHT = 30;
   const DAY_COLUMN_WIDTH = 70;
   const HEADER_HEIGHT = 66;
-  const GRID_CONTENT_HEIGHT = actualHeight - HEADER_HEIGHT;
   const DRAG_THRESHOLD = 5;
   const CLICK_TIMEOUT = 150;
+  const MAX_DRAG_DAYS = 2;
 
-  // Static data
+  // Static data - these don't depend on anything else
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
     { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
@@ -47,16 +49,15 @@ const ScheduleGrid = ({
     { short: "Min", full: "Minggu" }
   ], []);
 
-const timeSlots = useMemo(() => {
-  const slots = [];
-  for (let i = 6; i <= 24; i++) {
-    slots.push(`${(i % 24).toString().padStart(2, '0')}:00`);
-  }
-  return slots;
-}, []);
+  const timeSlots = useMemo(() => {
+    const slots = [];
+    for (let i = 6; i <= 23; i++) {
+      slots.push(`${i.toString().padStart(2, '0')}:00`);
+    }
+    return slots;
+  }, []);
 
-
-  // Helper functions
+  // Basic helper functions that don't depend on schedule data
   const getTypeColor = useCallback((type) => {
     const colors = {
       counseling: "#9986FF",
@@ -78,26 +79,13 @@ const timeSlots = useMemo(() => {
   }, []);
 
   const getHourDisplayIndex = useCallback((hour) => {
-    return Math.max(0, Math.min(15, hour - 6));
+    return Math.max(0, Math.min(17, hour - 6));
   }, []);
 
   const getActualHour = useCallback((index) => {
-    if (index >= 0 && index <= 15) return (index + 6) % 24;
+    if (index >= 0 && index <= 17) return index + 6;
     return 6;
   }, []);
-
-const TIME_HEADER_OFFSET = 25;
-
-const halfHourDividers = useMemo(() => {
-  const dividers = [];
-  for (let i = 0; i < timeSlots.length; i++) { 
-    const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + TIME_HEADER_OFFSET;
-    dividers.push({ position, hourIndex: i });
-  }
-  return dividers;
-}, [timeSlots.length]);
-
-
 
   const timeToPosition = useCallback((timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -113,8 +101,26 @@ const halfHourDividers = useMemo(() => {
     return Math.max(endPos - startPos, 40);
   }, [timeToPosition]);
 
-  // Convert backend schedule data to display format
-  const getScheduleToDisplay = useMemo(() => {
+  // Current time helpers
+  const getCurrentTimePosition = useCallback(() => {
+    const now = currentTime;
+    const hour = now.getHours();
+    const minutes = now.getMinutes();
+    const hourIndex = getHourDisplayIndex(hour);
+    const minuteOffset = (minutes / 60);
+    const totalOffset = hourIndex + minuteOffset;
+    return totalOffset * HOUR_WIDTH;
+  }, [currentTime, getHourDisplayIndex]);
+
+  const getCurrentTimeString = useCallback(() => {
+    const now = currentTime;
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }, [currentTime]);
+
+  // Schedule data transformation
+  const displaySchedules = useMemo(() => {
     const scheduleData = {};
     
     days.forEach(day => {
@@ -160,56 +166,69 @@ const halfHourDividers = useMemo(() => {
     return scheduleData;
   }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
 
-  // Check if time slot is occupied
-  const isTimeSlotOccupied = useCallback((dayIndex, hour, minute = 0) => {
-    const dayName = days[dayIndex]?.full;
-    if (!dayName || !getScheduleToDisplay[dayName]) return false;
-
-    const currentTimeInMinutes = hour * 60 + minute;
+  // Calculate stacked schedules per day and time slot
+  const scheduleStacks = useMemo(() => {
+    const stacks = {};
     
-    return getScheduleToDisplay[dayName].some(event => {
-      const [startHour, startMinute] = event.startTime.split(':').map(Number);
-      const [endHour, endMinute] = event.endTime.split(':').map(Number);
-      
-      const eventStartMinutes = startHour * 60 + startMinute;
-      const eventEndMinutes = endHour * 60 + endMinute;
-      
-      return currentTimeInMinutes >= eventStartMinutes && currentTimeInMinutes < eventEndMinutes;
+    days.forEach(day => {
+      stacks[day.full] = {};
+      timeSlots.forEach(timeSlot => {
+        stacks[day.full][timeSlot] = [];
+      });
     });
-  }, [days, getScheduleToDisplay]);
-
-  const isTimeRangeOccupied = useCallback((dayIndex, startHour, endHour, startMinute = 0, endMinute = 0) => {
-    const startTimeInMinutes = startHour * 60 + startMinute;
-    const endTimeInMinutes = endHour * 60 + endMinute;
     
-    for (let minutes = startTimeInMinutes; minutes < endTimeInMinutes; minutes += 5) {
-      const hour = Math.floor(minutes / 60);
-      const minute = minutes % 60;
-      if (isTimeSlotOccupied(dayIndex, hour, minute)) {
-        return true;
-      }
+    Object.entries(displaySchedules).forEach(([dayName, events]) => {
+      events.forEach(event => {
+        const [startHour] = event.startTime.split(':').map(Number);
+        const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
+        
+        if (stacks[dayName] && stacks[dayName][timeSlot]) {
+          stacks[dayName][timeSlot].push(event);
+        }
+      });
+    });
+
+    return stacks;
+  }, [displaySchedules, days, timeSlots]);
+
+  // Calculate dynamic row heights based on stacked schedules
+  const dayRowHeights = useMemo(() => {
+    const heights = {};
+    
+    days.forEach(day => {
+      let maxStackCount = 1;
+      
+      timeSlots.forEach(timeSlot => {
+        const stackCount = scheduleStacks[day.full]?.[timeSlot]?.length || 0;
+        maxStackCount = Math.max(maxStackCount, stackCount);
+      });
+      
+      heights[day.full] = Math.max(
+        MIN_DAY_ROW_HEIGHT, 
+        MIN_DAY_ROW_HEIGHT + (maxStackCount - 1) * (SCHEDULE_HEIGHT + SCHEDULE_MARGIN)
+      );
+    });
+    
+    return heights;
+  }, [scheduleStacks, days, timeSlots]);
+
+  const totalGridHeight = useMemo(() => {
+    return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0);
+  }, [dayRowHeights]);
+
+  const actualHeight = HEADER_HEIGHT + totalGridHeight;
+
+  // Position calculation helpers
+  const getDayRowTop = useCallback((dayIndex) => {
+    let top = 0;
+    for (let i = 0; i < dayIndex; i++) {
+      const dayName = days[i]?.full;
+      top += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
     }
-    return false;
-  }, [isTimeSlotOccupied]);
+    return top;
+  }, [days, dayRowHeights]);
 
-  const getCurrentTimePosition = useCallback(() => {
-    const now = currentTime;
-    const hour = now.getHours();
-    const minutes = now.getMinutes();
-    const startHour = 6; 
-    const hourOffset = hour - startHour;
-    const minuteOffset = (minutes / 60);
-    const totalOffset = hourOffset + minuteOffset;
-    return totalOffset * HOUR_WIDTH;
-  }, [currentTime]);
-
-  const getCurrentTimeString = useCallback(() => {
-    const now = currentTime;
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }, [currentTime]);
-
+  // Improved position calculation for stacking
   const getInfoFromPosition = useCallback((clientX, clientY) => {
     if (!viewportRef.current) return null;
     
@@ -226,7 +245,19 @@ const halfHourDividers = useMemo(() => {
     if (gridX < 0 || gridY < 0) return null;
 
     const hourIndex = Math.floor(gridX / HOUR_WIDTH);
-    const dayIndex = Math.floor(gridY / DAY_ROW_HEIGHT);
+    
+    // Calculate day index based on dynamic row heights
+    let dayIndex = -1;
+    let currentTop = 0;
+    
+    for (let i = 0; i < days.length; i++) {
+      const dayHeight = dayRowHeights[days[i].full] || MIN_DAY_ROW_HEIGHT;
+      if (gridY >= currentTop && gridY < currentTop + dayHeight) {
+        dayIndex = i;
+        break;
+      }
+      currentTop += dayHeight;
+    }
 
     if (hourIndex < 0 || hourIndex >= timeSlots.length || dayIndex < 0 || dayIndex >= days.length) {
       return null;
@@ -237,45 +268,22 @@ const halfHourDividers = useMemo(() => {
     const minuteWithinHour = Math.floor((pixelWithinHour / HOUR_WIDTH) * 60);
     const actualMinute = Math.floor(minuteWithinHour / 5) * 5;
     
-    const exactPixelX = gridX;
-    const exactPixelY = gridY;
-    
     return { 
       hour: actualHour, 
       minute: actualMinute,
       hourIndex, 
       dayIndex,
-      exactPixelX,
-      exactPixelY
+      exactPixelX: gridX,
+      exactPixelY: gridY - getDayRowTop(dayIndex)
     };
-  }, [getActualHour, days.length, timeSlots.length]);
+  }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
 
-  const clearDragState = useCallback(() => {
-    setIsDragging(false);
-    setIsMouseDown(false);
-    setSelectedArea(null);
-    setDragStartPos(null);
-    lastMousePosRef.current = null;
-    dragStartTimeRef.current = null;
-    
-    if (dragTimer) {
-      clearTimeout(dragTimer);
-      setDragTimer(null);
-    }
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-  }, [dragTimer]);
-
-  // Handle schedule click with proper event stopping
+  // Event handlers
   const handleScheduleClick = useCallback((event, scheduleData) => {
     event.preventDefault();
     event.stopPropagation();
     
     if (!isDragging && !isMouseDown) {
-      console.log('Schedule clicked:', scheduleData);
       onScheduleClick && onScheduleClick(scheduleData.originalData || scheduleData);
     }
   }, [isDragging, isMouseDown, onScheduleClick]);
@@ -291,10 +299,6 @@ const halfHourDividers = useMemo(() => {
     const info = getInfoFromPosition(e.clientX, e.clientY);
     
     if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-      if (isTimeSlotOccupied(info.dayIndex, info.hour, info.minute)) {
-        return;
-      }
-
       setIsMouseDown(true);
       setDragStartPos({ x: e.clientX, y: e.clientY });
       dragStartTimeRef.current = Date.now();
@@ -322,7 +326,7 @@ const halfHourDividers = useMemo(() => {
       
       setDragTimer(timer);
     }
-  }, [getInfoFromPosition, days, isTimeSlotOccupied, isMouseDown]);
+  }, [getInfoFromPosition, days, isMouseDown]);
 
   const handleMouseMove = useCallback((e) => {
     if (!isMouseDown) return;
@@ -365,12 +369,20 @@ const halfHourDividers = useMemo(() => {
       animationFrameRef.current = requestAnimationFrame(() => {
         const info = getInfoFromPosition(e.clientX, e.clientY);
         if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-          const currentPos = `${info.dayIndex}-${info.hourIndex}-${info.minute}`;
+          
+          // Limit drag to maximum 2 days
+          const startDayIndex = selectedArea?.startDay || 0;
+          const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
+          const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
+          
+          const constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, info.dayIndex));
+          
+          const currentPos = `${constrainedDayIndex}-${info.hourIndex}-${info.minute}`;
           if (lastMousePosRef.current !== currentPos) {
             lastMousePosRef.current = currentPos;
             setSelectedArea(prev => ({ 
               ...prev, 
-              endDay: info.dayIndex, 
+              endDay: constrainedDayIndex, 
               endHour: info.hour,
               endMinute: info.minute,
               endHourIndex: info.hourIndex,
@@ -381,7 +393,7 @@ const halfHourDividers = useMemo(() => {
         }
       });
     }
-  }, [isMouseDown, isDragging, dragStartPos, dragTimer, getInfoFromPosition, days.length]);
+  }, [isMouseDown, isDragging, dragStartPos, dragTimer, getInfoFromPosition, days.length, selectedArea]);
 
   const handleMouseUp = useCallback((e) => {
     if (dragTimer) {
@@ -397,30 +409,28 @@ const halfHourDividers = useMemo(() => {
     if (wasClick && dragStartPos) {
       const info = getInfoFromPosition(dragStartPos.x, dragStartPos.y);
       if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-        if (!isTimeSlotOccupied(info.dayIndex, info.hour, info.minute)) {
-          const today = new Date();
-          const startDateTime = new Date(today);
-          startDateTime.setHours(info.hour, info.minute, 0, 0);
-          
-          const endDateTime = new Date(today);
-          endDateTime.setHours(info.hour, info.minute + 5, 0, 0);
+        const today = new Date();
+        const startDateTime = new Date(today);
+        startDateTime.setHours(info.hour, info.minute, 0, 0);
+        
+        const endDateTime = new Date(today);
+        endDateTime.setHours(info.hour, info.minute + 5, 0, 0);
 
-          const dayName = days[info.dayIndex]?.full;
+        const dayName = days[info.dayIndex]?.full;
 
-          onTimeSlotSelect && onTimeSlotSelect({ 
-            startDateTime, 
-            endDateTime, 
-            day: dayName,
-            isMultipleDays: false,
-            dates: [{
-              date: today.toISOString().split('T')[0],
-              startTime: `${info.hour.toString().padStart(2, '0')}:${info.minute.toString().padStart(2, '0')}`,
-              endTime: `${info.hour.toString().padStart(2, '0')}:${(info.minute + 5).toString().padStart(2, '0')}`,
-              timezone: 'Asia/Jakarta'
-            }],
-            draggedDays: 1
-          });
-        }
+        onTimeSlotSelect && onTimeSlotSelect({ 
+          startDateTime, 
+          endDateTime, 
+          day: dayName,
+          isMultipleDays: false,
+          dates: [{
+            date: today.toISOString().split('T')[0],
+            startTime: `${info.hour.toString().padStart(2, '0')}:${info.minute.toString().padStart(2, '0')}`,
+            endTime: `${info.hour.toString().padStart(2, '0')}:${(info.minute + 5).toString().padStart(2, '0')}`,
+            timezone: 'Asia/Jakarta'
+          }],
+          draggedDays: 1
+        });
       }
     } else if (isDragging && selectedArea && dragStartPos) {
       const dragDistance = Math.sqrt(
@@ -442,15 +452,7 @@ const halfHourDividers = useMemo(() => {
           finalEndMinute = finalEndMinute - 60;
         }
 
-        let hasConflict = false;
-        for (let day = startDay; day <= endDay; day++) {
-          if (isTimeRangeOccupied(day, startHour, finalEndHour, startMinute, finalEndMinute)) {
-            hasConflict = true;
-            break;
-          }
-        }
-
-        if (!hasConflict && startDay >= 0 && startDay < days.length) {
+        if (startDay >= 0 && startDay < days.length) {
           const today = new Date();
           const startDateTime = new Date(today);
           startDateTime.setHours(startHour, startMinute, 0, 0);
@@ -486,15 +488,26 @@ const halfHourDividers = useMemo(() => {
       }
     }
     
-    clearDragState();
-  }, [isMouseDown, isDragging, selectedArea, dragStartPos, dragTimer, days, onTimeSlotSelect, isTimeRangeOccupied, getInfoFromPosition, clearDragState]);
+    // Clear drag state
+    setIsDragging(false);
+    setIsMouseDown(false);
+    setSelectedArea(null);
+    setDragStartPos(null);
+    lastMousePosRef.current = null;
+    dragStartTimeRef.current = null;
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, [isMouseDown, isDragging, selectedArea, dragStartPos, dragTimer, days, onTimeSlotSelect, getInfoFromPosition]);
 
   const handleScroll = useCallback((e) => {
     const newScrollLeft = e.target.scrollLeft;
     setScrollLeft(newScrollLeft);
   }, []);
 
-  // Selection box rendering
+  // Selection box rendering with dynamic heights
   const selectionBox = useMemo(() => {
     if (!selectedArea || !isDragging) return null;
 
@@ -504,8 +517,13 @@ const halfHourDividers = useMemo(() => {
     const startPixelX = Math.min(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
     const endPixelX = Math.max(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
 
-    const top = startDayIndex * DAY_ROW_HEIGHT;
-    const height = (endDayIndex - startDayIndex + 1) * DAY_ROW_HEIGHT;
+    const top = getDayRowTop(startDayIndex);
+    let height = 0;
+    for (let i = startDayIndex; i <= endDayIndex; i++) {
+      const dayName = days[i]?.full;
+      height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
+    }
+    
     const left = startPixelX;
     const width = Math.max(endPixelX - startPixelX, 10);
 
@@ -515,7 +533,7 @@ const halfHourDividers = useMemo(() => {
         style={{ top, left, width, height, zIndex: 50 }}
       />
     );
-  }, [selectedArea, isDragging]);
+  }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
 
   // Effects
   useEffect(() => {
@@ -523,25 +541,6 @@ const halfHourDividers = useMemo(() => {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (viewportRef.current) {
-      viewportRef.current.scrollLeft = 0;
-      viewportRef.current.scrollTop = 0;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (dragTimer) {
-        clearTimeout(dragTimer);
-      }
-    };
-  }, [dragTimer]);
-
-  // Global mouse events
   useEffect(() => {
     const handleGlobalMouseMove = (e) => handleMouseMove(e);
     const handleGlobalMouseUp = (e) => handleMouseUp(e);
@@ -582,13 +581,13 @@ const halfHourDividers = useMemo(() => {
       </div>
 
       {/* Grid Container */}
-      <div className="relative overflow-hidden" style={{ height: `${GRID_CONTENT_HEIGHT}px` }}>
+      <div className="relative overflow-hidden" style={{ height: `${actualHeight - HEADER_HEIGHT}px` }}>
         
-        {/* Fixed Time Header - SHIFTED LEFT */}
+        {/* Fixed Time Header */}
         <div 
           className="absolute top-0 bg-white border-b border-zinc-200"
           style={{ 
-            left: `${DAY_COLUMN_WIDTH - 15}px`, // Shifted 10px left
+            left: `${DAY_COLUMN_WIDTH - 15}px`,
             right: '0px',
             height: `${TIME_HEADER_HEIGHT}px`,
             overflow: 'hidden',
@@ -614,21 +613,6 @@ const halfHourDividers = useMemo(() => {
                     {time}
                   </span>
                 </div>
-              ))}
-
-              {/* 30-minute dividers - RED LINES */}
-              {halfHourDividers.map((divider, i) => (
-                <div 
-                  key={`divider-30min-${i}`}
-                  className="absolute pointer-events-none bg-red-400" 
-                  style={{ 
-                    left: `${divider.position}px`,
-                    top: '60%',
-                    width: '1px',       
-                    height: '10px',        
-                    zIndex: 2
-                  }}
-                />
               ))}
             </div>
           </div>
@@ -656,8 +640,8 @@ const halfHourDividers = useMemo(() => {
                 {days.map((day, index) => (
                   <div 
                     key={day.short} 
-                    className="flex items-center justify-center"
-                    style={{ height: `${DAY_ROW_HEIGHT}px` }}
+                    className="flex items-center justify-center border-b border-zinc-200"
+                    style={{ height: `${dayRowHeights[day.full]}px` }}
                   >
                     <span className="text-base font-bold text-neutral-600">
                       {day.short}
@@ -671,11 +655,11 @@ const halfHourDividers = useMemo(() => {
                 className="relative"
                 style={{ 
                   width: `${timeSlots.length * HOUR_WIDTH}px`, 
-                  height: `${days.length * DAY_ROW_HEIGHT}px`,
+                  height: `${totalGridHeight}px`,
                   minWidth: `${timeSlots.length * HOUR_WIDTH}px`
                 }}
               >
-                {/* Mouse event overlay - LOWER z-index than schedule events */}
+                {/* Mouse event overlay */}
                 <div
                   className="absolute inset-0 cursor-pointer"
                   style={{ 
@@ -685,66 +669,73 @@ const halfHourDividers = useMemo(() => {
                   onMouseDown={handleMouseDown}
                 />
 
-                {/* Horizontal day lines - LOWEST z-index */}
-                {days.map((_, i) => (
-                  i > 0 && (
+                {/* Day separator lines */}
+                {days.map((day, i) => {
+                  if (i === 0) return null;
+                  const top = getDayRowTop(i);
+                  return (
                     <div 
                       key={`hline-${i}`}
                       className="absolute left-0 right-0 h-px bg-zinc-200 pointer-events-none"
-                      style={{ top: `${i * DAY_ROW_HEIGHT}px`, zIndex: -1 }}
+                      style={{ top: `${top}px`, zIndex: -1 }}
                     />
-                  )
-                ))}
+                  );
+                })}
 
-                {/* Render Schedule Events - HIGHER z-index, CLICKABLE */}
-                {Object.entries(getScheduleToDisplay).map(([dayName, events]) => {
+                {/* Render Stacked Schedule Events */}
+                {Object.entries(scheduleStacks).map(([dayName, timeSlotStacks]) => {
                   const dayIndex = days.findIndex(d => d.full === dayName);
                   if (dayIndex === -1) return null;
 
-                  return events.map((event, eventIndex) => {
-                    const left = timeToPosition(event.startTime);
-                    const width = calculateEventWidth(event.startTime, event.endTime);
-                    const top = dayIndex * DAY_ROW_HEIGHT + 5;
-                    const height = DAY_ROW_HEIGHT - 10;
+                  const dayTop = getDayRowTop(dayIndex);
 
-                    return (
-                      <div
-                        key={`${event.id}-${eventIndex}`}
-                        className="schedule-event absolute rounded-md px-2 py-1 cursor-pointer hover:opacity-90 transition-opacity"
-                        style={{
-                          left: `${left}px`,
-                          top: `${top}px`,
-                          width: `${width}px`,
-                          height: `${height}px`,
-                          backgroundColor: event.color,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          overflow: 'hidden',
-                          zIndex: 20 // HIGHER than mouse overlay (1)
-                        }}
-                        onClick={(e) => handleScheduleClick(e, event)}
-                        onMouseDown={(e) => e.stopPropagation()}
-                      >
-                        <div className="text-white text-xs font-semibold truncate">
-                          {event.name}
+                  return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
+                    if (eventsInSlot.length === 0) return null;
+
+                    return eventsInSlot.map((event, stackIndex) => {
+                      const left = timeToPosition(event.startTime);
+                      const width = calculateEventWidth(event.startTime, event.endTime);
+                      const top = dayTop + 5 + (stackIndex * (SCHEDULE_HEIGHT + SCHEDULE_MARGIN));
+
+                      return (
+                        <div
+                          key={`${event.id}-${stackIndex}`}
+                          className="schedule-event absolute rounded-md px-2 py-1 cursor-pointer hover:opacity-90 transition-opacity"
+                          style={{
+                            left: `${left}px`,
+                            top: `${top}px`,
+                            width: `${width}px`,
+                            height: `${SCHEDULE_HEIGHT}px`,
+                            backgroundColor: event.color,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                            zIndex: 20
+                          }}
+                          onClick={(e) => handleScheduleClick(e, event)}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          <div className="text-white text-xs font-semibold truncate">
+                            {event.name}
+                          </div>
+                          <div className="text-white text-xs truncate">
+                            {event.startTime} - {event.endTime} {event.timezoneDisplay}
+                          </div>
                         </div>
-                        <div className="text-white text-xs truncate">
-                          {event.startTime} - {event.endTime} {event.timezoneDisplay} | {event.platform}
-                        </div>
-                      </div>
-                    );
+                      );
+                    });
                   });
                 })}
 
                 {/* Empty day messages */}
                 {selectedDates.length > 0 && days.map((day, dayIndex) => {
-                  const hasEvents = getScheduleToDisplay[day.full] && getScheduleToDisplay[day.full].length > 0;
+                  const hasEvents = displaySchedules[day.full] && displaySchedules[day.full].length > 0;
                   const isDaySelected = selectedDates.some(date => days[date.getDay()]?.full === day.full);
                   
                   if (isDaySelected && !hasEvents) {
-                    const top = dayIndex * DAY_ROW_HEIGHT + 5;
-                    const height = DAY_ROW_HEIGHT - 10;
+                    const top = getDayRowTop(dayIndex);
+                    const height = dayRowHeights[day.full] - 10;
                     
                     return (
                       <div
@@ -752,7 +743,7 @@ const halfHourDividers = useMemo(() => {
                         className="absolute rounded-md px-2 py-1 pointer-events-none flex items-center justify-center"
                         style={{
                           left: '200px',
-                          top: `${top}px`,
+                          top: `${top + 5}px`,
                           width: '200px',
                           height: `${height}px`,
                           backgroundColor: 'transparent',
@@ -775,13 +766,13 @@ const halfHourDividers = useMemo(() => {
           </div>
         </div>
 
-        {/* Current time line - HIGHEST z-index */}
+        {/* Current time line */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
             left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft + 10}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
-            bottom: '0px',
+            height: `${totalGridHeight}px`,
             zIndex: 60,
             width: '2px'
           }}

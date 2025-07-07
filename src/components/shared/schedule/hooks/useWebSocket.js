@@ -1,4 +1,3 @@
-"use client"
 
 // src/components/shared/schedule/hooks/useWebSocket.js - WebSocket Integration
 

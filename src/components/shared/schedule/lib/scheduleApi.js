@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - Fixed Backend Integration
+// src/components/shared/schedule/lib/scheduleApi.js - Updated with Attachment Support
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -29,6 +29,9 @@ export const createScheduleApi = (organizationType = "school") => {
           })) || [],
         // Add timezone display
         timezoneDisplay: getTimezoneDisplay(schedule.timezone),
+        // Include attachment count
+        attachmentCount: schedule.attachments?.length || 0,
+        attachments: schedule.attachments || []
       }
 
       if (orgType === "school") {
@@ -281,6 +284,66 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
+    // NEW: Upload attachments to existing schedule
+    async uploadAttachments(scheduleId, files) {
+      try {
+        const formData = new FormData();
+        
+        // Validate file sizes (15MB limit)
+        const maxSize = 15 * 1024 * 1024; // 15MB
+        for (const file of files) {
+          if (file.size > maxSize) {
+            throw new Error(`File ${file.name} exceeds 15MB limit`);
+          }
+        }
+        
+        // Append files to FormData
+        files.forEach(file => {
+          formData.append('files', file);
+        });
+
+        console.log(`Uploading ${files.length} attachments to schedule ${scheduleId}`);
+
+        const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          // Optional: Add progress tracking
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`Upload progress: ${percentCompleted}%`);
+          }
+        });
+
+        return response;
+      } catch (error) {
+        console.error("Error uploading attachments:", error);
+        throw error;
+      }
+    },
+
+    // NEW: Get schedule attachments
+    async getScheduleAttachments(scheduleId) {
+      try {
+        const response = await apiClient.get(`/schedules/${scheduleId}/attachments`);
+        return response;
+      } catch (error) {
+        console.error("Error fetching schedule attachments:", error);
+        throw error;
+      }
+    },
+
+    // NEW: Delete schedule attachment
+    async deleteAttachment(scheduleId, attachmentId) {
+      try {
+        const response = await apiClient.delete(`/schedules/${scheduleId}/attachments/${attachmentId}`);
+        return response;
+      } catch (error) {
+        console.error("Error deleting attachment:", error);
+        throw error;
+      }
+    },
+
     async getCounselingQueue(params = {}) {
       try {
         console.log("Fetching counseling queue...")
@@ -323,6 +386,49 @@ export const createScheduleApi = (organizationType = "school") => {
         throw error
       }
     },
+
+    // NEW: Get psychologist locations for dropdown
+    async getPsychologistLocations() {
+      try {
+        const response = await apiClient.get('/psychologists/locations');
+        return response.data || [];
+      } catch (error) {
+        console.error("Error fetching psychologist locations:", error);
+        return [];
+      }
+    },
+
+    // NEW: Get psychologists with optional location filter
+    async getPsychologists(params = {}) {
+      try {
+        const response = await apiClient.get('/psychologists', { params });
+        
+        if (response.data?.status === 'success') {
+          return response.data.data || [];
+        }
+        
+        return response.data?.data || response.data || [];
+      } catch (error) {
+        console.error("Error fetching psychologists:", error);
+        return [];
+      }
+    },
+
+    // NEW: Get users/participants with search
+    async getUsers(params = {}) {
+      try {
+        const response = await apiClient.get('/users', { params });
+        
+        if (response.data?.status === 'success') {
+          return response.data.data || [];
+        }
+        
+        return response.data?.data || response.data || [];
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        return [];
+      }
+    }
   }
 }
 
@@ -340,6 +446,8 @@ export const getScheduleConfig = (organizationType) => {
     enableScheduleEdit: true,
     enableScheduleDelete: true,
     timeSlotDuration: 5, // 5 minutes intervals
+    maxAttachmentSize: 15 * 1024 * 1024, // 15MB
+    allowedFileTypes: ['image/*', '.pdf', '.doc', '.docx', '.txt', '.xlsx', '.xls'],
   }
 
   if (organizationType === "school") {

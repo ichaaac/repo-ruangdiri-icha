@@ -1,19 +1,22 @@
-// src/components/shared/schedule/SchedulePage.jsx - React Query Best Practices
+// src/components/shared/schedule/SchedulePage.jsx - Integrated with View Modal
 
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
-import { toast } from "sonner"; // For user feedback
+import { toast } from "sonner";
 import TopRightControl from "../layout/TopRightControl";
 import ScheduleGrid from "./ScheduleGrid";
 import CounselingQueue from "./CounselingQueue";
 import DatePicker from "./DatePicker";
 import NotificationPanel from "./NotificationsPanel";
 import AddScheduleModal from "./AddScheduleModal";
+import ViewScheduleModal from "./ViewScheduleModal";
 import { useSchedule } from "./hooks/useSchedule";
 
 const SchedulePage = ({ type = "school" }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
+  const [viewScheduleData, setViewScheduleData] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [windowWidth, setWindowWidth] = useState(0);
   const [selectedDates, setSelectedDates] = useState([]);
@@ -40,14 +43,6 @@ const SchedulePage = ({ type = "school" }) => {
     refreshData,
     getSchedulesForDate,
     getScheduleAtTime,
-    // Additional React Query specific properties
-    isSchedulesLoading,
-    isSchedulesError,
-    schedulesError,
-    createMutation,
-    updateMutation,
-    deleteMutation,
-    checkExistsMutation,
   } = useSchedule(type);
 
   // Track window width for responsive calculations
@@ -125,15 +120,65 @@ const SchedulePage = ({ type = "school" }) => {
       setModalData({
         startDateTime: timeSlot.startDateTime,
         endDateTime: timeSlot.endDateTime,
-        day: timeSlot.day
+        day: timeSlot.day,
+        dates: timeSlot.dates || [{
+          date: timeSlot.startDateTime.toISOString().split('T')[0],
+          startTime: timeSlot.startDateTime.toTimeString().slice(0, 5),
+          endTime: timeSlot.endDateTime.toTimeString().slice(0, 5),
+          timezone: 'Asia/Jakarta'
+        }]
       });
-      setIsModalOpen(true);
+      setIsAddModalOpen(true);
       
     } catch (error) {
       console.error('Error checking schedule existence:', error);
       toast.error('Failed to check schedule availability');
     }
   }, [getScheduleAtTime, checkScheduleExists]);
+
+  // Handle schedule click to view details
+  const handleScheduleClick = useCallback((scheduleData) => {
+    setViewScheduleData(scheduleData);
+    setIsViewModalOpen(true);
+  }, []);
+
+  // Handle edit from view modal
+  const handleEditFromView = useCallback((scheduleData) => {
+    setIsViewModalOpen(false);
+    
+    // Transform schedule data for edit modal
+    const editData = {
+      id: scheduleData.id,
+      agenda: scheduleData.agenda || scheduleData.name,
+      type: scheduleData.type,
+      description: scheduleData.description,
+      notificationOffset: scheduleData.notificationOffset,
+      location: scheduleData.location,
+      dates: scheduleData.dates || [{
+        date: scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        startTime: scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '09:00',
+        endTime: scheduleData.endDateTime ? new Date(scheduleData.endDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '10:00',
+        timezone: scheduleData.timezone || 'Asia/Jakarta'
+      }],
+      selectedPsychologist: scheduleData.participants?.find(p => p.role === 'psychologist') || null,
+      selectedParticipants: scheduleData.participants?.filter(p => p.role !== 'psychologist') || []
+    };
+    
+    setModalData(editData);
+    setIsAddModalOpen(true);
+  }, []);
+
+  // Handle delete from view modal
+  const handleDeleteFromView = useCallback(async (scheduleData) => {
+    try {
+      await deleteSchedule(scheduleData.id);
+      setIsViewModalOpen(false);
+      toast.success('Schedule deleted successfully');
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      toast.error('Failed to delete schedule');
+    }
+  }, [deleteSchedule]);
 
   // Handle modal form submission with proper error handling
   const handleModalSubmit = useCallback(async (formData) => {
@@ -151,12 +196,14 @@ const SchedulePage = ({ type = "school" }) => {
       }
       
       // Close modal on success
-      setIsModalOpen(false);
+      setIsAddModalOpen(false);
       setModalData(null);
       setSelectedTimeSlot(null);
       
       // React Query will automatically update the UI via optimistic updates
       // and invalidate queries, so no manual refresh needed
+      
+      return result;
       
     } catch (error) {
       console.error("Error submitting schedule:", error);
@@ -167,14 +214,20 @@ const SchedulePage = ({ type = "school" }) => {
       
       toast.error(errorMessage);
       
-      // Keep modal open so user can fix the issue
+      // Re-throw to prevent modal from closing
+      throw error;
     }
   }, [modalData, createSchedule, updateSchedule]);
 
-  const handleModalClose = () => {
-    setIsModalOpen(false);
+  const handleAddModalClose = () => {
+    setIsAddModalOpen(false);
     setModalData(null);
     setSelectedTimeSlot(null);
+  };
+
+  const handleViewModalClose = () => {
+    setIsViewModalOpen(false);
+    setViewScheduleData(null);
   };
 
   // Handle date selection from DatePicker
@@ -189,6 +242,32 @@ const SchedulePage = ({ type = "school" }) => {
   const handleWeekSelect = (weekStart) => {
     setSelectedWeek(weekStart);
   };
+
+  // Handle escape key for modals
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        if (isViewModalOpen) {
+          handleViewModalClose();
+        } else if (isAddModalOpen) {
+          handleAddModalClose();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isViewModalOpen, isAddModalOpen]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isAddModalOpen || isViewModalOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'unset';
+      };
+    }
+  }, [isAddModalOpen, isViewModalOpen]);
 
   return (
     <div className="relative bg-white min-h-screen w-full">
@@ -218,6 +297,7 @@ const SchedulePage = ({ type = "school" }) => {
               <div className="w-full">
                 <ScheduleGrid 
                   onTimeSlotSelect={handleTimeSlotSelect}
+                  onScheduleClick={handleScheduleClick}
                   containerWidth={leftColumnWidth}
                   sidebarExpanded={sidebarExpanded}
                   selectedDates={selectedDates}
@@ -270,13 +350,25 @@ const SchedulePage = ({ type = "school" }) => {
         </div>
       </div>
 
+      {/* Add/Edit Schedule Modal */}
       <AddScheduleModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
+        isOpen={isAddModalOpen}
+        onClose={handleAddModalClose}
         onSubmit={handleModalSubmit}
         initialData={modalData}
         loading={loading.submit}
-      />  
+        mode={modalData?.id ? "edit" : "create"}
+      />
+
+      {/* View Schedule Modal */}
+      <ViewScheduleModal
+        isOpen={isViewModalOpen}
+        onClose={handleViewModalClose}
+        onEdit={handleEditFromView}
+        onDelete={handleDeleteFromView}
+        scheduleData={viewScheduleData}
+        loading={loading.submit}
+      />
     </div>
   );
 };
