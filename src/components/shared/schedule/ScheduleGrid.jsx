@@ -25,10 +25,11 @@ const ScheduleGrid = ({
   const lastMousePosRef = useRef(null);
   const dragStartTimeRef = useRef(null);
 
-  // Constants
+  // Constants - RESPONSIVE AGAIN LIKE OTHER COMPONENTS
   const baseWidth = 808;
   const baseHeight = 254;
-  const actualWidth = Math.max(baseWidth, containerWidth);
+  const actualWidth = Math.max(baseWidth, containerWidth); // Back to responsive
+  const actualHeight = baseHeight;
   const HOUR_WIDTH = 80;
   const MIN_DAY_ROW_HEIGHT = 50;
   const MAX_STACKED_SCHEDULES = 20;
@@ -41,7 +42,7 @@ const ScheduleGrid = ({
   const CLICK_TIMEOUT = 150;
   const MAX_DRAG_DAYS = 2;
 
-  // Static data - these don't depend on anything else
+  // Static data - KEEP ALL 7 DAYS, just default view to first 3
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
     { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
@@ -56,6 +57,16 @@ const ScheduleGrid = ({
     }
     return slots;
   }, []);
+
+  // Half-hour dividers
+  const halfHourDividers = useMemo(() => {
+    const dividers = [];
+    for (let i = 0; i < timeSlots.length; i++) { 
+      const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + 25; // TIME_HEADER_OFFSET
+      dividers.push({ position, hourIndex: i });
+    }
+    return dividers;
+  }, [timeSlots.length]);
 
   // Basic helper functions that don't depend on schedule data
   const getTypeColor = useCallback((type) => {
@@ -216,7 +227,8 @@ const ScheduleGrid = ({
     return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0);
   }, [dayRowHeights]);
 
-  const actualHeight = HEADER_HEIGHT + totalGridHeight;
+  // Use fixed height from Figma
+  const GRID_CONTENT_HEIGHT = actualHeight - HEADER_HEIGHT;
 
   // Position calculation helpers
   const getDayRowTop = useCallback((dayIndex) => {
@@ -614,6 +626,21 @@ const ScheduleGrid = ({
                   </span>
                 </div>
               ))}
+
+              {/* 30-minute dividers */}
+              {halfHourDividers.map((divider, i) => (
+                <div 
+                  key={`divider-30min-${i}`}
+                  className="absolute pointer-events-none bg-red-400" 
+                  style={{ 
+                    left: `${divider.position}px`,
+                    top: '60%',
+                    width: '1px',       
+                    height: '10px',        
+                    zIndex: 2
+                  }}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -720,7 +747,7 @@ const ScheduleGrid = ({
                             {event.name}
                           </div>
                           <div className="text-white text-xs truncate">
-                            {event.startTime} - {event.endTime} {event.timezoneDisplay}
+                            {event.startTime} - {event.endTime} {event.timezoneDisplay} | {event.platform}
                           </div>
                         </div>
                       );

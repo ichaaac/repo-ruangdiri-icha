@@ -89,18 +89,6 @@ const SchedulePage = ({ type = "school" }) => {
       // Show loading toast
       const loadingToast = toast.loading('Checking schedule availability...');
       
-      // Check if schedule already exists at this time (local check first)
-      const existingSchedule = getScheduleAtTime(
-        timeSlot.startDateTime, 
-        timeSlot.startDateTime.getHours().toString().padStart(2, '0') + ':00'
-      );
-      
-      if (existingSchedule) {
-        toast.dismiss(loadingToast);
-        toast.error('Schedule already exists at this time');
-        return;
-      }
-
       // Double check with API using React Query mutation
       const checkResult = await checkScheduleExists({
         date: timeSlot.startDateTime.toISOString().split('T')[0],
@@ -110,12 +98,7 @@ const SchedulePage = ({ type = "school" }) => {
 
       toast.dismiss(loadingToast);
 
-      if (checkResult?.exists) {
-        toast.error(checkResult.message || 'Schedule slot is already occupied');
-        return;
-      }
-
-      // Open modal for new schedule
+      // Open modal for new schedule (stacking is allowed, so no conflict check)
       setSelectedTimeSlot(timeSlot);
       setModalData({
         startDateTime: timeSlot.startDateTime,
@@ -126,7 +109,8 @@ const SchedulePage = ({ type = "school" }) => {
           startTime: timeSlot.startDateTime.toTimeString().slice(0, 5),
           endTime: timeSlot.endDateTime.toTimeString().slice(0, 5),
           timezone: 'Asia/Jakarta'
-        }]
+        }],
+        draggedDays: timeSlot.draggedDays || 1 // Pass dragged days to enable multiple date
       });
       setIsAddModalOpen(true);
       
@@ -134,7 +118,7 @@ const SchedulePage = ({ type = "school" }) => {
       console.error('Error checking schedule existence:', error);
       toast.error('Failed to check schedule availability');
     }
-  }, [getScheduleAtTime, checkScheduleExists]);
+  }, [checkScheduleExists]);
 
   // Handle schedule click to view details
   const handleScheduleClick = useCallback((scheduleData) => {
@@ -176,9 +160,18 @@ const SchedulePage = ({ type = "school" }) => {
       toast.success('Schedule deleted successfully');
     } catch (error) {
       console.error('Error deleting schedule:', error);
-      toast.error('Failed to delete schedule');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete schedule';
+      
+      if (errorMessage.includes('already deleted')) {
+        toast.error('Schedule has already been deleted');
+        setIsViewModalOpen(false);
+        // Refresh data to sync with backend
+        refreshData();
+      } else {
+        toast.error(`Delete failed: ${errorMessage}`);
+      }
     }
-  }, [deleteSchedule]);
+  }, [deleteSchedule, refreshData]);
 
   // Handle modal form submission with proper error handling
   const handleModalSubmit = useCallback(async (formData) => {
@@ -230,7 +223,7 @@ const SchedulePage = ({ type = "school" }) => {
     setViewScheduleData(null);
   };
 
-  // Handle date selection from DatePicker
+  // Handle date selection from DatePicker - Fixed to show date range
   const handleDateSelect = (dates) => {
     setSelectedDates(dates);
     if (dates.length > 0) {
@@ -329,6 +322,7 @@ const SchedulePage = ({ type = "school" }) => {
                   containerWidth={rightColumnWidth}
                   sidebarExpanded={sidebarExpanded}
                   selectedDate={selectedDate}
+                  selectedDates={selectedDates}
                   onDateSelect={handleDateSelect}
                   onWeekSelect={handleWeekSelect}
                 />

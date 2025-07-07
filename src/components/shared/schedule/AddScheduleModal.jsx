@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - Simplified
+// src/components/shared/schedule/AddScheduleModal.jsx - Fixed Layout
 
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -27,18 +27,19 @@ const AddScheduleModal = ({
     selectedParticipants: [],
     location: "",
     description: "",
+    multipleDate: initialData?.draggedDays > 1 || false,
     ...initialData
   }));
 
   const [dropdowns, setDropdowns] = useState({});
-  const [searchTerms, setSearchTerms] = useState({ psychologist: "", participants: "" });
   const [attachments, setAttachments] = useState([]);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   
   const editorRef = useRef(null);
+  const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Event types - text only, no color backgrounds
+  // Event types
   const eventTypes = [
     { label: "Konseling", value: "counseling", textColor: "#9986FF" },
     { label: "Kelas", value: "class", textColor: "#3CE69E" },
@@ -76,8 +77,8 @@ const AddScheduleModal = ({
     return times;
   })();
 
-  // Fetch psychologist locations
-  const { data: locations = [] } = useQuery({
+  // Fetch psychologist locations - ONLY 3 FIXED OPTIONS + BACKEND LOCATIONS
+  const { data: backendLocations = [] } = useQuery({
     queryKey: ['psychologist-locations'],
     queryFn: async () => {
       const response = await apiClient.get('/psychologists/locations');
@@ -87,7 +88,13 @@ const AddScheduleModal = ({
     staleTime: 5 * 60 * 1000
   });
 
-  // Fetch psychologists based on location
+  // Combine fixed locations with backend locations
+  const allLocations = [
+    ...fixedLocationOptions,
+    ...backendLocations.map(loc => ({ label: loc, value: loc }))
+  ];
+
+  // Fetch psychologists based on location OR all psychologists
   const { data: psychologists = [], isLoading: loadingPsychologists } = useQuery({
     queryKey: ['psychologists', formData.location],
     queryFn: async () => {
@@ -101,13 +108,9 @@ const AddScheduleModal = ({
 
   // Fetch participants with search
   const { data: participants = [], isLoading: loadingParticipants } = useQuery({
-    queryKey: ['participants', searchTerms.participants],
+    queryKey: ['participants'],
     queryFn: async () => {
-      const params = {
-        limit: 50,
-        ...(searchTerms.participants && { search: searchTerms.participants })
-      };
-      const response = await apiClient.get('/users', { params });
+      const response = await apiClient.get('/users', { params: { limit: 100 } });
       return response.data?.data || [];
     },
     enabled: isOpen && formData.type === "counseling" && dropdowns.participants,
@@ -147,7 +150,6 @@ const AddScheduleModal = ({
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Auto-adjust end time when start time changes
     if (field === 'dates') {
       const updatedDates = value.map(date => {
         const startIndex = timeOptions.indexOf(date.startTime);
@@ -171,22 +173,26 @@ const AddScheduleModal = ({
     }));
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = (e, type) => {
     const files = Array.from(e.target.files);
-    const maxSize = 15 * 1024 * 1024; // 15MB
+    const maxSize = 15 * 1024 * 1024;
+    let totalSize = attachments.reduce((sum, att) => sum + att.size, 0);
     const validFiles = [];
     
     files.forEach(file => {
-      if (file.size > maxSize) {
-        toast.error(`File ${file.name} exceeds 15MB limit`);
-      } else {
-        validFiles.push({
-          file,
-          id: Date.now() + Math.random(),
-          name: file.name,
-          size: file.size
-        });
+      if (totalSize + file.size > maxSize) {
+        toast.error(`Total file size exceeds 15MB limit`);
+        return;
       }
+      
+      validFiles.push({
+        file,
+        id: Date.now() + Math.random(),
+        name: file.name,
+        size: file.size,
+        type: type
+      });
+      totalSize += file.size;
     });
     
     setAttachments(prev => [...prev, ...validFiles]);
@@ -214,6 +220,54 @@ const AddScheduleModal = ({
     }));
   };
 
+  const addDateSlot = () => {
+    const newSlot = {
+      date: new Date().toISOString().split('T')[0],
+      startTime: formData.dates[0].startTime,
+      endTime: formData.dates[0].endTime,
+      timezone: formData.dates[0].timezone
+    };
+    handleInputChange('dates', [...formData.dates, newSlot]);
+  };
+
+  const removeDateSlot = (index) => {
+    const newDates = formData.dates.filter((_, i) => i !== index);
+    handleInputChange('dates', newDates);
+    
+    if (newDates.length === 1) {
+      handleInputChange('multipleDate', false);
+    }
+  };
+
+  const updateAdditionalDate = (index, field, value) => {
+    const newDates = [...formData.dates];
+    newDates[index] = { ...newDates[index], [field]: value };
+    
+    if (field === 'startTime') {
+      const startTimeIndex = timeOptions.indexOf(value);
+      const endTimeIndex = timeOptions.indexOf(newDates[index].endTime);
+      
+      // FIX: If start time is >= end time, auto-adjust end time
+      if (startTimeIndex >= endTimeIndex) {
+        const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
+        newDates[index].endTime = timeOptions[newEndTimeIndex];
+      }
+    }
+    
+    if (field === 'endTime') {
+      const startTimeIndex = timeOptions.indexOf(newDates[index].startTime);
+      const endTimeIndex = timeOptions.indexOf(value);
+      
+      // FIX: If end time is <= start time, auto-adjust start time
+      if (endTimeIndex <= startTimeIndex) {
+        const newStartTimeIndex = Math.max(endTimeIndex - 1, 0);
+        newDates[index].startTime = timeOptions[newStartTimeIndex];
+      }
+    }
+    
+    handleInputChange('dates', newDates);
+  };
+
   const validateForm = () => {
     if (!formData.agenda.trim()) {
       toast.error("Agenda wajib diisi");
@@ -229,6 +283,10 @@ const AddScheduleModal = ({
         toast.error("Minimal satu partisipan harus ditambahkan untuk konseling");
         return false;
       }
+      if (formData.selectedParticipants.length > 2) {
+        toast.error("Maksimal dua klien untuk konseling");
+        return false;
+      }
     }
     
     return true;
@@ -237,6 +295,7 @@ const AddScheduleModal = ({
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
+    // For counseling: max 3 userIds (1 psychologist + 2 clients max)
     const userIds = [];
     if (formData.type === "counseling") {
       if (formData.selectedPsychologist) {
@@ -262,19 +321,30 @@ const AddScheduleModal = ({
     try {
       const result = await onSubmit(submitData);
       
-      // Upload attachments in background if schedule was created
+      // FIX: Wait for schedule creation to complete and get proper ID
       if (result?.data?.id && attachments.length > 0) {
-        lastScheduleId = result.data.id;
+        const scheduleId = result.data.id;
         setUploadingAttachments(true);
         
         try {
           await uploadAttachmentsMutation.mutateAsync({
-            scheduleId: result.data.id,
+            scheduleId: scheduleId, // Use the returned schedule ID directly
             files: attachments.map(a => a.file)
           });
           toast.success("Schedule and attachments uploaded successfully");
         } catch (error) {
-          // Error already handled in mutation
+          console.error("Attachment upload error:", error);
+          toast.error("Schedule created but failed to upload attachments", {
+            action: {
+              label: "Retry",
+              onClick: () => {
+                uploadAttachmentsMutation.mutate({
+                  scheduleId: scheduleId,
+                  files: attachments.map(a => a.file)
+                });
+              }
+            }
+          });
         } finally {
           setUploadingAttachments(false);
         }
@@ -286,10 +356,30 @@ const AddScheduleModal = ({
   };
 
   const handleCancel = () => {
-    if (Object.keys(formData).some(key => formData[key] !== (initialData?.[key] || ""))) {
-      if (window.confirm('Ada perubahan yang belum disimpan. Yakin ingin membatalkan?')) {
-        onClose();
+    const hasChanges = Object.keys(formData).some(key => {
+      const initialValue = initialData?.[key];
+      const currentValue = formData[key];
+      
+      // Handle arrays and objects properly
+      if (Array.isArray(currentValue) && Array.isArray(initialValue)) {
+        return JSON.stringify(currentValue) !== JSON.stringify(initialValue);
       }
+      
+      return currentValue !== (initialValue || "");
+    });
+
+    if (hasChanges) {
+      toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
+        action: {
+          label: "Ya, batalkan",
+          onClick: () => onClose()
+        },
+        cancel: {
+          label: "Tetap edit",
+          onClick: () => {} // Do nothing, just close toast
+        },
+        duration: 10000 // 10 seconds
+      });
     } else {
       onClose();
     }
@@ -308,9 +398,8 @@ const AddScheduleModal = ({
     >
       <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
         
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-xl font-semibold text-[#488BBA]">{modalTitle}</h2>
+        {/* Header - NO TEXT, NO DIVIDER */}
+        <div className="flex justify-end items-center p-6">
           <button
             onClick={handleCancel}
             disabled={loading}
@@ -325,14 +414,15 @@ const AddScheduleModal = ({
           {/* Agenda & Type */}
           <div className="flex gap-4 items-center">
             <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
-            <div className="flex-1">
+            <div className="flex-1 relative">
+              <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
               <input
                 type="text"
                 value={formData.agenda}
                 onChange={(e) => handleInputChange('agenda', e.target.value)}
-                placeholder="* Masukkan agenda"
+                placeholder="Masukkan agenda"
                 disabled={loading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                className="w-full pl-6 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
               />
             </div>
             <div className="relative">
@@ -387,11 +477,7 @@ const AddScheduleModal = ({
                   
                   <select
                     value={dateInfo.startTime}
-                    onChange={(e) => {
-                      const newDates = [...formData.dates];
-                      newDates[index] = { ...newDates[index], startTime: e.target.value };
-                      handleInputChange('dates', newDates);
-                    }}
+                    onChange={(e) => updateAdditionalDate(index, 'startTime', e.target.value)}
                     disabled={loading}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                   >
@@ -404,11 +490,7 @@ const AddScheduleModal = ({
 
                   <select
                     value={dateInfo.endTime}
-                    onChange={(e) => {
-                      const newDates = [...formData.dates];
-                      newDates[index] = { ...newDates[index], endTime: e.target.value };
-                      handleInputChange('dates', newDates);
-                    }}
+                    onChange={(e) => updateAdditionalDate(index, 'endTime', e.target.value)}
                     disabled={loading}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                   >
@@ -419,11 +501,7 @@ const AddScheduleModal = ({
 
                   <select
                     value={dateInfo.timezone}
-                    onChange={(e) => {
-                      const newDates = [...formData.dates];
-                      newDates[index] = { ...newDates[index], timezone: e.target.value };
-                      handleInputChange('dates', newDates);
-                    }}
+                    onChange={(e) => updateAdditionalDate(index, 'timezone', e.target.value)}
                     disabled={loading}
                     className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                   >
@@ -431,8 +509,34 @@ const AddScheduleModal = ({
                       <option key={tz.value} value={tz.value}>{tz.label}</option>
                     ))}
                   </select>
+
+                  {index > 0 && (
+                    <button
+                      onClick={() => removeDateSlot(index)}
+                      disabled={loading}
+                      className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50"
+                    >
+                      <span className="material-icons text-sm">close</span>
+                    </button>
+                  )}
                 </div>
               ))}
+
+              {/* Multiple Date Toggle - NON-CLICKABLE, AUTO-ENABLED ONLY */}
+              <div className="flex gap-2 items-center text-sm">
+                <div className={`flex shrink-0 w-4 h-4 border rounded-sm transition-colors ${
+                  formData.multipleDate
+                    ? 'bg-[#535353] border-[#000000]'
+                    : 'border-gray-400'
+                }`}>
+                  {formData.multipleDate && (
+                    <span className="material-icons text-white text-xs leading-none">check</span>
+                  )}
+                </div>
+                <span className="text-[#535353]">
+                  Multiple Date {formData.multipleDate ? '(Dragged 2 days)' : ''}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -455,141 +559,183 @@ const AddScheduleModal = ({
           {showParticipants && (
             <div className="space-y-4">
               <div className="flex gap-4 items-start">
-                <span className="material-icons text-[#488BBA] text-[25px] mt-1">person</span>
-                <div className="flex-1 space-y-4">
+                <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
+                <div className="flex-1">
                   
-                  {/* Location Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Lokasi</label>
-                    <select
-                      value={formData.location}
-                      onChange={(e) => {
-                        handleInputChange('location', e.target.value);
-                        setFormData(prev => ({ ...prev, selectedPsychologist: null })); // Reset psychologist when location changes
-                      }}
-                      disabled={loading}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                    >
-                      <option value="">Semua Lokasi</option>
-                      {locations.map((location) => (
-                        <option key={location} value={location}>{location}</option>
-                      ))}
-                      {fixedLocationOptions.map((option) => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Psychologist Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <span className="text-red-500">*</span> Email/Nama Psikolog
-                    </label>
-                    <div className="relative">
-                      <button
-                        onClick={() => !loading && toggleDropdown('psychologist')}
-                        disabled={loading}
-                        className="w-full px-3 py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                      >
-                        {formData.selectedPsychologist 
-                          ? `${formData.selectedPsychologist.fullName} (${formData.selectedPsychologist.email})`
-                          : "Pilih Psikolog"}
-                        <span className="material-icons float-right mt-0.5">keyboard_arrow_down</span>
-                      </button>
-                      {dropdowns.psychologist && !loading && (
-                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto">
-                          {loadingPsychologists ? (
-                            <div className="p-3 text-center text-gray-500">Loading...</div>
-                          ) : psychologists.length > 0 ? (
-                            psychologists.map((psychologist) => (
+                  {/* Psychologist & Participant Side by Side */}
+                  <div className="grid grid-cols-2 gap-4">
+                    
+                    {/* Psychologist Column */}
+                    <div>
+                      {/* Selected Psychologist */}
+                      {formData.selectedPsychologist && (
+                        <div className="relative">
+                          <div className="absolute inset-x-2 top-2 z-10">
+                            <div className="flex items-center justify-between bg-[#535353] text-white text-xs px-2 py-1 rounded">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate">
+                                  {formData.selectedPsychologist.fullName}
+                                </div>
+                                <div className="text-gray-300 truncate text-xs">
+                                  {formData.selectedPsychologist.email}
+                                </div>
+                              </div>
                               <button
-                                key={psychologist.id}
-                                onClick={() => {
-                                  setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
-                                  toggleDropdown('psychologist');
-                                }}
-                                className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                onClick={() => setFormData(prev => ({ ...prev, selectedPsychologist: null }))}
+                                disabled={loading}
+                                className="ml-2 text-white hover:text-gray-300"
                               >
-                                <div className="font-medium">{psychologist.fullName}</div>
-                                <div className="text-sm text-gray-500">{psychologist.email}</div>
+                                <span className="material-icons text-sm">close</span>
                               </button>
-                            ))
-                          ) : (
-                            <div className="p-3 text-center text-gray-500">Tidak ada psikolog ditemukan</div>
-                          )}
+                            </div>
+                          </div>
                         </div>
                       )}
-                    </div>
-                  </div>
 
-                  {/* Participants Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <span className="text-red-500">*</span> Email/Nama Klien
-                    </label>
-                    
-                    {/* Selected Participants */}
-                    {formData.selectedParticipants.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {formData.selectedParticipants.map((participant) => (
-                          <div key={participant.id} className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded text-sm">
-                            <span>{participant.fullName} ({participant.email})</span>
-                            <button
-                              onClick={() => removeParticipant(participant.id)}
-                              disabled={loading}
-                              className="text-blue-600 hover:text-blue-800 ml-1"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="relative">
-                      <button
-                        onClick={() => !loading && toggleDropdown('participants')}
-                        disabled={loading}
-                        className="w-full px-3 py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                      >
-                        Tambah Partisipan
-                        <span className="material-icons float-right mt-0.5">keyboard_arrow_down</span>
-                      </button>
-                      {dropdowns.participants && !loading && (
-                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
-                          <div className="p-2 border-b">
-                            <input
-                              type="text"
-                              value={searchTerms.participants}
-                              onChange={(e) => setSearchTerms(prev => ({ ...prev, participants: e.target.value }))}
-                              placeholder="Cari partisipan..."
-                              className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                            />
-                          </div>
-                          <div className="max-h-40 overflow-y-auto">
-                            {loadingParticipants ? (
-                              <div className="p-3 text-center text-gray-500">Loading...</div>
-                            ) : participants.length > 0 ? (
-                              participants.map((participant) => (
+                      <div className="relative">
+                        <div className="relative">
+                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
+                          <button
+                            onClick={() => !loading && toggleDropdown('psychologist')}
+                            disabled={loading}
+                            className={`w-full pl-6 pr-8 py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
+                              formData.selectedPsychologist ? 'pt-10' : ''
+                            }`}
+                            style={{ minHeight: formData.selectedPsychologist ? '60px' : '42px' }}
+                          >
+                            <span className={`text-gray-500 ${formData.selectedPsychologist ? 'opacity-0' : ''}`}>
+                              Email/nama Psikolog
+                            </span>
+                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                          </button>
+                        </div>
+                        {dropdowns.psychologist && !loading && (
+                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                            {loadingPsychologists ? (
+                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                            ) : psychologists.length > 0 ? (
+                              psychologists.map((psychologist) => (
                                 <button
-                                  key={participant.id}
-                                  onClick={() => handleParticipantSelect(participant)}
-                                  disabled={formData.selectedParticipants.find(p => p.id === participant.id)}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  key={psychologist.id}
+                                  onClick={() => {
+                                    setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
+                                    toggleDropdown('psychologist');
+                                  }}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
                                 >
-                                  <div className="font-medium">{participant.fullName}</div>
-                                  <div className="text-sm text-gray-500">{participant.email}</div>
+                                  <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
+                                  <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
                                 </button>
                               ))
                             ) : (
-                              <div className="p-3 text-center text-gray-500">Tidak ada partisipan ditemukan</div>
+                              <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
                             )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Client Column */}
+                    <div>
+                      {/* Selected Participants - FLEX HORIZONTAL */}
+                      {formData.selectedParticipants.length > 0 && (
+                        <div className="relative">
+                          <div className="absolute inset-x-2 top-2 z-10 flex gap-1">
+                            {formData.selectedParticipants.slice(0, 2).map((participant) => (
+                              <div key={participant.id} className="flex items-center justify-between bg-[#EEEEEE] text-[#535353] text-xs px-2 py-1 rounded flex-1">
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium truncate">
+                                    {participant.fullName}
+                                  </div>
+                                  <div className="text-gray-500 truncate text-xs">
+                                    {participant.email}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => removeParticipant(participant.id)}
+                                  disabled={loading}
+                                  className="ml-2 text-[#535353] hover:text-gray-700"
+                                >
+                                  <span className="material-icons text-sm">close</span>
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
+
+                      <div className="relative">
+                        <div className="relative">
+                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
+                          <button
+                            onClick={() => !loading && toggleDropdown('participants')}
+                            disabled={loading || formData.selectedParticipants.length >= 2}
+                            className={`w-full pl-6 pr-8 py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
+                              formData.selectedParticipants.length > 0 ? 'pt-10' : ''
+                            }`}
+                            style={{ 
+                              minHeight: formData.selectedParticipants.length > 0 
+                                ? '60px' // Fixed height for horizontal flex
+                                : '42px' 
+                            }}
+                          >
+                            <span className={`text-gray-500 ${formData.selectedParticipants.length > 0 ? 'opacity-0' : ''}`}>
+                              {formData.selectedParticipants.length >= 2 ? "Max 2 klien" : "Email/nama Klien"}
+                            </span>
+                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                          </button>
+                        </div>
+                        {dropdowns.participants && !loading && formData.selectedParticipants.length < 2 && (
+                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                            {loadingParticipants ? (
+                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                            ) : participants.length > 0 ? (
+                              participants
+                                .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
+                                .map((participant) => (
+                                <button
+                                  key={participant.id}
+                                  onClick={() => handleParticipantSelect(participant)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                >
+                                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-3 text-center text-gray-500 text-sm">Tidak ada partisipan ditemukan</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Location - Below Participants */}
+              <div className="flex gap-4 items-center">
+                <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+                <select
+                  value={formData.location}
+                  onChange={(e) => {
+                    handleInputChange('location', e.target.value);
+                    // Reset psychologist when location changes
+                    setFormData(prev => ({ ...prev, selectedPsychologist: null }));
+                  }}
+                  disabled={loading}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                >
+                  <option value="">Pilih Lokasi</option>
+                  {/* ONLY 3 FIXED OPTIONS */}
+                  {fixedLocationOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                  {/* BACKEND LOCATIONS - Only if psychologist selected first */}
+                  {formData.selectedPsychologist && backendLocations.map((location) => (
+                    <option key={location} value={location}>{location}</option>
+                  ))}
+                </select>
               </div>
             </div>
           )}
@@ -630,10 +776,12 @@ const AddScheduleModal = ({
                 
                 {/* Attachments */}
                 {attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {attachments.map((attachment) => (
                       <div key={attachment.id} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs">
-                        <span className="material-icons text-xs">attach_file</span>
+                        <span className="material-icons text-xs">
+                          {attachment.type === 'image' ? 'image' : 'description'}
+                        </span>
                         <span className="max-w-20 truncate">{attachment.name}</span>
                         <button
                           onClick={() => removeAttachment(attachment.id)}
@@ -646,52 +794,76 @@ const AddScheduleModal = ({
                   </div>
                 )}
                 
-                <div className="flex items-center mt-3 pt-3 border-t">
+                {/* File Upload Controls - FIXED ICONS */}
+                <div className="flex items-center gap-3 mt-3">
+                  {/* Document Upload - FIRST */}
                   <input
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    onChange={handleFileSelect}
+                    accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
+                    onChange={(e) => handleFileSelect(e, 'document')}
                     className="hidden"
                     disabled={loading}
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#488BBA] transition-colors"
+                    className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
+                    title="Upload Files"
                   >
-                    <span className="material-icons text-sm">attach_file</span>
-                    Attach Files (Max 15MB)
+                    <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>attach_file</span>
                   </button>
+                  
+                  {/* Photo Upload - SECOND */}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => handleFileSelect(e, 'image')}
+                    className="hidden"
+                    disabled={loading}
+                  />
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={loading}
+                    className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
+                    title="Upload Photos"
+                  >
+                    <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>add_photo_alternate</span>
+                  </button>
+                  
                   {uploadingAttachments && (
-                    <span className="ml-2 text-xs text-blue-500">Uploading...</span>
+                    <span className="text-xs text-blue-500">Uploading...</span>
                   )}
                 </div>
               </div>
+
+              {/* Required Fields Notice & Action Buttons - Aligned with description field */}
+              <div className="mt-4 space-y-3">
+                <div className="text-xs text-gray-600">
+                  <span className="text-[#EE4266]">*</span> Wajib diisi
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={handleCancel}
+                    disabled={loading}
+                    className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={loading || !formData.agenda || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0))}
+                    className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
+                  >
+                    {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-
-          {/* Required Fields Notice */}
-          <div className="text-xs text-gray-600">
-            <span className="text-red-500">*</span> Wajib diisi
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button
-              onClick={handleCancel}
-              disabled={loading}
-              className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !formData.agenda || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0))}
-              className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
-            >
-              {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}
-            </button>
           </div>
         </div>
 

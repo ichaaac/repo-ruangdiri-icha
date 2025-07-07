@@ -349,7 +349,7 @@ export const createScheduleApi = (organizationType = "school") => {
         console.log("Fetching counseling queue...")
 
         // Updated endpoint for counseling queue
-        const response = await apiClient.get("/counselings", { params })
+        const response = await apiClient.get("/counselings/schedules", { params })
 
         if (response.data?.status === "success") {
           return {

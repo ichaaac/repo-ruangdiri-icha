@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx
+// src/components/shared/schedule/DatePicker.jsx - Fixed
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -7,6 +7,7 @@ const DatePicker = ({
   containerWidth = 335,
   sidebarExpanded = false,
   selectedDate = new Date(),
+  selectedDates = [],
   onDateSelect = () => {},
   onWeekSelect = () => {}
 }) => {
@@ -14,12 +15,19 @@ const DatePicker = ({
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false)
   const [selectedYear, setSelectedYear] = useState((selectedDate || new Date()).getFullYear())
   const [selectedMonth, setSelectedMonth] = useState((selectedDate || new Date()).getMonth())
-  const [selectedDates, setSelectedDates] = useState([])
+  const [internalSelectedDates, setInternalSelectedDates] = useState(selectedDates || [])
   const containerRef = useRef(null)
 
   // Today's date for comparison
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+
+  // Sync with external selectedDates prop
+  useEffect(() => {
+    if (selectedDates && selectedDates.length > 0) {
+      setInternalSelectedDates(selectedDates);
+    }
+  }, [selectedDates]);
 
   // Sync with external selectedDate prop
   useEffect(() => {
@@ -67,10 +75,33 @@ const DatePicker = ({
     "Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"
   ]
 
-  // Get current day name
-  const getCurrentDayName = () => {
-    return dayNames[currentDate.getDay()];
-  }
+  // Get header display text - show selected date range instead of current day
+  const getHeaderText = () => {
+    if (internalSelectedDates.length === 0) {
+      return `${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
+    
+    if (internalSelectedDates.length === 1) {
+      const date = internalSelectedDates[0];
+      return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
+    }
+    
+    // Show range for multiple dates
+    const sortedDates = [...internalSelectedDates].sort((a, b) => a.getTime() - b.getTime());
+    const startDate = sortedDates[0];
+    const endDate = sortedDates[sortedDates.length - 1];
+    
+    if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+      // Same month: "9-15 Juni 2025"
+      return `${startDate.getDate()}-${endDate.getDate()} ${monthNames[startDate.getMonth()]} ${startDate.getFullYear()}`;
+    } else if (startDate.getFullYear() === endDate.getFullYear()) {
+      // Same year: "29 Juni - 5 Juli 2025"
+      return `${startDate.getDate()} ${monthNames[startDate.getMonth()]} - ${endDate.getDate()} ${monthNames[endDate.getMonth()]} ${startDate.getFullYear()}`;
+    } else {
+      // Different years: "29 Juni 2024 - 5 Juli 2025"
+      return `${startDate.getDate()} ${monthNames[startDate.getMonth()]} ${startDate.getFullYear()} - ${endDate.getDate()} ${monthNames[endDate.getMonth()]} ${endDate.getFullYear()}`;
+    }
+  };
 
   // Get all dates in the same week as the given date (Monday to Sunday)
   const getWeekDates = (date) => {
@@ -127,13 +158,13 @@ const DatePicker = ({
 
       const isCurrentMonth = date.getMonth() === month
       const isToday = date.getTime() === today.getTime()
-      const isSelected = selectedDates.some((selectedDate) => {
+      const isSelected = internalSelectedDates.some((selectedDate) => {
         const normalizedSelectedDate = new Date(selectedDate)
         normalizedSelectedDate.setHours(0, 0, 0, 0)
         return normalizedSelectedDate.getTime() === date.getTime()
       })
 
-      const selectionPosition = isSelected ? getSelectionPosition(date, selectedDates) : null
+      const selectionPosition = isSelected ? getSelectionPosition(date, internalSelectedDates) : null
 
       days.push({
         date: date.getDate(),
@@ -150,25 +181,13 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  // Handle date click - FIXED CROSS-MONTH WEEK SELECTION
+  // Handle date click - FIXED OUTLOOK-STYLE BEHAVIOR
   const handleDateClick = (day) => {
-    // For dates not in current month, navigate to that month first but don't select
-    if (!day.isCurrentMonth) {
-      const newDate = new Date(day.fullDate)
-      setCurrentDate(newDate)
-      setSelectedYear(newDate.getFullYear())
-      setSelectedMonth(newDate.getMonth())
-      // Clear any previous selection when navigating
-      setSelectedDates([])
-      onDateSelect([])
-      return
-    }
-    
     const clickedWeekDates = getWeekDates(day.fullDate)
     
     // Check if this week is already selected
     const isWeekSelected = clickedWeekDates.every(weekDate => 
-      selectedDates.some(selectedDate => {
+      internalSelectedDates.some(selectedDate => {
         const normalizedSelected = new Date(selectedDate)
         const normalizedWeek = new Date(weekDate)
         normalizedSelected.setHours(0, 0, 0, 0)
@@ -181,7 +200,7 @@ const DatePicker = ({
     
     if (isWeekSelected) {
       // Deselect the week
-      newSelectedDates = selectedDates.filter(selectedDate => 
+      newSelectedDates = internalSelectedDates.filter(selectedDate => 
         !clickedWeekDates.some(weekDate => {
           const normalizedSelected = new Date(selectedDate)
           const normalizedWeek = new Date(weekDate)
@@ -191,15 +210,34 @@ const DatePicker = ({
         })
       );
     } else {
-      // Select the entire week
+      // Select the entire week - OUTLOOK BEHAVIOR: Stay in current month view
       newSelectedDates = clickedWeekDates;
+      
+      // FIX: If week spans across months, ensure we stay in the right month
+      // Find which month has more days of the selected week
+      const monthCounts = {};
+      clickedWeekDates.forEach(date => {
+        const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+        monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+      });
+      
+      // Get the month with most days
+      const dominantMonth = Object.keys(monthCounts).reduce((a, b) => 
+        monthCounts[a] > monthCounts[b] ? a : b
+      );
+      
+      const [year, month] = dominantMonth.split('-').map(Number);
+      
+      // Only change view if the dominant month is different from current
+      if (month !== currentDate.getMonth() || year !== currentDate.getFullYear()) {
+        const newViewDate = new Date(year, month, 1);
+        setCurrentDate(newViewDate);
+        setSelectedMonth(month);
+        setSelectedYear(year);
+      }
     }
     
-    setSelectedDates(newSelectedDates);
-    
-    // IMPORTANT FIX: Don't change currentDate/month view when selecting dates
-    // Keep the calendar view stable in the current month
-    // Only update the internal date for display purposes, not the view
+    setInternalSelectedDates(newSelectedDates);
     
     // Notify parent components
     onDateSelect(newSelectedDates);
@@ -218,7 +256,7 @@ const DatePicker = ({
     setSelectedMonth(month)
     setSelectedYear(year)
     setShowMonthYearPicker(false)
-    setSelectedDates([])
+    setInternalSelectedDates([])
     
     // Notify parent of date change
     onDateSelect([]);
@@ -253,22 +291,31 @@ const DatePicker = ({
       className="rounded-md border border-zinc-500 bg-white flex flex-col transition-all duration-300 relative"
       style={{ 
         width: `${actualWidth}px`, 
-        height: `${actualHeight}px`
+        height: `${actualHeight}px`,
+        padding: '14px 11px 0 11px' // 14px top, 11px left/right
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-2 py-2 bg-zinc-100 rounded-t-md flex-none">
+      {/* Header - FIXED DIMENSIONS 312x35px */}
+      <div 
+        className="flex items-center justify-between px-2 py-2 bg-zinc-100 rounded-md flex-none"
+        style={{ 
+          width: '312px',
+          height: '35px',
+          marginLeft: '0',
+          marginRight: '0'
+        }}
+      >
         {/* Navigation Arrows */}
         <button 
           onClick={handlePreviousMonth}
           className="hover:bg-zinc-200 p-1 rounded transition-colors"
           title="Previous Month"
         >
-          <span className="material-icons text-neutral-600 text-sm">chevron_left</span>
+          <span className="material-icons text-[#535353] text-sm">chevron_left</span>
         </button>
 
-        <h3 className="text-sm font-bold text-neutral-600 truncate flex-1 text-center">
-          {getCurrentDayName()}, {currentDate.getDate()} {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+        <h3 className="text-sm font-bold text-[#535353] truncate flex-1 text-center">
+          {getHeaderText()}
         </h3>
 
         <button 
@@ -276,11 +323,11 @@ const DatePicker = ({
           className="hover:bg-zinc-200 p-1 rounded transition-colors mr-2"
           title="Next Month"
         >
-          <span className="material-icons text-neutral-600 text-sm">chevron_right</span>
+          <span className="material-icons text-[#535353] text-sm">chevron_right</span>
         </button>
 
         <button onClick={handleMonthYearClick} className="hover:bg-zinc-200 p-1 rounded transition-colors">
-          <span className="material-icons text-neutral-600 text-sm">calendar_month</span>
+          <span className="material-icons text-[#535353] text-sm">calendar_month</span>
         </button>
       </div>
 
@@ -290,9 +337,9 @@ const DatePicker = ({
           <motion.div 
             className="absolute bg-white border border-zinc-300 rounded-md shadow-lg z-50 p-4"
             style={{
-              top: '45px',
-              left: '8px',
-              right: '8px'
+              top: '49px', // 14px + 35px header height
+              left: '11px',
+              right: '11px'
             }}
             initial={{ opacity: 0, y: -10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -339,7 +386,7 @@ const DatePicker = ({
       </AnimatePresence>
   
       {/* Calendar Content */}
-      <div className="flex-grow flex flex-col px-2 py-2">
+      <div className="flex-grow flex flex-col px-0 py-2" style={{ marginTop: '10px' }}>
   
         {/* Days of week */}
         <div className="grid grid-cols-7 mb-1">
@@ -392,12 +439,7 @@ const DatePicker = ({
         </div>
       </div>
 
-      {/* Week Selection Info */}
-      {selectedDates.length > 0 && (
-        <div className="px-2 py-1 text-xs text-center text-[#488BBA] bg-gray-50 rounded-b-md">
-          {selectedDates.length} hari dipilih
-        </div>
-      )}
+      {/* No bottom text - removed "X hari dipilih" */}
     </div>
   )
 }
