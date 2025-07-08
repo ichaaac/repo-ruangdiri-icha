@@ -1,6 +1,49 @@
 // src/components/shared/schedule/CounselingQueue.jsx - Backend Integration
 
 import { useState, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion"; 
+
+// Fungsi truncateText LOKAL untuk CounselingQueue
+const truncateLocalText = (text, maxLength = 15) => {
+  if (!text) return "";
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+};
+
+// Komponen Tooltip Custom (mirip HelpTooltip lo)
+const CustomTruncateTooltip = ({ text, x, y, show }) => {
+  if (!show || !text) return null;
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          className="fixed bg-black/80 text-white text-xs rounded px-2 py-1 shadow-lg z-[9999]"
+          style={{
+            left: x,
+            top: y,
+            transform: "translateX(-50%)", // Pusatkan tooltip di bawah elemen
+            maxWidth: "200px", // Maksimal lebar tooltip, sesuaikan kebutuhan lo
+            whiteSpace: "normal", // Izinkan teks untuk wrap ke baris baru
+            wordBreak: "break-word", // Pastikan kata panjang juga bisa pecah baris
+            // --- Perubahan di sini, Admiral! ---
+            overflow: "hidden", // Sembunyikan konten yang overflow
+            textOverflow: "ellipsis", // Tambahkan ellipsis di akhir
+            display: "-webkit-box", // Aktifkan multi-line ellipsis
+            webkitLineClamp: 3, // Maksimal 3 baris sebelum ellipsis (sesuaikan angka ini)
+            webkitBoxOrient: "vertical", // Orientasi vertikal untuk webkit-line-clamp
+            // ------------------------------------
+          }}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -5 }}
+        >
+          {text}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 
 const CounselingQueue = ({ 
   containerWidth = 808,
@@ -11,6 +54,10 @@ const CounselingQueue = ({
   const [displayData, setDisplayData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  
+  // State untuk mengontrol tooltip lokasi dan keterangan
+  const [hoveredLocation, setHoveredLocation] = useState(null);
+  const [hoveredKeterangan, setHoveredKeterangan] = useState(null);
 
   useEffect(() => {
     // Set the real data from backend
@@ -49,7 +96,7 @@ const CounselingQueue = ({
   // Custom scrollbar styles
   const scrollbarStyles = {
     scrollbarWidth: 'thin',
-    scrollbarColor: '#CBD5E0 #F7FAFC',
+    scrollbarColor: '#CBD5E0 #F7FAFA', 
   };
 
   // Add custom scrollbar CSS
@@ -69,6 +116,10 @@ const CounselingQueue = ({
       }
       .queue-scrollbar::-webkit-scrollbar-thumb:hover {
         background: #A0AEC0;
+      }
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
       }
     `;
     document.head.appendChild(style);
@@ -142,36 +193,72 @@ const CounselingQueue = ({
               style={scrollbarStyles}
             >
               <div className="w-full">
-                {displayData.map((item, index) => (
-                  <div key={item.id || index}>
-                    <div className="px-9 py-3 hover:bg-gray-50 transition-colors">
-                      <div className="grid grid-cols-6 gap-4 lg:gap-8 items-center">
-                        <div className="text-sm font-normal text-[#535353]">
-                          {item.name}
-                        </div>
-                        <div className="text-sm font-normal text-[#FF6B6B]">
-                          {item.category}
-                        </div>
-                        <div className="text-sm font-normal text-[#535353]">
-                          {item.date}
-                        </div>
-                        <div className="text-sm font-normal text-[#535353]">
-                          {item.time}
-                        </div>
-                        <div className="text-sm font-normal text-[#535353]">
-                          {item.lokasi || item.location || "TBD"}
-                        </div>
-                        <div className="text-sm font-normal text-[#535353]">
-                          {item.status || item.keterangan || "Pertama"}
+                {displayData.map((item, index) => {
+                  const displayLocation = item.lokasi || item.location || "TBD";
+                  const displayKeterangan = item.status || item.keterangan || "Pertama";
+                  const displayNama = item.name;
+
+                  return (
+                    <div key={item.id || index}>
+                      <div className="px-9 py-3 hover:bg-gray-50 transition-colors">
+                        <div className="grid grid-cols-6 gap-4 lg:gap-8 items-center">
+                          <div 
+                            className="text-sm font-normal text-[#535353] whitespace-nowrap overflow-hidden text-ellipsis"
+                          >
+                            {truncateLocalText(displayNama, 20)}
+                          </div>
+                          <div className="text-sm font-normal text-[#FF6B6B]">
+                            {item.category}
+                          </div>
+                          <div className="text-sm font-normal text-[#535353]">
+                            {item.date}
+                          </div>
+                          <div className="text-sm font-normal text-[#535353]">
+                            {item.time}
+                          </div>
+                          <div 
+                            className="text-sm font-normal text-[#535353] whitespace-nowrap overflow-hidden text-ellipsis"
+                            onMouseEnter={(e) => {
+                              // Hanya tampilkan tooltip jika teks ASLI lebih panjang dari maxLength
+                              if (displayLocation.length > 15) { 
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setHoveredLocation({
+                                  text: displayLocation,
+                                  x: rect.left + rect.width / 2, 
+                                  y: rect.bottom + 5, 
+                                });
+                              }
+                            }}
+                            onMouseLeave={() => setHoveredLocation(null)}
+                          >
+                            {truncateLocalText(displayLocation, 15)} 
+                          </div>
+                          <div 
+                            className="text-sm font-normal text-[#535353] whitespace-nowrap overflow-hidden text-ellipsis"
+                            onMouseEnter={(e) => {
+                              // Hanya tampilkan tooltip jika teks ASLI lebih panjang dari maxLength
+                              if (displayKeterangan.length > 15) { 
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setHoveredKeterangan({
+                                  text: displayKeterangan,
+                                  x: rect.left + rect.width / 2, 
+                                  y: rect.bottom + 5, 
+                                });
+                              }
+                            }}
+                            onMouseLeave={() => setHoveredKeterangan(null)}
+                          >
+                            {truncateLocalText(displayKeterangan, 15)} 
+                          </div>
                         </div>
                       </div>
+                      {/* Gradient Divider */}
+                      {index < displayData.length - 1 && (
+                        <div className="h-px w-full bg-gradient-to-r from-white via-[#488BBE] to-white" />
+                      )}
                     </div>
-                    {/* Gradient Divider */}
-                    {index < displayData.length - 1 && (
-                      <div className="h-px w-full bg-gradient-to-r from-white via-[#488BBE] to-white" />
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Loading indicator for pagination */}
                 {isLoading && (
@@ -200,6 +287,22 @@ const CounselingQueue = ({
           )}
         </div>
       </div>
+
+      {/* Custom Tooltip untuk Lokasi */}
+      <CustomTruncateTooltip 
+        text={hoveredLocation?.text} 
+        x={hoveredLocation?.x} 
+        y={hoveredLocation?.y} 
+        show={!!hoveredLocation} 
+      />
+
+      {/* Custom Tooltip untuk Keterangan */}
+      <CustomTruncateTooltip 
+        text={hoveredKeterangan?.text} 
+        x={hoveredKeterangan?.x} 
+        y={hoveredKeterangan?.y} 
+        show={!!hoveredKeterangan} 
+      />
     </div>
   );
 };
