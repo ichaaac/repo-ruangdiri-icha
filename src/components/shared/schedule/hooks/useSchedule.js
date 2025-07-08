@@ -1,4 +1,4 @@
-// src/components/shared/schedule/hooks/useSchedule.js - FIXED & FOCUSED
+// src/components/shared/schedule/hooks/useSchedule.js - FULL FIXED CODE
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -99,35 +99,32 @@ export const useSchedule = (type = "school") => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         return [
-          {
-            id: '1',
-            user: { 
-              fullName: "Antony Martial",
-              avatar: "https://ui-avatars.com/api/?name=Antony+Martial&background=488BBA&color=fff"
-            },
-            action: "Made an appointment",
-            time: "1 jam yang lalu",
-            createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: '2',
-            user: { 
-              fullName: "Jessica Chen",
-              avatar: "https://ui-avatars.com/api/?name=Jessica+Chen&background=488BBA&color=fff"
-            },
-            action: "Updated schedule",
-            time: "2 jam yang lalu",
-            createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-          }
+          // {
+          //   id: '1',
+          //   user: { 
+          //     fullName: "Antony Martial",
+          //     avatar: "https://ui-avatars.com/api/?name=Antony+Martial&background=488BBA&color=fff"
+          //   },
+          //   action: "Made an appointment",
+          //   time: "1 jam yang lalu",
+          //   createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
+          // },
+          // {
+          //   id: '2',
+          //   user: { 
+          //     fullName: "Jessica Chen",
+          //     avatar: "https://ui-avatars.com/api/?name=Jessica+Chen&background=488BBA&color=fff"
+          //   },
+          //   action: "Updated schedule",
+          //   time: "2 jam yang lalu",
+          //   createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+          // }
         ];
       } catch (error) {
         console.error('Error fetching notifications:', error);
         return [];
       }
     },
-    staleTime: 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    retry: 1,
   });
 
   // ===== CREATE SCHEDULE MUTATION =====
@@ -245,18 +242,8 @@ export const useSchedule = (type = "school") => {
     }
   });
 
-  // ===== CHECK SCHEDULE EXISTS - REMOVED FOR STACKING =====
-  const checkScheduleExistsMutation = useMutation({
-    mutationFn: async ({ date, startTime, endTime, timezone }) => {
-      // Always allow stacking - no conflict checking
-      return {
-        exists: false,
-        available: true,
-        message: "Jadwal tersedia (stacking diizinkan)"
-      };
-    },
-    retry: false,
-  });
+  // ===== CHECK SCHEDULE EXISTS - REMOVED (Backend handles conflicts) =====
+  // No longer needed - backend will handle all conflict checking and availability
 
   // ===== HANDLERS =====
   const handleWeekSelect = useCallback((weekStart) => {
@@ -329,7 +316,6 @@ export const useSchedule = (type = "school") => {
     submit: createScheduleMutation.isPending || 
             updateScheduleMutation.isPending || 
             deleteScheduleMutation.isPending,
-    checkExists: checkScheduleExistsMutation.isPending,
   };
 
   const error = {
@@ -367,7 +353,6 @@ export const useSchedule = (type = "school") => {
     updateSchedule: (scheduleId, formData) => 
       updateScheduleMutation.mutateAsync({ scheduleId, formData }),
     deleteSchedule: deleteScheduleMutation.mutateAsync,
-    checkScheduleExists: checkScheduleExistsMutation.mutateAsync,
     refreshData,
     
     // Manual refetch methods
@@ -387,7 +372,6 @@ export const useSchedule = (type = "school") => {
     createMutation: createScheduleMutation,
     updateMutation: updateScheduleMutation,
     deleteMutation: deleteScheduleMutation,
-    checkExistsMutation: checkScheduleExistsMutation,
     
     // Cache control
     invalidateSchedules: () => queryClient.invalidateQueries({ queryKey: scheduleKeys.lists() }),

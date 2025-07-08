@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED CREATE & EDIT SUPPORT
+// src/components/shared/schedule/AddScheduleModal.jsx - FULL FIXED CODE
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ const AddScheduleModal = ({
     location: "",
     customLocation: "",
     description: "",
-    multipleDate: false,
+    multipleDate: false, // Keep this for internal logic
     ...initialData
   }));
 
@@ -77,7 +77,7 @@ const AddScheduleModal = ({
           selectedPsychologist: initialData.participants?.find(p => p.role === 'psychologist') || null,
           selectedParticipants: initialData.participants?.filter(p => p.role !== 'psychologist') || [],
           
-          // FIXED: Handle multiple date properly
+          // Handle multiple date from initial data
           multipleDate: (initialData.dates?.length || 0) > 1 || initialData.multipleDate || initialData.draggedDays > 1,
         };
         
@@ -106,7 +106,7 @@ const AddScheduleModal = ({
           location: "",
           customLocation: "",
           description: "",
-          // FIXED: Handle multipleDate from drag
+          // Handle multipleDate from drag (when creating from schedule grid)
           multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
         });
         
@@ -173,7 +173,15 @@ const AddScheduleModal = ({
   const getAvailableLocations = () => {
     if (formData.selectedPsychologist) {
       // Kalau psikolog dipilih dulu -> show fixed options
-      return fixedLocationOptions;
+      // TAPI jika ada lokasi backend yang sudah dipilih, include juga itu
+      const baseOptions = [...fixedLocationOptions];
+      
+      // Jika ada lokasi yang dipilih dan itu dari backend locations, include it
+      if (formData.location && !fixedLocationOptions.find(opt => opt.value === formData.location)) {
+        baseOptions.unshift({ label: formData.location, value: formData.location });
+      }
+      
+      return baseOptions;
     } else {
       // Kalau belum pilih psikolog -> show backend locations
       return psychologistLocations.map(loc => ({ label: loc, value: loc }));
@@ -213,41 +221,31 @@ const AddScheduleModal = ({
     staleTime: 30 * 1000
   });
 
-  // Upload attachments mutation
+  // Upload attachments mutation - ENHANCED for multiple schedule support
   const uploadAttachmentsMutation = useMutation({
     mutationFn: async ({ scheduleId, files }) => {
       const formData = new FormData();
       files.forEach(file => formData.append('files', file));
       
+      console.log(`Uploading ${files.length} files to schedule ${scheduleId}`);
+      
       return await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
     },
-    onError: (error) => {
-      toast.error("Failed to upload attachments", {
-        action: {
-          label: "Retry",
-          onClick: () => {
-            if (lastScheduleId && attachments.length > 0) {
-              uploadAttachmentsMutation.mutate({
-                scheduleId: lastScheduleId,
-                files: attachments.map(a => a.file)
-              });
-            }
-          }
-        }
-      });
+    onError: (error, { scheduleId }) => {
+      console.error(`Failed to upload attachments to schedule ${scheduleId}:`, error);
+      // Don't show individual toast errors when used with Promise.all
+      // The main handleSubmit will handle error messaging
     }
   });
 
-  let lastScheduleId = null;
-
-  // RESTORED: Event handlers with location reset logic
+  // FIXED: Event handlers - prevent location reset issues
   const handleInputChange = (field, value) => {
     console.log(`Changing ${field} to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Reset psychologist ketika location berubah ke backend location
+    // Only reset psychologist when location changes to backend location (not vice versa)
     if (field === 'location') {
       const isBackendLocation = !fixedLocationOptions.find(opt => opt.value === value);
       if (isBackendLocation && formData.selectedPsychologist) {
@@ -255,6 +253,8 @@ const AddScheduleModal = ({
         setFormData(prev => ({ ...prev, selectedPsychologist: null }));
       }
     }
+    
+    // FIXED: No location reset when psychologist is selected
     
     if (field === 'dates') {
       const updatedDates = value.map(date => {
@@ -268,7 +268,13 @@ const AddScheduleModal = ({
         }
         return date;
       });
-      setFormData(prev => ({ ...prev, dates: updatedDates }));
+      setFormData(prev => ({ 
+        ...prev, 
+        dates: updatedDates,
+        // Auto-update multipleDate based on dates length
+        multipleDate: updatedDates.length > 1
+      }));
+      return; // Early return to avoid double state update
     }
   };
 
@@ -336,21 +342,12 @@ const AddScheduleModal = ({
     }));
   };
 
-  const addDateSlot = () => {
-    const newSlot = {
-      date: new Date().toISOString().split('T')[0],
-      startTime: formData.dates[0].startTime,
-      endTime: formData.dates[0].endTime,
-      timezone: formData.dates[0].timezone
-    };
-    handleInputChange('dates', [...formData.dates, newSlot]);
-  };
-
   const removeDateSlot = (index) => {
     const newDates = formData.dates.filter((_, i) => i !== index);
     handleInputChange('dates', newDates);
     
-    if (newDates.length === 1) {
+    // Auto-update multipleDate based on remaining dates
+    if (newDates.length <= 1) {
       handleInputChange('multipleDate', false);
     }
   };
@@ -461,33 +458,73 @@ const AddScheduleModal = ({
     try {
       const result = await onSubmit(submitData);
       
-      // Handle attachments if any
-      if (result?.data?.id && attachments.length > 0) {
-        const scheduleId = result.data.id;
+      // ENHANCED: Handle attachments for single or multiple schedules
+      if (result?.data && attachments.length > 0) {
         setUploadingAttachments(true);
         
         try {
-          await uploadAttachmentsMutation.mutateAsync({
-            scheduleId: scheduleId,
-            files: attachments.map(a => a.file)
-          });
-          toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} and attachments uploaded successfully`);
+          // Determine schedule IDs based on response structure
+          let scheduleIds = [];
+          
+          if (Array.isArray(result.data)) {
+            // Multiple schedules case: [{ id: "id1" }, { id: "id2" }]
+            scheduleIds = result.data.map(schedule => schedule.id);
+          } else if (result.data.ids && Array.isArray(result.data.ids)) {
+            // Multiple schedules case: { ids: ["id1", "id2"] }
+            scheduleIds = result.data.ids;
+          } else if (result.data.id) {
+            // Single schedule case: { id: "single-id" }
+            scheduleIds = [result.data.id];
+          }
+          
+          console.log('Uploading attachments to schedule IDs:', scheduleIds);
+          
+          if (scheduleIds.length > 0) {
+            // FIXED: Always upload to ALL schedules (untuk multiple dates)
+            const uploadPromises = scheduleIds.map(scheduleId =>
+              uploadAttachmentsMutation.mutateAsync({
+                scheduleId,
+                files: attachments.map(a => a.file)
+              }).catch(error => {
+                console.error(`Failed to upload to schedule ${scheduleId}:`, error);
+                throw error; // Re-throw to be caught by Promise.all
+              })
+            );
+            
+            await Promise.all(uploadPromises);
+            
+            if (scheduleIds.length === 1) {
+              toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} and attachments uploaded successfully`);
+            } else {
+              toast.success(`${scheduleIds.length} schedules created and attachments uploaded to all schedules successfully`);
+            }
+          } else {
+            console.warn('No valid schedule IDs found for attachment upload');
+            toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} successfully, but no attachments uploaded`);
+          }
+          
         } catch (error) {
           console.error("Attachment upload error:", error);
-          toast.error(`Schedule ${mode === 'edit' ? 'updated' : 'created'} but failed to upload attachments`, {
+          
+          const scheduleCount = Array.isArray(result.data) ? result.data.length : 1;
+          const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
+          
+          toast.error(`${scheduleText} ${mode === 'edit' ? 'updated' : 'created'} but failed to upload attachments`, {
             action: {
-              label: "Retry",
+              label: "Retry Upload",
               onClick: () => {
-                uploadAttachmentsMutation.mutate({
-                  scheduleId: scheduleId,
-                  files: attachments.map(a => a.file)
-                });
+                toast.info("Please try uploading attachments manually");
               }
             }
           });
         } finally {
           setUploadingAttachments(false);
         }
+      } else if (result?.data) {
+        // No attachments case
+        const scheduleCount = Array.isArray(result.data) ? result.data.length : 1;
+        const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
+        toast.success(`${scheduleText} ${mode === 'edit' ? 'updated' : 'created'} successfully`);
       }
       
     } catch (error) {
@@ -512,6 +549,7 @@ const AddScheduleModal = ({
       dates: formData.dates,
       location: formData.location,
       customLocation: formData.customLocation,
+      multipleDate: formData.multipleDate,
     };
 
     const initial = {
@@ -522,6 +560,7 @@ const AddScheduleModal = ({
       dates: initialData.dates || [],
       location: initialData.location || "",
       customLocation: initialData.customLocation || "",
+      multipleDate: initialData.multipleDate || false,
     };
 
     return JSON.stringify(current) !== JSON.stringify(initial);
@@ -534,8 +573,8 @@ const AddScheduleModal = ({
         action: {
           label: "Ya, batalkan",
           onClick: () => onClose(),
-          // Red button styling
-          className: "!bg-red-500 hover:!bg-red-600 !text-white !border-red-500 hover:!border-red-600"
+          // Red button styling with #EE4266
+          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854]"
         },
         cancel: {
           label: "Tetap edit",
@@ -688,31 +727,15 @@ const AddScheduleModal = ({
                 </div>
               ))}
 
-              <div className="flex gap-2 items-center text-sm">
-                <div className={`flex shrink-0 w-4 h-4 border rounded-sm transition-colors ${
-                  formData.multipleDate
-                    ? 'bg-[#535353] border-[#000000]'
-                    : 'border-gray-400'
-                }`}>
-                  {formData.multipleDate && (
+              {/* Show multiple date box only when there are multiple dates (from drag) */}
+              {formData.dates.length > 1 && (
+                <div className="flex gap-2 items-center text-sm">
+                  <div className="flex shrink-0 w-4 h-4 bg-[#535353] border border-[#535353] rounded-sm">
                     <span className="material-icons text-white text-xs leading-none">check</span>
-                  )}
+                  </div>
+                  <span className="text-[#535353]">Multiple Date</span>
                 </div>
-                <span className="text-[#535353]">
-                  Multiple Date {formData.multipleDate ? `(${formData.dates.length} dates)` : ''}
-                </span>
-                
-                {/* ADDED: Add date button for multiple dates */}
-                {formData.multipleDate && (
-                  <button
-                    onClick={addDateSlot}
-                    disabled={loading || formData.dates.length >= 7}
-                    className="ml-2 text-[#488BBA] hover:text-blue-600 disabled:opacity-50"
-                  >
-                    <span className="material-icons text-sm">add</span>
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
 
@@ -745,19 +768,19 @@ const AddScheduleModal = ({
                       {formData.selectedPsychologist && (
                         <div className="relative">
                           <div className="absolute inset-x-2 top-2 z-10">
-                            <div className="flex items-center justify-between bg-[#535353] text-white text-xs px-2 py-1 rounded">
+                            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-1 rounded">
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium truncate">
                                   {formData.selectedPsychologist.fullName}
                                 </div>
-                                <div className="text-gray-300 truncate text-xs">
+                                <div className="text-blue-600 truncate text-xs">
                                   {formData.selectedPsychologist.email}
                                 </div>
                               </div>
                               <button
                                 onClick={() => setFormData(prev => ({ ...prev, selectedPsychologist: null }))}
                                 disabled={loading}
-                                className="ml-2 text-white hover:text-gray-300"
+                                className="ml-2 text-blue-600 hover:text-blue-800"
                               >
                                 <span className="material-icons text-sm">close</span>
                               </button>

@@ -1,115 +1,160 @@
-// src/components/shared/schedule/ViewScheduleModal.jsx - Enhanced with Stacking Support
+import React, { useState } from "react";
 
-import React from "react";
-
-const ViewScheduleModal = ({ 
-  isOpen, 
-  onClose, 
-  onEdit, 
-  onDelete, 
+const ViewScheduleModal = ({
+  isOpen,
+  onClose,
+  onEdit,
+  onDelete,
   scheduleData,
-  loading = false 
+  loading = false,
 }) => {
+  const [downloadingAttachment, setDownloadingAttachment] = useState(null);
+
   if (!isOpen || !scheduleData) return null;
 
-  const getTypeColor = (type) => {
-    const colors = {
-      counseling: "#9986FF",
-      class: "#3CE69E", 
-      seminar: "#FF886D",
-      meeting: "#3399E9",
-      other: "#979797"
-    };
-    return colors[type] || colors.other;
-  };
+  // Event types with colors
+  const eventTypes = [
+    { label: "Konseling", value: "counseling", textColor: "#9986FF" },
+    { label: "Kelas", value: "class", textColor: "#3CE69E" },
+    { label: "Seminar", value: "seminar", textColor: "#FF886D" },
+    { label: "Lainnya", value: "others", textColor: "#979797" }
+  ];
 
-  const getTypeLabel = (type) => {
-    const labels = {
-      counseling: "Konseling",
-      class: "Kelas", 
-      seminar: "Seminar",
-      meeting: "Meeting",
-      other: "Lainnya"
-    };
-    return labels[type] || "Lainnya";
-  };
+  const selectedEventType = eventTypes.find(type => type.value === scheduleData.type) || eventTypes[0];
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const formatTime = (timeString) => {
-    return timeString || '';
-  };
-
-  // Handle multiple dates if available
+  // Handle multiple dates
   const dates = scheduleData.dates || [];
-  
-  // If no dates array, construct from individual date/time fields
   if (dates.length === 0) {
     if (scheduleData.startDateTime || scheduleData.date) {
       const dateStr = scheduleData.date || 
-        (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toISOString().split('T')[0] : '');
-      const startTime = scheduleData.startTime || 
-        (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
-      const endTime = scheduleData.endTime || 
-        (scheduleData.endDateTime ? new Date(scheduleData.endDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
-      
-      dates.push({
-        date: dateStr,
-        startTime: startTime,
-        endTime: endTime
-      });
+        (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toISOString().split("T")[0] : "");
+      const startTime = scheduleData.startTime ||
+        (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toLocaleTimeString("en-GB", {
+          hour: "2-digit", minute: "2-digit"
+        }) : "");
+      const endTime = scheduleData.endTime ||
+        (scheduleData.endDateTime ? new Date(scheduleData.endDateTime).toLocaleTimeString("en-GB", {
+          hour: "2-digit", minute: "2-digit"
+        }) : "");
+
+      dates.push({ date: dateStr, startTime: startTime, endTime: endTime, timezone: "Asia/Jakarta" });
     }
   }
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit", 
+      year: "numeric",
+    });
+  };
+
   const getNotificationText = (offset) => {
-    if (!offset) return '1 jam';
+    if (!offset) return "1 jam";
     if (offset >= 1440) return `${Math.floor(offset / 1440)} hari`;
     if (offset >= 60) return `${Math.floor(offset / 60)} jam`;
     return `${offset} menit`;
   };
 
-  // ENHANCED: Better participant handling for both counseling and non-counseling
-  const getParticipantsText = () => {
-    if (scheduleData.participants && scheduleData.participants.length > 0) {
-      return scheduleData.participants.map(p => `${p.fullName || p.name} (${p.email})`).join(', ');
-    }
-    if (scheduleData.userEmails && scheduleData.userEmails.length > 0) {
-      return scheduleData.userEmails.join(', ');
-    }
-    return 'Tidak ada peserta';
-  };
-
-  // ENHANCED: Get location text based on schedule type
-  const getLocationText = () => {
-    if (scheduleData.type === "counseling") {
-      return scheduleData.location || 'Lokasi tidak ditentukan';
-    } else {
-      return scheduleData.customLocation || scheduleData.location || 'Lokasi tidak ditentukan';
-    }
-  };
-
-  // ENHANCED: Get psychologist from participants for counseling
   const getPsychologist = () => {
     if (scheduleData.type === "counseling" && scheduleData.participants) {
-      return scheduleData.participants.find(p => p.role === 'psychologist');
+      return scheduleData.participants.find((p) => p.role === "psychologist");
     }
     return null;
   };
 
-  // ENHANCED: Get clients from participants for counseling
   const getClients = () => {
     if (scheduleData.type === "counseling" && scheduleData.participants) {
-      return scheduleData.participants.filter(p => p.role !== 'psychologist');
+      return scheduleData.participants.filter((p) => p.role !== "psychologist");
     }
     return [];
+  };
+
+  const getParticipantsText = () => {
+    const psychologist = getPsychologist();
+    const clients = getClients();
+    const emails = [];
+    
+    if (psychologist) emails.push(psychologist.email);
+    clients.forEach(client => emails.push(client.email));
+    
+    return emails.join(", ") || "Tidak ada peserta";
+  };
+
+  const getLocationText = () => {
+    if (scheduleData.type === "counseling") {
+      return scheduleData.location || "Lokasi tidak ditentukan";
+    } else {
+      return scheduleData.customLocation || scheduleData.location || "Lokasi tidak ditentukan";
+    }
+  };
+
+  // Attachment handlers
+  const handleAttachmentClick = async (attachment) => {
+    const isImage = attachment.type?.includes('image') || 
+      attachment.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+
+    if (isImage) {
+      // Images: open in new window
+      let imageUrl = attachment.url;
+      if (!imageUrl) {
+        imageUrl = `/api/schedules/${scheduleData.id}/attachments/${attachment.id}/preview`;
+      }
+      window.open(imageUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+    } else {
+      // Documents: download
+      try {
+        setDownloadingAttachment(attachment.id);
+        
+        if (attachment.url) {
+          const link = document.createElement('a');
+          link.href = attachment.url;
+          link.download = attachment.name || attachment.filename || 'attachment';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+        
+        const response = await fetch(`/api/schedules/${scheduleData.id}/attachments/${attachment.id}/download`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+        
+        if (!response.ok) throw new Error('Failed to download attachment');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.name || attachment.filename || 'attachment';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+      } catch (error) {
+        console.error('Download error:', error);
+        alert('Gagal mengunduh file');
+      } finally {
+        setDownloadingAttachment(null);
+      }
+    }
+  };
+
+  const getFileIcon = (attachment) => {
+    const type = attachment.type || attachment.mimeType || '';
+    const extension = attachment.name?.split('.').pop()?.toLowerCase() || '';
+    
+    if (type.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+      return 'image';
+    } else {
+      return 'description';
+    }
   };
 
   const handleEdit = () => {
@@ -120,7 +165,7 @@ const ViewScheduleModal = ({
 
   const handleDelete = () => {
     if (onDelete && !loading) {
-      if (window.confirm('Apakah Anda yakin ingin menghapus jadwal ini?')) {
+      if (window.confirm("Apakah Anda yakin ingin menghapus jadwal ini?")) {
         onDelete(scheduleData);
       }
     }
@@ -132,244 +177,160 @@ const ViewScheduleModal = ({
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
-      onClose();
-    }
-  };
-
-  const psychologist = getPsychologist();
-  const clients = getClients();
-  const isCounseling = scheduleData.type === "counseling";
-
   return (
     <div 
       className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
       onClick={handleOverlayClick}
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
     >
       <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
         
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <div className="flex items-center gap-4">
-            <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {scheduleData.agenda || scheduleData.name || "No Title"}
-              </h2>
-              <div 
-                className="px-3 py-1 rounded-full text-white text-sm font-medium"
-                style={{ backgroundColor: getTypeColor(scheduleData.type) }}
-              >
-                {getTypeLabel(scheduleData.type)}
-              </div>
-            </div>
-          </div>
+        {/* Close Button */}
+        <div className="flex justify-end p-4">
           <button
             onClick={onClose}
             disabled={loading}
-            className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
           >
-            <span className="material-icons text-[20px]">close</span>
+            <span className="material-icons text-[24px]">close</span>
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="px-8 pb-8 space-y-6">
+          
+          {/* Title & Type Badge */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-[#488BBA] rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="material-icons text-white text-[20px]">list_alt</span>
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800 leading-tight">
+                  {scheduleData.agenda || scheduleData.name || "No Title"}
+                </h2>
+              </div>
+            </div>
+            <div
+              className="px-3 py-1 rounded-full text-white text-sm font-medium flex-shrink-0"
+              style={{ backgroundColor: selectedEventType.textColor }}
+            >
+              {selectedEventType.label}
+            </div>
+          </div>
 
-          {/* Date and Time */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
-            <div className="flex-1 space-y-2">
+          {/* Date & Time */}
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+              <span className="material-icons text-[#488BBA] text-[24px]">schedule</span>
+            </div>
+            <div className="space-y-1">
               {dates.map((dateInfo, index) => (
-                <div key={index} className="flex items-center gap-4 text-gray-700">
-                  <div className="min-w-[100px]">
-                    <span className="font-medium">{formatDate(dateInfo.date)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>{formatTime(dateInfo.startTime)}</span>
-                    <span className="text-[#488BBA]">-</span>
-                    <span>{formatTime(dateInfo.endTime)}</span>
-                    <span className="text-sm text-gray-500">
-                      {scheduleData.timezoneDisplay || 'WIB'}
-                    </span>
-                  </div>
+                <div key={index} className="text-gray-700">
+                  <span className="font-medium">{formatDate(dateInfo.date)}</span>
+                  <span className="ml-4">
+                    {dateInfo.startTime} - {dateInfo.endTime} {
+                      dateInfo.timezone === "Asia/Jakarta" ? "WIB" : 
+                      dateInfo.timezone === "Asia/Makassar" ? "WITA" : 
+                      dateInfo.timezone === "Asia/Jayapura" ? "WIT" : "WIB"
+                    }
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Notification */}
-          <div className="flex gap-4 items-center">
-            <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+              <span className="material-icons text-[#488BBA] text-[24px]">notifications</span>
+            </div>
             <div className="text-gray-700">
-              Pengingat: {getNotificationText(scheduleData.notificationOffset)}
+              {getNotificationText(scheduleData.notificationOffset)}
             </div>
           </div>
 
-          {/* ENHANCED: Counseling-specific participants section */}
-          {isCounseling && (
-            <div className="space-y-4">
-              {/* Psychologist */}
-              {psychologist && (
-                <div className="flex gap-4 items-start">
-                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">psychology</span>
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-500 mb-1">Psikolog</div>
-                    <div className="bg-[#535353] text-white px-3 py-2 rounded-md">
-                      <div className="font-medium">{psychologist.fullName}</div>
-                      <div className="text-gray-300 text-sm">{psychologist.email}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Clients */}
-              {clients.length > 0 && (
-                <div className="flex gap-4 items-start">
-                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">person</span>
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-500 mb-1">
-                      Klien ({clients.length})
-                    </div>
-                    <div className="space-y-2">
-                      {clients.map((client, index) => (
-                        <div key={index} className="bg-[#535353] text-white px-3 py-2 rounded-md">
-                          <div className="font-medium">{client.fullName}</div>
-                          <div className="text-gray-300 text-sm">{client.email}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
+          {/* Participants */}
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+              <span className="material-icons text-[#488BBA] text-[24px]">account_circle</span>
             </div>
-          )}
-
-          {/* ENHANCED: Non-counseling participants */}
-          {!isCounseling && scheduleData.participants && scheduleData.participants.length > 0 && (
-            <div className="flex gap-4 items-start">
-              <span className="material-icons text-[#488BBA] text-[25px] mt-1">group</span>
-              <div className="flex-1">
-                <div className="text-sm text-gray-500 mb-1">
-                  Peserta ({scheduleData.participants.length})
-                </div>
-                <div className="text-gray-700 break-words">
-                  {getParticipantsText()}
-                </div>
-              </div>
+            <div className="text-gray-700 break-words">
+              {getParticipantsText()}
             </div>
-          )}
+          </div>
 
           {/* Location */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">location_on</span>
-            <div className="flex-1">
-              <div className="text-gray-700 break-words">
-                {getLocationText()}
-              </div>
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+              <span className="material-icons text-[#488BBA] text-[24px]">place</span>
+            </div>
+            <div className="text-gray-700 break-words">
+              {getLocationText()}
             </div>
           </div>
 
           {/* Description */}
           {scheduleData.description && (
-            <div className="flex gap-4 items-start">
-              <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
-              <div className="flex-1">
-                <div 
-                  className="text-gray-700 break-words max-h-[200px] overflow-y-auto"
-                  dangerouslySetInnerHTML={{ 
-                    __html: scheduleData.description 
-                  }}
-                />
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+                <span className="material-icons text-[#488BBA] text-[24px]">article</span>
               </div>
+              <div 
+                className="text-gray-700 break-words max-h-[200px] overflow-y-auto"
+                dangerouslySetInnerHTML={{
+                  __html: scheduleData.description,
+                }}
+              />
             </div>
           )}
 
-          {/* ENHANCED: Attachments with better display */}
-          {(scheduleData.attachments && scheduleData.attachments.length > 0) && (
-            <div className="flex gap-4 items-start">
-              <span className="material-icons text-[#488BBA] text-[25px] mt-1">attach_file</span>
-              <div className="flex-1">
-                <div className="text-sm text-gray-500 mb-2">
-                  Lampiran ({scheduleData.attachments.length})
-                </div>
-                <div className="space-y-2">
-                  {scheduleData.attachments.map((attachment, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
-                      <span className="material-icons text-gray-400 text-sm">
-                        {attachment.type?.includes('image') ? 'image' : 'description'}
+          {/* Attachments */}
+          {scheduleData.attachments && scheduleData.attachments.length > 0 && (
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+                <span className="material-icons text-[#488BBA] text-[24px]">attach_file</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {scheduleData.attachments.map((attachment, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleAttachmentClick(attachment)}
+                    disabled={downloadingAttachment === attachment.id}
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                    title={attachment.type?.includes('image') ? 'Klik untuk preview' : 'Klik untuk download'}
+                  >
+                    {downloadingAttachment === attachment.id ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
+                    ) : (
+                      <span className="material-icons text-[18px] text-gray-600">
+                        {getFileIcon(attachment)}
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">
-                          {attachment.name || attachment.filename || `Attachment ${index + 1}`}
-                        </div>
-                        {attachment.size && (
-                          <div className="text-xs text-gray-500">
-                            {Math.round(attachment.size / 1024)} KB
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                    <span className="text-sm text-gray-700 max-w-[150px] truncate">
+                      {attachment.name || `File ${index + 1}`}
+                    </span>
+                  </button>
+                ))}
               </div>
-            </div>
-          )}
-
-          {/* ENHANCED: Stack information for conflicting schedules */}
-          {scheduleData.totalStacks > 1 && (
-            <div className="flex gap-4 items-start bg-blue-50 p-3 rounded-md">
-              <span className="material-icons text-blue-600 text-[20px] mt-1">info</span>
-              <div className="flex-1 text-sm">
-                <div className="font-medium text-blue-800 mb-1">Jadwal Bertumpuk</div>
-                <div className="text-blue-700">
-                  Ada {scheduleData.totalStacks} jadwal pada waktu yang sama. 
-                  Jadwal ini ditampilkan sebagai stack ke-{(scheduleData.stackIndex || 0) + 1}.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Created/Updated Info */}
-          {scheduleData.createdAt && (
-            <div className="border-t pt-4 text-sm text-gray-500">
-              <div>Dibuat: {new Date(scheduleData.createdAt).toLocaleString('id-ID')}</div>
-              {scheduleData.updatedAt && scheduleData.updatedAt !== scheduleData.createdAt && (
-                <div>Diperbarui: {new Date(scheduleData.updatedAt).toLocaleString('id-ID')}</div>
-              )}
             </div>
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-between items-center pt-6 border-t">
+          <div className="flex justify-end gap-3 pt-6 border-t">
             <button
               onClick={handleDelete}
               disabled={loading}
-              className="flex items-center gap-2 text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
+              className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
               title="Hapus jadwal"
             >
               <span className="material-icons text-[20px]">delete</span>
-              <span>Hapus</span>
             </button>
-
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                disabled={loading}
-                className="px-6 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Tutup
-              </button>
-              <button
-                onClick={handleEdit}
-                disabled={loading}
-                className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-400"
-              >
-                {loading ? 'Loading...' : 'Edit'}
-              </button>
-            </div>
+            <button
+              onClick={handleEdit}
+              disabled={loading}
+              className="px-6 py-3 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
+            >
+              {loading ? "Loading..." : "Edit"}
+            </button>
           </div>
         </div>
 

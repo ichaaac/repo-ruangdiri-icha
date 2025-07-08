@@ -39,7 +39,6 @@ const SchedulePage = ({ type = "school" }) => {
     createSchedule,
     updateSchedule,
     deleteSchedule,
-    checkScheduleExists,
     refreshData,
     getSchedulesForDate,
     getScheduleAtTime,
@@ -85,18 +84,8 @@ const SchedulePage = ({ type = "school" }) => {
 
   // Handle time slot selection for creating new schedule
   const handleTimeSlotSelect = useCallback(async (timeSlot) => {
-    try {
-      // Show loading toast
-      const loadingToast = toast.loading('Checking schedule availability...');
-      
-      // Double check with API using React Query mutation
-      const checkResult = await checkScheduleExists({
-        date: timeSlot.startDateTime.toISOString().split('T')[0],
-        startTime: timeSlot.startDateTime.toTimeString().slice(0, 5),
-        endTime: timeSlot.endDateTime.toTimeString().slice(0, 5),
-      });
 
-      toast.dismiss(loadingToast);
+
 
       // Open modal for new schedule (stacking is allowed, so no conflict check)
       setSelectedTimeSlot(timeSlot);
@@ -113,12 +102,8 @@ const SchedulePage = ({ type = "school" }) => {
         draggedDays: timeSlot.draggedDays || 1 // Pass dragged days to enable multiple date
       });
       setIsAddModalOpen(true);
-      
-    } catch (error) {
-      console.error('Error checking schedule existence:', error);
-      toast.error('Failed to check schedule availability');
-    }
-  }, [checkScheduleExists]);
+    }, [loading]);
+  
 
   // Handle schedule click to view details
   const handleScheduleClick = useCallback((scheduleData) => {

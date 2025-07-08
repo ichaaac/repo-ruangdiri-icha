@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - Fixed
+// src/components/shared/schedule/DatePicker.jsx - Final Clean Version (Outlook Behavior)
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,32 +11,40 @@ const DatePicker = ({
   onDateSelect = () => {},
   onWeekSelect = () => {}
 }) => {
-  const [currentDate, setCurrentDate] = useState(selectedDate || new Date())
+  // Initialize with current date, not selectedDate prop to avoid jumps
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false)
-  const [selectedYear, setSelectedYear] = useState((selectedDate || new Date()).getFullYear())
-  const [selectedMonth, setSelectedMonth] = useState((selectedDate || new Date()).getMonth())
-  const [internalSelectedDates, setInternalSelectedDates] = useState(selectedDates || [])
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
+  const [internalSelectedDates, setInternalSelectedDates] = useState([])
+  const [isInitialized, setIsInitialized] = useState(false)
   const containerRef = useRef(null)
 
   // Today's date for comparison
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Sync with external selectedDates prop
+  // Initial setup only - don't change view after user interactions
   useEffect(() => {
-    if (selectedDates && selectedDates.length > 0) {
+    if (!isInitialized) {
+      if (selectedDate) {
+        setCurrentDate(selectedDate);
+        setSelectedYear(selectedDate.getFullYear());
+        setSelectedMonth(selectedDate.getMonth());
+      }
+      if (selectedDates && selectedDates.length > 0) {
+        setInternalSelectedDates(selectedDates);
+      }
+      setIsInitialized(true);
+    }
+  }, [selectedDate, selectedDates, isInitialized]);
+
+  // Only sync selectedDates if they come from external source (not from our own clicks)
+  useEffect(() => {
+    if (isInitialized && selectedDates && JSON.stringify(selectedDates) !== JSON.stringify(internalSelectedDates)) {
       setInternalSelectedDates(selectedDates);
     }
-  }, [selectedDates]);
-
-  // Sync with external selectedDate prop
-  useEffect(() => {
-    if (selectedDate) {
-      setCurrentDate(selectedDate);
-      setSelectedYear(selectedDate.getFullYear());
-      setSelectedMonth(selectedDate.getMonth());
-    }
-  }, [selectedDate]);
+  }, [selectedDates, isInitialized, internalSelectedDates]);
 
   // Close month/year picker when clicking outside
   useEffect(() => {
@@ -68,11 +76,6 @@ const DatePicker = ({
   const monthNames = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-  ]
-
-  // Day names in Indonesian
-  const dayNames = [
-    "Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"
   ]
 
   // Get header display text - show selected date range instead of current day
@@ -181,7 +184,7 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  // Handle date click - FIXED OUTLOOK-STYLE BEHAVIOR
+  // Handle date click - TRUE OUTLOOK BEHAVIOR: NEVER CHANGE VIEW
   const handleDateClick = (day) => {
     const clickedWeekDates = getWeekDates(day.fullDate)
     
@@ -210,31 +213,9 @@ const DatePicker = ({
         })
       );
     } else {
-      // Select the entire week - OUTLOOK BEHAVIOR: Stay in current month view
+      // Select the entire week - OUTLOOK BEHAVIOR: STAY IN CURRENT VIEW
       newSelectedDates = clickedWeekDates;
-      
-      // FIX: If week spans across months, ensure we stay in the right month
-      // Find which month has more days of the selected week
-      const monthCounts = {};
-      clickedWeekDates.forEach(date => {
-        const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-        monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
-      });
-      
-      // Get the month with most days
-      const dominantMonth = Object.keys(monthCounts).reduce((a, b) => 
-        monthCounts[a] > monthCounts[b] ? a : b
-      );
-      
-      const [year, month] = dominantMonth.split('-').map(Number);
-      
-      // Only change view if the dominant month is different from current
-      if (month !== currentDate.getMonth() || year !== currentDate.getFullYear()) {
-        const newViewDate = new Date(year, month, 1);
-        setCurrentDate(newViewDate);
-        setSelectedMonth(month);
-        setSelectedYear(year);
-      }
+      // ABSOLUTELY NO CHANGES TO currentDate - view stays exactly where it is
     }
     
     setInternalSelectedDates(newSelectedDates);
@@ -266,7 +247,7 @@ const DatePicker = ({
     setSelectedYear(prev => prev + direction)
   }
 
-  // Handle navigation arrows
+  // Handle navigation arrows - ONLY manual navigation changes view
   const handlePreviousMonth = () => {
     const newDate = new Date(currentDate)
     newDate.setMonth(currentDate.getMonth() - 1)
@@ -438,8 +419,6 @@ const DatePicker = ({
           ))}
         </div>
       </div>
-
-      {/* No bottom text - removed "X hari dipilih" */}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED WITH STACKING SUPPORT
+// src/components/shared/schedule/ScheduleGrid.jsx - FULL FIXED CODE WITH STACKING SUPPORT
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -45,7 +45,7 @@ const ScheduleGrid = ({
   const HEADER_HEIGHT = 66;
   const DRAG_THRESHOLD = 5;
   const CLICK_TIMEOUT = 150;
-  const MAX_DRAG_DAYS = 2;
+  const MAX_DRAG_DAYS = 2; // Maximum 2 days for drag selection
 
   // Static data
   const days = useMemo(() => [
@@ -447,7 +447,7 @@ const ScheduleGrid = ({
 
         const dayName = days[info.dayIndex]?.full;
 
-        // REMOVED CONFLICT CHECKING - Allow stacking
+        // Backend will handle all conflicts and availability
         onTimeSlotSelect && onTimeSlotSelect({ 
           startDateTime, 
           endDateTime, 
