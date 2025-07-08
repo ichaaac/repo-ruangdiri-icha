@@ -8,19 +8,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --primary: #8CC3EE;
-  --primary-variant1: #488BBE;
-  --primary-variant2: #3399E9;
-  --primary-light: #E2F9FF;
-  --accent: #87C054;
-  --accent-variant1: #6DAF31;
-  --accent-variant2: #A1CA7D;
-  --orange: #F59E0B;
-  --slate-400: #94A3B8;
-  --zinc-500: #71717A;
-  --white: #FFFFFF;
-}
+
 
 /* Reset default padding/margin */
 * {

@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - Updated with Attachment Support
+// src/components/shared/schedule/lib/scheduleApi.js - Enhanced with Custom Location Support
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -190,16 +190,13 @@ export const createScheduleApi = (organizationType = "school") => {
 
         console.log("Check exists response:", response.data)
 
-        // Return proper availability status
         if (response.data?.status === "success") {
-          // If status is success, schedule slot is available
           return {
             exists: false,
             available: true,
             message: "Jadwal tersedia"
           }
         } else if (response.data?.status === "fail") {
-          // If status is fail, schedule slot is occupied
           return {
             exists: true,
             available: false,
@@ -210,7 +207,6 @@ export const createScheduleApi = (organizationType = "school") => {
         return response.data
       } catch (error) {
         console.error("Error checking schedule existence:", error)
-        // If there's an error, assume slot is available but log the error
         return {
           exists: false,
           available: true,
@@ -221,20 +217,28 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async createSchedule(scheduleData) {
       try {
-        // Transform frontend data to backend format
+        // ENHANCED: Handle both location and customLocation
         const transformedData = {
           agenda: scheduleData.agenda,
-          location: scheduleData.location,
           description: scheduleData.description || "",
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
-          userIds: scheduleData.userIds || [], // Backend expects userIds
+          userIds: scheduleData.userIds || [],
           dates: scheduleData.dates.map((dateItem) => ({
             date: dateItem.date,
             startTime: dateItem.startTime,
             endTime: dateItem.endTime,
             timezone: dateItem.timezone,
           })),
+        }
+
+        // LOCATION HANDLING - ENHANCED
+        if (scheduleData.type === "counseling") {
+          // For counseling, use location field
+          transformedData.location = scheduleData.location;
+        } else {
+          // For non-counseling, use customLocation field
+          transformedData.customLocation = scheduleData.customLocation;
         }
 
         console.log("Creating schedule with data:", transformedData)
@@ -251,7 +255,6 @@ export const createScheduleApi = (organizationType = "school") => {
       try {
         const transformedData = {
           agenda: scheduleData.agenda,
-          location: scheduleData.location,
           description: scheduleData.description || "",
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
@@ -262,6 +265,13 @@ export const createScheduleApi = (organizationType = "school") => {
             endTime: dateItem.endTime,
             timezone: dateItem.timezone,
           })),
+        }
+
+        // LOCATION HANDLING FOR UPDATE - ENHANCED
+        if (scheduleData.type === "counseling") {
+          transformedData.location = scheduleData.location;
+        } else {
+          transformedData.customLocation = scheduleData.customLocation;
         }
 
         console.log("Updating schedule with data:", transformedData)
@@ -284,12 +294,11 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // NEW: Upload attachments to existing schedule
+    // Upload attachments to existing schedule
     async uploadAttachments(scheduleId, files) {
       try {
         const formData = new FormData();
         
-        // Validate file sizes (15MB limit)
         const maxSize = 15 * 1024 * 1024; // 15MB
         for (const file of files) {
           if (file.size > maxSize) {
@@ -297,7 +306,6 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
         
-        // Append files to FormData
         files.forEach(file => {
           formData.append('files', file);
         });
@@ -308,7 +316,6 @@ export const createScheduleApi = (organizationType = "school") => {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
-          // Optional: Add progress tracking
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             console.log(`Upload progress: ${percentCompleted}%`);
@@ -322,7 +329,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // NEW: Get schedule attachments
+    // Get schedule attachments
     async getScheduleAttachments(scheduleId) {
       try {
         const response = await apiClient.get(`/schedules/${scheduleId}/attachments`);
@@ -333,7 +340,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // NEW: Delete schedule attachment
+    // Delete schedule attachment
     async deleteAttachment(scheduleId, attachmentId) {
       try {
         const response = await apiClient.delete(`/schedules/${scheduleId}/attachments/${attachmentId}`);
@@ -348,7 +355,6 @@ export const createScheduleApi = (organizationType = "school") => {
       try {
         console.log("Fetching counseling queue...")
 
-        // Updated endpoint for counseling queue
         const response = await apiClient.get("/counselings/schedules", { params })
 
         if (response.data?.status === "success") {
@@ -387,7 +393,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // NEW: Get psychologist locations for dropdown
+    // ENHANCED: Get psychologist locations for dropdown
     async getPsychologistLocations() {
       try {
         const response = await apiClient.get('/psychologists/locations');
@@ -398,7 +404,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // NEW: Get psychologists with optional location filter
+    // ENHANCED: Get psychologists with optional location filter
     async getPsychologists(params = {}) {
       try {
         const response = await apiClient.get('/psychologists', { params });
@@ -414,7 +420,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // NEW: Get users/participants with search
+    // Get users/participants with search
     async getUsers(params = {}) {
       try {
         const response = await apiClient.get('/users', { params });
@@ -448,6 +454,11 @@ export const getScheduleConfig = (organizationType) => {
     timeSlotDuration: 5, // 5 minutes intervals
     maxAttachmentSize: 15 * 1024 * 1024, // 15MB
     allowedFileTypes: ['image/*', '.pdf', '.doc', '.docx', '.txt', '.xlsx', '.xls'],
+    // ENHANCED: Schedule stacking configuration
+    enableScheduleStacking: true,
+    maxStackedSchedules: 10,
+    stackedScheduleHeight: 28,
+    stackedScheduleMargin: 2,
   }
 
   if (organizationType === "school") {

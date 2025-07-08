@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ViewScheduleModal.jsx - Fixed
+// src/components/shared/schedule/ViewScheduleModal.jsx - Enhanced with Stacking Support
 
 import React from "react";
 
@@ -76,6 +76,7 @@ const ViewScheduleModal = ({
     return `${offset} menit`;
   };
 
+  // ENHANCED: Better participant handling for both counseling and non-counseling
   const getParticipantsText = () => {
     if (scheduleData.participants && scheduleData.participants.length > 0) {
       return scheduleData.participants.map(p => `${p.fullName || p.name} (${p.email})`).join(', ');
@@ -84,6 +85,31 @@ const ViewScheduleModal = ({
       return scheduleData.userEmails.join(', ');
     }
     return 'Tidak ada peserta';
+  };
+
+  // ENHANCED: Get location text based on schedule type
+  const getLocationText = () => {
+    if (scheduleData.type === "counseling") {
+      return scheduleData.location || 'Lokasi tidak ditentukan';
+    } else {
+      return scheduleData.customLocation || scheduleData.location || 'Lokasi tidak ditentukan';
+    }
+  };
+
+  // ENHANCED: Get psychologist from participants for counseling
+  const getPsychologist = () => {
+    if (scheduleData.type === "counseling" && scheduleData.participants) {
+      return scheduleData.participants.find(p => p.role === 'psychologist');
+    }
+    return null;
+  };
+
+  // ENHANCED: Get clients from participants for counseling
+  const getClients = () => {
+    if (scheduleData.type === "counseling" && scheduleData.participants) {
+      return scheduleData.participants.filter(p => p.role !== 'psychologist');
+    }
+    return [];
   };
 
   const handleEdit = () => {
@@ -111,6 +137,10 @@ const ViewScheduleModal = ({
       onClose();
     }
   };
+
+  const psychologist = getPsychologist();
+  const clients = getClients();
+  const isCounseling = scheduleData.type === "counseling";
 
   return (
     <div 
@@ -178,22 +208,66 @@ const ViewScheduleModal = ({
             </div>
           </div>
 
-          {/* Participants */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">person</span>
-            <div className="flex-1">
-              <div className="text-gray-700 break-words">
-                {getParticipantsText()}
+          {/* ENHANCED: Counseling-specific participants section */}
+          {isCounseling && (
+            <div className="space-y-4">
+              {/* Psychologist */}
+              {psychologist && (
+                <div className="flex gap-4 items-start">
+                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">psychology</span>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-500 mb-1">Psikolog</div>
+                    <div className="bg-[#535353] text-white px-3 py-2 rounded-md">
+                      <div className="font-medium">{psychologist.fullName}</div>
+                      <div className="text-gray-300 text-sm">{psychologist.email}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Clients */}
+              {clients.length > 0 && (
+                <div className="flex gap-4 items-start">
+                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">person</span>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-500 mb-1">
+                      Klien ({clients.length})
+                    </div>
+                    <div className="space-y-2">
+                      {clients.map((client, index) => (
+                        <div key={index} className="bg-[#535353] text-white px-3 py-2 rounded-md">
+                          <div className="font-medium">{client.fullName}</div>
+                          <div className="text-gray-300 text-sm">{client.email}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ENHANCED: Non-counseling participants */}
+          {!isCounseling && scheduleData.participants && scheduleData.participants.length > 0 && (
+            <div className="flex gap-4 items-start">
+              <span className="material-icons text-[#488BBA] text-[25px] mt-1">group</span>
+              <div className="flex-1">
+                <div className="text-sm text-gray-500 mb-1">
+                  Peserta ({scheduleData.participants.length})
+                </div>
+                <div className="text-gray-700 break-words">
+                  {getParticipantsText()}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Location */}
           <div className="flex gap-4 items-start">
             <span className="material-icons text-[#488BBA] text-[25px] mt-1">location_on</span>
             <div className="flex-1">
               <div className="text-gray-700 break-words">
-                {scheduleData.location || scheduleData.platform || 'Lokasi tidak ditentukan'}
+                {getLocationText()}
               </div>
             </div>
           </div>
@@ -213,13 +287,46 @@ const ViewScheduleModal = ({
             </div>
           )}
 
-          {/* Attachments Info */}
+          {/* ENHANCED: Attachments with better display */}
           {(scheduleData.attachments && scheduleData.attachments.length > 0) && (
             <div className="flex gap-4 items-start">
               <span className="material-icons text-[#488BBA] text-[25px] mt-1">attach_file</span>
               <div className="flex-1">
-                <div className="text-gray-700">
-                  {scheduleData.attachments.length} file(s) attached
+                <div className="text-sm text-gray-500 mb-2">
+                  Lampiran ({scheduleData.attachments.length})
+                </div>
+                <div className="space-y-2">
+                  {scheduleData.attachments.map((attachment, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                      <span className="material-icons text-gray-400 text-sm">
+                        {attachment.type?.includes('image') ? 'image' : 'description'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">
+                          {attachment.name || attachment.filename || `Attachment ${index + 1}`}
+                        </div>
+                        {attachment.size && (
+                          <div className="text-xs text-gray-500">
+                            {Math.round(attachment.size / 1024)} KB
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ENHANCED: Stack information for conflicting schedules */}
+          {scheduleData.totalStacks > 1 && (
+            <div className="flex gap-4 items-start bg-blue-50 p-3 rounded-md">
+              <span className="material-icons text-blue-600 text-[20px] mt-1">info</span>
+              <div className="flex-1 text-sm">
+                <div className="font-medium text-blue-800 mb-1">Jadwal Bertumpuk</div>
+                <div className="text-blue-700">
+                  Ada {scheduleData.totalStacks} jadwal pada waktu yang sama. 
+                  Jadwal ini ditampilkan sebagai stack ke-{(scheduleData.stackIndex || 0) + 1}.
                 </div>
               </div>
             </div>

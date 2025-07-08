@@ -5,6 +5,33 @@ import { useMemo } from "react"
 import { apiClient } from "../lib/api"
 import { getCurrentDateInfo } from "@/lib/date"
 
+// Helper function untuk handle empty data response
+// Biar gak nulis kode yang sama berulang-ulang
+const handleEmptyDataResponse = (type) => {
+  const defaultEmptyData = {
+    status: {
+      screening: { completed: 0, notCompleted: 0 },
+      counseling: { completed: 0, notCompleted: 0 },
+    },
+  };
+
+  if (type === "yearly") {
+    return { status: "success", data: [] };
+  } else if (type === "metricCards" || type === "tabData") {
+    return {
+      status: "success",
+      data: {
+        students: [], // Pastikan ini juga ada untuk student
+        employees: [], // Pastikan ini juga ada untuk employee
+        metadata: { totalData: 0, hasNextPage: false, page: 1, limit: 10 }, // Tambahkan metadata default untuk infinite
+      },
+      pageParam: 1, // Untuk infinite query
+    };
+  }
+  return { status: "success", data: defaultEmptyData };
+};
+
+
 /**
  * Hook for fetching pie charts data using monthly-stats endpoint
  */
@@ -19,32 +46,19 @@ export const useDashboardMetrics = (type = "student") => {
       try {
         const res = await apiClient.get(endpoint)
 
-        // Handle "fail" status as empty data instead of error
-        if (res.data?.status === "fail" && res.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              status: {
-                screening: { completed: 0, notCompleted: 0 },
-                counseling: { completed: 0, notCompleted: 0 },
-              },
-            },
-          }
+        // Handle "fail" status as empty data instead of error for both student and employee
+        // Cek pesan yang lebih umum atau status spesifik jika ada
+        if (res.data?.status === "fail" &&
+            (res.data?.message?.includes("No employees found") || res.data?.message?.includes("No students found") || res.data?.data?.length === 0)) {
+          return handleEmptyDataResponse("monthly");
         }
 
         return res.data
       } catch (error) {
-        // If it's a 404 or similar, return empty data
-        if (error.response?.status === 404 || error.response?.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              status: {
-                screening: { completed: 0, notCompleted: 0 },
-                counseling: { completed: 0, notCompleted: 0 },
-              },
-            },
-          }
+        // If it's a 404 or similar, return empty data for both student and employee
+        if (error.response?.status === 404 ||
+            (error.response?.data?.message?.includes("No employees found") || error.response?.data?.message?.includes("No students found") || error.response?.data?.data?.length === 0)) {
+          return handleEmptyDataResponse("monthly");
         }
         throw error
       }
@@ -81,22 +95,18 @@ export const useYearlyStats = (type = "student", filters = {}) => {
       try {
         const res = await apiClient.get(`${endpointPath}?${params}`)
 
-        // Handle "fail" status as empty data
-        if (res.data?.status === "fail" && res.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: [],
-          }
+        // Handle "fail" status as empty data for both student and employee
+        if (res.data?.status === "fail" &&
+            (res.data?.message?.includes("No employees found") || res.data?.message?.includes("No students found") || res.data?.data?.length === 0)) {
+          return handleEmptyDataResponse("yearly");
         }
 
         return res.data
       } catch (error) {
-        // If it's a 404 or similar, return empty data
-        if (error.response?.status === 404 || error.response?.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: [],
-          }
+        // If it's a 404 or similar, return empty data for both student and employee
+        if (error.response?.status === 404 ||
+            (error.response?.data?.message?.includes("No employees found") || error.response?.data?.message?.includes("No students found") || error.response?.data?.data?.length === 0)) {
+          return handleEmptyDataResponse("yearly");
         }
         throw error
       }
@@ -115,40 +125,44 @@ export const useMetricCardsData = (type = "student") => {
 
   const endpoint = type === "student" ? "/organizations/students/period" : "/organizations/employees/period"
 
+  // Refactor duplicated logic into a reusable function
+  const fetchMetricData = async (screeningStatus, counselingStatus, queryType) => {
+    try {
+      const queryParams = new URLSearchParams()
+      queryParams.append("page", "1")
+      queryParams.append("limit", "1")
+      queryParams.append("month", currentDate.month)
+      queryParams.append("year", currentDate.year)
+
+      if (screeningStatus) {
+        queryParams.append("screeningStatus", screeningStatus)
+      }
+      if (counselingStatus !== undefined) { // Check for explicit 0
+        queryParams.append("counselingStatus", counselingStatus.toString())
+      }
+
+      const res = await apiClient.get(`${endpoint}?${queryParams}`)
+
+      // Handle "fail" status as empty data for both student and employee
+      if (res.data?.status === "fail" &&
+          (res.data?.message?.includes("No employees found") || res.data?.message?.includes("No students found") || res.data?.data?.length === 0)) {
+        return handleEmptyDataResponse("metricCards");
+      }
+
+      return res.data
+    } catch (error) {
+      // If it's a 404 or similar, return empty data for both student and employee
+      if (error.response?.status === 404 ||
+          (error.response?.data?.message?.includes("No employees found") || error.response?.data?.message?.includes("No students found") || error.response?.data?.data?.length === 0)) {
+        return handleEmptyDataResponse("metricCards");
+      }
+      throw error
+    }
+  }
+
   const atRiskQuery = useQuery({
     queryKey: ["metricCards", type, "at_risk", currentDate.yearMonth],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get(
-          `${endpoint}?page=1&limit=1&month=${currentDate.month}&year=${currentDate.year}&screeningStatus=at_risk`,
-        )
-
-        // Handle "fail" status as empty data
-        if (res.data?.status === "fail" && res.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              [type === "student" ? "students" : "employees"]: [],
-              metadata: { totalData: 0 },
-            },
-          }
-        }
-
-        return res.data
-      } catch (error) {
-        // If it's a 404 or similar, return empty data
-        if (error.response?.status === 404 || error.response?.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              [type === "student" ? "students" : "employees"]: [],
-              metadata: { totalData: 0 },
-            },
-          }
-        }
-        throw error
-      }
-    },
+    queryFn: () => fetchMetricData("at_risk", undefined, "atRisk"),
     refetchOnWindowFocus: false,
     retry: false,
     keepPreviousData: true,
@@ -156,38 +170,7 @@ export const useMetricCardsData = (type = "student") => {
 
   const notScreenedQuery = useQuery({
     queryKey: ["metricCards", type, "not_screened", currentDate.yearMonth],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get(
-          `${endpoint}?page=1&limit=1&month=${currentDate.month}&year=${currentDate.year}&screeningStatus=not_screened`,
-        )
-
-        // Handle "fail" status as empty data
-        if (res.data?.status === "fail" && res.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              [type === "student" ? "students" : "employees"]: [],
-              metadata: { totalData: 0 },
-            },
-          }
-        }
-
-        return res.data
-      } catch (error) {
-        // If it's a 404 or similar, return empty data
-        if (error.response?.status === 404 || error.response?.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              [type === "student" ? "students" : "employees"]: [],
-              metadata: { totalData: 0 },
-            },
-          }
-        }
-        throw error
-      }
-    },
+    queryFn: () => fetchMetricData("not_screened", undefined, "notScreened"),
     refetchOnWindowFocus: false,
     retry: false,
     keepPreviousData: true,
@@ -195,38 +178,7 @@ export const useMetricCardsData = (type = "student") => {
 
   const notCounseledQuery = useQuery({
     queryKey: ["metricCards", type, "not_counseled", currentDate.yearMonth],
-    queryFn: async () => {
-      try {
-        const res = await apiClient.get(
-          `${endpoint}?page=1&limit=1&month=${currentDate.month}&year=${currentDate.year}&counselingStatus=0`,
-        )
-
-        // Handle "fail" status as empty data
-        if (res.data?.status === "fail" && res.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              [type === "student" ? "students" : "employees"]: [],
-              metadata: { totalData: 0 },
-            },
-          }
-        }
-
-        return res.data
-      } catch (error) {
-        // If it's a 404 or similar, return empty data
-        if (error.response?.status === 404 || error.response?.data?.message?.includes("No employees found")) {
-          return {
-            status: "success",
-            data: {
-              [type === "student" ? "students" : "employees"]: [],
-              metadata: { totalData: 0 },
-            },
-          }
-        }
-        throw error
-      }
-    },
+    queryFn: () => fetchMetricData(undefined, 0, "notCounseled"),
     refetchOnWindowFocus: false,
     retry: false,
     keepPreviousData: true,
@@ -292,18 +244,10 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       try {
         const res = await apiClient.get(`${endpoint}?${queryParams}`)
 
-        // Handle "fail" status as empty data
-        if (res.data?.status === "fail" && res.data?.message?.includes("No employees found")) {
-          return {
-            data: { students: [], employees: [] },
-            metadata: {
-              totalData: 0,
-              hasNextPage: false,
-              page: pageParam,
-              limit,
-            },
-            pageParam,
-          }
+        // Handle "fail" status as empty data for both student and employee
+        if (res.data?.status === "fail" &&
+            (res.data?.message?.includes("No employees found") || res.data?.message?.includes("No students found") || res.data?.data?.length === 0)) {
+          return handleEmptyDataResponse("tabData");
         }
 
         return {
@@ -317,18 +261,10 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
           pageParam,
         }
       } catch (error) {
-        // If it's a 404 or similar, return empty data
-        if (error.response?.status === 404 || error.response?.data?.message?.includes("No employees found")) {
-          return {
-            data: { students: [], employees: [] },
-            metadata: {
-              totalData: 0,
-              hasNextPage: false,
-              page: pageParam,
-              limit,
-            },
-            pageParam,
-          }
+        // If it's a 404 or similar, return empty data for both student and employee
+        if (error.response?.status === 404 ||
+            (error.response?.data?.message?.includes("No employees found") || error.response?.data?.message?.includes("No students found") || error.response?.data?.data?.length === 0)) {
+          return handleEmptyDataResponse("tabData");
         }
         throw error
       }
@@ -400,24 +336,28 @@ export const useDashboard = (type = "student") => {
   const processedMetrics = useMemo(() => {
     const monthlyData = monthlyStatsQuery.data?.data
 
-    const totalStudentsEmployees =
-      (metricCardsData.atRisk.count || 0) +
-      (metricCardsData.notScreened.count || 0) +
-      (metricCardsData.notCounseled.count || 0)
+    // Perhitungan total ini perlu lebih hati-hati jika datanya bisa kosong
+    // Gunakan totalData dari metadata atau fallback ke 0
+    const totalAtRisk = metricCardsData.atRisk.count || 0;
+    const totalNotScreened = metricCardsData.notScreened.count || 0;
+    const totalNotCounseled = metricCardsData.notCounseled.count || 0;
+
+    const totalStudentsEmployees = totalAtRisk + totalNotScreened + totalNotCounseled;
+
 
     return {
       summary: {
         atRisk: {
-          count: metricCardsData.atRisk.count || 0,
-          total: totalStudentsEmployees || 0,
+          count: totalAtRisk,
+          total: totalStudentsEmployees,
         },
         notScreened: {
-          count: metricCardsData.notScreened.count || 0,
-          total: totalStudentsEmployees || 0,
+          count: totalNotScreened,
+          total: totalStudentsEmployees,
         },
         notCounseled: {
-          count: metricCardsData.notCounseled.count || 0,
-          total: totalStudentsEmployees || 0,
+          count: totalNotCounseled,
+          total: totalStudentsEmployees,
         },
       },
       status: monthlyData?.status || {
@@ -426,9 +366,9 @@ export const useDashboard = (type = "student") => {
       },
       mentalHealth: {
         overall: {
-          atRisk: metricCardsData.atRisk.count || 0,
-          monitored: 0,
-          stable: Math.max(0, totalStudentsEmployees - (metricCardsData.atRisk.count || 0)),
+          atRisk: totalAtRisk,
+          monitored: 0, // Ini masih hardcode 0, mungkin perlu dihitung dari data lain
+          stable: Math.max(0, totalStudentsEmployees - totalAtRisk),
         },
         byMonth: {
           firstHalf: (yearlyQuery.data?.data || []).filter((item) =>

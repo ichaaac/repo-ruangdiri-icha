@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - With Schedule Stacking
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED WITH STACKING SUPPORT
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -25,16 +25,21 @@ const ScheduleGrid = ({
   const lastMousePosRef = useRef(null);
   const dragStartTimeRef = useRef(null);
 
-  // Constants - RESPONSIVE AGAIN LIKE OTHER COMPONENTS
+  // Constants
   const baseWidth = 808;
   const baseHeight = 254;
-  const actualWidth = Math.max(baseWidth, containerWidth); // Back to responsive
+  const actualWidth = Math.max(baseWidth, containerWidth);
   const actualHeight = baseHeight;
   const HOUR_WIDTH = 80;
   const MIN_DAY_ROW_HEIGHT = 50;
-  const MAX_STACKED_SCHEDULES = 20;
-  const SCHEDULE_HEIGHT = 35;
+  
+  // STACKING CONSTANTS
+  const SCHEDULE_BASE_HEIGHT = 32;
+  const SCHEDULE_COMPRESSED_HEIGHT = 20;
   const SCHEDULE_MARGIN = 2;
+  const STACK_OVERLAP = 4;
+  const MAX_VISIBLE_STACKS = 5;
+  
   const TIME_HEADER_HEIGHT = 30;
   const DAY_COLUMN_WIDTH = 70;
   const HEADER_HEIGHT = 66;
@@ -42,7 +47,7 @@ const ScheduleGrid = ({
   const CLICK_TIMEOUT = 150;
   const MAX_DRAG_DAYS = 2;
 
-  // Static data - KEEP ALL 7 DAYS, just default view to first 3
+  // Static data
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
     { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
@@ -58,17 +63,16 @@ const ScheduleGrid = ({
     return slots;
   }, []);
 
-  // Half-hour dividers
   const halfHourDividers = useMemo(() => {
     const dividers = [];
     for (let i = 0; i < timeSlots.length; i++) { 
-      const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + 25; // TIME_HEADER_OFFSET
+      const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
       dividers.push({ position, hourIndex: i });
     }
     return dividers;
   }, [timeSlots.length]);
 
-  // Basic helper functions that don't depend on schedule data
+  // Helper functions
   const getTypeColor = useCallback((type) => {
     const colors = {
       counseling: "#9986FF",
@@ -130,12 +134,12 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // Schedule data transformation
-  const displaySchedules = useMemo(() => {
-    const scheduleData = {};
+  // ENHANCED: Schedule processing with collision detection
+  const processedSchedules = useMemo(() => {
+    const processed = {};
     
     days.forEach(day => {
-      scheduleData[day.full] = [];
+      processed[day.full] = {};
     });
 
     schedules.forEach(schedule => {
@@ -150,14 +154,17 @@ const ScheduleGrid = ({
           if (!isDateSelected) return;
         }
 
+        const startTime = new Date(schedule.startDateTime);
+        const endTime = new Date(schedule.endDateTime);
+        
         const displaySchedule = {
           id: schedule.id,
           name: schedule.agenda || schedule.displayName || "No Title",
-          startTime: new Date(schedule.startDateTime).toLocaleTimeString('en-GB', { 
+          startTime: startTime.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit' 
           }),
-          endTime: new Date(schedule.endDateTime).toLocaleTimeString('en-GB', { 
+          endTime: endTime.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit' 
           }),
@@ -167,68 +174,81 @@ const ScheduleGrid = ({
           timezone: schedule.timezone || "Asia/Jakarta",
           timezoneDisplay: getTimezoneDisplay(schedule.timezone),
           participants: schedule.participants || [],
-          originalData: schedule
+          originalData: schedule,
+          startDateTime: startTime,
+          endDateTime: endTime,
+          duration: endTime - startTime
         };
 
-        scheduleData[dayName].push(displaySchedule);
+        // Find the main hour slot for this event
+        const startHour = startTime.getHours();
+        const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
+        
+        if (!processed[dayName][timeSlot]) {
+          processed[dayName][timeSlot] = [];
+        }
+        
+        processed[dayName][timeSlot].push(displaySchedule);
       }
     });
 
-    return scheduleData;
+    // Sort events in each slot by start time and detect overlaps
+    Object.keys(processed).forEach(dayName => {
+      Object.keys(processed[dayName]).forEach(timeSlot => {
+        const events = processed[dayName][timeSlot];
+        
+        // Sort by start time, then by duration (longer first)
+        events.sort((a, b) => {
+          const timeDiff = a.startDateTime - b.startDateTime;
+          if (timeDiff !== 0) return timeDiff;
+          return b.duration - a.duration;
+        });
+
+        // Detect overlapping events and assign stack positions
+        events.forEach((event, index) => {
+          const overlapping = events.filter(otherEvent => {
+            if (otherEvent.id === event.id) return false;
+            return (event.startDateTime < otherEvent.endDateTime && 
+                   event.endDateTime > otherEvent.startDateTime);
+          });
+
+          event.stackIndex = index;
+          event.totalStacks = Math.max(1, overlapping.length + 1);
+          event.isStacked = overlapping.length > 0;
+        });
+      });
+    });
+
+    return processed;
   }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
 
-  // Calculate stacked schedules per day and time slot
-  const scheduleStacks = useMemo(() => {
-    const stacks = {};
-    
-    days.forEach(day => {
-      stacks[day.full] = {};
-      timeSlots.forEach(timeSlot => {
-        stacks[day.full][timeSlot] = [];
-      });
-    });
-    
-    Object.entries(displaySchedules).forEach(([dayName, events]) => {
-      events.forEach(event => {
-        const [startHour] = event.startTime.split(':').map(Number);
-        const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
-        
-        if (stacks[dayName] && stacks[dayName][timeSlot]) {
-          stacks[dayName][timeSlot].push(event);
-        }
-      });
-    });
-
-    return stacks;
-  }, [displaySchedules, days, timeSlots]);
-
-  // Calculate dynamic row heights based on stacked schedules
+  // Calculate dynamic row heights based on maximum stacks
   const dayRowHeights = useMemo(() => {
     const heights = {};
     
     days.forEach(day => {
       let maxStackCount = 1;
       
-      timeSlots.forEach(timeSlot => {
-        const stackCount = scheduleStacks[day.full]?.[timeSlot]?.length || 0;
-        maxStackCount = Math.max(maxStackCount, stackCount);
+      Object.values(processedSchedules[day.full] || {}).forEach(eventsInSlot => {
+        if (eventsInSlot.length > 0) {
+          const maxConcurrent = Math.max(...eventsInSlot.map(e => e.totalStacks || 1));
+          maxStackCount = Math.max(maxStackCount, maxConcurrent);
+        }
       });
       
-      heights[day.full] = Math.max(
-        MIN_DAY_ROW_HEIGHT, 
-        MIN_DAY_ROW_HEIGHT + (maxStackCount - 1) * (SCHEDULE_HEIGHT + SCHEDULE_MARGIN)
-      );
+      const baseHeight = MIN_DAY_ROW_HEIGHT;
+      const additionalHeight = Math.min(maxStackCount - 1, MAX_VISIBLE_STACKS - 1) * 
+        (SCHEDULE_COMPRESSED_HEIGHT + SCHEDULE_MARGIN);
+      
+      heights[day.full] = baseHeight + additionalHeight;
     });
     
     return heights;
-  }, [scheduleStacks, days, timeSlots]);
+  }, [processedSchedules, days]);
 
   const totalGridHeight = useMemo(() => {
     return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0);
   }, [dayRowHeights]);
-
-  // Use fixed height from Figma
-  const GRID_CONTENT_HEIGHT = actualHeight - HEADER_HEIGHT;
 
   // Position calculation helpers
   const getDayRowTop = useCallback((dayIndex) => {
@@ -240,7 +260,6 @@ const ScheduleGrid = ({
     return top;
   }, [days, dayRowHeights]);
 
-  // Improved position calculation for stacking
   const getInfoFromPosition = useCallback((clientX, clientY) => {
     if (!viewportRef.current) return null;
     
@@ -258,7 +277,6 @@ const ScheduleGrid = ({
 
     const hourIndex = Math.floor(gridX / HOUR_WIDTH);
     
-    // Calculate day index based on dynamic row heights
     let dayIndex = -1;
     let currentTop = 0;
     
@@ -382,7 +400,6 @@ const ScheduleGrid = ({
         const info = getInfoFromPosition(e.clientX, e.clientY);
         if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
           
-          // Limit drag to maximum 2 days
           const startDayIndex = selectedArea?.startDay || 0;
           const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
           const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
@@ -430,6 +447,7 @@ const ScheduleGrid = ({
 
         const dayName = days[info.dayIndex]?.full;
 
+        // REMOVED CONFLICT CHECKING - Allow stacking
         onTimeSlotSelect && onTimeSlotSelect({ 
           startDateTime, 
           endDateTime, 
@@ -500,7 +518,6 @@ const ScheduleGrid = ({
       }
     }
     
-    // Clear drag state
     setIsDragging(false);
     setIsMouseDown(false);
     setSelectedArea(null);
@@ -519,7 +536,7 @@ const ScheduleGrid = ({
     setScrollLeft(newScrollLeft);
   }, []);
 
-  // Selection box rendering with dynamic heights
+  // Selection box rendering
   const selectionBox = useMemo(() => {
     if (!selectedArea || !isDragging) return null;
 
@@ -627,7 +644,6 @@ const ScheduleGrid = ({
                 </div>
               ))}
 
-              {/* 30-minute dividers */}
               {halfHourDividers.map((divider, i) => (
                 <div 
                   key={`divider-30min-${i}`}
@@ -704,13 +720,13 @@ const ScheduleGrid = ({
                     <div 
                       key={`hline-${i}`}
                       className="absolute left-0 right-0 h-px bg-zinc-200 pointer-events-none"
-                      style={{ top: `${top}px`, zIndex: -1 }}
+                      style={{ top: `${top}px`, zIndex: 0 }}
                     />
                   );
                 })}
 
-                {/* Render Stacked Schedule Events */}
-                {Object.entries(scheduleStacks).map(([dayName, timeSlotStacks]) => {
+                {/* ENHANCED: Render Stacked Schedule Events */}
+                {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                   const dayIndex = days.findIndex(d => d.full === dayName);
                   if (dayIndex === -1) return null;
 
@@ -722,42 +738,90 @@ const ScheduleGrid = ({
                     return eventsInSlot.map((event, stackIndex) => {
                       const left = timeToPosition(event.startTime);
                       const width = calculateEventWidth(event.startTime, event.endTime);
-                      const top = dayTop + 5 + (stackIndex * (SCHEDULE_HEIGHT + SCHEDULE_MARGIN));
+                      
+                      // ENHANCED: Smart stacking with compression
+                      const isStacked = event.isStacked;
+                      const height = isStacked ? SCHEDULE_COMPRESSED_HEIGHT : SCHEDULE_BASE_HEIGHT;
+                      const top = dayTop + 8 + (stackIndex * (height + SCHEDULE_MARGIN));
+                      
+                      // Calculate opacity and positioning for stacked items
+                      const isVisible = stackIndex < MAX_VISIBLE_STACKS;
+                      const opacity = isVisible ? (stackIndex === 0 ? 1 : 0.85 - (stackIndex * 0.1)) : 0;
+
+                      if (!isVisible) return null;
 
                       return (
                         <div
                           key={`${event.id}-${stackIndex}`}
-                          className="schedule-event absolute rounded-md px-2 py-1 cursor-pointer hover:opacity-90 transition-opacity"
+                          className="schedule-event absolute rounded-md px-2 py-1 cursor-pointer hover:opacity-90 transition-all duration-200"
                           style={{
                             left: `${left}px`,
                             top: `${top}px`,
-                            width: `${width}px`,
-                            height: `${SCHEDULE_HEIGHT}px`,
+                            width: `${width - (isStacked ? stackIndex * 2 : 0)}px`,
+                            height: `${height}px`,
                             backgroundColor: event.color,
+                            opacity,
+                            transform: isStacked ? `translateX(${stackIndex * STACK_OVERLAP}px)` : 'none',
                             display: 'flex',
                             flexDirection: 'column',
                             justifyContent: 'center',
                             overflow: 'hidden',
-                            zIndex: 20
+                            zIndex: 20 + stackIndex,
+                            fontSize: isStacked ? '10px' : '12px',
+                            boxShadow: isStacked ? '0 1px 3px rgba(0,0,0,0.12)' : 'none'
                           }}
                           onClick={(e) => handleScheduleClick(e, event)}
                           onMouseDown={(e) => e.stopPropagation()}
                         >
-                          <div className="text-white text-xs font-semibold truncate">
+                          <div className="text-white font-semibold truncate" style={{ lineHeight: '1.2' }}>
                             {event.name}
                           </div>
-                          <div className="text-white text-xs truncate">
-                            {event.startTime} - {event.endTime} {event.timezoneDisplay} | {event.platform}
-                          </div>
+                          {!isStacked && (
+                            <div className="text-white text-xs truncate opacity-90">
+                              {event.startTime} - {event.endTime} {event.timezoneDisplay} | {event.platform}
+                            </div>
+                          )}
                         </div>
                       );
                     });
                   });
                 })}
 
+                {/* Stack count indicators for overflow */}
+                {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
+                  const dayIndex = days.findIndex(d => d.full === dayName);
+                  if (dayIndex === -1) return null;
+                  const dayTop = getDayRowTop(dayIndex);
+
+                  return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
+                    const overflowCount = eventsInSlot.length - MAX_VISIBLE_STACKS;
+                    if (overflowCount <= 0) return null;
+
+                    const left = timeToPosition(timeSlot);
+                    const top = dayTop + 8 + (MAX_VISIBLE_STACKS * (SCHEDULE_COMPRESSED_HEIGHT + SCHEDULE_MARGIN));
+
+                    return (
+                      <div
+                        key={`overflow-${dayName}-${timeSlot}`}
+                        className="absolute bg-gray-500 text-white text-xs rounded px-2 py-1 pointer-events-none"
+                        style={{
+                          left: `${left}px`,
+                          top: `${top}px`,
+                          height: `${SCHEDULE_COMPRESSED_HEIGHT}px`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          zIndex: 30
+                        }}
+                      >
+                        +{overflowCount} more
+                      </div>
+                    );
+                  });
+                })}
+
                 {/* Empty day messages */}
                 {selectedDates.length > 0 && days.map((day, dayIndex) => {
-                  const hasEvents = displaySchedules[day.full] && displaySchedules[day.full].length > 0;
+                  const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
                   const isDaySelected = selectedDates.some(date => days[date.getDay()]?.full === day.full);
                   
                   if (isDaySelected && !hasEvents) {

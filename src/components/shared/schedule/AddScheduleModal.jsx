@@ -1,6 +1,6 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - Fixed Layout
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED CREATE & EDIT SUPPORT
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
@@ -11,12 +11,12 @@ const AddScheduleModal = ({
   onSubmit, 
   initialData = null, 
   loading = false,
-  mode = "create"
+  mode = "create" // "create" or "edit"
 }) => {
   const [formData, setFormData] = useState(() => ({
     agenda: "",
     type: "counseling",
-    dates: initialData?.dates || [{
+    dates: [{
       date: new Date().toISOString().split('T')[0],
       startTime: "09:00",
       endTime: "10:00",
@@ -26,25 +26,103 @@ const AddScheduleModal = ({
     selectedPsychologist: null,
     selectedParticipants: [],
     location: "",
+    customLocation: "",
     description: "",
-    multipleDate: initialData?.draggedDays > 1 || false,
+    multipleDate: false,
     ...initialData
   }));
 
   const [dropdowns, setDropdowns] = useState({});
   const [attachments, setAttachments] = useState([]);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [psychologistLocations, setPsychologistLocations] = useState([]);
+  const [participantSearch, setParticipantSearch] = useState("");
   
   const editorRef = useRef(null);
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Event types
+  // Initialize form when modal opens or mode changes
+  useEffect(() => {
+    if (isOpen) {
+      if (mode === "edit" && initialData) {
+        console.log('Initializing edit mode with data:', initialData);
+        
+        // Transform initialData for editing
+        const transformedData = {
+          agenda: initialData.agenda || "",
+          type: initialData.type || "counseling",
+          description: initialData.description || "",
+          notificationOffset: initialData.notificationOffset || 60,
+          
+          // Handle dates - convert from different possible formats
+          dates: initialData.dates || [{
+            date: initialData.startDateTime 
+              ? new Date(initialData.startDateTime).toISOString().split('T')[0]
+              : new Date().toISOString().split('T')[0],
+            startTime: initialData.startDateTime 
+              ? new Date(initialData.startDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+              : "09:00",
+            endTime: initialData.endDateTime 
+              ? new Date(initialData.endDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+              : "10:00",
+            timezone: initialData.timezone || "Asia/Jakarta"
+          }],
+          
+          // Handle location based on type
+          location: initialData.type === "counseling" ? (initialData.location || "") : "",
+          customLocation: initialData.type !== "counseling" ? (initialData.customLocation || initialData.location || "") : "",
+          
+          // Handle participants
+          selectedPsychologist: initialData.participants?.find(p => p.role === 'psychologist') || null,
+          selectedParticipants: initialData.participants?.filter(p => p.role !== 'psychologist') || [],
+          
+          // FIXED: Handle multiple date properly
+          multipleDate: (initialData.dates?.length || 0) > 1 || initialData.multipleDate || initialData.draggedDays > 1,
+        };
+        
+        setFormData(transformedData);
+        
+        // Set description in editor
+        if (editorRef.current && transformedData.description) {
+          editorRef.current.innerHTML = transformedData.description;
+        }
+      } else {
+        // Reset for create mode - check for drag data
+        const defaultDates = initialData?.dates || [{
+          date: new Date().toISOString().split('T')[0],
+          startTime: "09:00",
+          endTime: "10:00",
+          timezone: "Asia/Jakarta"
+        }];
+        
+        setFormData({
+          agenda: "",
+          type: "counseling",
+          dates: defaultDates,
+          notificationOffset: 60,
+          selectedPsychologist: null,
+          selectedParticipants: [],
+          location: "",
+          customLocation: "",
+          description: "",
+          // FIXED: Handle multipleDate from drag
+          multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
+        });
+        
+        if (editorRef.current) {
+          editorRef.current.innerHTML = "";
+        }
+      }
+    }
+  }, [isOpen, mode, initialData]);
+
+  // Event types - FIXED: other -> others
   const eventTypes = [
     { label: "Konseling", value: "counseling", textColor: "#9986FF" },
     { label: "Kelas", value: "class", textColor: "#3CE69E" },
     { label: "Seminar", value: "seminar", textColor: "#FF886D" },
-    { label: "Lainnya", value: "other", textColor: "#979797" }
+    { label: "Lainnya", value: "others", textColor: "#979797" } // FIXED: others
   ];
 
   const notificationOptions = [
@@ -63,7 +141,7 @@ const AddScheduleModal = ({
   const fixedLocationOptions = [
     { label: "Online", value: "online" },
     { label: "Offline", value: "offline" },
-    { label: "Organisasi", value: "organization" }
+    { label: "Seed-in", value: "organization" } // FIXED: Seed-in instead of Organisasi
   ];
 
   // Generate time options
@@ -77,28 +155,42 @@ const AddScheduleModal = ({
     return times;
   })();
 
-  // Fetch psychologist locations - ONLY 3 FIXED OPTIONS + BACKEND LOCATIONS
+  // RESTORED: Fetch psychologist locations - untuk scenario pilih lokasi dulu
   const { data: backendLocations = [] } = useQuery({
     queryKey: ['psychologist-locations'],
     queryFn: async () => {
       const response = await apiClient.get('/psychologists/locations');
-      return response.data || [];
+      const locations = response.data || [];
+      setPsychologistLocations(locations);
+      console.log('Backend locations loaded:', locations);
+      return locations;
     },
-    enabled: isOpen && formData.type === "counseling",
+    enabled: isOpen && formData.type === "counseling" && !formData.selectedPsychologist,
     staleTime: 5 * 60 * 1000
   });
 
-  // Combine fixed locations with backend locations
-  const allLocations = [
-    ...fixedLocationOptions,
-    ...backendLocations.map(loc => ({ label: loc, value: loc }))
-  ];
+  // RESTORED: Get available locations logic
+  const getAvailableLocations = () => {
+    if (formData.selectedPsychologist) {
+      // Kalau psikolog dipilih dulu -> show fixed options
+      return fixedLocationOptions;
+    } else {
+      // Kalau belum pilih psikolog -> show backend locations
+      return psychologistLocations.map(loc => ({ label: loc, value: loc }));
+    }
+  };
 
-  // Fetch psychologists based on location OR all psychologists
+  // RESTORED: Fetch psychologists dengan location filtering
   const { data: psychologists = [], isLoading: loadingPsychologists } = useQuery({
     queryKey: ['psychologists', formData.location],
     queryFn: async () => {
-      const params = formData.location ? { location: formData.location } : {};
+      // Kalau ada location dari backend locations -> filter by location
+      const isBackendLocation = formData.location && 
+        !fixedLocationOptions.find(opt => opt.value === formData.location);
+      
+      const params = isBackendLocation ? { location: formData.location } : {};
+      
+      console.log('Fetching psychologists with params:', params);
       const response = await apiClient.get('/psychologists', { params });
       return response.data?.data || response.data || [];
     },
@@ -106,11 +198,15 @@ const AddScheduleModal = ({
     staleTime: 2 * 60 * 1000
   });
 
-  // Fetch participants with search
+  // UPDATED: Fetch participants with search
   const { data: participants = [], isLoading: loadingParticipants } = useQuery({
-    queryKey: ['participants'],
+    queryKey: ['participants', participantSearch],
     queryFn: async () => {
-      const response = await apiClient.get('/users', { params: { limit: 100 } });
+      const params = { 
+        limit: 100,
+        ...(participantSearch && { search: participantSearch })
+      };
+      const response = await apiClient.get('/users', { params });
       return response.data?.data || [];
     },
     enabled: isOpen && formData.type === "counseling" && dropdowns.participants,
@@ -146,9 +242,19 @@ const AddScheduleModal = ({
 
   let lastScheduleId = null;
 
-  // Event handlers
+  // RESTORED: Event handlers with location reset logic
   const handleInputChange = (field, value) => {
+    console.log(`Changing ${field} to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Reset psychologist ketika location berubah ke backend location
+    if (field === 'location') {
+      const isBackendLocation = !fixedLocationOptions.find(opt => opt.value === value);
+      if (isBackendLocation && formData.selectedPsychologist) {
+        console.log('Location changed to backend location, resetting psychologist');
+        setFormData(prev => ({ ...prev, selectedPsychologist: null }));
+      }
+    }
     
     if (field === 'dates') {
       const updatedDates = value.map(date => {
@@ -167,10 +273,19 @@ const AddScheduleModal = ({
   };
 
   const toggleDropdown = (dropdown) => {
-    setDropdowns(prev => ({
-      ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: false }), {}),
-      [dropdown]: !prev[dropdown]
-    }));
+    setDropdowns(prev => {
+      const newState = {
+        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: false }), {}),
+        [dropdown]: !prev[dropdown]
+      };
+      
+      // ADDED: Clear search when closing participants dropdown
+      if (dropdown === 'participants' && prev[dropdown]) {
+        setParticipantSearch("");
+      }
+      
+      return newState;
+    });
   };
 
   const handleFileSelect = (e, type) => {
@@ -211,6 +326,7 @@ const AddScheduleModal = ({
       }));
     }
     setDropdowns(prev => ({ ...prev, participants: false }));
+    setParticipantSearch(""); // ADDED: Clear search after selection
   };
 
   const removeParticipant = (participantId) => {
@@ -247,7 +363,6 @@ const AddScheduleModal = ({
       const startTimeIndex = timeOptions.indexOf(value);
       const endTimeIndex = timeOptions.indexOf(newDates[index].endTime);
       
-      // FIX: If start time is >= end time, auto-adjust end time
       if (startTimeIndex >= endTimeIndex) {
         const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
         newDates[index].endTime = timeOptions[newEndTimeIndex];
@@ -258,7 +373,6 @@ const AddScheduleModal = ({
       const startTimeIndex = timeOptions.indexOf(newDates[index].startTime);
       const endTimeIndex = timeOptions.indexOf(value);
       
-      // FIX: If end time is <= start time, auto-adjust start time
       if (endTimeIndex <= startTimeIndex) {
         const newStartTimeIndex = Math.max(endTimeIndex - 1, 0);
         newDates[index].startTime = timeOptions[newStartTimeIndex];
@@ -295,7 +409,7 @@ const AddScheduleModal = ({
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
-    // For counseling: max 3 userIds (1 psychologist + 2 clients max)
+    // Build userIds array for counseling
     const userIds = [];
     if (formData.type === "counseling") {
       if (formData.selectedPsychologist) {
@@ -304,37 +418,63 @@ const AddScheduleModal = ({
       userIds.push(...formData.selectedParticipants.map(p => p.id));
     }
 
+    // UPDATED: Build payload with new structure
     const submitData = {
       agenda: formData.agenda,
       type: formData.type,
       description: formData.description,
       notificationOffset: formData.notificationOffset,
       userIds,
-      dates: formData.dates,
-      location: formData.location || "organization"
+      dates: formData.dates // Array of date objects
     };
 
+    // ENHANCED: Handle location based on type with payload transformation
+    if (formData.type === "counseling") {
+      // Check if selected location is from backend locations
+      const isBackendLocation = formData.location && 
+        !fixedLocationOptions.find(opt => opt.value === formData.location);
+      
+      if (isBackendLocation) {
+        // Kalau user pilih dari backend locations (e.g., "Tuku GBK") 
+        // -> kirim "offline" sebagai payload karena itu alamat praktek psikolog
+        submitData.location = "offline";
+        // Optionally store original location name for display purposes
+        submitData.originalLocationName = formData.location;
+        console.log(`Backend location "${formData.location}" selected, sending "offline" as payload`);
+      } else {
+        // Kalau user pilih dari fixed options (online/offline/seed-in) 
+        // -> kirim value asli
+        submitData.location = formData.location;
+        console.log(`Fixed location "${formData.location}" selected, sending as is`);
+      }
+    } else {
+      submitData.customLocation = formData.customLocation;
+    }
+
+    // Add ID for edit mode
     if (mode === "edit" && initialData?.id) {
       submitData.id = initialData.id;
     }
     
+    console.log('Submitting payload:', submitData);
+    
     try {
       const result = await onSubmit(submitData);
       
-      // FIX: Wait for schedule creation to complete and get proper ID
+      // Handle attachments if any
       if (result?.data?.id && attachments.length > 0) {
         const scheduleId = result.data.id;
         setUploadingAttachments(true);
         
         try {
           await uploadAttachmentsMutation.mutateAsync({
-            scheduleId: scheduleId, // Use the returned schedule ID directly
+            scheduleId: scheduleId,
             files: attachments.map(a => a.file)
           });
-          toast.success("Schedule and attachments uploaded successfully");
+          toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} and attachments uploaded successfully`);
         } catch (error) {
           console.error("Attachment upload error:", error);
-          toast.error("Schedule created but failed to upload attachments", {
+          toast.error(`Schedule ${mode === 'edit' ? 'updated' : 'created'} but failed to upload attachments`, {
             action: {
               label: "Retry",
               onClick: () => {
@@ -355,30 +495,56 @@ const AddScheduleModal = ({
     }
   };
 
-  const handleCancel = () => {
-    const hasChanges = Object.keys(formData).some(key => {
-      const initialValue = initialData?.[key];
-      const currentValue = formData[key];
-      
-      // Handle arrays and objects properly
-      if (Array.isArray(currentValue) && Array.isArray(initialValue)) {
-        return JSON.stringify(currentValue) !== JSON.stringify(initialValue);
-      }
-      
-      return currentValue !== (initialValue || "");
-    });
+  const hasUnsavedChanges = () => {
+    if (mode !== 'edit' || !initialData) {
+      return formData.agenda.trim() !== '' || 
+             formData.description.trim() !== '' ||
+             formData.selectedParticipants.length > 0 ||
+             formData.selectedPsychologist !== null;
+    }
 
-    if (hasChanges) {
+    // Compare current form data with initial data
+    const current = {
+      agenda: formData.agenda,
+      type: formData.type,
+      description: formData.description,
+      notificationOffset: formData.notificationOffset,
+      dates: formData.dates,
+      location: formData.location,
+      customLocation: formData.customLocation,
+    };
+
+    const initial = {
+      agenda: initialData.agenda || "",
+      type: initialData.type || "counseling",
+      description: initialData.description || "",
+      notificationOffset: initialData.notificationOffset || 60,
+      dates: initialData.dates || [],
+      location: initialData.location || "",
+      customLocation: initialData.customLocation || "",
+    };
+
+    return JSON.stringify(current) !== JSON.stringify(initial);
+  };
+
+  const handleCancel = () => {
+    if (hasUnsavedChanges()) {
+      // ENHANCED TOAST WITH CUSTOM STYLING
       toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
         action: {
           label: "Ya, batalkan",
-          onClick: () => onClose()
+          onClick: () => onClose(),
+          // Red button styling
+          className: "!bg-red-500 hover:!bg-red-600 !text-white !border-red-500 hover:!border-red-600"
         },
         cancel: {
           label: "Tetap edit",
-          onClick: () => {} // Do nothing, just close toast
+          onClick: () => {},
+          // Stroke button styling  
+          className: "!bg-transparent hover:!bg-gray-100 !text-gray-700 !border !border-gray-300 hover:!border-gray-400"
         },
-        duration: 10000 // 10 seconds
+        duration: 10000,
+        className: "!bg-white !border !border-gray-200 !shadow-lg"
       });
     } else {
       onClose();
@@ -398,7 +564,7 @@ const AddScheduleModal = ({
     >
       <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
         
-        {/* Header - NO TEXT, NO DIVIDER */}
+        {/* Header */}
         <div className="flex justify-end items-center p-6">
           <button
             onClick={handleCancel}
@@ -457,7 +623,7 @@ const AddScheduleModal = ({
             </div>
           </div>
 
-          {/* Date & Time */}
+          {/* Date & Time - UPDATED with dynamic dates */}
           <div className="flex gap-4 items-start">
             <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
             <div className="flex-1 space-y-3">
@@ -522,7 +688,6 @@ const AddScheduleModal = ({
                 </div>
               ))}
 
-              {/* Multiple Date Toggle - NON-CLICKABLE, AUTO-ENABLED ONLY */}
               <div className="flex gap-2 items-center text-sm">
                 <div className={`flex shrink-0 w-4 h-4 border rounded-sm transition-colors ${
                   formData.multipleDate
@@ -534,8 +699,19 @@ const AddScheduleModal = ({
                   )}
                 </div>
                 <span className="text-[#535353]">
-                  Multiple Date {formData.multipleDate ? '(Dragged 2 days)' : ''}
+                  Multiple Date {formData.multipleDate ? `(${formData.dates.length} dates)` : ''}
                 </span>
+                
+                {/* ADDED: Add date button for multiple dates */}
+                {formData.multipleDate && (
+                  <button
+                    onClick={addDateSlot}
+                    disabled={loading || formData.dates.length >= 7}
+                    className="ml-2 text-[#488BBA] hover:text-blue-600 disabled:opacity-50"
+                  >
+                    <span className="material-icons text-sm">add</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -562,12 +738,10 @@ const AddScheduleModal = ({
                 <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
                 <div className="flex-1">
                   
-                  {/* Psychologist & Participant Side by Side */}
                   <div className="grid grid-cols-2 gap-4">
                     
                     {/* Psychologist Column */}
                     <div>
-                      {/* Selected Psychologist */}
                       {formData.selectedPsychologist && (
                         <div className="relative">
                           <div className="absolute inset-x-2 top-2 z-10">
@@ -637,24 +811,21 @@ const AddScheduleModal = ({
 
                     {/* Client Column */}
                     <div>
-                      {/* Selected Participants - FLEX HORIZONTAL */}
                       {formData.selectedParticipants.length > 0 && (
                         <div className="relative">
                           <div className="absolute inset-x-2 top-2 z-10 flex gap-1">
                             {formData.selectedParticipants.slice(0, 2).map((participant) => (
-                              <div key={participant.id} className="flex items-center justify-between bg-[#EEEEEE] text-[#535353] text-xs px-2 py-1 rounded flex-1">
+                              <div key={participant.id} className="flex items-center justify-between bg-[#EEEEEE] text-[#535353] text-xs px-2 py-1 rounded flex-1 min-w-0">
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-medium truncate">
-                                    {participant.fullName}
-                                  </div>
-                                  <div className="text-gray-500 truncate text-xs">
+                                  {/* FIXED: Only show email, truncated */}
+                                  <div className="font-medium truncate text-xs">
                                     {participant.email}
                                   </div>
                                 </div>
                                 <button
                                   onClick={() => removeParticipant(participant.id)}
                                   disabled={loading}
-                                  className="ml-2 text-[#535353] hover:text-gray-700"
+                                  className="ml-1 text-[#535353] hover:text-gray-700 flex-shrink-0"
                                 >
                                   <span className="material-icons text-sm">close</span>
                                 </button>
@@ -674,9 +845,7 @@ const AddScheduleModal = ({
                               formData.selectedParticipants.length > 0 ? 'pt-10' : ''
                             }`}
                             style={{ 
-                              minHeight: formData.selectedParticipants.length > 0 
-                                ? '60px' // Fixed height for horizontal flex
-                                : '42px' 
+                              minHeight: formData.selectedParticipants.length > 0 ? '60px' : '42px' 
                             }}
                           >
                             <span className={`text-gray-500 ${formData.selectedParticipants.length > 0 ? 'opacity-0' : ''}`}>
@@ -687,6 +856,19 @@ const AddScheduleModal = ({
                         </div>
                         {dropdowns.participants && !loading && formData.selectedParticipants.length < 2 && (
                           <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                            {/* ADDED: Search input */}
+                            <div className="p-2 border-b">
+                              <input
+                                type="text"
+                                placeholder="Cari nama atau email..."
+                                value={participantSearch}
+                                onChange={(e) => setParticipantSearch(e.target.value)}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            
                             {loadingParticipants ? (
                               <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
                             ) : participants.length > 0 ? (
@@ -698,12 +880,15 @@ const AddScheduleModal = ({
                                   onClick={() => handleParticipantSelect(participant)}
                                   className="w-full px-3 py-2 text-left hover:bg-gray-100"
                                 >
+                                  {/* UPDATED: Show name in dropdown */}
                                   <div className="font-medium text-sm truncate">{participant.fullName}</div>
                                   <div className="text-xs text-gray-500 truncate">{participant.email}</div>
                                 </button>
                               ))
                             ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">Tidak ada partisipan ditemukan</div>
+                              <div className="p-3 text-center text-gray-500 text-sm">
+                                {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+                              </div>
                             )}
                           </div>
                         )}
@@ -713,41 +898,33 @@ const AddScheduleModal = ({
                 </div>
               </div>
 
-              {/* Location - Below Participants */}
+              {/* RESTORED: Location for Counseling with conditional options */}
               <div className="flex gap-4 items-center">
                 <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
                 <select
                   value={formData.location}
-                  onChange={(e) => {
-                    handleInputChange('location', e.target.value);
-                    // Reset psychologist when location changes
-                    setFormData(prev => ({ ...prev, selectedPsychologist: null }));
-                  }}
+                  onChange={(e) => handleInputChange('location', e.target.value)}
                   disabled={loading}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                  onClick={() => toggleDropdown('location')}
                 >
                   <option value="">Pilih Lokasi</option>
-                  {/* ONLY 3 FIXED OPTIONS */}
-                  {fixedLocationOptions.map((option) => (
+                  {getAvailableLocations().map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                  {/* BACKEND LOCATIONS - Only if psychologist selected first */}
-                  {formData.selectedPsychologist && backendLocations.map((location) => (
-                    <option key={location} value={location}>{location}</option>
                   ))}
                 </select>
               </div>
             </div>
           )}
 
-          {/* Location - for non-counseling */}
+          {/* Custom Location - for non-counseling */}
           {!showParticipants && (
             <div className="flex gap-4 items-center">
               <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
               <input
                 type="text"
-                value={formData.location}
-                onChange={(e) => handleInputChange('location', e.target.value)}
+                value={formData.customLocation}
+                onChange={(e) => handleInputChange('customLocation', e.target.value)}
                 placeholder="Masukkan lokasi"
                 disabled={loading}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
@@ -774,7 +951,6 @@ const AddScheduleModal = ({
                   data-placeholder="Masukkan deskripsi"
                 />
                 
-                {/* Attachments */}
                 {attachments.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {attachments.map((attachment) => (
@@ -794,9 +970,7 @@ const AddScheduleModal = ({
                   </div>
                 )}
                 
-                {/* File Upload Controls - FIXED ICONS */}
                 <div className="flex items-center gap-3 mt-3">
-                  {/* Document Upload - FIRST */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -815,7 +989,6 @@ const AddScheduleModal = ({
                     <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>attach_file</span>
                   </button>
                   
-                  {/* Photo Upload - SECOND */}
                   <input
                     ref={photoInputRef}
                     type="file"
@@ -840,7 +1013,6 @@ const AddScheduleModal = ({
                 </div>
               </div>
 
-              {/* Required Fields Notice & Action Buttons - Aligned with description field */}
               <div className="mt-4 space-y-3">
                 <div className="text-xs text-gray-600">
                   <span className="text-[#EE4266]">*</span> Wajib diisi
@@ -867,7 +1039,6 @@ const AddScheduleModal = ({
           </div>
         </div>
 
-        {/* Loading Overlay */}
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
             <div className="flex items-center gap-2">
