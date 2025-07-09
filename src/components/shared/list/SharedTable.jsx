@@ -553,7 +553,7 @@ const SharedTable = forwardRef(
                           </td>
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="relative" style={{ zIndex: 999 }}>
+                              <div className="relative flex justify-center">
                                 <CustomDropdown
                                   name="gender"
                                   value={editHook?.editData?.gender || ""}
@@ -609,7 +609,7 @@ const SharedTable = forwardRef(
                         <>
                           <td className="px-3 py-2 text-center whitespace-nowrap">
                             {isEditing ? (
-                              <div className="relative" style={{ zIndex: 999 }}>
+                              <div className="relative flex justify-center">
                                 <CustomDropdown
                                   name="department"
                                   value={editHook?.editData?.department || ""}
@@ -813,7 +813,7 @@ const SharedTable = forwardRef(
             <motion.div
               className="fixed bg-black/80 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-[9999] shadow-lg"
               style={{
-                left: hoveredEdit.x,
+                left: hoveredEdit.x -20,
                 top: hoveredEdit.y - 35,
                 transform: "translateX(-50%)",
               }}

@@ -761,163 +761,241 @@ const AddScheduleModal = ({
                 <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
                 <div className="flex-1">
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    
-                    {/* Psychologist Column */}
-                    <div>
-                      {formData.selectedPsychologist && (
-                        <div className="relative">
-                          <div className="absolute inset-x-2 top-2 z-10">
-                            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 text-blue-800 text-xs px-2 py-1 rounded">
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium truncate">
-                                  {formData.selectedPsychologist.fullName}
-                                </div>
-                                <div className="text-blue-600 truncate text-xs">
-                                  {formData.selectedPsychologist.email}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => setFormData(prev => ({ ...prev, selectedPsychologist: null }))}
-                                disabled={loading}
-                                className="ml-2 text-blue-600 hover:text-blue-800"
-                              >
-                                <span className="material-icons text-sm">close</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                  <div className="flex flex-col gap-4"> {/* INI YANG DIGANTI: grid grid-cols-2 jadi flex flex-col */}
+                    
+ {/* Field Psikolog */}
+  <div>
+    <div className="relative">
+      <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
+      <button
+        onClick={() => !loading && toggleDropdown('psychologist')}
+        disabled={loading}
+        className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 
+          ${formData.selectedPsychologist ? 'h-[35px] px-[9px] outline outline-[0.50px] outline-offset-[-0.50px] outline-TEXT-NEW' : 'pl-6 pr-8'}`
+        }
+        style={{ minHeight: '42px' }} // Tetapkan minHeight agar tidak terlalu kecil
+      >
+        {!formData.selectedPsychologist ? (
+          <span className="text-gray-500 pl-4">
+            Email/nama Psikolog
+          </span>
+        ) : (
+          <div className="inline-flex justify-start items-center gap-2.5">
+            <div className="px-2.5 py-1.5 bg-[#eeeeee] rounded-[5px] inline-flex justify-start items-center gap-2.5">
+              <div className="text-center justify-center text-[#535353] text-sm font-normal font-['Public_Sans'] truncate">
+                {formData.selectedPsychologist.fullName} {/* Pake fullName */}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, selectedPsychologist: null })); }}
+                disabled={loading}
+                className="w-2.5 h-2.5 flex items-center justify-center text-[#535353] hover:text-gray-700"
+              >
+                <span className="material-icons text-xs">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+        <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+      </button>
+      {dropdowns.psychologist && !loading && (
+        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+          {loadingPsychologists ? (
+            <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+          ) : psychologists.length > 0 ? (
+            psychologists.map((psychologist) => (
+              <button
+                key={psychologist.id}
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
+                  toggleDropdown('psychologist');
+                }}
+                className="w-full px-3 py-2 text-left hover:bg-gray-100"
+              >
+                <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
+                <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
+              </button>
+            ))
+          ) : (
+            <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
 
-                      <div className="relative">
-                        <div className="relative">
-                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
-                          <button
-                            onClick={() => !loading && toggleDropdown('psychologist')}
-                            disabled={loading}
-                            className={`w-full pl-6 pr-8 py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                              formData.selectedPsychologist ? 'pt-10' : ''
-                            }`}
-                            style={{ minHeight: formData.selectedPsychologist ? '60px' : '42px' }}
-                          >
-                            <span className={`text-gray-500 ${formData.selectedPsychologist ? 'opacity-0' : ''}`}>
-                              Email/nama Psikolog
-                            </span>
-                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                          </button>
-                        </div>
-                        {dropdowns.psychologist && !loading && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            {loadingPsychologists ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : psychologists.length > 0 ? (
-                              psychologists.map((psychologist) => (
-                                <button
-                                  key={psychologist.id}
-                                  onClick={() => {
-                                    setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
-                                    toggleDropdown('psychologist');
-                                  }}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                >
-                                  <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
-                                  <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
-                                </button>
-                              ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+  {/* Field Partisipan 1 */}
+  <div>
+    <div className="relative">
+      <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
+      <button
+        onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants1')}
+        disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])} // Disable if 2 clients already picked, or if this slot is already filled and another slot is also filled
+        className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 
+          ${formData.selectedParticipants[0] ? 'h-[35px] px-[9px] outline outline-[0.50px] outline-offset-[-0.50px] outline-TEXT-NEW' : 'pl-6 pr-8'}`
+        }
+        style={{ minHeight: '42px' }}
+      >
+        {!formData.selectedParticipants[0] ? (
+          <span className="text-gray-500 pl-4">
+            Email/nama Klien 1
+          </span>
+        ) : (
+          <div className="inline-flex justify-start items-center gap-2.5">
+            <div className="px-2.5 py-1.5 bg-[#eeeeee] rounded-[5px] inline-flex justify-start items-center gap-2.5">
+              <div className="text-center justify-center text-[#535353] text-sm font-normal font-['Public_Sans'] truncate">
+                {formData.selectedParticipants[0].fullName} {/* Pake fullName */}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[0].id); }}
+                disabled={loading}
+                className="w-2.5 h-2.5 flex items-center justify-center text-[#535353] hover:text-gray-700"
+              >
+                <span className="material-icons text-xs">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+        <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+      </button>
+      {dropdowns.participants1 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
+        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+          <div className="p-2 border-b">
+            <input
+              type="text"
+              placeholder="Cari nama atau email..."
+              value={participantSearch}
+              onChange={(e) => setParticipantSearch(e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          </div>
+          {loadingParticipants ? (
+            <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+          ) : participants.length > 0 ? (
+            participants
+              .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id)) // Filter out already selected
+              .map((participant) => (
+                <button
+                  key={participant.id}
+                  onClick={() => {
+                    const newParticipants = [...formData.selectedParticipants];
+                    if (!newParticipants[0]) { // Masukkan ke slot 0 kalau kosong
+                      newParticipants[0] = participant;
+                    } else if (newParticipants[0] && !newParticipants[1]) { // Masukkan ke slot 1 kalau slot 0 sudah ada dan slot 1 kosong
+                      newParticipants[1] = participant;
+                    } else { // Jika kedua slot penuh, ganti slot 0 (jika diklik dari slot 0) atau slot 1 (jika diklik dari slot 1)
+                      // This logic needs to be more precise based on which dropdown triggered
+                      // For now, let's assume it always tries to fill the first available slot.
+                      // If both are filled, the dropdown should ideally not show, or replace the current slot.
+                      // For simplicity, we assume this dropdown is for filling first available.
+                      if (!newParticipants[0]) newParticipants[0] = participant;
+                      else if (!newParticipants[1]) newParticipants[1] = participant;
+                    }
+                    handleInputChange('selectedParticipants', newParticipants.filter(Boolean)); // Remove null/undefined entries
+                    toggleDropdown('participants1');
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                >
+                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                </button>
+              ))
+          ) : (
+            <div className="p-3 text-center text-gray-500 text-sm">
+              {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
 
-                    {/* Client Column */}
-                    <div>
-                      {formData.selectedParticipants.length > 0 && (
-                        <div className="relative">
-                          <div className="absolute inset-x-2 top-2 z-10 flex gap-1">
-                            {formData.selectedParticipants.slice(0, 2).map((participant) => (
-                              <div key={participant.id} className="flex items-center justify-between bg-[#EEEEEE] text-[#535353] text-xs px-2 py-1 rounded flex-1 min-w-0">
-                                <div className="min-w-0 flex-1">
-                                  {/* FIXED: Only show email, truncated */}
-                                  <div className="font-medium truncate text-xs">
-                                    {participant.email}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => removeParticipant(participant.id)}
-                                  disabled={loading}
-                                  className="ml-1 text-[#535353] hover:text-gray-700 flex-shrink-0"
-                                >
-                                  <span className="material-icons text-sm">close</span>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="relative">
-                        <div className="relative">
-                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none">*</span>
-                          <button
-                            onClick={() => !loading && toggleDropdown('participants')}
-                            disabled={loading || formData.selectedParticipants.length >= 2}
-                            className={`w-full pl-6 pr-8 py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                              formData.selectedParticipants.length > 0 ? 'pt-10' : ''
-                            }`}
-                            style={{ 
-                              minHeight: formData.selectedParticipants.length > 0 ? '60px' : '42px' 
-                            }}
-                          >
-                            <span className={`text-gray-500 ${formData.selectedParticipants.length > 0 ? 'opacity-0' : ''}`}>
-                              {formData.selectedParticipants.length >= 2 ? "Max 2 klien" : "Email/nama Klien"}
-                            </span>
-                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                          </button>
-                        </div>
-                        {dropdowns.participants && !loading && formData.selectedParticipants.length < 2 && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            {/* ADDED: Search input */}
-                            <div className="p-2 border-b">
-                              <input
-                                type="text"
-                                placeholder="Cari nama atau email..."
-                                value={participantSearch}
-                                onChange={(e) => setParticipantSearch(e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            
-                            {loadingParticipants ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : participants.length > 0 ? (
-                              participants
-                                .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                                .map((participant) => (
-                                <button
-                                  key={participant.id}
-                                  onClick={() => handleParticipantSelect(participant)}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                >
-                                  {/* UPDATED: Show name in dropdown */}
-                                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                </button>
-                              ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">
-                                {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+  {/* Field Partisipan 2 */}
+  <div>
+    <div className="relative">
+      {/* Klien 2 tidak wajib, jadi tidak ada tanda bintang merah */}
+      <button
+        onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants2')}
+        disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])} // Disable if 2 clients already picked, or if this slot is already filled and another slot is also filled
+        className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 
+          ${formData.selectedParticipants[1] ? 'h-[35px] px-[9px] outline outline-[0.50px] outline-offset-[-0.50px] outline-TEXT-NEW' : 'pl-6 pr-8'}` // Note the pl-3 for no asterisk
+        }
+        style={{ minHeight: '42px' }}
+      >
+        {!formData.selectedParticipants[1] ? (
+          <span className="text-gray-500 pl-4">
+            Email/nama Klien 2 (Opsional)
+          </span>
+        ) : (
+          <div className="inline-flex justify-start items-center gap-2.5">
+            <div className="px-2.5 py-1.5 bg-[#eeeeee] rounded-[5px] inline-flex justify-start items-center gap-2.5">
+              <div className="text-center justify-center text-[#535353] text-sm font-normal font-['Public_Sans'] truncate">
+                {formData.selectedParticipants[1].fullName} {/* Pake fullName */}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[1].id); }}
+                disabled={loading}
+                className="w-2.5 h-2.5 flex items-center justify-center text-[#535353] hover:text-gray-700"
+              >
+                <span className="material-icons text-xs">close</span>
+              </button>
+            </div>
+          </div>
+        )}
+        <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+      </button>
+      {dropdowns.participants2 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
+        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+          <div className="p-2 border-b">
+            <input
+              type="text"
+              placeholder="Cari nama atau email..."
+              value={participantSearch}
+              onChange={(e) => setParticipantSearch(e.target.value)}
+              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          </div>
+          {loadingParticipants ? (
+            <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+          ) : participants.length > 0 ? (
+            participants
+              .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id)) // Filter out already selected
+              .map((participant) => (
+                <button
+                  key={participant.id}
+                  onClick={() => {
+                    const newParticipants = [...formData.selectedParticipants];
+                    if (!newParticipants[0]) { // Masukkan ke slot 0 kalau kosong
+                      newParticipants[0] = participant;
+                    } else if (newParticipants[0] && !newParticipants[1]) { // Masukkan ke slot 1 kalau slot 0 sudah ada dan slot 1 kosong
+                      newParticipants[1] = participant;
+                    } else {
+                      // Jika kedua slot penuh, dan dropdown ini dipicu dari slot 2, maka ganti slot 1
+                      if (!newParticipants[0]) newParticipants[0] = participant;
+                      else if (!newParticipants[1]) newParticipants[1] = participant;
+                    }
+                    handleInputChange('selectedParticipants', newParticipants.filter(Boolean)); // Remove null/undefined entries
+                    toggleDropdown('participants2');
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                >
+                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                </button>
+              ))
+          ) : (
+            <div className="p-3 text-center text-gray-500 text-sm">
+              {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+</div>
                 </div>
               </div>
 
