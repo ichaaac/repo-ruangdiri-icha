@@ -30,7 +30,7 @@ const NotificationDropdown = () => {
       <div className="flex items-center gap-5 text-sm text-[#535353]">
         <div className="flex items-center gap-1 font-bold underline cursor-pointer">
           Semua
-          <span className="bg-[#004881] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+          <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
             150
           </span>
         </div>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import AddScheduleModal from "./AddScheduleModal"; // Import AddScheduleModal for edit
 
 const ViewScheduleModal = ({
   isOpen,
@@ -9,6 +10,7 @@ const ViewScheduleModal = ({
   loading = false,
 }) => {
   const [downloadingAttachment, setDownloadingAttachment] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   if (!isOpen || !scheduleData) return null;
 
@@ -37,7 +39,7 @@ const ViewScheduleModal = ({
           hour: "2-digit", minute: "2-digit"
         }) : "");
 
-      dates.push({ date: dateStr, startTime: startTime, endTime: endTime, timezone: "Asia/Jakarta" });
+      dates.push({ date: dateStr, startTime: startTime, endTime: endTime, timezone: "WIB" });
     }
   }
 
@@ -75,12 +77,12 @@ const ViewScheduleModal = ({
   const getParticipantsText = () => {
     const psychologist = getPsychologist();
     const clients = getClients();
-    const emails = [];
+    const names = [];
     
-    if (psychologist) emails.push(psychologist.email);
-    clients.forEach(client => emails.push(client.email));
+    if (psychologist) names.push(psychologist.fullName || psychologist.email);
+    clients.forEach(client => names.push(client.fullName || client.email));
     
-    return emails.join(", ") || "Tidak ada peserta";
+    return names.join(", ") || "Tidak ada peserta";
   };
 
   const getLocationText = () => {
@@ -91,75 +93,157 @@ const ViewScheduleModal = ({
     }
   };
 
-  // Attachment handlers
+  // FIXED: Enhanced attachment handlers for new API structure
   const handleAttachmentClick = async (attachment) => {
-    const isImage = attachment.type?.includes('image') || 
-      attachment.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    const isImage = attachment.fileType?.includes('image') || 
+      attachment.originalName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
 
     if (isImage) {
-      // Images: open in new window
-      let imageUrl = attachment.url;
-      if (!imageUrl) {
-        imageUrl = `/api/schedules/${scheduleData.id}/attachments/${attachment.id}/preview`;
-      }
-      window.open(imageUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-    } else {
-      // Documents: download
+      // Images: open in new window with proper URL handling
       try {
-        setDownloadingAttachment(attachment.id);
-        
-        if (attachment.url) {
-          const link = document.createElement('a');
-          link.href = attachment.url;
-          link.download = attachment.name || attachment.filename || 'attachment';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          return;
+        let imageUrl = attachment.fileUrl;
+        if (!imageUrl) {
+          // Construct preview URL if direct URL not available
+          imageUrl = `/api/schedules/${scheduleData.id}/attachments/${attachment.id}/preview`;
         }
         
-        const response = await fetch(`/api/schedules/${scheduleData.id}/attachments/${attachment.id}/download`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
+        // Create a temporary link to test if URL is accessible
+        const testImage = new Image();
+        testImage.onload = () => {
+          window.open(imageUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+        };
+        testImage.onerror = () => {
+          // Fallback: try to download instead
+          handleDocumentDownload(attachment);
+        };
+        testImage.src = imageUrl;
         
-        if (!response.ok) throw new Error('Failed to download attachment');
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+      } catch (error) {
+        console.error('Error opening image:', error);
+        alert('Gagal membuka gambar');
+      }
+    } else {
+      // Documents: download
+      handleDocumentDownload(attachment);
+    }
+  };
+
+  const handleDocumentDownload = async (attachment) => {
+    try {
+      setDownloadingAttachment(attachment.id);
+      
+      // FIXED: Try direct URL first with new field name
+      if (attachment.fileUrl) {
         const link = document.createElement('a');
-        link.href = url;
-        link.download = attachment.name || attachment.filename || 'attachment';
+        link.href = attachment.fileUrl;
+        link.download = attachment.originalName || 'attachment';
+        link.target = '_blank'; // Open in new tab if download fails
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-      } catch (error) {
-        console.error('Download error:', error);
-        alert('Gagal mengunduh file');
-      } finally {
-        setDownloadingAttachment(null);
+        return;
       }
+      
+      // Fallback to API download
+      const response = await fetch(`/api/schedules/${scheduleData.id}/attachments/${attachment.id}/download`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      // Get filename from response headers or use default
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = attachment.originalName || 'attachment';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      alert(`Gagal mengunduh file: ${error.message}`);
+    } finally {
+      setDownloadingAttachment(null);
     }
   };
 
   const getFileIcon = (attachment) => {
-    const type = attachment.type || attachment.mimeType || '';
-    const extension = attachment.name?.split('.').pop()?.toLowerCase() || '';
+    const type = attachment.fileType || attachment.mimeType || '';
+    const extension = attachment.originalName?.split('.').pop()?.toLowerCase() || '';
     
     if (type.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
       return 'image';
+    } else if (type.includes('pdf') || extension === 'pdf') {
+      return 'picture_as_pdf';
+    } else if (type.includes('word') || ['doc', 'docx'].includes(extension)) {
+      return 'description';
+    } else if (type.includes('excel') || type.includes('spreadsheet') || ['xls', 'xlsx'].includes(extension)) {
+      return 'table_chart';
     } else {
       return 'description';
     }
   };
 
+  const getFileTypeLabel = (attachment) => {
+    const isImage = attachment.fileType?.includes('image') || 
+      attachment.originalName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    return isImage ? 'Preview' : 'Download';
+  };
+
+  // MOVED: Edit logic to this component
   const handleEdit = () => {
-    if (onEdit && !loading) {
-      onEdit(scheduleData);
+    if (loading) return;
+    
+    // Prepare initial data for edit mode
+    const editData = {
+      ...scheduleData,
+      // Ensure proper format for edit
+      dates: dates.length > 0 ? dates : [{
+        date: new Date().toISOString().split('T')[0],
+        startTime: "09:00",
+        endTime: "10:00", 
+        timezone: "WIB"
+      }],
+      // Handle participants properly
+      selectedPsychologist: getPsychologist(),
+      selectedParticipants: getClients(),
+      // Handle location properly
+      location: scheduleData.type === "counseling" ? scheduleData.location : "",
+      customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || scheduleData.location) : "",
+      multipleDate: dates.length > 1
+    };
+    
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (formData) => {
+    try {
+      if (onEdit) {
+        await onEdit(scheduleData.id, formData);
+        setShowEditModal(false); // Close edit modal on success
+        onClose(); // Close view modal on success
+      }
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      // Keep edit modal open on error so user can retry
     }
   };
 
@@ -177,174 +261,294 @@ const ViewScheduleModal = ({
     }
   };
 
-  return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-      onClick={handleOverlayClick}
-    >
-      <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-        
-        {/* Close Button */}
-        <div className="flex justify-end p-4">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-          >
-            <span className="material-icons text-[24px]">close</span>
-          </button>
-        </div>
+  // Prepare edit data
+  const editInitialData = {
+    ...scheduleData,
+    dates: dates.length > 0 ? dates : [{
+      date: new Date().toISOString().split('T')[0],
+      startTime: "09:00",
+      endTime: "10:00",
+      timezone: "WIB"
+    }],
+    selectedPsychologist: getPsychologist(),
+    selectedParticipants: getClients(),
+    location: scheduleData.type === "counseling" ? scheduleData.location : "",
+    customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || scheduleData.location) : "",
+    multipleDate: dates.length > 1
+  };
 
-        <div className="px-8 pb-8 space-y-6">
+  const showParticipants = scheduleData.type === "counseling";
+
+  return (
+    <>
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+        onClick={handleOverlayClick}
+      >
+        <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
           
-          {/* Title & Type Badge */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-[#488BBA] rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="material-icons text-white text-[20px]">list_alt</span>
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800 leading-tight">
-                  {scheduleData.agenda || scheduleData.name || "No Title"}
-                </h2>
-              </div>
-            </div>
-            <div
-              className="px-3 py-1 rounded-full text-white text-sm font-medium flex-shrink-0"
-              style={{ backgroundColor: selectedEventType.textColor }}
+          {/* Header */}
+          <div className="flex justify-end items-center p-6">
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
-              {selectedEventType.label}
-            </div>
+              <span className="material-icons text-[20px]">close</span>
+            </button>
           </div>
 
-          {/* Date & Time */}
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-              <span className="material-icons text-[#488BBA] text-[24px]">schedule</span>
-            </div>
-            <div className="space-y-1">
-              {dates.map((dateInfo, index) => (
-                <div key={index} className="text-gray-700">
-                  <span className="font-medium">{formatDate(dateInfo.date)}</span>
-                  <span className="ml-4">
-                    {dateInfo.startTime} - {dateInfo.endTime} {
-                      dateInfo.timezone === "Asia/Jakarta" ? "WIB" : 
-                      dateInfo.timezone === "Asia/Makassar" ? "WITA" : 
-                      dateInfo.timezone === "Asia/Jayapura" ? "WIT" : "WIB"
-                    }
+          <div className="p-6 space-y-6">
+            
+            {/* Agenda & Type - VIEW ONLY */}
+            <div className="flex gap-4 items-center">
+              <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
+              <div className="flex-1 relative">
+                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  {scheduleData.agenda || "No Title"}
+                </div>
+              </div>
+              <div className="relative">
+                <div
+                  className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[120px] bg-gray-50"
+                >
+                  <span style={{ color: selectedEventType.textColor }} className="font-medium">
+                    {selectedEventType.label}
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Notification */}
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-              <span className="material-icons text-[#488BBA] text-[24px]">notifications</span>
-            </div>
-            <div className="text-gray-700">
-              {getNotificationText(scheduleData.notificationOffset)}
-            </div>
-          </div>
-
-          {/* Participants */}
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-              <span className="material-icons text-[#488BBA] text-[24px]">account_circle</span>
-            </div>
-            <div className="text-gray-700 break-words">
-              {getParticipantsText()}
-            </div>
-          </div>
-
-          {/* Location */}
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-              <span className="material-icons text-[#488BBA] text-[24px]">place</span>
-            </div>
-            <div className="text-gray-700 break-words">
-              {getLocationText()}
-            </div>
-          </div>
-
-          {/* Description */}
-          {scheduleData.description && (
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-                <span className="material-icons text-[#488BBA] text-[24px]">article</span>
               </div>
-              <div 
-                className="text-gray-700 break-words max-h-[200px] overflow-y-auto"
-                dangerouslySetInnerHTML={{
-                  __html: scheduleData.description,
-                }}
-              />
             </div>
-          )}
 
-          {/* Attachments */}
-          {scheduleData.attachments && scheduleData.attachments.length > 0 && (
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-                <span className="material-icons text-[#488BBA] text-[24px]">attach_file</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {scheduleData.attachments.map((attachment, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleAttachmentClick(attachment)}
-                    disabled={downloadingAttachment === attachment.id}
-                    className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-                    title={attachment.type?.includes('image') ? 'Klik untuk preview' : 'Klik untuk download'}
-                  >
-                    {downloadingAttachment === attachment.id ? (
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
-                    ) : (
-                      <span className="material-icons text-[18px] text-gray-600">
-                        {getFileIcon(attachment)}
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-700 max-w-[150px] truncate">
-                      {attachment.name || `File ${index + 1}`}
-                    </span>
-                  </button>
+            {/* Date & Time - VIEW ONLY */}
+            <div className="flex gap-4 items-start">
+              <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
+              <div className="flex-1 space-y-3">
+                {dates.map((dateInfo, index) => (
+                  <div key={index} className="flex gap-2 items-center flex-wrap">
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {formatDate(dateInfo.date)}
+                    </div>
+                    
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {dateInfo.startTime}
+                    </div>
+
+                    <span className="text-[#488BBA]">-</span>
+
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {dateInfo.endTime}
+                    </div>
+
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {dateInfo.timezone || "WIB"}
+                    </div>
+                  </div>
                 ))}
+
+                {dates.length > 1 && (
+                  <div className="flex gap-2 items-center text-sm">
+                    <div className="flex shrink-0 w-4 h-4 bg-[#535353] border border-[#535353] rounded-sm">
+                      <span className="material-icons text-white text-xs leading-none">check</span>
+                    </div>
+                    <span className="text-[#535353]">Multiple Date</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notification - VIEW ONLY */}
+            <div className="flex gap-4 items-center">
+              <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
+              <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                {getNotificationText(scheduleData.notificationOffset)}
+              </div>
+            </div>
+
+            {/* Participants - VIEW ONLY (Only for Counseling) */}
+            {showParticipants && (
+              <div className="space-y-4">
+                <div className="flex gap-4 items-start">
+                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
+                  <div className="flex-1">
+                    
+                    <div className="flex flex-col gap-4">
+                      
+                      {/* Psychologist Field - VIEW ONLY */}
+                      <div>
+                        <div className="relative">
+                          <div className="w-full py-2 px-3 border border-gray-300 rounded-md bg-gray-50 text-gray-700" style={{ minHeight: '42px' }}>
+                            {getPsychologist() ? (
+                              <div className="flex items-center gap-2 py-1">
+                                <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
+                                  <div className="text-[#535353] text-sm font-normal truncate">
+                                    {getPsychologist().fullName || getPsychologist().email}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">
+                                Tidak ada psikolog
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Participant 1 Field - VIEW ONLY */}
+                      <div>
+                        <div className="relative">
+                          <div className="w-full py-2 px-3 border border-gray-300 rounded-md bg-gray-50 text-gray-700" style={{ minHeight: '42px' }}>
+                            {getClients()[0] ? (
+                              <div className="flex items-center gap-2 py-1">
+                                <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
+                                  <div className="text-[#535353] text-sm font-normal truncate">
+                                    {getClients()[0].fullName || getClients()[0].email}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">
+                                Tidak ada klien 1
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Participant 2 Field - VIEW ONLY (Optional) */}
+                      <div>
+                        <div className="relative">
+                          <div className="w-full py-2 px-3 border border-gray-300 rounded-md bg-gray-50 text-gray-700" style={{ minHeight: '42px' }}>
+                            {getClients()[1] ? (
+                              <div className="flex items-center gap-2 py-1">
+                                <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
+                                  <div className="text-[#535353] text-sm font-normal truncate">
+                                    {getClients()[1].fullName || getClients()[1].email}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">
+                                Tidak ada klien 2 (Opsional)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location for Counseling - VIEW ONLY */}
+                <div className="flex gap-4 items-center">
+                  <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+                  <div className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {getLocationText()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Location - for non-counseling - VIEW ONLY */}
+            {!showParticipants && (
+              <div className="flex gap-4 items-center">
+                <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+                <div className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                  {getLocationText()}
+                </div>
+              </div>
+            )}
+
+            {/* Description & Attachments - VIEW ONLY */}
+            <div className="flex gap-4 items-start">
+              <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
+              <div className="flex-1">
+                <div className="border border-gray-300 rounded-md min-h-[100px] p-3 bg-gray-50">
+                  <div
+                    className="min-h-[60px] text-gray-700"
+                    style={{ wordBreak: 'break-word' }}
+                    dangerouslySetInnerHTML={{
+                      __html: scheduleData.description || "Tidak ada deskripsi",
+                    }}
+                  />
+                  
+                  {/* FIXED: Enhanced Attachments */}
+                  {scheduleData.attachments && scheduleData.attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
+                      {scheduleData.attachments.map((attachment, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleAttachmentClick(attachment)}
+                          disabled={downloadingAttachment === attachment.id}
+                          className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors disabled:opacity-50 group"
+                          title={`${getFileTypeLabel(attachment)}: ${attachment.originalName || `File ${index + 1}`}`}
+                        >
+                          {downloadingAttachment === attachment.id ? (
+                            <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
+                          ) : (
+                            <span className="material-icons text-[18px] text-gray-600 group-hover:text-[#488BBA]">
+                              {getFileIcon(attachment)}
+                            </span>
+                          )}
+                          <span className="text-sm text-gray-700 max-w-[150px] truncate group-hover:text-gray-900">
+                            {attachment.originalName || `File ${index + 1}`}
+                          </span>
+                          <span className="text-xs text-gray-500 group-hover:text-gray-700">
+                            ({getFileTypeLabel(attachment)})
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={handleDelete}
+                      disabled={loading}
+                      className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                      title="Hapus jadwal"
+                    >
+                      <span className="material-icons text-[20px]">delete</span>
+                    </button>
+                    <button
+                      onClick={handleEdit}
+                      disabled={loading}
+                      className="px-6 py-2 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
+                    >
+                      {loading ? "Loading..." : "Edit"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Loading Overlay */}
+          {loading && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
+                <span className="text-[#488BBA] font-medium">Loading...</span>
               </div>
             </div>
           )}
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-6 border-t">
-            <button
-              onClick={handleDelete}
-              disabled={loading}
-              className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-              title="Hapus jadwal"
-            >
-              <span className="material-icons text-[20px]">delete</span>
-            </button>
-            <button
-              onClick={handleEdit}
-              disabled={loading}
-              className="px-6 py-3 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
-            >
-              {loading ? "Loading..." : "Edit"}
-            </button>
-          </div>
         </div>
-
-        {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
-              <span className="text-[#488BBA] font-medium">Loading...</span>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+
+      {/* MOVED: Edit Modal - Now handled in ViewSchedule */}
+      {showEditModal && (
+        <AddScheduleModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleEditSubmit}
+          initialData={editInitialData}
+          loading={loading}
+          mode="edit"
+        />
+      )}
+    </>
   );
 };
 

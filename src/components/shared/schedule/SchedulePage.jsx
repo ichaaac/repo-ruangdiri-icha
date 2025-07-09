@@ -1,4 +1,4 @@
-// src/components/shared/schedule/SchedulePage.jsx - Integrated with View Modal
+// src/components/shared/schedule/SchedulePage.jsx - UPDATED FOR FIXED COMPONENTS
 
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -25,7 +25,7 @@ const SchedulePage = ({ type = "school" }) => {
   const outletContext = useOutletContext() || {};
   const { sidebarExpanded = false } = outletContext;
 
-  // Use schedule hook for data management with React Query
+  // UPDATED: Use fixed schedule hook
   const {
     selectedDate,
     selectedWeek,
@@ -37,8 +37,8 @@ const SchedulePage = ({ type = "school" }) => {
     setSelectedDate,
     setSelectedWeek,
     createSchedule,
-    updateSchedule,
-    deleteSchedule,
+    handleEditSchedule,    // FIXED: Use simplified handler
+    handleDeleteSchedule,  // FIXED: Use simplified handler
     refreshData,
     getSchedulesForDate,
     getScheduleAtTime,
@@ -58,7 +58,6 @@ const SchedulePage = ({ type = "school" }) => {
   const paddingRight = 24;
   const availableWidth = windowWidth - sidebarWidth - paddingLeft - paddingRight;
   
-  // Desktop threshold
   const isDesktop = availableWidth >= 1100;
 
   // Component dimensions
@@ -84,26 +83,21 @@ const SchedulePage = ({ type = "school" }) => {
 
   // Handle time slot selection for creating new schedule
   const handleTimeSlotSelect = useCallback(async (timeSlot) => {
-
-
-
-      // Open modal for new schedule (stacking is allowed, so no conflict check)
-      setSelectedTimeSlot(timeSlot);
-      setModalData({
-        startDateTime: timeSlot.startDateTime,
-        endDateTime: timeSlot.endDateTime,
-        day: timeSlot.day,
-        dates: timeSlot.dates || [{
-          date: timeSlot.startDateTime.toISOString().split('T')[0],
-          startTime: timeSlot.startDateTime.toTimeString().slice(0, 5),
-          endTime: timeSlot.endDateTime.toTimeString().slice(0, 5),
-          timezone: 'Asia/Jakarta'
-        }],
-        draggedDays: timeSlot.draggedDays || 1 // Pass dragged days to enable multiple date
-      });
-      setIsAddModalOpen(true);
-    }, [loading]);
-  
+    setSelectedTimeSlot(timeSlot);
+    setModalData({
+      startDateTime: timeSlot.startDateTime,
+      endDateTime: timeSlot.endDateTime,
+      day: timeSlot.day,
+      dates: timeSlot.dates || [{
+        date: timeSlot.startDateTime.toISOString().split('T')[0],
+        startTime: timeSlot.startDateTime.toTimeString().slice(0, 5),
+        endTime: timeSlot.endDateTime.toTimeString().slice(0, 5),
+        timezone: 'WIB'
+      }],
+      draggedDays: timeSlot.draggedDays || 1
+    });
+    setIsAddModalOpen(true);
+  }, []);
 
   // Handle schedule click to view details
   const handleScheduleClick = useCallback((scheduleData) => {
@@ -111,75 +105,51 @@ const SchedulePage = ({ type = "school" }) => {
     setIsViewModalOpen(true);
   }, []);
 
-  // Handle edit from view modal
-  const handleEditFromView = useCallback((scheduleData) => {
-    setIsViewModalOpen(false);
-    
-    // Transform schedule data for edit modal
-    const editData = {
-      id: scheduleData.id,
-      agenda: scheduleData.agenda || scheduleData.name,
-      type: scheduleData.type,
-      description: scheduleData.description,
-      notificationOffset: scheduleData.notificationOffset,
-      location: scheduleData.location,
-      dates: scheduleData.dates || [{
-        date: scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        startTime: scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '09:00',
-        endTime: scheduleData.endDateTime ? new Date(scheduleData.endDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '10:00',
-        timezone: scheduleData.timezone || 'Asia/Jakarta'
-      }],
-      selectedPsychologist: scheduleData.participants?.find(p => p.role === 'psychologist') || null,
-      selectedParticipants: scheduleData.participants?.filter(p => p.role !== 'psychologist') || []
-    };
-    
-    setModalData(editData);
-    setIsAddModalOpen(true);
-  }, []);
-
-  // Handle delete from view modal
-  const handleDeleteFromView = useCallback(async (scheduleData) => {
+  // FIXED: Edit handler for ViewScheduleModal (now handles edit internally)
+  const handleEditFromViewModal = useCallback(async (scheduleId, formData) => {
     try {
-      await deleteSchedule(scheduleData.id);
+      await handleEditSchedule(scheduleId, formData);
+      // ViewScheduleModal will close itself on success
+      // But we also need to close the view modal
       setIsViewModalOpen(false);
-      toast.success('Schedule deleted successfully');
+      setViewScheduleData(null);
     } catch (error) {
-      console.error('Error deleting schedule:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete schedule';
-      
-      if (errorMessage.includes('already deleted')) {
-        toast.error('Schedule has already been deleted');
-        setIsViewModalOpen(false);
-        // Refresh data to sync with backend
-        refreshData();
-      } else {
-        toast.error(`Delete failed: ${errorMessage}`);
-      }
+      console.error('Error updating schedule from view modal:', error);
+      // ViewScheduleModal will keep edit modal open for retry
+      throw error; // Re-throw so ViewScheduleModal can handle it
     }
-  }, [deleteSchedule, refreshData]);
+  }, [handleEditSchedule]);
 
-  // Handle modal form submission with proper error handling
+  // FIXED: Delete handler for ViewScheduleModal
+  const handleDeleteFromViewModal = useCallback(async (scheduleData) => {
+    try {
+      await handleDeleteSchedule(scheduleData);
+      // Close view modal after successful delete
+      setIsViewModalOpen(false);
+      setViewScheduleData(null);
+    } catch (error) {
+      console.error('Error deleting schedule from view modal:', error);
+      // ViewScheduleModal will handle error display
+    }
+  }, [handleDeleteSchedule]);
+
+  // Handle create/edit modal form submission
   const handleModalSubmit = useCallback(async (formData) => {
     try {
       let result;
       
       if (modalData?.id) {
-        // Update existing schedule
-        result = await updateSchedule(modalData.id, formData);
-        toast.success('Schedule updated successfully');
+        // Update existing schedule (for direct edit, not from view modal)
+        result = await handleEditSchedule(modalData.id, formData);
       } else {
         // Create new schedule
         result = await createSchedule(formData);
-        toast.success('Schedule created successfully');
       }
       
       // Close modal on success
       setIsAddModalOpen(false);
       setModalData(null);
       setSelectedTimeSlot(null);
-      
-      // React Query will automatically update the UI via optimistic updates
-      // and invalidate queries, so no manual refresh needed
       
       return result;
       
@@ -195,7 +165,7 @@ const SchedulePage = ({ type = "school" }) => {
       // Re-throw to prevent modal from closing
       throw error;
     }
-  }, [modalData, createSchedule, updateSchedule]);
+  }, [modalData, createSchedule, handleEditSchedule]);
 
   const handleAddModalClose = () => {
     setIsAddModalOpen(false);
@@ -208,7 +178,7 @@ const SchedulePage = ({ type = "school" }) => {
     setViewScheduleData(null);
   };
 
-  // Handle date selection from DatePicker - Fixed to show date range
+  // Handle date selection from DatePicker
   const handleDateSelect = (dates) => {
     setSelectedDates(dates);
     if (dates.length > 0) {
@@ -329,7 +299,7 @@ const SchedulePage = ({ type = "school" }) => {
         </div>
       </div>
 
-      {/* Add/Edit Schedule Modal */}
+      {/* Add/Edit Schedule Modal - Only for direct create/edit */}
       <AddScheduleModal
         isOpen={isAddModalOpen}
         onClose={handleAddModalClose}
@@ -339,12 +309,12 @@ const SchedulePage = ({ type = "school" }) => {
         mode={modalData?.id ? "edit" : "create"}
       />
 
-      {/* View Schedule Modal */}
+      {/* FIXED: View Schedule Modal - Handles edit internally */}
       <ViewScheduleModal
         isOpen={isViewModalOpen}
         onClose={handleViewModalClose}
-        onEdit={handleEditFromView}
-        onDelete={handleDeleteFromView}
+        onEdit={handleEditFromViewModal}    // FIXED: Updated handler
+        onDelete={handleDeleteFromViewModal} // FIXED: Updated handler  
         scheduleData={viewScheduleData}
         loading={loading.submit}
       />

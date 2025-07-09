@@ -1,8 +1,9 @@
-// src/components/shared/schedule/hooks/useSchedule.js - FULL FIXED CODE
+// src/components/shared/schedule/hooks/useSchedule.js - FIXED EDIT LOGIC VERSION
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createScheduleApi } from '../lib/scheduleApi.js';
+import { toast } from "sonner";
 
 const scheduleKeys = {
   all: ['schedules'],
@@ -36,7 +37,7 @@ export const useSchedule = (type = "school") => {
     return {
       from: weekStart.toISOString().split('T')[0],
       to: weekEnd.toISOString().split('T')[0],
-      timezone: 'Asia/Jakarta'
+      timezone: 'WIB'
     };
   }, []);
 
@@ -64,10 +65,11 @@ export const useSchedule = (type = "school") => {
       if (error.response?.status >= 400 && error.response?.status < 500) {
         return false;
       }
-      return failureCount < 3;
+      return failureCount < 2;
     },
     refetchOnWindowFocus: false,
-    refetchOnMount: 'always',
+    refetchOnMount: false,
+    refetchInterval: false,
   });
 
   // ===== COUNSELING QUEUE QUERY =====
@@ -85,10 +87,12 @@ export const useSchedule = (type = "school") => {
         throw new Error(error.response?.data?.message || 'Failed to fetch counseling queue');
       }
     },
-    staleTime: 2 * 60 * 1000,
-    gcTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    refetchIntervalInBackground: true,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchInterval: false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     retry: 2,
   });
 
@@ -98,33 +102,18 @@ export const useSchedule = (type = "school") => {
     queryFn: async () => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
-        return [
-          // {
-          //   id: '1',
-          //   user: { 
-          //     fullName: "Antony Martial",
-          //     avatar: "https://ui-avatars.com/api/?name=Antony+Martial&background=488BBA&color=fff"
-          //   },
-          //   action: "Made an appointment",
-          //   time: "1 jam yang lalu",
-          //   createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-          // },
-          // {
-          //   id: '2',
-          //   user: { 
-          //     fullName: "Jessica Chen",
-          //     avatar: "https://ui-avatars.com/api/?name=Jessica+Chen&background=488BBA&color=fff"
-          //   },
-          //   action: "Updated schedule",
-          //   time: "2 jam yang lalu",
-          //   createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-          // }
-        ];
+        return [];
       } catch (error) {
         console.error('Error fetching notifications:', error);
         return [];
       }
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    retry: 1,
   });
 
   // ===== CREATE SCHEDULE MUTATION =====
@@ -154,6 +143,7 @@ export const useSchedule = (type = "school") => {
           location: newSchedule.location || newSchedule.customLocation,
           description: newSchedule.description,
           dates: newSchedule.dates,
+          timezone: firstDate.timezone || 'WIB',
           isOptimistic: true,
         };
         
@@ -170,6 +160,7 @@ export const useSchedule = (type = "school") => {
       if (context?.previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
       }
+      toast.error(err.message);
     },
     onSuccess: (data) => {
       console.log('Schedule created successfully:', data);
@@ -178,33 +169,71 @@ export const useSchedule = (type = "school") => {
     }
   });
 
-  // ===== UPDATE SCHEDULE MUTATION =====
+  // ===== FIXED: UPDATE SCHEDULE MUTATION =====
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ scheduleId, formData }) => {
       try {
         console.log('Updating schedule:', scheduleId, formData);
         const response = await scheduleApi.updateSchedule(scheduleId, formData);
-        return response.data;
+        return { scheduleId, data: response.data };
       } catch (error) {
         console.error('Update schedule error:', error);
         throw new Error(error.response?.data?.message || 'Failed to update schedule');
       }
     },
-    onSuccess: (data, { scheduleId }) => {
-      console.log('Schedule updated successfully:', data);
+    onMutate: async ({ scheduleId, formData }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: scheduleKeys.list(weekParams) });
       
-      // Update specific schedule in cache
+      // Snapshot the previous value
+      const previousSchedules = queryClient.getQueryData(scheduleKeys.list(weekParams));
+      
+      // Optimistically update to the new value
+      if (previousSchedules) {
+        queryClient.setQueryData(scheduleKeys.list(weekParams), (old) => {
+          return old.map(schedule => 
+            schedule.id === scheduleId 
+              ? { 
+                  ...schedule, 
+                  agenda: formData.agenda,
+                  description: formData.description,
+                  location: formData.location || formData.customLocation,
+                  dates: formData.dates,
+                  isOptimistic: true
+                }
+              : schedule
+          );
+        });
+      }
+      
+      return { previousSchedules };
+    },
+    onError: (err, { scheduleId }, context) => {
+      console.error('Update schedule mutation error:', err);
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousSchedules) {
+        queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
+      }
+      toast.error(err.message);
+    },
+    onSuccess: (result, { scheduleId }) => {
+      console.log('Schedule updated successfully:', result);
+      
+      // Update the cache with real data from server
       queryClient.setQueryData(scheduleKeys.list(weekParams), (old) => {
         if (!old) return old;
         return old.map(schedule => 
           schedule.id === scheduleId 
-            ? { ...schedule, ...data.data }
+            ? { ...schedule, ...result.data.data, isOptimistic: false }
             : schedule
         );
       });
       
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
+      // Invalidate and refetch related queries
       queryClient.invalidateQueries({ queryKey: scheduleKeys.detail(scheduleId) });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
+      
+      toast.success('Schedule updated successfully');
     }
   });
 
@@ -235,38 +264,19 @@ export const useSchedule = (type = "school") => {
       if (context?.previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
       }
+      toast.error(err.message);
     },
     onSuccess: (scheduleId) => {
       queryClient.removeQueries({ queryKey: scheduleKeys.detail(scheduleId) });
       queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
+      toast.success('Schedule deleted successfully');
     }
   });
-
-  // ===== CHECK SCHEDULE EXISTS - REMOVED (Backend handles conflicts) =====
-  // No longer needed - backend will handle all conflict checking and availability
 
   // ===== HANDLERS =====
   const handleWeekSelect = useCallback((weekStart) => {
     setSelectedWeek(weekStart);
-    
-    // Prefetch adjacent weeks
-    const nextWeek = new Date(weekStart);
-    nextWeek.setDate(weekStart.getDate() + 7);
-    const prevWeek = new Date(weekStart);
-    prevWeek.setDate(weekStart.getDate() - 7);
-    
-    queryClient.prefetchQuery({
-      queryKey: scheduleKeys.list(getWeekParams(nextWeek)),
-      queryFn: () => scheduleApi.getSchedules(getWeekParams(nextWeek)).then(res => res.data?.data || []),
-      staleTime: 5 * 60 * 1000,
-    });
-    
-    queryClient.prefetchQuery({
-      queryKey: scheduleKeys.list(getWeekParams(prevWeek)),
-      queryFn: () => scheduleApi.getSchedules(getWeekParams(prevWeek)).then(res => res.data?.data || []),
-      staleTime: 5 * 60 * 1000,
-    });
-  }, [queryClient, scheduleApi, getWeekParams]);
+  }, []);
 
   const handleDateSelect = useCallback((date) => {
     setSelectedDate(date);
@@ -307,6 +317,26 @@ export const useSchedule = (type = "school") => {
       return hour === timeHour && minute === timeMinute;
     });
   }, [schedulesQuery.data]);
+
+  // ===== SIMPLIFIED EDIT/DELETE FUNCTIONS FOR VIEW SCHEDULE =====
+  const handleEditSchedule = useCallback(async (scheduleId, formData) => {
+    try {
+      const result = await updateScheduleMutation.mutateAsync({ scheduleId, formData });
+      return result; // Return result for attachment handling
+    } catch (error) {
+      console.error('Error in handleEditSchedule:', error);
+      throw error; // Re-throw so ViewSchedule can handle it
+    }
+  }, [updateScheduleMutation]);
+
+  const handleDeleteSchedule = useCallback(async (schedule) => {
+    try {
+      await deleteScheduleMutation.mutateAsync(schedule.id);
+    } catch (error) {
+      console.error('Error in handleDeleteSchedule:', error);
+      throw error;
+    }
+  }, [deleteScheduleMutation]);
 
   // ===== COMPUTED VALUES =====
   const loading = {
@@ -354,6 +384,10 @@ export const useSchedule = (type = "school") => {
       updateScheduleMutation.mutateAsync({ scheduleId, formData }),
     deleteSchedule: deleteScheduleMutation.mutateAsync,
     refreshData,
+    
+    // FIXED: Simplified handlers for ViewSchedule
+    handleEditSchedule,
+    handleDeleteSchedule,
     
     // Manual refetch methods
     loadSchedules: schedulesQuery.refetch,

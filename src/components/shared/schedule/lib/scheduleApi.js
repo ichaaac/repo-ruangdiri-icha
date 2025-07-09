@@ -1,9 +1,76 @@
-// src/components/shared/schedule/lib/scheduleApi.js - Enhanced with Custom Location Support
+// src/components/shared/schedule/lib/scheduleApi.js - COMPLETELY FIXED VERSION
 
 import { apiClient } from "../../../../lib/api.js"
 
 export const createScheduleApi = (organizationType = "school") => {
-  // Transform schedule data from backend to frontend format
+  
+  // Get timezone display - COMPLETELY FIXED with Day.js logic
+  const getTimezoneDisplay = (timezone) => {
+    // Handle direct timezone codes
+    if (timezone === "WIB" || timezone === "WITA" || timezone === "WIT") {
+      return timezone;
+    }
+    
+    // Handle offset format (+07, +08, +09)
+    if (typeof timezone === 'string' && timezone.includes('+')) {
+      const offset = timezone.split('+')[1];
+      switch (offset) {
+        case '07': return 'WIB';
+        case '08': return 'WITA'; 
+        case '09': return 'WIT';
+        default: return 'WIB';
+      }
+    }
+    
+    // Handle datetime with offset (2025-05-12 08:00:00+07)
+    if (typeof timezone === 'string' && (timezone.includes('T') || timezone.includes(' '))) {
+      const offsetMatch = timezone.match(/([+-]\d{2})/);
+      if (offsetMatch) {
+        const offset = offsetMatch[1].replace('+', '');
+        switch (offset) {
+          case '07': return 'WIB';
+          case '08': return 'WITA';
+          case '09': return 'WIT';
+          default: return 'WIB';
+        }
+      }
+    }
+    
+    // Default fallback - NO MORE ASIA/JAKARTA
+    return 'WIB';
+  }
+
+  // Format counseling datetime - FIXED with proper Date handling
+  const formatCounselingDateTime = (startDateTime) => {
+    if (!startDateTime) {
+      return { date: 'TBD', time: 'TBD' };
+    }
+    
+    try {
+      const date = new Date(startDateTime);
+      if (isNaN(date.getTime())) {
+        return { date: 'TBD', time: 'TBD' };
+      }
+      
+      return {
+        date: date.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "2-digit", 
+          year: "2-digit",
+        }).replace(/\//g, "."),
+        time: date.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      };
+    } catch (error) {
+      console.error('Error formatting counseling datetime:', error);
+      return { date: 'TBD', time: 'TBD' };
+    }
+  };
+
+  // Transform schedule data from backend to frontend format - FIXED
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
       const baseTransform = {
@@ -27,8 +94,8 @@ export const createScheduleApi = (organizationType = "school") => {
                   position: us.user.profile?.position,
                 }),
           })) || [],
-        // Add timezone display
-        timezoneDisplay: getTimezoneDisplay(schedule.timezone),
+        // Enhanced timezone display with fallbacks
+        timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
         // Include attachment count
         attachmentCount: schedule.attachments?.length || 0,
         attachments: schedule.attachments || []
@@ -55,49 +122,45 @@ export const createScheduleApi = (organizationType = "school") => {
     })
   }
 
-  // Transform counseling queue data
+  // Transform counseling queue data - COMPLETELY FIXED for new API structure
   const transformCounselingData = (counselings, orgType) => {
     return counselings.map((counseling) => {
-      const user = counseling.user
-      const screening = user?.screenings?.[0]
+      // NEW API STRUCTURE: counseling has users array and other direct properties
+      const users = counseling.users || []
+      const patient = users.find(user => user.role !== 'psychologist')
+      const psychologist = users.find(user => user.role === 'psychologist')
+      const screening = patient?.screening
+
+      // Use enhanced datetime formatting
+      const dateTimeFormatted = formatCounselingDateTime(counseling.startDateTime);
 
       const baseTransform = {
         id: counseling.id,
-        name: user?.fullName || "Unknown",
+        name: patient?.fullName || "Unknown",
         category: getCategoryLabel(screening?.screeningStatus),
-        date: new Date(counseling.scheduledAt || counseling.createdAt)
-          .toLocaleDateString("id-ID", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "2-digit",
-          })
-          .replace(/\//g, "."),
-        time: new Date(counseling.scheduledAt || counseling.createdAt).toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
-        status: counseling.status || "Pending",
+        date: dateTimeFormatted.date,
+        time: dateTimeFormatted.time,
+        status: "Scheduled", // Default status since we don't have this field in new structure
         location: counseling.location || "TBD",
-        counselorName: counseling.psychologist?.fullName || "Belum ditentukan",
+        counselorName: psychologist?.fullName || "Belum ditentukan",
       }
 
       if (orgType === "school") {
         return {
           ...baseTransform,
-          studentId: user?.profile?.studentId || "-",
-          grade: user?.profile?.grade || "-",
-          classroom: user?.profile?.classroom || "-",
+          studentId: patient?.profile?.studentId || patient?.email?.split('@')[0] || "-",
+          grade: patient?.profile?.grade || "-",
+          classroom: patient?.profile?.classroom || "-",
         }
       } else {
         return {
           ...baseTransform,
-          employeeId: user?.profile?.employeeId || "-",
-          department: user?.profile?.department || "-",
-          position: user?.profile?.position || "-",
-          workDuration: user?.profile?.yearsOfService ? `${user.profile.yearsOfService} tahun` : "-",
+          employeeId: patient?.profile?.employeeId || patient?.email?.split('@')[0] || "-",
+          department: patient?.profile?.department || "-",
+          position: patient?.profile?.position || "-",
+          workDuration: patient?.profile?.yearsOfService ? `${patient.profile.yearsOfService} tahun` : "-",
           urgency: screening?.screeningStatus === "at_risk" ? "Tinggi" : "Normal",
-          requestedBy: user?.profile?.supervisor || "Self-request",
+          requestedBy: patient?.profile?.supervisor || "Self-request",
         }
       }
     })
@@ -135,16 +198,6 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
-  // Get timezone display
-  const getTimezoneDisplay = (timezone) => {
-    const timezoneMap = {
-      "Asia/Jakarta": "WIB",
-      "Asia/Makassar": "WITA",
-      "Asia/Jayapura": "WIT",
-    }
-    return timezoneMap[timezone] || "WIB"
-  }
-
   // Return API methods
   return {
     async getSchedules(params = {}) {
@@ -152,7 +205,7 @@ export const createScheduleApi = (organizationType = "school") => {
         const formattedParams = {
           from: params.from,
           to: params.to,
-          timezone: params.timezone || "Asia/Jakarta",
+          timezone: params.timezone || "WIB", // FIXED: Always default to WIB
         }
 
         console.log("Fetching schedules with params:", formattedParams)
@@ -185,7 +238,7 @@ export const createScheduleApi = (organizationType = "school") => {
           date: params.date,
           startTime: params.startTime,
           endTime: params.endTime,
-          timezone: params.timezone,
+          timezone: params.timezone || "WIB", // FIXED: Default to WIB
         })
 
         console.log("Check exists response:", response.data)
@@ -217,27 +270,39 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async createSchedule(scheduleData) {
       try {
-        // ENHANCED: Handle both location and customLocation
+        // ENHANCED: Handle both location and customLocation + new participants format
         const transformedData = {
           agenda: scheduleData.agenda,
           description: scheduleData.description || "",
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
-          userIds: scheduleData.userIds || [],
           dates: scheduleData.dates.map((dateItem) => ({
             date: dateItem.date,
             startTime: dateItem.startTime,
             endTime: dateItem.endTime,
-            timezone: dateItem.timezone,
+            timezone: dateItem.timezone || "WIB", // FIXED: Ensure WIB default
           })),
+        }
+
+        // PARTICIPANTS HANDLING - NEW FORMAT
+        if (scheduleData.type === "counseling" && scheduleData.userIds && scheduleData.userIds.length >= 2) {
+          // Convert userIds to participants object format
+          const psychologistId = scheduleData.userIds[0];
+          const patientId = scheduleData.userIds[1];
+          
+          transformedData.participants = {
+            psychologistId: psychologistId,
+            patientId: patientId
+          };
+        } else if (scheduleData.participants) {
+          // Direct participants object
+          transformedData.participants = scheduleData.participants;
         }
 
         // LOCATION HANDLING - ENHANCED
         if (scheduleData.type === "counseling") {
-          // For counseling, use location field
           transformedData.location = scheduleData.location;
         } else {
-          // For non-counseling, use customLocation field
           transformedData.customLocation = scheduleData.customLocation;
         }
 
@@ -258,13 +323,25 @@ export const createScheduleApi = (organizationType = "school") => {
           description: scheduleData.description || "",
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
-          userIds: scheduleData.userIds || [],
           dates: scheduleData.dates?.map((dateItem) => ({
             date: dateItem.date,
             startTime: dateItem.startTime,
             endTime: dateItem.endTime,
-            timezone: dateItem.timezone,
+            timezone: dateItem.timezone || "WIB", // FIXED: Ensure WIB default
           })),
+        }
+
+        // PARTICIPANTS HANDLING - NEW FORMAT
+        if (scheduleData.type === "counseling" && scheduleData.userIds && scheduleData.userIds.length >= 2) {
+          const psychologistId = scheduleData.userIds[0];
+          const patientId = scheduleData.userIds[1];
+          
+          transformedData.participants = {
+            psychologistId: psychologistId,
+            patientId: patientId
+          };
+        } else if (scheduleData.participants) {
+          transformedData.participants = scheduleData.participants;
         }
 
         // LOCATION HANDLING FOR UPDATE - ENHANCED
@@ -393,7 +470,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // ENHANCED: Get psychologist locations for dropdown
+    // Get psychologist locations for dropdown
     async getPsychologistLocations() {
       try {
         const response = await apiClient.get('/psychologists/locations');
@@ -404,7 +481,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // ENHANCED: Get psychologists with optional location filter
+    // Get psychologists with optional location filter
     async getPsychologists(params = {}) {
       try {
         const response = await apiClient.get('/psychologists', { params });
@@ -467,6 +544,7 @@ export const getScheduleConfig = (organizationType) => {
       startHour: 7,
       endHour: 16,
       defaultLocations: ["offline", "online", "organization"],
+      defaultTimezone: "WIB", // FIXED: WIB instead of Asia/Jakarta
     }
   } else {
     return {
@@ -474,6 +552,7 @@ export const getScheduleConfig = (organizationType) => {
       startHour: 8,
       endHour: 18,
       defaultLocations: ["organization", "online", "offline"],
+      defaultTimezone: "WIB", // FIXED: WIB instead of Asia/Jakarta
     }
   }
 }
