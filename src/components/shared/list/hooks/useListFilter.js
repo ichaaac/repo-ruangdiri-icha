@@ -1,5 +1,5 @@
 // src/components/list/hooks/useListFilters.js
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useEffect } from "react" // ✅ Tambah useEffect
 import { useListStore } from "../stores/listStores"
 import { hasActiveFilters } from "../utils/filterUtils"
 
@@ -12,6 +12,7 @@ export const useListFilters = (type) => {
   const filters = useListStore(state => state.filters[type])
   const setFilters = useListStore(state => state.setFilters)
   const clearFilters = useListStore(state => state.clearFilters)
+  const resetListState = useListStore(state => state.resetListState) // ✅ Ambil action resetListState dari listStore
 
   // Update specific filter
   const updateFilter = useCallback((filterType, value) => {
@@ -39,6 +40,15 @@ export const useListFilters = (type) => {
   const areFiltersActive = useMemo(() => {
     return hasActiveFilters(filters)
   }, [filters])
+
+  // ✅ INI BAGIAN TERPENTING: Reset filter state saat komponen unmount
+  useEffect(() => {
+    return () => {
+      // Panggil resetListState untuk membersihkan filters, sortConfig, searchTerms, dll.
+      console.log(`Resetting list state (filters, sort, search) for type: ${type}`);
+      resetListState(type);
+    };
+  }, [type, resetListState]); // Pastikan type dan resetListState ada di dependency array
 
   return {
     filters,

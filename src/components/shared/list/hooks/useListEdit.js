@@ -1,7 +1,7 @@
 // src/components/list/hooks/useListEdit.js
-import { useCallback } from "react"
+import { useCallback, useEffect } from "react" // ✅ Tambah useEffect
 import { useEditStore } from "../stores/editStores"
-import { validateStudentData, validateEmployeeData, getChangedFields } from "../utils/validationUtils"
+import { useListStore } from "../stores/listStores"
 
 /**
  * Hook for inline editing
@@ -13,19 +13,20 @@ export const useListEdit = (type) => {
   const editData = useEditStore(state => state.editData[type])
   const validationErrors = useEditStore(state => state.validationErrors[type])
   const isDirty = useEditStore(state => state.isDirty[type])
-  
+
   const startEditing = useEditStore(state => state.startEditing)
-  const stopEditing = useEditStore(state => state.stopEditing)
+  const stopEditingFromStore = useEditStore(state => state.stopEditing) // Rename untuk kejelasan
   const updateEditData = useEditStore(state => state.updateEditData)
   const setValidationErrors = useEditStore(state => state.setValidationErrors)
   const clearValidationErrors = useEditStore(state => state.clearValidationErrors)
   const isEditing = useEditStore(state => state.isEditing)
   const getEditData = useEditStore(state => state.getEditData)
-  const hasUnsavedChanges = useEditStore(state => state.hasUnsavedChanges)
+  const hasUnsavedChangesFromStore = useEditStore(state => state.hasUnsavedChanges) // Rename
+  const resetEditState = useEditStore(state => state.resetEditState) // ✅ Ambil action resetEditState
 
   // Start editing an item
   const handleStartEditing = useCallback((itemId, originalData) => {
-    const initialData = type === "student" 
+    const initialData = type === "student"
       ? {
           fullName: originalData.fullName || "",
           classroom: originalData.classroom || "",
@@ -42,20 +43,19 @@ export const useListEdit = (type) => {
           age: originalData.age || 0,
           yearsOfService: originalData.yearsOfService || 0,
         }
-    
+
     startEditing(type, itemId, initialData)
   }, [startEditing, type])
 
-  // Stop editing
+  // Stop editing (ini yang dipanggil di UI, misalnya tombol Cancel/Save)
   const handleStopEditing = useCallback(() => {
-    stopEditing(type)
-  }, [stopEditing, type])
+    stopEditingFromStore(type)
+  }, [stopEditingFromStore, type])
 
   // Update edit field
   const handleUpdateField = useCallback((field, value) => {
     let processedValue = value
 
-    // Process specific fields
     if (field === "fullName") {
       processedValue = value.substring(0, 70)
     } else if (type === "student" && field === "iqScore") {
@@ -65,8 +65,7 @@ export const useListEdit = (type) => {
     }
 
     updateEditData(type, field, processedValue)
-    
-    // Clear validation errors for this field
+
     if (validationErrors[field]) {
       const newErrors = { ...validationErrors }
       delete newErrors[field]
@@ -77,10 +76,10 @@ export const useListEdit = (type) => {
   // Validate current edit data
   const validateCurrentData = useCallback(() => {
     const currentData = getEditData(type)
-    const errors = type === "student" 
+    const errors = type === "student"
       ? validateStudentData(currentData)
       : validateEmployeeData(currentData)
-    
+
     setValidationErrors(type, errors)
     return Object.keys(errors).length === 0
   }, [getEditData, setValidationErrors, type])
@@ -96,18 +95,27 @@ export const useListEdit = (type) => {
     return isEditing(type, itemId)
   }, [isEditing, type])
 
+  // ✅ INI BAGIAN TERPENTING: Reset state edit saat komponen unmount
+  useEffect(() => {
+    return () => {
+      // Panggil resetEditState dari Zustand saat SharedListPage (yang menggunakan useList) di-unmount
+      console.log(`Resetting edit state for type: ${type}`); // Buat ngecek di console
+      resetEditState(type);
+    };
+  }, [type, resetEditState]); // Pastikan type dan resetEditState ada di dependency array
+
   return {
     editingItemId: editingItems,
     editData,
     validationErrors,
     isDirty,
     startEditing: handleStartEditing,
-    stopEditing: handleStopEditing,
+    stopEditing: handleStopEditing, // Yang ini dipanggil di komponen UI
     updateField: handleUpdateField,
     validateData: validateCurrentData,
     getChanges,
     isEditingItem,
-    hasUnsavedChanges: () => hasUnsavedChanges(type),
+    hasUnsavedChanges: () => hasUnsavedChangesFromStore(type),
     clearErrors: () => clearValidationErrors(type)
   }
 }

@@ -82,7 +82,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   const [tempPreviewUrl, setTempPreviewUrl] = useState(null)
   const queryClient = useQueryClient()
 
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+const allowedTypes = ["image/jpeg", "image/png"]; // WebP, GIF, dll. ga ada
   const maxSize = 2 * 1024 * 1024 // 2MB
 
   useEffect(() => {
@@ -143,25 +143,29 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
     },
   })
 
-  const handleFileChange = (e) => {
+const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) {
       console.log("No file selected - user canceled file picker")
       return
     }
 
-    console.log("File selected:", file.name)
+    // Reset inputnya biar bisa milih file yang sama lagi nanti
     e.target.value = ""
 
+    // --- PERBAIKAN DI SINI ---
+    // Validasi dulu, baru proses. Kalo ga valid, langsung stop.
     if (!allowedTypes.includes(file.type)) {
       toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
-      return
+      return // <-- PENTING: Stop eksekusi di sini!
     }
     if (file.size > maxSize) {
       toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
-      return
+      return // <-- PENTING: Stop eksekusi di sini juga!
     }
 
+    // Kode di bawah ini cuma jalan kalo filenya VALID
+    console.log("File is valid, proceeding to show confirmation modal.")
     const previewUrl = URL.createObjectURL(file)
     setSelectedFile(file)
     setTempPreviewUrl(previewUrl)
