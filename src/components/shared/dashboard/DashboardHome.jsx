@@ -416,7 +416,7 @@ const DashboardHome = ({
             <div className="w-full lg:w-2/5">
               <div className="flex flex-col h-full px-3 sm:px-4 py-4 sm:py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-5 justify-between w-full mb-4">
-                  <p className="text-xs sm:text-sm">Status Kesehatan Mental {config.entityName} Keseluruhan</p>
+                  <p className="text-s sm:text-md">Status Kesehatan Mental {config.entityName} Keseluruhan</p>
                   <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
                 </div>
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">

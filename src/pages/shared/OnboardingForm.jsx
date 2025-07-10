@@ -480,7 +480,7 @@ const OnboardingForm = () => {
           type="button"
           onClick={handleSkip}
           disabled={isSubmitting}
-          className="absolute bottom-8 right-8 text-sm text-zinc-500 hover:underline hover:text-primary md:bottom-12 md:right-12 disabled:opacity-50 transition-colors"
+          className="absolute bottom-8 right-8 text-sm text-zinc-500 hover hover:text-primary md:bottom-12 md:right-12 disabled:opacity-50 transition-colors"
         >
           {isSubmitting ? (
             <span className="flex items-center gap-2">
