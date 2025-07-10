@@ -1,18 +1,18 @@
-// src/components/shared/layout/Sidebar.jsx - FIXED HOVER AREA (Profile to Menu Only)
+// src/components/shared/layout/Sidebar.jsx - FINAL LOGIC V2 (Correct Collapse Behavior)
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../hooks/useAuth"
 
 /**
- * Responsive Sidebar Component with hover area limited to profile and menu sections only
+ * Responsive Sidebar Component with correct persistence on collapse
  */
 const Sidebar = ({
   expanded,
   setExpanded,
   onHoverChange,
   organizationType = "school",
-  menuItems = [], // Ini akan kita modifikasi di parent kalau menu utamanya dinamis
+  menuItems = [],
   isMobile = false,
   selectedDashboardTab = "home",
   onDashboardTabChange = () => {},
@@ -21,10 +21,10 @@ const Sidebar = ({
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user: userData } = useAuth()
-  const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-  const [profileDropdownHeight, setProfileDropdownHeight] = useState(0);
-  const profileDropdownRef = useRef(null);
-  const [activeDropdown, setActiveDropdown] = useState(null)
+  
+  const [isProfileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [activeMenuPath, setActiveMenuPath] = useState(null);
+
   const [hovered, setHovered] = useState(false)
   const [toggleHovered, setToggleHovered] = useState(false)
   const [fallbackProfileImage, setFallbackProfileImage] = useState(false)
@@ -32,28 +32,17 @@ const Sidebar = ({
   const collapseTimeoutRef = useRef(null)
   const sidebarRef = useRef(null)
   const hoverAreaRef = useRef(null)
-  const hoverableContentRef = useRef(null) // Ref untuk area yang bisa di-hover
+  const hoverableContentRef = useRef(null)
 
   const expandedWidth = isMobile ? 200 : 237
   const collapsedWidth = isMobile ? 50 : 60
   const sidebarWidth = expanded || hovered ? expandedWidth : collapsedWidth
-
-  // Calculate menu items height dynamically
-  const profileSectionHeight = isMobile ? 80 : 100 // Profile section + padding
+  
+  const profileSectionHeight = isMobile ? 80 : 100
   const menuItemHeight = isMobile ? 40 : 47
-  // Kita akan inject menu "Pesan" di sini, jadi hitungan menuItems.length harus mencakup itu
-  const totalMenuHeight = (menuItems.length + 1) * menuItemHeight // +1 untuk menu "Pesan"
-  const dividerHeight = 20 // Divider height + margin
+  const totalMenuHeight = (menuItems.length + 1) * menuItemHeight
+  const dividerHeight = 20
   const hoverableContentHeight = profileSectionHeight + dividerHeight + totalMenuHeight
-
-  useEffect(() => {
-    const dropdownIsVisible = showProfileDropdown && (expanded || hovered);
-    if (dropdownIsVisible && profileDropdownRef.current) {
-      setProfileDropdownHeight(profileDropdownRef.current.scrollHeight);
-    } else {
-      setProfileDropdownHeight(0);
-    }
-  }, [showProfileDropdown, expanded, hovered]);
 
   const handleHoverableContentMouseEnter = () => {
     if (!expanded && !isMobile) {
@@ -70,41 +59,46 @@ const Sidebar = ({
       clearTimeout(expandTimeoutRef.current)
       collapseTimeoutRef.current = setTimeout(() => {
         setHovered(false)
-        setShowProfileDropdown(false)
-        if (!location.pathname.includes("/dashboard")) { // Pertahankan perilaku ini
-          setActiveDropdown(null)
-        }
         onHoverChange?.(false)
       }, 300)
     }
   }
 
+  // This effect sets the default open state on page navigation
   useEffect(() => {
-    // Ini mengelola dropdown dashboard aktif, biarkan saja
-    if (location.pathname.includes("/dashboard")) {
-      const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'))
-      if (dashboardItem) setActiveDropdown(dashboardItem.path)
-    } else {
-      setActiveDropdown(null);
-    }
-  }, [location.pathname, menuItems])
+    const isProfilePage = location.pathname.includes(`/${organizationType}/profile`) || location.pathname.includes(`/${organizationType}/settings`);
+    setProfileDropdownOpen(isProfilePage);
 
+    const isDashboardPage = location.pathname.includes("/dashboard");
+    const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'));
+    if (isDashboardPage && dashboardItem) {
+        setActiveMenuPath(dashboardItem.path);
+    } else {
+        setActiveMenuPath(null);
+    }
+  }, [location.pathname, menuItems, organizationType]);
+
+  // ✅ LOGIKA PERBAIKAN FINAL ADA DI SINI
+  // This effect handles closing manually opened dropdowns when the sidebar collapses
   useEffect(() => {
     if (!expanded && !hovered) {
-      setShowProfileDropdown(false)
-      if (!location.pathname.includes("/dashboard")) { // Pertahankan perilaku ini
-        setActiveDropdown(null)
-      }
+        // Cek apakah BUKAN di halaman profil, jika ya, tutup dropdownnya
+        const isProfilePage = location.pathname.includes(`/${organizationType}/profile`) || location.pathname.includes(`/${organizationType}/settings`);
+        if (!isProfilePage) {
+            setProfileDropdownOpen(false);
+        }
+
+        // Cek apakah BUKAN di halaman dashboard, jika ya, tutup dropdownnya
+        const isDashboardPage = location.pathname.includes("/dashboard");
+        if (!isDashboardPage) {
+            setActiveMenuPath(null);
+        }
     }
-  }, [expanded, hovered, location.pathname])
+  }, [expanded, hovered, location.pathname, organizationType]);
 
   const toggleSidebar = () => {
     setExpanded(!expanded)
     onHoverChange?.(!expanded)
-    setShowProfileDropdown(false)
-    if (!location.pathname.includes("/dashboard")) { // Pertahankan perilaku ini
-      setActiveDropdown(null)
-    }
   }
 
   const handleLogout = async () => {
@@ -119,23 +113,17 @@ const Sidebar = ({
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target) &&
           hoverAreaRef.current && !hoverAreaRef.current.contains(event.target) &&
-          expanded && !isMobile) { // Hanya tutup kalau expanded (tidak hover) dan bukan mobile
-        // Ini untuk menutup sidebar saat klik di luar
+          expanded && !isMobile) {
         setExpanded(false);
         onHoverChange?.(false);
-        setShowProfileDropdown(false);
-        if (!location.pathname.includes("/dashboard")) {
-          setActiveDropdown(null);
-        }
       }
     }
 
-    // ✅ KODE BARU UNTUK MENGATUR SCROLL BODY
-    if (expanded || (hovered && !isMobile)) { // Kondisi kapan scroll harus dikunci
+    if (expanded || (hovered && !isMobile)) {
       document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden'; // Untuk memastikan di semua browser
+      document.documentElement.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = ''; // Mengembalikan ke default
+      document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     }
 
@@ -144,12 +132,10 @@ const Sidebar = ({
       document.removeEventListener("mousedown", handleClickOutside)
       clearTimeout(expandTimeoutRef.current)
       clearTimeout(collapseTimeoutRef.current)
-      // ✅ Penting: Cleanup scroll saat komponen unmount
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     }
-  }, [expanded, hovered, isMobile, location.pathname, setExpanded, onHoverChange]); // Tambahkan dependensi yang relevan
-
+  }, [expanded, hovered, isMobile, setExpanded, onHoverChange]);
 
   const handleImageError = () => setFallbackProfileImage(true)
 
@@ -157,7 +143,6 @@ const Sidebar = ({
     if (path.includes("/dashboard")) {
       return location.pathname.includes("/dashboard")
     }
-    // Handle special cases for profile/settings being active together
     if (organizationType === "school") {
       if (path === "/organization/school/profile" && location.pathname === "/organization/school/settings") return true
     } else {
@@ -194,7 +179,7 @@ const Sidebar = ({
     if (isMobile) setExpanded(false)
   }
 
-  const toggleDropdown = (path) => setActiveDropdown(activeDropdown === path ? null : path)
+  const toggleMenuDropdown = (path) => setActiveMenuPath(activeMenuPath === path ? null : path)
 
   const getInitial = () => {
     if (userData?.fullName && userData.fullName.length > 0) {
@@ -205,28 +190,24 @@ const Sidebar = ({
 
   const dashboardDropdownItems = getDashboardDropdownItems()
 
-  // ✅ BUAT ARRAY MENU ITEM FINAL DENGAN ITEM "PESAN" DI DALAMNYA
   const finalMenuItems = useMemo(() => {
-    const baseItems = menuItems.slice(); // Duplikat array agar tidak memodifikasi prop langsung
-    const scheduleIndex = baseItems.findIndex(item => item.path && item.path.includes('/schedule')); // Cari index menu Jadwal
+    const baseItems = menuItems.slice();
+    const scheduleIndex = baseItems.findIndex(item => item.path && item.path.includes('/schedule'));
     
-    // Menu "Pesan" baru
     const messageMenuItem = {
       label: "Pesan",
-      icon: "chat", // Icon chat
-      path: `/${organizationType}/message`, // Sesuaikan path jika berbeda
+      icon: "chat",
+      path: `/${organizationType}/message`,
       hasDropdown: false,
     };
 
     if (scheduleIndex !== -1) {
-      // Masukkan menu "Pesan" setelah "Jadwal"
       baseItems.splice(scheduleIndex + 1, 0, messageMenuItem);
     } else {
-      // Jika "Jadwal" tidak ditemukan, tambahkan di akhir atau di posisi lain yang masuk akal
       baseItems.push(messageMenuItem); 
     }
     return baseItems;
-  }, [menuItems, organizationType]); // Re-calculate if menuItems or organizationType changes
+  }, [menuItems, organizationType]);
 
   return (
     <>
@@ -237,7 +218,7 @@ const Sidebar = ({
         animate={{ width: sidebarWidth }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
-        {/* Logo Container - NO HOVER TRIGGER */}
+        {/* Logo Container */}
         <div className={`relative ${isMobile ? "h-[60px]" : "h-[80px]"} flex-shrink-0 flex items-center justify-center`}>
           <motion.div
             className="absolute inset-0 flex items-center justify-center"
@@ -254,7 +235,6 @@ const Sidebar = ({
             />
           </motion.div>
 
-          {/* Toggle Button */}
           <motion.div className="absolute right-0 top-1/2 transform -translate-y-1/2" onMouseEnter={() => setToggleHovered(true)} onMouseLeave={() => setToggleHovered(false)}>
             <button onClick={toggleSidebar}
               className={`${isMobile ? "w-2.5 h-7" : "w-3 h-9"} rounded-bl-md rounded-tl-md shadow-sm transition-colors ${toggleHovered ? "bg-[#488BBE] text-white" : "bg-[#D8EEFF] text-[#488BBE]"}`}>
@@ -265,7 +245,6 @@ const Sidebar = ({
           </motion.div>
         </div>
 
-        {/* Hoverable content wrapper - ONLY for profile and menu items */}
         <div
           ref={hoverableContentRef}
           className="flex-shrink-0"
@@ -276,7 +255,7 @@ const Sidebar = ({
           <div className={`${isMobile ? "px-3 pt-10" : "px-2.5 pt-16"} relative mb-6`}>
             <div
               className="flex items-center cursor-pointer relative min-h-[40px] gap-3"
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              onClick={() => setProfileDropdownOpen(prev => !prev)}
             >
               <div className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0 transition-all`}>
                 {userData?.profilePicture && !fallbackProfileImage ? (
@@ -296,26 +275,24 @@ const Sidebar = ({
                     {userData?.fullName || "-"}
                   </span>
                   <span className={`material-icons ${isMobile ? "text-xs" : "text-sm"} ml-1 text-[#488BBE] flex-shrink-0`}>
-                    {showProfileDropdown ? "expand_less" : "expand_more"}
+                    {isProfileDropdownOpen ? "expand_less" : "expand_more"}
                   </span>
                 </div>
               </motion.div>
             </div>
+            
             <AnimatePresence>
-              {showProfileDropdown && (expanded || hovered) && (
+              {isProfileDropdownOpen && (expanded || hovered) && (
                 <motion.div
-                  ref={profileDropdownRef}
-                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} absolute w-full`}
-                  style={{ zIndex: 10 }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden`}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
-                <Link
+                  <Link
                     to={`/organization/${organizationType}/profile`}
                     className={`block py-2 ${isMobile ? "text-xs" : "text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors`}
-                    onClick={() => setShowProfileDropdown(false)}
                   >
                     Profil
                   </Link>
@@ -329,29 +306,21 @@ const Sidebar = ({
               )}
             </AnimatePresence>
           </div>
-
-          {/* Profile dropdown spacer */}
-          <motion.div
-            className="overflow-hidden w-full"
-            animate={{ height: profileDropdownHeight }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-          />
-
-          {/* Divider */}
+          
           <div className={`${isMobile ? "px-2" : "px-3"} mb-6`}>
             <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
           </div>
 
           {/* Navigation Menu */}
           <div className={`flex flex-col gap-y-1`}>
-            {finalMenuItems.map((item, index) => ( // ✅ GUNAKAN finalMenuItems DI SINI
+            {finalMenuItems.map((item, index) => (
               <div key={index}>
                 <motion.div className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${ isActive(item.path) ? "bg-[#488BBE] text-white font-bold" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white" }`}
                   onClick={() => {
-                    if (item.hasDropdown) toggleDropdown(item.path)
-                    else {
+                    if (item.hasDropdown) {
+                        toggleMenuDropdown(item.path)
+                    } else {
                       navigate(item.path)
-                      // Jika navigasi ke dashboard, reset tab ke 'home'
                       if (item.path.includes('/dashboard')) onDashboardTabChange('home')
                       if (isMobile) setExpanded(false)
                     }
@@ -361,16 +330,17 @@ const Sidebar = ({
                     transition={{ duration: 0.3, ease: "easeInOut" }}
                     className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1 ${isActive(item.path) ? "font-bold" : ""}`}>
                     {item.label}
-                    {item.hasDropdown && (<span className={`material-icons ${isMobile ? "text-xs" : "text-sm"} ml-2`}>{activeDropdown === item.path ? "expand_less" : "expand_more"}</span>)}
+                    {item.hasDropdown && (<span className={`material-icons ${isMobile ? "text-xs" : "text-sm"} ml-2`}>{activeMenuPath === item.path ? "expand_less" : "expand_more"}</span>)}
                   </motion.span>
                 </motion.div>
                 <AnimatePresence>
-                  {item.hasDropdown && activeDropdown === item.path && (expanded || hovered) && (
+                  {item.hasDropdown && activeMenuPath === item.path && (expanded || hovered) && (
                     <motion.div className={`overflow-hidden relative z-[9999]`}
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3, ease: "easeInOut" }}>
+                      
                       {item.path.includes('/dashboard') ? dashboardDropdownItems.map((dropdownItem) => (
                           <motion.div
                             key={dropdownItem.id}
@@ -431,10 +401,8 @@ const Sidebar = ({
           </div>
         </div>
 
-        {/* Empty space below menu - NO HOVER TRIGGER */}
         <div className="flex-1 overflow-hidden"></div>
 
-        {/* Mobile overlay when sidebar is expanded */}
         {isMobile && expanded && (
           <motion.div className="fixed inset-0 bg-black bg-opacity-50 z-30"
             initial={{ opacity: 0 }}
@@ -445,16 +413,15 @@ const Sidebar = ({
         )}
       </motion.div>
 
-      {/* Extended hover area - positioned to cover ONLY profile and menu area */}
       {!expanded && !isMobile && (
         <div
           ref={hoverAreaRef}
           className="fixed z-30 pointer-events-auto"
           style={{
-            top: isMobile ? '130px' : '160px', // Start at profile section
+            top: isMobile ? '130px' : '160px',
             left: sidebarWidth,
-            width: '20px', // Hover trigger area width
-            height: `${hoverableContentHeight}px`, // Only cover hoverable content height
+            width: '20px',
+            height: `${hoverableContentHeight}px`,
           }}
           onMouseEnter={handleHoverableContentMouseEnter}
           onMouseLeave={handleHoverableContentMouseLeave}
