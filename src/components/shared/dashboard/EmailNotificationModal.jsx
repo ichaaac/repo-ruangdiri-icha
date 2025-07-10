@@ -79,7 +79,7 @@ const NotificationMessage = ({ reportName, entityName, userEmail }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4, duration: 0.3 }}
     >
-      {reportName} berhasil dikirim ke email <span className="underline">{userEmail}</span><span className="text-blue-500">.</span>
+      {reportName} berhasil dikirim ke email <span>{userEmail}</span><span className="text-blue-500">.</span>
     </motion.p>
   )
 }
