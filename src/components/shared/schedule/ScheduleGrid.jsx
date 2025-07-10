@@ -31,15 +31,15 @@ const ScheduleGrid = ({
   const actualWidth = Math.max(baseWidth, containerWidth);
   const actualHeight = baseHeight;
   const HOUR_WIDTH = 80;
-  const MIN_DAY_ROW_HEIGHT = 55; // Increased base height
+  const MIN_DAY_ROW_HEIGHT = 72; // Taller base for enhanced visuals
   
-  // ENHANCED STACKING CONSTANTS
-  const SCHEDULE_BASE_HEIGHT = 36; // Increased for better readability
-  const SCHEDULE_COMPRESSED_HEIGHT = 24; // Increased compressed height
-  const SCHEDULE_MARGIN = 3; // Increased margin
-  const STACK_OVERLAP = 2; // Reduced overlap for cleaner look
-  const MAX_VISIBLE_STACKS = 4; // Reduced to prevent overcrowding
-  const STACK_EXPANSION_HEIGHT = 8; // Additional height per stack
+  // FIXED CONSTANTS - PERFECT ALIGNMENT
+  const SCHEDULE_BASE_HEIGHT = 44; // Even taller for better presence
+  const SCHEDULE_COMPRESSED_HEIGHT = 26; // Taller compressed
+  const LANE_SPACING = 8; // More breathing room
+  const MAX_VISIBLE_STACKS = 3; 
+  const DAY_PADDING_TOP = 16; // More padding for alignment
+  const DAY_PADDING_BOTTOM = 12;
   
   const TIME_HEADER_HEIGHT = 30;
   const DAY_COLUMN_WIDTH = 70;
@@ -181,14 +181,17 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // ENHANCED: Schedule processing with better collision detection
+  // IMPROVED: Clean schedule processing with better stacking algorithm
   const processedSchedules = useMemo(() => {
     const processed = {};
+    const dayEvents = {};
     
     days.forEach(day => {
       processed[day.full] = {};
+      dayEvents[day.full] = [];
     });
 
+    // First pass: collect all events by day
     schedules.forEach(schedule => {
       const scheduleDate = new Date(schedule.startDateTime);
       const dayName = days[scheduleDate.getDay()]?.full;
@@ -224,81 +227,116 @@ const ScheduleGrid = ({
           originalData: schedule,
           startDateTime: startTime,
           endDateTime: endTime,
-          duration: endTime - startTime
+          duration: endTime - startTime,
+          startMinutes: startTime.getHours() * 60 + startTime.getMinutes(),
+          endMinutes: endTime.getHours() * 60 + endTime.getMinutes()
         };
 
-        const startHour = startTime.getHours();
+        dayEvents[dayName].push(displaySchedule);
+      }
+    });
+
+    // Second pass: process stacking for each day
+    Object.keys(dayEvents).forEach(dayName => {
+      const events = dayEvents[dayName];
+      
+      // Sort by start time, then by duration (shorter first for better visibility)
+      events.sort((a, b) => {
+        const timeDiff = a.startDateTime - b.startDateTime;
+        if (timeDiff !== 0) return timeDiff;
+        return a.duration - b.duration; // Shorter events first
+      });
+
+      // Clean overlap detection and lane assignment
+      const lanes = [];
+      
+      events.forEach((event) => {
+        // Find the first available lane
+        let assignedLane = -1;
+        
+        for (let i = 0; i < lanes.length; i++) {
+          const lane = lanes[i];
+          const lastEventInLane = lane[lane.length - 1];
+          
+          // Check if this event can fit in this lane (no overlap)
+          if (lastEventInLane.endMinutes <= event.startMinutes) {
+            assignedLane = i;
+            break;
+          }
+        }
+        
+        // If no lane is available, create a new one
+        if (assignedLane === -1) {
+          assignedLane = lanes.length;
+          lanes.push([]);
+        }
+        
+        // Assign properties
+        event.stackIndex = assignedLane;
+        event.totalLanes = Math.max(lanes.length, event.stackIndex + 1);
+        event.isStacked = lanes.length > 1 || lanes[0]?.length > 1;
+        
+        // Add to lane
+        lanes[assignedLane].push(event);
+        
+        // Group by time slot for backward compatibility
+        const startHour = event.startDateTime.getHours();
         const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
         
         if (!processed[dayName][timeSlot]) {
           processed[dayName][timeSlot] = [];
         }
         
-        processed[dayName][timeSlot].push(displaySchedule);
-      }
-    });
-
-    // ENHANCED: Better overlap detection and positioning
-    Object.keys(processed).forEach(dayName => {
-      Object.keys(processed[dayName]).forEach(timeSlot => {
-        const events = processed[dayName][timeSlot];
-        
-        // Sort by start time, then by duration (longer first)
-        events.sort((a, b) => {
-          const timeDiff = a.startDateTime - b.startDateTime;
-          if (timeDiff !== 0) return timeDiff;
-          return b.duration - a.duration;
-        });
-
-        // Enhanced overlap detection
-        events.forEach((event, index) => {
-          const overlapping = events.filter(otherEvent => {
-            if (otherEvent.id === event.id) return false;
-            
-            // Check for time overlap with 5-minute buffer
-            const buffer = 5 * 60 * 1000; // 5 minutes in milliseconds
-            return (event.startDateTime < (otherEvent.endDateTime + buffer) && 
-                   (event.endDateTime + buffer) > otherEvent.startDateTime);
-          });
-
-          event.stackIndex = index;
-          event.totalStacks = Math.max(1, overlapping.length + 1);
-          event.isStacked = overlapping.length > 0;
-          event.overlapCount = overlapping.length;
-        });
+        processed[dayName][timeSlot].push(event);
+      });
+      
+      // Update total lanes for all events in this day
+      events.forEach(event => {
+        event.totalLanes = lanes.length;
+        event.isStacked = lanes.length > 1;
       });
     });
 
     return processed;
   }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
 
-  // ENHANCED: Dynamic row heights with better stacking support
+  // BULLETPROOF GRID ALIGNMENT: Dynamic row heights
   const dayRowHeights = useMemo(() => {
     const heights = {};
     
     days.forEach(day => {
-      let maxStackCount = 1;
+      let maxLanes = 1;
       let hasEvents = false;
       
+      // Find max lanes for this day
       Object.values(processedSchedules[day.full] || {}).forEach(eventsInSlot => {
         if (eventsInSlot.length > 0) {
           hasEvents = true;
-          const maxConcurrent = Math.max(...eventsInSlot.map(e => e.totalStacks || 1));
-          maxStackCount = Math.max(maxStackCount, maxConcurrent);
+          const dayMaxLanes = Math.max(...eventsInSlot.map(e => e.totalLanes || 1));
+          maxLanes = Math.max(maxLanes, dayMaxLanes);
         }
       });
       
-      // Calculate dynamic height based on stack count
-      let baseHeight = MIN_DAY_ROW_HEIGHT;
-      
-      if (hasEvents && maxStackCount > 1) {
-        // Add height for each additional stack, but cap at reasonable limit
-        const additionalStacks = Math.min(maxStackCount - 1, MAX_VISIBLE_STACKS);
-        const additionalHeight = additionalStacks * (SCHEDULE_COMPRESSED_HEIGHT + SCHEDULE_MARGIN + STACK_EXPANSION_HEIGHT);
-        baseHeight += additionalHeight;
+      if (hasEvents) {
+        const visibleLanes = Math.min(maxLanes, MAX_VISIBLE_STACKS);
+        
+        // EXACT calculation - no approximation
+        let contentHeight = 0;
+        
+        if (visibleLanes === 1) {
+          // Single lane gets full height
+          contentHeight = SCHEDULE_BASE_HEIGHT;
+        } else {
+          // Multiple lanes - all get compressed height
+          contentHeight = visibleLanes * SCHEDULE_COMPRESSED_HEIGHT;
+          contentHeight += (visibleLanes - 1) * LANE_SPACING; // Spacing between lanes
+        }
+        
+        const totalHeight = DAY_PADDING_TOP + contentHeight + DAY_PADDING_BOTTOM;
+        heights[day.full] = Math.max(totalHeight, MIN_DAY_ROW_HEIGHT);
+      } else {
+        heights[day.full] = MIN_DAY_ROW_HEIGHT;
       }
-      
-      heights[day.full] = Math.max(baseHeight, MIN_DAY_ROW_HEIGHT);
     });
     
     return heights;
@@ -365,6 +403,145 @@ const ScheduleGrid = ({
       exactPixelY: gridY - getDayRowTop(dayIndex)
     };
   }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
+
+  // DRAMATIC ENHANCED EVENT COMPONENT - NO MORE GEPENG
+  const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
+    const isStacked = event.isStacked;
+    const isSingle = !isStacked;
+    const laneIndex = event.stackIndex || 0;
+    const totalLanes = event.totalLanes || 1;
+    
+    // TALLER heights for better presence
+    const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
+    
+    const isVisible = laneIndex < MAX_VISIBLE_STACKS;
+    
+    if (!isVisible) {
+      return (
+        <div
+          className="absolute bg-gray-600 text-white text-[10px] rounded-lg px-3 py-2 font-semibold shadow-md"
+          style={{
+            ...style,
+            height: `${SCHEDULE_COMPRESSED_HEIGHT}px`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: Z_INDICES.OVERFLOW_INDICATORS,
+            opacity: 0.9
+          }}
+        >
+          +{totalLanes - MAX_VISIBLE_STACKS}
+        </div>
+      );
+    }
+
+    const currentWidth = style.width ? parseInt(style.width) : 0;
+
+    // Enhanced color processing for better gradients
+    const lightenColor = (color, amount = 0.2) => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      return `rgb(${Math.min(255, r + amount * 255)}, ${Math.min(255, g + amount * 255)}, ${Math.min(255, b + amount * 255)})`;
+    };
+
+    const darkenColor = (color, amount = 0.1) => {
+      const hex = color.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      
+      return `rgb(${Math.max(0, r - amount * 255)}, ${Math.max(0, g - amount * 255)}, ${Math.max(0, b - amount * 255)})`;
+    };
+
+    return (
+      <div
+        className={`schedule-event absolute rounded-xl cursor-pointer transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1 ${className || ''}`}
+        style={{
+          ...style,
+          width: `${currentWidth}px`,
+          height: `${height}px`,
+          background: isSingle 
+            ? `linear-gradient(135deg, ${event.color} 0%, ${lightenColor(event.color, 0.1)} 50%, ${darkenColor(event.color, 0.05)} 100%)`
+            : `linear-gradient(135deg, ${event.color} 0%, ${darkenColor(event.color, 0.1)} 100%)`,
+          opacity: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: isSingle ? 'flex-start' : 'center',
+          alignItems: 'flex-start',
+          overflow: 'hidden',
+          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
+          boxShadow: isSingle 
+            ? `0 8px 25px rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.2)`
+            : `0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)`,
+          border: `1px solid ${darkenColor(event.color, 0.15)}`,
+          padding: isSingle ? '12px 16px' : '6px 12px',
+          position: 'relative'
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClickEvent && onClickEvent(event);
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Subtle inner glow for depth */}
+        <div 
+          className="absolute inset-0 rounded-xl pointer-events-none"
+          style={{
+            background: `linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%, rgba(0,0,0,0.05) 100%)`,
+            zIndex: 1
+          }}
+        />
+        
+        {/* Content with proper z-index */}
+        <div className="relative z-10 w-full">
+          {/* ENHANCED TITLE */}
+          <div 
+            className="text-white font-bold truncate drop-shadow-sm" 
+            style={{ 
+              lineHeight: '1.3',
+              fontSize: isSingle ? '14px' : '11px',
+              marginBottom: isSingle ? '4px' : '0',
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+            }}
+          >
+            {event.name}
+          </div>
+          
+          {/* Enhanced details for single events */}
+          {isSingle && (
+            <>
+              <div 
+                className="text-white truncate drop-shadow-sm" 
+                style={{ 
+                  fontSize: '12px', 
+                  opacity: 0.95,
+                  fontWeight: '600',
+                  marginBottom: '2px',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                }}
+              >
+                {event.startTime} - {event.endTime}
+              </div>
+              <div 
+                className="text-white text-[11px] truncate drop-shadow-sm"
+                style={{ 
+                  opacity: 0.9,
+                  fontWeight: '500',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                }}
+              >
+                {event.timezoneDisplay} • {event.platform}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   // Event handlers (keeping existing logic)
   const handleScheduleClick = useCallback((event, scheduleData) => {
@@ -733,21 +910,26 @@ const ScheduleGrid = ({
             style={{ zIndex: Z_INDICES.SCROLL_BARS }}
           >
             <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (timeSlots.length * HOUR_WIDTH)}px` }}>
-              {/* FIXED: Day Column with higher z-index */}
+              {/* PERFECTLY ALIGNED: Day Column */}
               <div 
-                className="flex-shrink-0 bg-white sticky left-0"
+                className="flex-shrink-0 bg-white sticky left-0 border-r border-zinc-200"
                 style={{ 
                   width: `${DAY_COLUMN_WIDTH}px`,
-                  zIndex: Z_INDICES.DAY_HEADERS
+                  zIndex: Z_INDICES.DAY_HEADERS,
+                  borderColor: '#e4e4e7'
                 }}
               >
                 {days.map((day, index) => (
                   <div 
                     key={day.short} 
-                    className="flex items-center justify-center border-b border-zinc-200 bg-white"
-                    style={{ height: `${dayRowHeights[day.full]}px` }}
+                    className="flex items-center justify-center border-b bg-white"
+                    style={{ 
+                      height: `${dayRowHeights[day.full]}px`,
+                      borderColor: '#e4e4e7',
+                      borderBottomWidth: index === days.length - 1 ? '0' : '1px'
+                    }}
                   >
-                    <span className="text-base font-bold text-neutral-600">
+                    <span className="text-sm font-semibold text-neutral-700">
                       {day.short}
                     </span>
                   </div>
@@ -773,20 +955,25 @@ const ScheduleGrid = ({
                   onMouseDown={handleMouseDown}
                 />
 
-                {/* FIXED: Enhanced Day separator lines */}
+                {/* BULLETPROOF ALIGNED: Day separator lines */}
                 {days.map((day, i) => {
                   if (i === 0) return null;
                   const top = getDayRowTop(i);
                   return (
                     <div 
-                      key={`hline-${i}`}
-                      className="absolute left-0 right-0 border-t border-zinc-300 pointer-events-none"
-                      style={{ top: `${top}px`, zIndex: Z_INDICES.DAY_ROW_LINES }}
+                      key={`separator-${i}`}
+                      className="absolute left-0 right-0 pointer-events-none"
+                      style={{ 
+                        top: `${top}px`, 
+                        zIndex: Z_INDICES.DAY_ROW_LINES,
+                        borderTop: '1px solid #e4e4e7',
+                        height: '1px'
+                      }}
                     />
                   );
                 })}
 
-                {/* ENHANCED: Schedule Events with improved layout */}
+                {/* BULLETPROOF ALIGNMENT: Schedule Events */}
                 {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                   const dayIndex = days.findIndex(d => d.full === dayName);
                   if (dayIndex === -1) return null;
@@ -796,134 +983,65 @@ const ScheduleGrid = ({
                   return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
                     if (eventsInSlot.length === 0) return null;
 
-                    return eventsInSlot.map((event, stackIndex) => {
+                    return eventsInSlot.map((event, eventIndex) => {
                       const left = timeToPosition(event.startTime);
                       const width = calculateEventWidth(event.startTime, event.endTime);
                       
-                      // ENHANCED: Better stacking logic
-                      const isStacked = event.isStacked;
-                      const isSingle = !isStacked;
+                      // BULLETPROOF positioning calculation
+                      const laneIndex = event.stackIndex || 0;
+                      const totalLanes = event.totalLanes || 1;
                       
-                      // Dynamic height based on stacking
-                      let height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
+                      // Calculate EXACT position using same logic as dayRowHeights
+                      let laneOffset = 0;
                       
-                      // Better positioning with spacing
-                      const topOffset = 6; // Base offset from day top
-                      const stackOffset = stackIndex * (height + SCHEDULE_MARGIN);
-                      const top = dayTop + topOffset + stackOffset;
+                      if (totalLanes === 1) {
+                        // Single event - no offset needed, just use base position
+                        laneOffset = 0;
+                      } else {
+                        // Multiple events - calculate compressed positioning
+                        laneOffset = laneIndex * (SCHEDULE_COMPRESSED_HEIGHT + LANE_SPACING);
+                      }
                       
-                      // Visibility control
-                      const isVisible = stackIndex < MAX_VISIBLE_STACKS;
-                      const opacity = isVisible ? (stackIndex === 0 ? 1 : Math.max(0.7, 1 - (stackIndex * 0.15))) : 0;
-                      
-                      // Dynamic width adjustment for stacked items
-                      const stackedWidthReduction = isStacked ? Math.min(stackIndex * 4, 16) : 0;
-                      const finalWidth = Math.max(width - stackedWidthReduction, 40);
-
-                      if (!isVisible) return null;
+                      const top = dayTop + DAY_PADDING_TOP + laneOffset;
 
                       return (
-                        <div
-                          key={`${event.id}-${stackIndex}`}
-                          className="schedule-event absolute rounded-md px-2 py-1 cursor-pointer hover:opacity-95 transition-all duration-200 shadow-sm"
+                        <ScheduleEventCard
+                          key={`${event.id}-${laneIndex}`}
+                          event={event}
                           style={{
                             left: `${left}px`,
                             top: `${top}px`,
-                            width: `${finalWidth}px`,
-                            height: `${height}px`,
-                            backgroundColor: event.color,
-                            opacity,
-                            transform: isStacked ? `translateX(${stackIndex * STACK_OVERLAP}px)` : 'none',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            overflow: 'hidden',
-                            zIndex: Z_INDICES.SCHEDULE_EVENTS + stackIndex,
-                            fontSize: isSingle ? '11px' : '9px',
-                            boxShadow: isStacked ? '0 1px 3px rgba(0,0,0,0.2)' : '0 1px 2px rgba(0,0,0,0.1)',
-                            border: `1px solid ${event.color}`,
-                            borderColor: event.color
+                            width: `${width}px`
                           }}
-                          onClick={(e) => handleScheduleClick(e, event)}
-                          onMouseDown={(e) => e.stopPropagation()}
-                        >
-                          {/* Event content with conditional display */}
-                          <div className="text-white font-semibold truncate" style={{ lineHeight: '1.1' }}>
-                            {event.name}
-                          </div>
-                          {isSingle && (
-                            <div className="text-white text-[10px] truncate opacity-90 mt-0.5">
-                              {event.startTime} - {event.endTime} {event.timezoneDisplay}
-                            </div>
-                          )}
-                          {isSingle && event.platform && (
-                            <div className="text-white text-[9px] truncate opacity-80">
-                              {event.platform}
-                            </div>
-                          )}
-                        </div>
+                          onClickEvent={(scheduleData) => handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)}
+                        />
                       );
                     });
                   });
                 })}
 
-                {/* ENHANCED: Stack count indicators */}
-                {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
-                  const dayIndex = days.findIndex(d => d.full === dayName);
-                  if (dayIndex === -1) return null;
-                  const dayTop = getDayRowTop(dayIndex);
-
-                  return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
-                    const overflowCount = eventsInSlot.length - MAX_VISIBLE_STACKS;
-                    if (overflowCount <= 0) return null;
-
-                    const left = timeToPosition(timeSlot);
-                    const topOffset = 6;
-                    const stackHeight = (SCHEDULE_COMPRESSED_HEIGHT + SCHEDULE_MARGIN);
-                    const top = dayTop + topOffset + (MAX_VISIBLE_STACKS * stackHeight);
-
-                    return (
-                      <div
-                        key={`overflow-${dayName}-${timeSlot}`}
-                        className="absolute bg-gray-600 text-white text-[10px] rounded px-2 py-1 pointer-events-none font-medium shadow-sm"
-                        style={{
-                          left: `${left}px`,
-                          top: `${top}px`,
-                          height: `${SCHEDULE_COMPRESSED_HEIGHT}px`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          zIndex: Z_INDICES.OVERFLOW_INDICATORS
-                        }}
-                      >
-                        +{overflowCount} more
-                      </div>
-                    );
-                  });
-                })}
-
-                {/* Empty day messages */}
+                {/* PERFECTLY ALIGNED: Empty day messages */}
                 {selectedDates.length > 0 && days.map((day, dayIndex) => {
                   const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
                   const isDaySelected = selectedDates.some(date => days[date.getDay()]?.full === day.full);
                   
                   if (isDaySelected && !hasEvents) {
-                    const top = getDayRowTop(dayIndex);
-                    const height = dayRowHeights[day.full] - 10;
+                    const dayTop = getDayRowTop(dayIndex);
+                    const dayHeight = dayRowHeights[day.full];
                     
                     return (
                       <div
                         key={`empty-${dayIndex}`}
-                        className="absolute rounded-md px-2 py-1 pointer-events-none flex items-center justify-center"
+                        className="absolute pointer-events-none flex items-center justify-center"
                         style={{
-                          left: '200px',
-                          top: `${top + 5}px`,
-                          width: '200px',
-                          height: `${height}px`,
-                          backgroundColor: 'transparent',
-                          zIndex: Z_INDICES.GRID_LINES
+                          left: '120px',
+                          top: `${dayTop + DAY_PADDING_TOP}px`,
+                          width: '240px',
+                          height: `${dayHeight - DAY_PADDING_TOP - DAY_PADDING_BOTTOM}px`,
+                          zIndex: Z_INDICES.BACKGROUND + 1
                         }}
                       >
-                        <div className="text-gray-400 text-xs">
+                        <div className="text-gray-400 text-xs font-medium bg-gray-50 px-3 py-1 rounded-md">
                           Belum ada jadwal
                         </div>
                       </div>

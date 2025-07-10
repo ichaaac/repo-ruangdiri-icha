@@ -3,200 +3,204 @@
 import { apiClient } from "../../../../lib/api.js"
 
 export const createScheduleApi = (organizationType = "school") => {
-  
-  // Get timezone display - COMPLETELY FIXED with Day.js logic
-  const getTimezoneDisplay = (timezone) => {
-    // Handle direct timezone codes
-    if (timezone === "WIB" || timezone === "WITA" || timezone === "WIT") {
-      return timezone;
-    }
-    
-    // Handle offset format (+07, +08, +09)
-    if (typeof timezone === 'string' && timezone.includes('+')) {
-      const offset = timezone.split('+')[1];
-      switch (offset) {
-        case '07': return 'WIB';
-        case '08': return 'WITA'; 
-        case '09': return 'WIT';
-        default: return 'WIB';
-      }
-    }
-    
-    // Handle datetime with offset (2025-05-12 08:00:00+07)
-    if (typeof timezone === 'string' && (timezone.includes('T') || timezone.includes(' '))) {
-      const offsetMatch = timezone.match(/([+-]\d{2})/);
-      if (offsetMatch) {
-        const offset = offsetMatch[1].replace('+', '');
-        switch (offset) {
-          case '07': return 'WIB';
-          case '08': return 'WITA';
-          case '09': return 'WIT';
-          default: return 'WIB';
-        }
-      }
-    }
-    
-    // Default fallback - NO MORE ASIA/JAKARTA
-    return 'WIB';
-  }
+  
+  // Get timezone display - COMPLETELY FIXED with Day.js logic
+  const getTimezoneDisplay = (timezone) => {
+    // Handle direct timezone codes
+    if (timezone === "WIB" || timezone === "WITA" || timezone === "WIT") {
+      return timezone;
+    }
+    
+    // Handle offset format (+07, +08, +09)
+    if (typeof timezone === 'string' && timezone.includes('+')) {
+      const offset = timezone.split('+')[1];
+      switch (offset) {
+        case '07': return 'WIB';
+        case '08': return 'WITA'; 
+        case '09': return 'WIT';
+        default: return 'WIB';
+      }
+    }
+    
+    // Handle datetime with offset (2025-05-12 08:00:00+07)
+    if (typeof timezone === 'string' && (timezone.includes('T') || timezone.includes(' '))) {
+      const offsetMatch = timezone.match(/([+-]\d{2})/);
+      if (offsetMatch) {
+        const offset = offsetMatch[1].replace('+', '');
+        switch (offset) {
+          case '07': return 'WIB';
+          case '08': return 'WITA';
+          case '09': return 'WIT';
+          default: return 'WIB';
+        }
+      }
+    }
+    
+    // Default fallback - NO MORE ASIA/JAKARTA
+    return 'WIB';
+  }
 
-  // Format counseling datetime - FIXED with proper Date handling
-  const formatCounselingDateTime = (startDateTime) => {
-    if (!startDateTime) {
-      return { date: 'TBD', time: 'TBD' };
-    }
-    
-    try {
-      const date = new Date(startDateTime);
-      if (isNaN(date.getTime())) {
-        return { date: 'TBD', time: 'TBD' };
-      }
-      
-      return {
-        date: date.toLocaleDateString("id-ID", {
-          day: "2-digit",
-          month: "2-digit", 
-          year: "2-digit",
-        }).replace(/\//g, "."),
-        time: date.toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        })
-      };
-    } catch (error) {
-      console.error('Error formatting counseling datetime:', error);
-      return { date: 'TBD', time: 'TBD' };
-    }
-  };
+  // Format counseling datetime - FIXED with proper Date handling
+  const formatCounselingDateTime = (startDateTime) => {
+    if (!startDateTime) {
+      return { date: 'TBD', time: 'TBD' };
+    }
+    
+    try {
+      const date = new Date(startDateTime);
+      if (isNaN(date.getTime())) {
+        return { date: 'TBD', time: 'TBD' };
+      }
+      
+      return {
+        date: date.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "2-digit", 
+          year: "2-digit",
+        }).replace(/\//g, "."),
+        time: date.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      };
+    } catch (error) {
+      console.error('Error formatting counseling datetime:', error);
+      return { date: 'TBD', time: 'TBD' };
+    }
+  };
 
-  // Transform schedule data from backend to frontend format - FIXED
-  const transformScheduleData = (schedules, orgType) => {
-    return schedules.map((schedule) => {
-      const baseTransform = {
-        ...schedule,
-        displayName: schedule.agenda,
-        participants:
-          schedule.usersSchedules?.map((us) => ({
-            ...us.user,
-            role: us.user.role,
-            displayRole: getDisplayRole(us.user.role, orgType),
-            email: us.user.email,
-            ...(orgType === "school"
-              ? {
-                  studentId: us.user.profile?.studentId,
-                  grade: us.user.profile?.grade,
-                  classroom: us.user.profile?.classroom,
-                }
-              : {
-                  employeeId: us.user.profile?.employeeId,
-                  department: us.user.profile?.department,
-                  position: us.user.profile?.position,
-                }),
-          })) || [],
-        // Enhanced timezone display with fallbacks
-        timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
-        // Include attachment count
-        attachmentCount: schedule.attachments?.length || 0,
-        attachments: schedule.attachments || []
-      }
+  // Transform schedule data from backend to frontend format - FIXED
+  const transformScheduleData = (schedules, orgType) => {
+    return schedules.map((schedule) => {
+      const baseTransform = {
+        ...schedule,
+        displayName: schedule.agenda,
+        participants:
+          schedule.usersSchedules?.map((us) => ({
+            ...us.user,
+            role: us.user.role,
+            displayRole: getDisplayRole(us.user.role, orgType),
+            email: us.user.email,
+            ...(orgType === "school"
+              ? {
+                  studentId: us.user.profile?.studentId,
+                  grade: us.user.profile?.grade,
+                  classroom: us.user.profile?.classroom,
+                }
+              : {
+                  employeeId: us.user.profile?.employeeId,
+                  department: us.user.profile?.department,
+                  position: us.user.profile?.position,
+                }),
+          })) || [],
+        // Enhanced timezone display with fallbacks
+        timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
+        // Include attachment count
+        attachmentCount: schedule.attachments?.length || 0,
+        attachments: schedule.attachments || []
+      }
 
-      if (orgType === "school") {
-        return {
-          ...baseTransform,
-          isClassSchedule: schedule.type === "class",
-          isCounselingSchedule: schedule.type === "counseling",
-          requiresClassroom: ["class", "seminar"].includes(schedule.type),
-        }
-      } else {
-        return {
-          ...baseTransform,
-          isCounselingSchedule: schedule.type === "counseling",
-          isTraining: schedule.type === "training",
-          requiresMeetingRoom: ["training", "seminar"].includes(schedule.type),
-          priority: schedule.usersSchedules?.some((us) => ["manager", "director", "ceo"].includes(us.user.role))
-            ? "high"
-            : "normal",
-        }
-      }
-    })
-  }
+      if (orgType === "school") {
+        return {
+          ...baseTransform,
+          isClassSchedule: schedule.type === "class",
+          isCounselingSchedule: schedule.type === "counseling",
+          requiresClassroom: ["class", "seminar"].includes(schedule.type),
+        }
+      } else {
+        return {
+          ...baseTransform,
+          isCounselingSchedule: schedule.type === "counseling",
+          isTraining: schedule.type === "training",
+          requiresMeetingRoom: ["training", "seminar"].includes(schedule.type),
+          priority: schedule.usersSchedules?.some((us) => ["manager", "director", "ceo"].includes(us.user.role))
+            ? "high"
+            : "normal",
+        }
+      }
+    })
+  }
 
-  // Transform counseling queue data - COMPLETELY FIXED for new API structure
-  const transformCounselingData = (counselings, orgType) => {
-    return counselings.map((counseling) => {
-      // NEW API STRUCTURE: counseling has users array and other direct properties
-      const users = counseling.users || []
-      const patient = users.find(user => user.role !== 'psychologist')
-      const psychologist = users.find(user => user.role === 'psychologist')
-      const screening = patient?.screening
+  // Transform counseling queue data - COMPLETELY FIXED for new API structure
+  const transformCounselingData = (counselings, orgType) => {
+    return counselings.map((counseling) => {
+      // NEW API STRUCTURE: counseling has users array and other direct properties
+      const users = counseling.users || []
+      const patient = users.find(user => user.role !== 'psychologist')
+      const psychologist = users.find(user => user.role === 'psychologist')
+      const screening = patient?.screening
 
-      // Use enhanced datetime formatting
-      const dateTimeFormatted = formatCounselingDateTime(counseling.startDateTime);
+      // Use enhanced datetime formatting
+      const dateTimeFormatted = formatCounselingDateTime(counseling.startDateTime);
 
-      const baseTransform = {
-        id: counseling.id,
-        name: patient?.fullName || "Unknown",
-        category: getCategoryLabel(screening?.screeningStatus),
-        date: dateTimeFormatted.date,
-        time: dateTimeFormatted.time,
-        status: "Scheduled", // Default status since we don't have this field in new structure
-        location: counseling.location || "TBD",
-        counselorName: psychologist?.fullName || "Belum ditentukan",
-      }
+      const baseTransform = {
+        id: counseling.id,
+        name: patient?.fullName || "Unknown",
+        category: getCategoryLabel(screening?.screeningStatus),
+        // --- CHANGE START ---
+        screeningStatus: screening?.screeningStatus || 'stable', // Pass status for styling
+        // --- CHANGE END ---
+        date: dateTimeFormatted.date,
+        time: dateTimeFormatted.time,
+        status: "Scheduled", // Default status since we don't have this field in new structure
+        location: counseling.location || "TBD",
+        counselorName: psychologist?.fullName || "Belum ditentukan",
+      }
 
-      if (orgType === "school") {
-        return {
-          ...baseTransform,
-          studentId: patient?.profile?.studentId || patient?.email?.split('@')[0] || "-",
-          grade: patient?.profile?.grade || "-",
-          classroom: patient?.profile?.classroom || "-",
-        }
-      } else {
-        return {
-          ...baseTransform,
-          employeeId: patient?.profile?.employeeId || patient?.email?.split('@')[0] || "-",
-          department: patient?.profile?.department || "-",
-          position: patient?.profile?.position || "-",
-          workDuration: patient?.profile?.yearsOfService ? `${patient.profile.yearsOfService} tahun` : "-",
-          urgency: screening?.screeningStatus === "at_risk" ? "Tinggi" : "Normal",
-          requestedBy: patient?.profile?.supervisor || "Self-request",
-        }
-      }
-    })
-  }
+      if (orgType === "school") {
+        return {
+          ...baseTransform,
+          studentId: patient?.profile?.studentId || patient?.email?.split('@')[0] || "-",
+          grade: patient?.profile?.grade || "-",
+          classroom: patient?.profile?.classroom || "-",
+        }
+      } else {
+        return {
+          ...baseTransform,
+          employeeId: patient?.profile?.employeeId || patient?.email?.split('@')[0] || "-",
+          department: patient?.profile?.department || "-",
+          position: patient?.profile?.position || "-",
+          workDuration: patient?.profile?.yearsOfService ? `${patient.profile.yearsOfService} tahun` : "-",
+          urgency: screening?.screeningStatus === "at_risk" ? "Tinggi" : "Normal",
+          requestedBy: patient?.profile?.supervisor || "Self-request",
+        }
+      }
+    })
+  }
 
-  const getDisplayRole = (role, orgType) => {
-    if (orgType === "school") {
-      const schoolRoles = {
-        student: "Siswa",
-        teacher: "Guru",
-        psychologist: "Konselor",
-        principal: "Kepala Sekolah",
-        admin: "Admin",
-      }
-      return schoolRoles[role] || "Staff"
-    } else {
-      const companyRoles = {
-        employee: "Karyawan",
-        manager: "Manager",
-        hr: "HR",
-        psychologist: "Konselor",
-        director: "Direktur",
-        ceo: "CEO",
-      }
-      return companyRoles[role] || "Staff"
-    }
-  }
+  const getDisplayRole = (role, orgType) => {
+    if (orgType === "school") {
+      const schoolRoles = {
+        student: "Siswa",
+        teacher: "Guru",
+        psychologist: "Konselor",
+        principal: "Kepala Sekolah",
+        admin: "Admin",
+      }
+      return schoolRoles[role] || "Staff"
+    } else {
+      const companyRoles = {
+        employee: "Karyawan",
+        manager: "Manager",
+        hr: "HR",
+        psychologist: "Konselor",
+        director: "Direktur",
+        ceo: "CEO",
+      }
+      return companyRoles[role] || "Staff"
+    }
+  }
 
-  const getCategoryLabel = (status) => {
-    const labels = {
-      at_risk: "Berisiko",
-      monitored: "Pengawasan",
-      stable: "Stabil",
-    }
-    return labels[status] || "Normal"
-  }
+  const getCategoryLabel = (status) => {
+    const labels = {
+      at_risk: "Berisiko",
+      monitored: "Pengawasan",
+      stable: "Stabil",
+    }
+    return labels[status] || "Normal"
+  }
+
 
   // Return API methods
   return {
@@ -372,7 +376,7 @@ export const createScheduleApi = (organizationType = "school") => {
     },
 
     // Upload attachments to existing schedule
-    async uploadAttachments(scheduleId, files) {
+  async uploadAttachments(scheduleId, files) {
       try {
         const formData = new FormData();
         

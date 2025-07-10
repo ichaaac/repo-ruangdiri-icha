@@ -103,14 +103,13 @@ const ViewScheduleModal = ({
       try {
         let imageUrl = attachment.fileUrl;
         if (!imageUrl) {
-          // Construct preview URL if direct URL not available
           imageUrl = `/api/schedules/${scheduleData.id}/attachments/${attachment.id}/preview`;
         }
         
         // Create a temporary link to test if URL is accessible
         const testImage = new Image();
         testImage.onload = () => {
-          window.open(imageUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+          window.open(imageUrl, '_blank');
         };
         testImage.onerror = () => {
           // Fallback: try to download instead
