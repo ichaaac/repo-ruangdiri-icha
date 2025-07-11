@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - ENHANCED LAYOUT AND Z-INDEX
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED EVERYTHING
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -17,6 +17,7 @@ const ScheduleGrid = ({
   const [dragStartPos, setDragStartPos] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [dragTimer, setDragTimer] = useState(null);
   
@@ -31,16 +32,15 @@ const ScheduleGrid = ({
   const actualWidth = Math.max(baseWidth, containerWidth);
   const actualHeight = baseHeight;
   const HOUR_WIDTH = 80;
-  const MIN_DAY_ROW_HEIGHT = 60; // Perfect base height for alignment
+  const MIN_DAY_ROW_HEIGHT = 60;
   
-  // SUPER CLEAN CONSTANTS - PERFECT ALIGNMENT
-  const SCHEDULE_BASE_HEIGHT = 40; // Taller for better visual presence
-  const SCHEDULE_COMPRESSED_HEIGHT = 22; // Clean compressed height
+  const SCHEDULE_BASE_HEIGHT = 40;
+  const SCHEDULE_COMPRESSED_HEIGHT = 22;
   const SCHEDULE_MARGIN = 2; 
-  const LANE_SPACING = 6; // Better spacing between lanes
+  const LANE_SPACING = 6;
   const MAX_VISIBLE_STACKS = 3; 
-  const DAY_PADDING_TOP = 12; // Consistent top padding
-  const DAY_PADDING_BOTTOM = 8; // Bottom padding
+  const DAY_PADDING_TOP = 12;
+  const DAY_PADDING_BOTTOM = 8;
   
   const TIME_HEADER_HEIGHT = 30;
   const DAY_COLUMN_WIDTH = 70;
@@ -49,7 +49,6 @@ const ScheduleGrid = ({
   const CLICK_TIMEOUT = 150;
   const MAX_DRAG_DAYS = 2;
 
-  // FIXED: Enhanced Z-INDEX HIERARCHY
   const Z_INDICES = {
     BACKGROUND: 0,
     GRID_LINES: 5,
@@ -58,10 +57,10 @@ const ScheduleGrid = ({
     STACKED_SCHEDULES: 20,
     OVERFLOW_INDICATORS: 25,
     SELECTION_BOX: 30,
-    CURRENT_TIME: 45,         // FIXED: Higher than day row lines but lower than headers
-    DAY_HEADERS: 40,          // FIXED: Higher than current time
-    TIME_HEADERS: 45,
-    SCROLL_BARS: 10,          // FIXED: Same as day row lines so current time can be above it
+    SCROLL_CONTENT: 35,
+    TIME_HEADERS: 40,
+    CURRENT_TIME: 45,
+    DAY_HEADERS: 50,
     MODALS: 100
   };
 
@@ -73,24 +72,21 @@ const ScheduleGrid = ({
     { short: "Min", full: "Minggu" }
   ], []);
 
-  // FIXED: Add 00:00 after 23:00
   const timeSlots = useMemo(() => {
     const slots = [];
     for (let i = 6; i <= 23; i++) {
       slots.push(`${i.toString().padStart(2, '0')}:00`);
     }
-    slots.push('00:00'); // Add midnight after 23:00
+    slots.push('00:00');
     return slots;
   }, []);
 
-  // FIXED: Update half hour dividers to include 23:30
   const halfHourDividers = useMemo(() => {
     const dividers = [];
-    for (let i = 0; i < timeSlots.length - 1; i++) { // Exclude 00:00 from dividers
+    for (let i = 0; i < timeSlots.length - 1; i++) {
       const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
       dividers.push({ position, hourIndex: i });
     }
-    // Add 23:30 divider
     const last23Position = (timeSlots.length - 2) * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
     dividers.push({ position: last23Position, hourIndex: timeSlots.length - 2, isHalfPast: true });
     return dividers;
@@ -140,12 +136,12 @@ const ScheduleGrid = ({
   }, []);
 
   const getHourDisplayIndex = useCallback((hour) => {
-    if (hour === 0) return timeSlots.length - 1; // 00:00 is at the end
+    if (hour === 0) return timeSlots.length - 1;
     return Math.max(0, Math.min(17, hour - 6));
   }, [timeSlots.length]);
 
   const getActualHour = useCallback((index) => {
-    if (index === timeSlots.length - 1) return 0; // Last slot is 00:00
+    if (index === timeSlots.length - 1) return 0;
     if (index >= 0 && index <= 17) return index + 6;
     return 6;
   }, [timeSlots.length]);
@@ -161,7 +157,7 @@ const ScheduleGrid = ({
   const calculateEventWidth = useCallback((startTime, endTime) => {
     const startPos = timeToPosition(startTime);
     const endPos = timeToPosition(endTime);
-    return Math.max(endPos - startPos, 60); // Increased minimum width
+    return Math.max(endPos - startPos, 60);
   }, [timeToPosition]);
 
   // Current time helpers
@@ -182,7 +178,7 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // IMPROVED: Clean schedule processing with better stacking algorithm
+  // FIXED Schedule processing
   const processedSchedules = useMemo(() => {
     const processed = {};
     const dayEvents = {};
@@ -192,16 +188,18 @@ const ScheduleGrid = ({
       dayEvents[day.full] = [];
     });
 
-    // First pass: collect all events by day
     schedules.forEach(schedule => {
       const scheduleDate = new Date(schedule.startDateTime);
-      const dayName = days[scheduleDate.getDay()]?.full;
+      // FIXED: Proper day mapping
+      const dayIndex = (scheduleDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+      const dayName = days[dayIndex]?.full;
       
       if (dayName) {
         if (selectedDates.length > 0) {
-          const isDateSelected = selectedDates.some(date => 
-            date.toDateString() === scheduleDate.toDateString()
-          );
+          const isDateSelected = selectedDates.some(date => {
+            const selectedDayIndex = (date.getDay() + 6) % 7;
+            return days[selectedDayIndex]?.full === dayName;
+          });
           if (!isDateSelected) return;
         }
 
@@ -237,50 +235,41 @@ const ScheduleGrid = ({
       }
     });
 
-    // Second pass: process stacking for each day
     Object.keys(dayEvents).forEach(dayName => {
       const events = dayEvents[dayName];
       
-      // Sort by start time, then by duration (shorter first for better visibility)
       events.sort((a, b) => {
         const timeDiff = a.startDateTime - b.startDateTime;
         if (timeDiff !== 0) return timeDiff;
-        return a.duration - b.duration; // Shorter events first
+        return a.duration - b.duration;
       });
 
-      // Clean overlap detection and lane assignment
       const lanes = [];
       
       events.forEach((event) => {
-        // Find the first available lane
         let assignedLane = -1;
         
         for (let i = 0; i < lanes.length; i++) {
           const lane = lanes[i];
           const lastEventInLane = lane[lane.length - 1];
           
-          // Check if this event can fit in this lane (no overlap)
           if (lastEventInLane.endMinutes <= event.startMinutes) {
             assignedLane = i;
             break;
           }
         }
         
-        // If no lane is available, create a new one
         if (assignedLane === -1) {
           assignedLane = lanes.length;
           lanes.push([]);
         }
         
-        // Assign properties
         event.stackIndex = assignedLane;
         event.totalLanes = Math.max(lanes.length, event.stackIndex + 1);
         event.isStacked = lanes.length > 1 || lanes[0]?.length > 1;
         
-        // Add to lane
         lanes[assignedLane].push(event);
         
-        // Group by time slot for backward compatibility
         const startHour = event.startDateTime.getHours();
         const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
         
@@ -291,7 +280,6 @@ const ScheduleGrid = ({
         processed[dayName][timeSlot].push(event);
       });
       
-      // Update total lanes for all events in this day
       events.forEach(event => {
         event.totalLanes = lanes.length;
         event.isStacked = lanes.length > 1;
@@ -301,7 +289,6 @@ const ScheduleGrid = ({
     return processed;
   }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
 
-  // PERFECT ALIGNMENT: Dynamic row heights
   const dayRowHeights = useMemo(() => {
     const heights = {};
     
@@ -321,17 +308,13 @@ const ScheduleGrid = ({
         const visibleLanes = Math.min(maxLanes, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
         
-        // Calculate exact space needed for events
         for (let i = 0; i < visibleLanes; i++) {
           if (i === 0 && maxLanes === 1) {
-            // Single event gets full height
             totalHeight += SCHEDULE_BASE_HEIGHT;
           } else {
-            // Multiple events get compressed height
             totalHeight += SCHEDULE_COMPRESSED_HEIGHT;
           }
           
-          // Add spacing between lanes (except after last)
           if (i < visibleLanes - 1) {
             totalHeight += LANE_SPACING;
           }
@@ -350,7 +333,6 @@ const ScheduleGrid = ({
     return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0);
   }, [dayRowHeights]);
 
-  // Position calculation helpers
   const getDayRowTop = useCallback((dayIndex) => {
     let top = 0;
     for (let i = 0; i < dayIndex; i++) {
@@ -408,20 +390,15 @@ const ScheduleGrid = ({
     };
   }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
 
-  // ENHANCED ATTRACTIVE EVENT COMPONENT
   const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     const isStacked = event.isStacked;
     const isSingle = !isStacked;
     const laneIndex = event.stackIndex || 0;
     const totalLanes = event.totalLanes || 1;
     
-    // Dynamic height - single events get more presence
     const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
-    
-    // Show all visible lanes
     const isVisible = laneIndex < MAX_VISIBLE_STACKS;
     
-    // Overflow indicator for hidden events
     if (!isVisible) {
       return (
         <div
@@ -473,7 +450,6 @@ const ScheduleGrid = ({
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* ENHANCED CONTENT */}
         <div 
           className="text-white font-semibold truncate" 
           style={{ 
@@ -485,7 +461,6 @@ const ScheduleGrid = ({
           {event.name}
         </div>
         
-        {/* Enhanced details for single events */}
         {isSingle && (
           <>
             <div 
@@ -514,7 +489,7 @@ const ScheduleGrid = ({
     );
   };
 
-  // Event handlers (keeping existing logic)
+  // Event handlers
   const handleScheduleClick = useCallback((event, scheduleData) => {
     event.preventDefault();
     event.stopPropagation();
@@ -738,10 +713,11 @@ const ScheduleGrid = ({
 
   const handleScroll = useCallback((e) => {
     const newScrollLeft = e.target.scrollLeft;
+    const newScrollTop = e.target.scrollTop;
     setScrollLeft(newScrollLeft);
+    setScrollTop(newScrollTop);
   }, []);
 
-  // Selection box rendering
   const selectionBox = useMemo(() => {
     if (!selectedArea || !isDragging) return null;
 
@@ -763,13 +739,12 @@ const ScheduleGrid = ({
 
     return (
       <div
-        className="absolute bg-blue-400/20 border-2 border-blue-500 rounded-sm pointer-events-none"
+        className="absolute bg-blue-400/20 rounded-sm pointer-events-none"
         style={{ top, left, width, height, zIndex: Z_INDICES.SELECTION_BOX }}
       />
     );
   }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
 
-  // Effects
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
@@ -800,7 +775,7 @@ const ScheduleGrid = ({
       }}
     >
       {/* Header */}
-      <div className="flex items-center px-5 py-3  border-zinc-200" style={{ height: `${HEADER_HEIGHT}px` }}>
+      <div className="flex items-center px-5 py-3" style={{ height: `${HEADER_HEIGHT}px` }}>
         <div className="flex items-center">
           <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
             <span className="material-icons text-white text-lg">calendar_month</span>
@@ -817,11 +792,11 @@ const ScheduleGrid = ({
       {/* Grid Container */}
       <div className="relative overflow-hidden" style={{ height: `${actualHeight - HEADER_HEIGHT}px` }}>
         
-        {/* FIXED: Time Header with proper z-index */}
+        {/* Time Header */}
         <div 
-          className="absolute top-0 bg-white border-zinc-200"
+          className="absolute top-0 bg-white"
           style={{ 
-            left: `${DAY_COLUMN_WIDTH - 15}px`,
+            left: `${DAY_COLUMN_WIDTH}px`,
             right: '0px',
             height: `${TIME_HEADER_HEIGHT}px`,
             overflow: 'hidden',
@@ -866,172 +841,177 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* FIXED: Scrollable Content Area with proper z-index */}
+        {/* Sticky Day Column */}
         <div 
-          className="absolute inset-0" 
+          className="absolute top-0 bg-white"
           style={{ 
+            left: '0px',
+            width: `${DAY_COLUMN_WIDTH}px`,
+            height: '100%',
+            zIndex: Z_INDICES.DAY_HEADERS
+          }}
+        >
+          <div style={{ height: `${TIME_HEADER_HEIGHT}px` }} />
+          
+          <div 
+            style={{ 
+              height: `${totalGridHeight}px`,
+              transform: `translateY(-${scrollTop}px)`
+            }}
+          >
+            {days.map((day, index) => (
+              <div 
+                key={day.short} 
+                className="flex items-center justify-center bg-white"
+                style={{ 
+                  height: `${dayRowHeights[day.full]}px`
+                }}
+              >
+                <span className="text-sm font-semibold text-neutral-700">
+                  {day.short}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div 
+          className="absolute" 
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
-            zIndex: Z_INDICES.SCROLL_BARS
+            right: '0px',
+            bottom: '0px',
+            zIndex: Z_INDICES.SCROLL_CONTENT
           }}
         >
           <div
             ref={viewportRef}
             className="w-full h-full overflow-x-scroll overflow-y-auto"
             onScroll={handleScroll}
-            style={{ zIndex: Z_INDICES.SCROLL_BARS }}
           >
-            <div className="flex"
-             style={{ minWidth: `${DAY_COLUMN_WIDTH + (timeSlots.length * HOUR_WIDTH)}px` }}
-             >
-              {/* PERFECTLY ALIGNED: Day Column */}
-              <div 
+            <div 
+              className="relative"
+              style={{ 
+                width: `${timeSlots.length * HOUR_WIDTH}px`, 
+                height: `${totalGridHeight}px`,
+                minWidth: `${timeSlots.length * HOUR_WIDTH}px`
+              }}
+            >
+              <div
+                className="absolute inset-0 cursor-pointer"
                 style={{ 
-                  width: `${DAY_COLUMN_WIDTH}px`,
-                  zIndex: Z_INDICES.DAY_HEADERS,
-                  borderColor: '#e4e4e7'
+                  zIndex: Z_INDICES.BACKGROUND,
+                  backgroundColor: 'transparent'
                 }}
-              >
-                {days.map((day, index) => (
+                onMouseDown={handleMouseDown}
+              />
+
+              {days.map((day, i) => {
+                if (i === 0) return null;
+                const top = getDayRowTop(i);
+                return (
                   <div 
-                    key={day.short} 
-                    className="flex items-center justify-center  bg-white"
-                    style={{ 
-                      height: `${dayRowHeights[day.full]}px`,
-                    }}
-                  >
-                    <span
-                     className="text-sm font-semibold text-neutral-700"
-                    >
-                      {day.short}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Time Grid */}
-              <div 
-                className="relative"
-                style={{ 
-                  width: `${timeSlots.length * HOUR_WIDTH}px`, 
-                  height: `${totalGridHeight}px`,
-                  minWidth: `${timeSlots.length * HOUR_WIDTH}px`
-                }}
-              >
-                {/* Mouse event overlay */}
-                <div
-                  className="absolute inset-0 cursor-pointer"
-                  style={{ 
-                    zIndex: Z_INDICES.BACKGROUND,
-                    backgroundColor: 'transparent'
-                  }}
-                  onMouseDown={handleMouseDown}
-                />
-
-                {/* PERFECTLY ALIGNED: Day separator lines */}
-                {days.map((day, i) => {
-                  if (i === 0) return null;
-                  const top = getDayRowTop(i);
-                  return (
-                    <div 
                     key={`separator-${i}`}
-                      className="absolute left-0 right-0 border-t pointer-events-none"
-                      style={{ 
-                        top: `${top}px`, 
-                        zIndex: Z_INDICES.DAY_ROW_LINES,
-                        borderColor: '#8B8B8B' 
-                      }}
-                    />
-                  );
-                })}
+                    className="absolute left-0 right-0 pointer-events-none"
+                    style={{ 
+                      top: `${top}px`,
+                      height: '1px',
+                      backgroundColor: '#8B8B8B',
+                      zIndex: Z_INDICES.DAY_ROW_LINES
+                    }}
+                  />
+                );
+              })}
 
-                {/* PERFECT ALIGNMENT: Schedule Events */}
-                {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
-                  const dayIndex = days.findIndex(d => d.full === dayName);
-                  if (dayIndex === -1) return null;
+              {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
+                const dayIndex = days.findIndex(d => d.full === dayName);
+                if (dayIndex === -1) return null;
 
-                  const dayTop = getDayRowTop(dayIndex);
+                const dayTop = getDayRowTop(dayIndex);
 
-                  return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
-                    if (eventsInSlot.length === 0) return null;
+                return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
+                  if (eventsInSlot.length === 0) return null;
 
-                    return eventsInSlot.map((event, eventIndex) => {
-                      const left = timeToPosition(event.startTime);
-                      const width = calculateEventWidth(event.startTime, event.endTime);
-                      
-                      const laneIndex = event.stackIndex || 0;
-                      const isStacked = event.isStacked;
-                      const totalLanes = event.totalLanes || 1;
-                      
-                      let laneOffset = 0;
-                      for (let i = 0; i < laneIndex; i++) {
-                        if (i === 0 && totalLanes === 1) {
-                          laneOffset += SCHEDULE_BASE_HEIGHT;
-                        } else {
-                          laneOffset += SCHEDULE_COMPRESSED_HEIGHT;
-                        }
-                        laneOffset += LANE_SPACING;
-                      }
-                      
-                      const top = dayTop + DAY_PADDING_TOP + laneOffset;
-
-                      return (
-                        <ScheduleEventCard
-                          key={`${event.id}-${laneIndex}`}
-                          event={event}
-                          style={{
-                            left: `${left}px`,
-                            top: `${top}px`,
-                            width: `${width}px`
-                          }}
-                          onClickEvent={(scheduleData) => handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)}
-                        />
-                      );
-                    });
-                  });
-                })}
-
-                {/* PERFECTLY ALIGNED: Empty day messages */}
-                {selectedDates.length > 0 && days.map((day, dayIndex) => {
-                  const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
-                  const isDaySelected = selectedDates.some(date => days[date.getDay()]?.full === day.full);
-                  
-                  if (isDaySelected && !hasEvents) {
-                    const dayTop = getDayRowTop(dayIndex);
-                    const dayHeight = dayRowHeights[day.full];
+                  return eventsInSlot.map((event, eventIndex) => {
+                    const left = timeToPosition(event.startTime);
+                    const width = calculateEventWidth(event.startTime, event.endTime);
                     
-                    return (
-                      <div
-                        key={`empty-${dayIndex}`}
-                        className="absolute pointer-events-none flex items-center justify-center"
-                        style={{
-                          left: '120px',
-                          top: `${dayTop + DAY_PADDING_TOP}px`,
-                          width: '240px',
-                          height: `${dayHeight - DAY_PADDING_TOP - DAY_PADDING_BOTTOM}px`,
-                          zIndex: Z_INDICES.BACKGROUND + 1
-                        }}
-                      >
-                        <div className="text-gray-400 text-xs font-medium bg-gray-50 px-3 py-1 rounded-md">
-                          Belum ada jadwal
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
+                    const laneIndex = event.stackIndex || 0;
+                    const isStacked = event.isStacked;
+                    const totalLanes = event.totalLanes || 1;
+                    
+                    let laneOffset = 0;
+                    for (let i = 0; i < laneIndex; i++) {
+                      if (i === 0 && totalLanes === 1) {
+                        laneOffset += SCHEDULE_BASE_HEIGHT;
+                      } else {
+                        laneOffset += SCHEDULE_COMPRESSED_HEIGHT;
+                      }
+                      laneOffset += LANE_SPACING;
+                    }
+                    
+                    const top = dayTop + DAY_PADDING_TOP + laneOffset;
 
-                {/* Selection box */}
-                {selectionBox}
-              </div>
+                    return (
+                      <ScheduleEventCard
+                        key={`${event.id}-${laneIndex}`}
+                        event={event}
+                        style={{
+                          left: `${left}px`,
+                          top: `${top}px`,
+                          width: `${width}px`
+                        }}
+                        onClickEvent={(scheduleData) => handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)}
+                      />
+                    );
+                  });
+                });
+              })}
+
+              {selectedDates.length > 0 && days.map((day, dayIndex) => {
+                const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
+                const isDaySelected = selectedDates.some(date => {
+                  const selectedDayIndex = (date.getDay() + 6) % 7;
+                  return days[selectedDayIndex]?.full === day.full;
+                });
+                
+                if (isDaySelected && !hasEvents) {
+                  const dayTop = getDayRowTop(dayIndex);
+                  const dayHeight = dayRowHeights[day.full];
+                  
+                  return (
+                    <div
+                      key={`empty-${dayIndex}`}
+                      className="absolute pointer-events-none flex items-center justify-center"
+                      style={{
+                        left: '120px',
+                        top: `${dayTop + DAY_PADDING_TOP}px`,
+                        width: '240px',
+                        height: `${dayHeight - DAY_PADDING_TOP - DAY_PADDING_BOTTOM}px`,
+                        zIndex: Z_INDICES.BACKGROUND + 1
+                      }}
+                    >
+                      <div className="text-gray-400 text-xs font-medium bg-gray-50 px-3 py-1 rounded-md">
+                        Belum ada jadwal
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+
+              {selectionBox}
             </div>
           </div>
         </div>
 
-        {/* FIXED: Current time line with proper z-index */}
+        {/* Current time line */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
-            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft + 10}px`,
+            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
             height: `${totalGridHeight}px`,
             zIndex: Z_INDICES.CURRENT_TIME,

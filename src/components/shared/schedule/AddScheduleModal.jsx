@@ -1,1150 +1,1048 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED VERSION
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED EVERYTHING
 
-import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { toast } from "sonner";
-import { apiClient } from "@/lib/api";
-import { 
-  getTimezoneDisplay, 
-  parseScheduleDateTime, 
-  createDateTimeWithOffset 
-} from "@/components/shared/schedule/utils/timezoneHandler";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
-const AddScheduleModal = ({ 
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  initialData = null, 
+const ScheduleGrid = ({ 
+  onTimeSlotSelect, 
+  onScheduleClick,
+  containerWidth = 808,
+  sidebarExpanded = false,
+  selectedDates = [],
+  schedules = [],
   loading = false,
-  mode = "create" // "create" or "edit"
+  getScheduleAtTime
 }) => {
-  const [formData, setFormData] = useState(() => ({
-    agenda: "",
-    type: "counseling",
-    dates: [{
-      date: new Date().toISOString().split('T')[0],
-      startTime: "09:00",
-      endTime: "10:00",
-      timezone: "WIB"
-    }],
-    notificationOffset: 60,
-    selectedPsychologist: null,
-    selectedParticipants: [],
-    location: "",
-    customLocation: "",
-    description: "",
-    multipleDate: false,
-  }));
-
-  const [dropdowns, setDropdowns] = useState({});
-  const [attachments, setAttachments] = useState([]);
-  const [uploadingAttachments, setUploadingAttachments] = useState(false);
-  const [psychologistLocations, setPsychologistLocations] = useState([]);
-  const [participantSearch, setParticipantSearch] = useState("");
-  const [hasShownUnsavedToast, setHasShownUnsavedToast] = useState(false);
+  const [selectedArea, setSelectedArea] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [dragTimer, setDragTimer] = useState(null);
   
-  const editorRef = useRef(null);
-  const photoInputRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const viewportRef = useRef(null);
+  const animationFrameRef = useRef(null);
+  const lastMousePosRef = useRef(null);
+  const dragStartTimeRef = useRef(null);
 
-  // FIXED: Initialize form when modal opens or mode changes
-  useEffect(() => {
-    if (isOpen) {
-      if (mode === "edit" && initialData) {
-        console.log('Initializing edit mode with data:', initialData);
-        
-        // Parse dates properly
-        let dates = [];
-        if (initialData.dates && initialData.dates.length > 0) {
-          dates = initialData.dates.map(dateInfo => ({
-            ...dateInfo,
-            timezone: dateInfo.timezone || "WIB"
-          }));
-        } else if (initialData.startDateTime) {
-          const scheduleData = parseScheduleDateTime(
-            initialData.startDateTime,
-            initialData.endDateTime,
-            initialData.timezone
-          );
-          
-          dates = [{
-            date: scheduleData.date,
-            startTime: scheduleData.startTime,
-            endTime: scheduleData.endTime,
-            timezone: scheduleData.timezone || "WIB"
-          }];
-        }
-        
-        // FIXED: Proper state initialization for edit mode
-        const transformedData = {
-          agenda: initialData.agenda || "",
-          type: initialData.type || "counseling",
-          description: initialData.description || "",
-          notificationOffset: initialData.notificationOffset || 60,
-          dates: dates.length > 0 ? dates : [{
-            date: new Date().toISOString().split('T')[0],
-            startTime: "09:00",
-            endTime: "10:00",
-            timezone: "WIB"
-          }],
-          location: initialData.type === "counseling" ? (initialData.location || "") : "",
-          customLocation: initialData.type !== "counseling" ? (initialData.customLocation || initialData.location || "") : "",
-          selectedPsychologist: initialData.selectedPsychologist || null,
-          selectedParticipants: initialData.selectedParticipants || [],
-          multipleDate: dates.length > 1 || initialData.multipleDate || false,
-        };
-        
-        console.log('Setting form data for edit:', transformedData);
-        setFormData(transformedData);
-        
-        // Set description in editor
-        if (editorRef.current && transformedData.description) {
-          editorRef.current.innerHTML = transformedData.description;
-        }
-      } else {
-        // Reset for create mode
-        const defaultDates = initialData?.dates || [{
-          date: new Date().toISOString().split('T')[0],
-          startTime: "09:00",
-          endTime: "10:00",
-          timezone: "WIB"
-        }];
-        
-        setFormData({
-          agenda: "",
-          type: "counseling",
-          dates: defaultDates,
-          notificationOffset: 60,
-          selectedPsychologist: null,
-          selectedParticipants: [],
-          location: "",
-          customLocation: "",
-          description: "",
-          multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
-        });
-        
-        if (editorRef.current) {
-          editorRef.current.innerHTML = "";
-        }
-      }
-      
-      // Reset other state
-      setAttachments([]);
-      setDropdowns({});
-      setParticipantSearch("");
-      setHasShownUnsavedToast(false);
-    }
-  }, [isOpen, mode, initialData]);
+  // Constants
+  const baseWidth = 808;
+  const baseHeight = 254;
+  const actualWidth = Math.max(baseWidth, containerWidth);
+  const actualHeight = baseHeight;
+  const HOUR_WIDTH = 80;
+  const MIN_DAY_ROW_HEIGHT = 60;
+  
+  const SCHEDULE_BASE_HEIGHT = 40;
+  const SCHEDULE_COMPRESSED_HEIGHT = 22;
+  const SCHEDULE_MARGIN = 2; 
+  const LANE_SPACING = 6;
+  const MAX_VISIBLE_STACKS = 3; 
+  const DAY_PADDING_TOP = 12;
+  const DAY_PADDING_BOTTOM = 8;
+  
+  const TIME_HEADER_HEIGHT = 30;
+  const DAY_COLUMN_WIDTH = 70;
+  const HEADER_HEIGHT = 66;
+  const DRAG_THRESHOLD = 5;
+  const CLICK_TIMEOUT = 150;
+  const MAX_DRAG_DAYS = 2;
 
-  // Event types
-  const eventTypes = [
-    { label: "Konseling", value: "counseling", textColor: "#9986FF" },
-    { label: "Kelas", value: "class", textColor: "#3CE69E" },
-    { label: "Seminar", value: "seminar", textColor: "#FF886D" },
-    { label: "Lainnya", value: "others", textColor: "#979797" }
-  ];
-
-  const notificationOptions = [
-    { label: "1 jam", value: 60 },
-    { label: "12 jam", value: 720 },
-    { label: "1 hari", value: 1440 },
-    { label: "3 hari", value: 4320 }
-  ];
-
-  const timezoneOptions = [
-    { label: "WIB", value: "WIB" },
-    { label: "WITA", value: "WITA" },
-    { label: "WIT", value: "WIT" }
-  ];
-
-  const fixedLocationOptions = [
-    { label: "Online", value: "online" },
-    { label: "Offline", value: "offline" },
-    { label: "Seed-in", value: "organization" }
-  ];
-
-  // Generate time options
-  const timeOptions = (() => {
-    const times = [];
-    for (let hour = 6; hour < 22; hour++) {
-      for (let minute = 0; minute < 60; minute += 5) {
-        times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
-      }
-    }
-    return times;
-  })();
-
-  // Fetch psychologist locations
-  const { data: backendLocations = [] } = useQuery({
-    queryKey: ['psychologist-locations'],
-    queryFn: async () => {
-      const response = await apiClient.get('/psychologists/locations');
-      const locations = response.data || [];
-      setPsychologistLocations(locations);
-      console.log('Backend locations loaded:', locations);
-      return locations;
-    },
-    enabled: isOpen && formData.type === "counseling" && !formData.selectedPsychologist,
-    staleTime: 5 * 60 * 1000
-  });
-
-  // Get available locations logic
-  const getAvailableLocations = () => {
-    if (formData.selectedPsychologist) {
-      const baseOptions = [...fixedLocationOptions];
-      
-      if (formData.location && !fixedLocationOptions.find(opt => opt.value === formData.location)) {
-        baseOptions.unshift({ label: formData.location, value: formData.location });
-      }
-      
-      return baseOptions;
-    } else {
-      return psychologistLocations.map(loc => ({ label: loc, value: loc }));
-    }
+  const Z_INDICES = {
+    BACKGROUND: 0,
+    GRID_LINES: 5,
+    DAY_ROW_LINES: 10,        
+    SCHEDULE_EVENTS: 15,
+    STACKED_SCHEDULES: 20,
+    OVERFLOW_INDICATORS: 25,
+    SELECTION_BOX: 30,
+    SCROLL_CONTENT: 35,
+    TIME_HEADERS: 40,
+    CURRENT_TIME: 45,
+    DAY_HEADERS: 50,
+    MODALS: 100
   };
 
-  // Fetch psychologists with location filtering
-  const { data: psychologists = [], isLoading: loadingPsychologists } = useQuery({
-    queryKey: ['psychologists', formData.location],
-    queryFn: async () => {
-      const isBackendLocation = formData.location && 
-        !fixedLocationOptions.find(opt => opt.value === formData.location);
-      
-      const params = isBackendLocation ? { location: formData.location } : {};
-      
-      console.log('Fetching psychologists with params:', params);
-      const response = await apiClient.get('/psychologists', { params });
-      return response.data?.data || response.data || [];
-    },
-    enabled: isOpen && formData.type === "counseling" && dropdowns.psychologist,
-    staleTime: 2 * 60 * 1000
-  });
+  // Static data
+  const days = useMemo(() => [
+    { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
+    { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
+    { short: "Jum", full: "Jumat" }, { short: "Sab", full: "Sabtu" },
+    { short: "Min", full: "Minggu" }
+  ], []);
 
-  // Fetch participants with search
-  const { data: participants = [], isLoading: loadingParticipants } = useQuery({
-    queryKey: ['participants', participantSearch],
-    queryFn: async () => {
-      const params = { 
-        limit: 100,
-        ...(participantSearch && { search: participantSearch })
-      };
-      const response = await apiClient.get('/users', { params });
-      return response.data?.data || [];
-    },
-    enabled: isOpen && formData.type === "counseling" && (dropdowns.participants1 || dropdowns.participants2),
-    staleTime: 30 * 1000
-  });
-
-  // FIXED: Upload attachments mutation with new API structure
-  const uploadAttachmentsMutation = useMutation({
-    mutationFn: async ({ scheduleIds, files }) => {
-      const formData = new FormData();
-      
-      files.forEach(file => formData.append('files', file));
-      
-      // FIXED: New API structure - scheduleIds as comma-separated string
-      const scheduleIdsString = Array.isArray(scheduleIds) ? scheduleIds.join(',') : scheduleIds;
-      formData.append('scheduleIds', scheduleIdsString);
-      
-      console.log(`Uploading ${files.length} files to schedules: ${scheduleIdsString}`);
-      
-      return await apiClient.post('/schedules/attachments', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-    },
-    onError: (error, { scheduleIds }) => {
-      console.error(`Failed to upload attachments to schedules ${scheduleIds}:`, error);
+  const timeSlots = useMemo(() => {
+    const slots = [];
+    for (let i = 6; i <= 23; i++) {
+      slots.push(`${i.toString().padStart(2, '0')}:00`);
     }
-  });
+    slots.push('00:00');
+    return slots;
+  }, []);
+
+  const halfHourDividers = useMemo(() => {
+    const dividers = [];
+    for (let i = 0; i < timeSlots.length - 1; i++) {
+      const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
+      dividers.push({ position, hourIndex: i });
+    }
+    const last23Position = (timeSlots.length - 2) * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
+    dividers.push({ position: last23Position, hourIndex: timeSlots.length - 2, isHalfPast: true });
+    return dividers;
+  }, [timeSlots.length]);
+
+  // Helper functions
+  const getTypeColor = useCallback((type) => {
+    const colors = {
+      counseling: "#9986FF",
+      class: "#3CE69E", 
+      seminar: "#FF886D",
+      meeting: "#3399E9",
+      other: "#979797"
+    };
+    return colors[type] || colors.other;
+  }, []);
+
+  const getTimezoneDisplay = useCallback((timezone) => {
+    if (timezone === "WIB" || timezone === "WITA" || timezone === "WIT") {
+      return timezone;
+    }
+    
+    if (typeof timezone === 'string' && timezone.includes('+')) {
+      const offset = timezone.split('+')[1];
+      switch (offset) {
+        case '07': return 'WIB';
+        case '08': return 'WITA'; 
+        case '09': return 'WIT';
+        default: return 'WIB';
+      }
+    }
+    
+    if (typeof timezone === 'string' && (timezone.includes('T') || timezone.includes(' '))) {
+      const offsetMatch = timezone.match(/([+-]\d{2})/);
+      if (offsetMatch) {
+        const offset = offsetMatch[1].replace('+', '');
+        switch (offset) {
+          case '07': return 'WIB';
+          case '08': return 'WITA';
+          case '09': return 'WIT';
+          default: return 'WIB';
+        }
+      }
+    }
+    
+    return 'WIB';
+  }, []);
+
+  const getHourDisplayIndex = useCallback((hour) => {
+    if (hour === 0) return timeSlots.length - 1;
+    return Math.max(0, Math.min(17, hour - 6));
+  }, [timeSlots.length]);
+
+  const getActualHour = useCallback((index) => {
+    if (index === timeSlots.length - 1) return 0;
+    if (index >= 0 && index <= 17) return index + 6;
+    return 6;
+  }, [timeSlots.length]);
+
+  const timeToPosition = useCallback((timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const hourIndex = getHourDisplayIndex(hours);
+    const basePosition = hourIndex * HOUR_WIDTH;
+    const minuteOffset = (minutes / 60) * HOUR_WIDTH;
+    return basePosition + minuteOffset;
+  }, [getHourDisplayIndex]);
+
+  const calculateEventWidth = useCallback((startTime, endTime) => {
+    const startPos = timeToPosition(startTime);
+    const endPos = timeToPosition(endTime);
+    return Math.max(endPos - startPos, 60);
+  }, [timeToPosition]);
+
+  // Current time helpers
+  const getCurrentTimePosition = useCallback(() => {
+    const now = currentTime;
+    const hour = now.getHours();
+    const minutes = now.getMinutes();
+    const hourIndex = getHourDisplayIndex(hour);
+    const minuteOffset = (minutes / 60);
+    const totalOffset = hourIndex + minuteOffset;
+    return totalOffset * HOUR_WIDTH;
+  }, [currentTime, getHourDisplayIndex]);
+
+  const getCurrentTimeString = useCallback(() => {
+    const now = currentTime;
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  }, [currentTime]);
+
+  // FIXED Schedule processing
+  const processedSchedules = useMemo(() => {
+    const processed = {};
+    const dayEvents = {};
+    
+    days.forEach(day => {
+      processed[day.full] = {};
+      dayEvents[day.full] = [];
+    });
+
+    schedules.forEach(schedule => {
+      const scheduleDate = new Date(schedule.startDateTime);
+      // FIXED: Proper day mapping
+      const dayIndex = (scheduleDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+      const dayName = days[dayIndex]?.full;
+      
+      if (dayName) {
+        if (selectedDates.length > 0) {
+          const isDateSelected = selectedDates.some(date => {
+            const selectedDayIndex = (date.getDay() + 6) % 7;
+            return days[selectedDayIndex]?.full === dayName;
+          });
+          if (!isDateSelected) return;
+        }
+
+        const startTime = new Date(schedule.startDateTime);
+        const endTime = new Date(schedule.endDateTime);
+        
+        const displaySchedule = {
+          id: schedule.id,
+          name: schedule.agenda || schedule.displayName || "No Title",
+          startTime: startTime.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          endTime: endTime.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          platform: schedule.location || "Location",
+          type: schedule.type || "other",
+          color: getTypeColor(schedule.type),
+          timezone: schedule.timezone || "WIB",
+          timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
+          participants: schedule.participants || [],
+          originalData: schedule,
+          startDateTime: startTime,
+          endDateTime: endTime,
+          duration: endTime - startTime,
+          startMinutes: startTime.getHours() * 60 + startTime.getMinutes(),
+          endMinutes: endTime.getHours() * 60 + endTime.getMinutes()
+        };
+
+        dayEvents[dayName].push(displaySchedule);
+      }
+    });
+
+    Object.keys(dayEvents).forEach(dayName => {
+      const events = dayEvents[dayName];
+      
+      events.sort((a, b) => {
+        const timeDiff = a.startDateTime - b.startDateTime;
+        if (timeDiff !== 0) return timeDiff;
+        return a.duration - b.duration;
+      });
+
+      const lanes = [];
+      
+      events.forEach((event) => {
+        let assignedLane = -1;
+        
+        for (let i = 0; i < lanes.length; i++) {
+          const lane = lanes[i];
+          const lastEventInLane = lane[lane.length - 1];
+          
+          if (lastEventInLane.endMinutes <= event.startMinutes) {
+            assignedLane = i;
+            break;
+          }
+        }
+        
+        if (assignedLane === -1) {
+          assignedLane = lanes.length;
+          lanes.push([]);
+        }
+        
+        event.stackIndex = assignedLane;
+        event.totalLanes = Math.max(lanes.length, event.stackIndex + 1);
+        event.isStacked = lanes.length > 1 || lanes[0]?.length > 1;
+        
+        lanes[assignedLane].push(event);
+        
+        const startHour = event.startDateTime.getHours();
+        const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
+        
+        if (!processed[dayName][timeSlot]) {
+          processed[dayName][timeSlot] = [];
+        }
+        
+        processed[dayName][timeSlot].push(event);
+      });
+      
+      events.forEach(event => {
+        event.totalLanes = lanes.length;
+        event.isStacked = lanes.length > 1;
+      });
+    });
+
+    return processed;
+  }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
+
+  const dayRowHeights = useMemo(() => {
+    const heights = {};
+    
+    days.forEach(day => {
+      let maxLanes = 1;
+      let hasEvents = false;
+      
+      Object.values(processedSchedules[day.full] || {}).forEach(eventsInSlot => {
+        if (eventsInSlot.length > 0) {
+          hasEvents = true;
+          const dayMaxLanes = Math.max(...eventsInSlot.map(e => e.totalLanes || 1));
+          maxLanes = Math.max(maxLanes, dayMaxLanes);
+        }
+      });
+      
+      if (hasEvents) {
+        const visibleLanes = Math.min(maxLanes, MAX_VISIBLE_STACKS);
+        let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
+        
+        for (let i = 0; i < visibleLanes; i++) {
+          if (i === 0 && maxLanes === 1) {
+            totalHeight += SCHEDULE_BASE_HEIGHT;
+          } else {
+            totalHeight += SCHEDULE_COMPRESSED_HEIGHT;
+          }
+          
+          if (i < visibleLanes - 1) {
+            totalHeight += LANE_SPACING;
+          }
+        }
+        
+        heights[day.full] = Math.max(totalHeight, MIN_DAY_ROW_HEIGHT);
+      } else {
+        heights[day.full] = MIN_DAY_ROW_HEIGHT;
+      }
+    });
+    
+    return heights;
+  }, [processedSchedules, days]);
+
+  const totalGridHeight = useMemo(() => {
+    return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0);
+  }, [dayRowHeights]);
+
+  const getDayRowTop = useCallback((dayIndex) => {
+    let top = 0;
+    for (let i = 0; i < dayIndex; i++) {
+      const dayName = days[i]?.full;
+      top += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
+    }
+    return top;
+  }, [days, dayRowHeights]);
+
+  const getInfoFromPosition = useCallback((clientX, clientY) => {
+    if (!viewportRef.current) return null;
+    
+    const rect = viewportRef.current.getBoundingClientRect();
+    const scrollLeft = viewportRef.current.scrollLeft;
+    const scrollTop = viewportRef.current.scrollTop;
+
+    const absoluteX = clientX - rect.left + scrollLeft;
+    const absoluteY = clientY - rect.top + scrollTop;
+
+    const gridX = absoluteX - DAY_COLUMN_WIDTH;
+    const gridY = absoluteY - TIME_HEADER_HEIGHT;
+
+    if (gridX < 0 || gridY < 0) return null;
+
+    const hourIndex = Math.floor(gridX / HOUR_WIDTH);
+    
+    let dayIndex = -1;
+    let currentTop = 0;
+    
+    for (let i = 0; i < days.length; i++) {
+      const dayHeight = dayRowHeights[days[i].full] || MIN_DAY_ROW_HEIGHT;
+      if (gridY >= currentTop && gridY < currentTop + dayHeight) {
+        dayIndex = i;
+        break;
+      }
+      currentTop += dayHeight;
+    }
+
+    if (hourIndex < 0 || hourIndex >= timeSlots.length || dayIndex < 0 || dayIndex >= days.length) {
+      return null;
+    }
+
+    const actualHour = getActualHour(hourIndex);
+    const pixelWithinHour = gridX % HOUR_WIDTH;
+    const minuteWithinHour = Math.floor((pixelWithinHour / HOUR_WIDTH) * 60);
+    const actualMinute = Math.floor(minuteWithinHour / 5) * 5;
+    
+    return { 
+      hour: actualHour, 
+      minute: actualMinute,
+      hourIndex, 
+      dayIndex,
+      exactPixelX: gridX,
+      exactPixelY: gridY - getDayRowTop(dayIndex)
+    };
+  }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
+
+  const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
+    const isStacked = event.isStacked;
+    const isSingle = !isStacked;
+    const laneIndex = event.stackIndex || 0;
+    const totalLanes = event.totalLanes || 1;
+    
+    const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
+    const isVisible = laneIndex < MAX_VISIBLE_STACKS;
+    
+    if (!isVisible) {
+      return (
+        <div
+          className="absolute bg-gray-500 text-white text-[9px] rounded px-2 py-1 font-medium shadow-sm"
+          style={{
+            ...style,
+            height: `${SCHEDULE_COMPRESSED_HEIGHT}px`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: Z_INDICES.OVERFLOW_INDICATORS,
+            opacity: 0.9
+          }}
+        >
+          +{totalLanes - MAX_VISIBLE_STACKS}
+        </div>
+      );
+    }
+
+    const currentWidth = style.width ? parseInt(style.width) : 0;
+
+    return (
+      <div
+        className={`schedule-event absolute rounded-lg cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200 ${className || ''}`}
+        style={{
+          ...style,
+          width: `${currentWidth}px`,
+          height: `${height}px`,
+          backgroundColor: event.color,
+          opacity: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: isSingle ? 'flex-start' : 'center',
+          overflow: 'hidden',
+          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
+          boxShadow: isSingle 
+            ? '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)' 
+            : '0 2px 6px rgba(0,0,0,0.1)',
+          border: 'none',
+          padding: isSingle ? '8px 12px' : '4px 8px',
+          backgroundImage: isSingle 
+            ? `linear-gradient(135deg, ${event.color} 0%, ${event.color}dd 100%)`
+            : 'none'
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClickEvent && onClickEvent(event);
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div 
+          className="text-white font-semibold truncate" 
+          style={{ 
+            lineHeight: '1.3',
+            fontSize: isSingle ? '13px' : '10px',
+            marginBottom: isSingle ? '2px' : '0'
+          }}
+        >
+          {event.name}
+        </div>
+        
+        {isSingle && (
+          <>
+            <div 
+              className="text-white truncate" 
+              style={{ 
+                fontSize: '11px', 
+                opacity: 0.95,
+                fontWeight: '500',
+                marginBottom: '1px'
+              }}
+            >
+              {event.startTime} - {event.endTime}
+            </div>
+            <div 
+              className="text-white text-[10px] truncate"
+              style={{ 
+                opacity: 0.85,
+                fontWeight: '400'
+              }}
+            >
+              {event.timezoneDisplay} • {event.platform}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   // Event handlers
-  const handleInputChange = (field, value) => {
-    console.log(`Changing ${field} to:`, value);
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleScheduleClick = useCallback((event, scheduleData) => {
+    event.preventDefault();
+    event.stopPropagation();
     
-    if (field === 'location') {
-      const isBackendLocation = !fixedLocationOptions.find(opt => opt.value === value);
-      if (isBackendLocation && formData.selectedPsychologist) {
-        console.log('Location changed to backend location, resetting psychologist');
-        setFormData(prev => ({ ...prev, selectedPsychologist: null }));
-      }
+    if (!isDragging && !isMouseDown) {
+      onScheduleClick && onScheduleClick(scheduleData.originalData || scheduleData);
     }
-    
-    if (field === 'dates') {
-      const updatedDates = value.map(date => {
-        const startIndex = timeOptions.indexOf(date.startTime);
-        const endIndex = timeOptions.indexOf(date.endTime);
-        if (startIndex >= endIndex) {
-          return {
-            ...date,
-            endTime: timeOptions[Math.min(startIndex + 1, timeOptions.length - 1)]
-          };
-        }
-        return date;
-      });
-      setFormData(prev => ({ 
-        ...prev, 
-        dates: updatedDates,
-        multipleDate: updatedDates.length > 1
-      }));
+  }, [isDragging, isMouseDown, onScheduleClick]);
+
+  const handleMouseDown = useCallback((e) => {
+    if (e.target.closest('.schedule-event')) {
       return;
     }
-  };
 
-  const toggleDropdown = (dropdown) => {
-    setDropdowns(prev => {
-      const newState = {
-        ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: false }), {}),
-        [dropdown]: !prev[dropdown]
-      };
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const info = getInfoFromPosition(e.clientX, e.clientY);
+    
+    if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
+      setIsMouseDown(true);
+      setDragStartPos({ x: e.clientX, y: e.clientY });
+      dragStartTimeRef.current = Date.now();
       
-      if (dropdown.includes('participants') && prev[dropdown]) {
-        setParticipantSearch("");
-      }
-      
-      return newState;
-    });
-  };
-
-  const handleFileSelect = (e, type) => {
-    const files = Array.from(e.target.files);
-    const maxSize = 15 * 1024 * 1024;
-    let totalSize = attachments.reduce((sum, att) => sum + att.size, 0);
-    const validFiles = [];
-    
-    files.forEach(file => {
-      if (totalSize + file.size > maxSize) {
-        toast.error(`Total file size exceeds 15MB limit`);
-        return;
-      }
-      
-      validFiles.push({
-        file,
-        id: Date.now() + Math.random(),
-        name: file.name,
-        size: file.size,
-        type: type
-      });
-      totalSize += file.size;
-    });
-    
-    setAttachments(prev => [...prev, ...validFiles]);
-    e.target.value = '';
-  };
-
-  const removeAttachment = (attachmentId) => {
-    setAttachments(prev => prev.filter(att => att.id !== attachmentId));
-  };
-
-  const handleParticipantSelect = (participant, slotIndex = 0) => {
-    const newParticipants = [...formData.selectedParticipants];
-    
-    if (!newParticipants.find(p => p.id === participant.id)) {
-      if (slotIndex === 0 && !newParticipants[0]) {
-        newParticipants[0] = participant;
-      } else if (slotIndex === 1 && !newParticipants[1]) {
-        newParticipants[1] = participant;
-      } else if (!newParticipants[0]) {
-        newParticipants[0] = participant;
-      } else if (!newParticipants[1]) {
-        newParticipants[1] = participant;
-      }
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      selectedParticipants: newParticipants.filter(Boolean)
-    }));
-    
-    setDropdowns(prev => ({ ...prev, participants1: false, participants2: false }));
-    setParticipantSearch("");
-  };
-
-  const removeParticipant = (participantId) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedParticipants: prev.selectedParticipants.filter(p => p.id !== participantId)
-    }));
-  };
-
-  const removeDateSlot = (index) => {
-    const newDates = formData.dates.filter((_, i) => i !== index);
-    handleInputChange('dates', newDates);
-    
-    if (newDates.length <= 1) {
-      handleInputChange('multipleDate', false);
-    }
-  };
-
-  const updateAdditionalDate = (index, field, value) => {
-    const newDates = [...formData.dates];
-    newDates[index] = { ...newDates[index], [field]: value };
-    
-    if (field === 'startTime') {
-      const startTimeIndex = timeOptions.indexOf(value);
-      const endTimeIndex = timeOptions.indexOf(newDates[index].endTime);
-      
-      if (startTimeIndex >= endTimeIndex) {
-        const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
-        newDates[index].endTime = timeOptions[newEndTimeIndex];
-      }
-    }
-    
-    if (field === 'endTime') {
-      const startTimeIndex = timeOptions.indexOf(newDates[index].startTime);
-      const endTimeIndex = timeOptions.indexOf(value);
-      
-      if (endTimeIndex <= startTimeIndex) {
-        const newStartTimeIndex = Math.max(endTimeIndex - 1, 0);
-        newDates[index].startTime = timeOptions[newStartTimeIndex];
-      }
-    }
-    
-    handleInputChange('dates', newDates);
-  };
-
-  const validateForm = () => {
-    if (!formData.agenda.trim()) {
-      toast.error("Agenda wajib diisi");
-      return false;
-    }
-    
-    if (formData.type === "counseling") {
-      if (!formData.selectedPsychologist) {
-        toast.error("Psikolog wajib dipilih untuk konseling");
-        return false;
-      }
-      if (formData.selectedParticipants.length === 0) {
-        toast.error("Minimal satu partisipan harus ditambahkan untuk konseling");
-        return false;
-      }
-      if (formData.selectedParticipants.length > 2) {
-        toast.error("Maksimal dua klien untuk konseling");
-        return false;
-      }
-    }
-    
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-    
-    // Build payload with new participants structure
-    const submitData = {
-      agenda: formData.agenda,
-      type: formData.type,
-      description: formData.description,
-      notificationOffset: formData.notificationOffset,
-      dates: formData.dates
-    };
-
-    // NEW PARTICIPANTS STRUCTURE for counseling
-    if (formData.type === "counseling") {
-      if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
-        submitData.participants = {
-          psychologistId: formData.selectedPsychologist.id,
-          patientId: formData.selectedParticipants[0].id
-        };
-      }
-    }
-
-    // Handle location
-    if (formData.type === "counseling") {
-      const isBackendLocation = formData.location && 
-        !fixedLocationOptions.find(opt => opt.value === formData.location);
-      
-      if (isBackendLocation) {
-        submitData.location = "offline";
-        submitData.originalLocationName = formData.location;
-        console.log(`Backend location "${formData.location}" selected, sending "offline" as payload`);
-      } else {
-        submitData.location = formData.location;
-        console.log(`Fixed location "${formData.location}" selected, sending as is`);
-      }
-    } else {
-      submitData.customLocation = formData.customLocation;
-    }
-
-    if (mode === "edit" && initialData?.id) {
-      submitData.id = initialData.id;
-    }
-    
-    console.log('Submitting payload:', submitData);
-    
-    try {
-      const result = await onSubmit(submitData);
-      
-      // FIXED: Handle attachments with new API structure
-      if (result?.data && attachments.length > 0) {
-        setUploadingAttachments(true);
-        
-        try {
-          let scheduleIds = [];
-          
-          // Extract schedule IDs from different response formats
-          if (Array.isArray(result.data)) {
-            scheduleIds = result.data.map(schedule => schedule.id);
-          } else if (result.data.ids && Array.isArray(result.data.ids)) {
-            scheduleIds = result.data.ids;
-          } else if (result.data.id) {
-            scheduleIds = [result.data.id];
-          }
-          
-          console.log('Uploading attachments to schedule IDs:', scheduleIds);
-          
-          if (scheduleIds.length > 0) {
-            // FIXED: Use new API structure with scheduleIds array
-            await uploadAttachmentsMutation.mutateAsync({
-              scheduleIds,
-              files: attachments.map(a => a.file)
-            });
-            
-            if (scheduleIds.length === 1) {
-              toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} and attachments uploaded successfully`);
-            } else {
-              toast.success(`${scheduleIds.length} schedules created and attachments uploaded to all schedules successfully`);
-            }
-          } else {
-            console.warn('No valid schedule IDs found for attachment upload');
-            toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} successfully, but no attachments uploaded`);
-          }
-          
-        } catch (error) {
-          console.error("Attachment upload error:", error);
-          
-          const scheduleCount = Array.isArray(result.data) ? result.data.length : 1;
-          const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
-          
-          toast.error(`${scheduleText} ${mode === 'edit' ? 'updated' : 'created'} but failed to upload attachments`, {
-            action: {
-              label: "Retry Upload",
-              onClick: () => {
-                toast.info("Please try uploading attachments manually");
-              }
-            }
+      const timer = setTimeout(() => {
+        if (isMouseDown) {
+          setIsDragging(true);
+          setSelectedArea({
+            startDay: info.dayIndex, 
+            endDay: info.dayIndex,
+            startHour: info.hour,
+            endHour: info.hour,
+            startMinute: info.minute,
+            endMinute: info.minute,
+            startHourIndex: info.hourIndex,
+            endHourIndex: info.hourIndex,
+            startPixelX: info.exactPixelX,
+            endPixelX: info.exactPixelX,
+            startPixelY: info.exactPixelY,
+            endPixelY: info.exactPixelY
           });
-        } finally {
-          setUploadingAttachments(false);
+          lastMousePosRef.current = `${info.dayIndex}-${info.hourIndex}-${info.minute}`;
         }
-      } else if (result?.data) {
-        const scheduleCount = Array.isArray(result.data) ? result.data.length : 1;
-        const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
-        toast.success(`${scheduleText} ${mode === 'edit' ? 'updated' : 'created'} successfully`);
-      }
+      }, CLICK_TIMEOUT);
       
-    } catch (error) {
-      console.error('Error submitting schedule:', error);
+      setDragTimer(timer);
     }
-  };
+  }, [getInfoFromPosition, days, isMouseDown]);
 
-  const hasUnsavedChanges = () => {
-    if (mode !== 'edit' || !initialData) {
-      return formData.agenda.trim() !== '' || 
-             formData.description.trim() !== '' ||
-             formData.selectedParticipants.length > 0 ||
-             formData.selectedPsychologist !== null;
+  const handleMouseMove = useCallback((e) => {
+    if (!isMouseDown) return;
+
+    const dragDistance = dragStartPos ? Math.sqrt(
+      Math.pow(e.clientX - dragStartPos.x, 2) + Math.pow(e.clientY - dragStartPos.y, 2)
+    ) : 0;
+
+    if (!isDragging && dragDistance > DRAG_THRESHOLD) {
+      if (dragTimer) {
+        clearTimeout(dragTimer);
+        setDragTimer(null);
+      }
+      setIsDragging(true);
+      
+      const info = getInfoFromPosition(dragStartPos.x, dragStartPos.y);
+      if (info) {
+        setSelectedArea({
+          startDay: info.dayIndex, 
+          endDay: info.dayIndex,
+          startHour: info.hour,
+          endHour: info.hour,
+          startMinute: info.minute,
+          endMinute: info.minute,
+          startHourIndex: info.hourIndex,
+          endHourIndex: info.hourIndex,
+          startPixelX: info.exactPixelX,
+          endPixelX: info.exactPixelX,
+          startPixelY: info.exactPixelY,
+          endPixelY: info.exactPixelY
+        });
+      }
     }
 
-    const current = {
-      agenda: formData.agenda,
-      type: formData.type,
-      description: formData.description,
-      notificationOffset: formData.notificationOffset,
-      dates: formData.dates,
-      location: formData.location,
-      customLocation: formData.customLocation,
-      multipleDate: formData.multipleDate,
-    };
+    if (isDragging) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
 
-    const initial = {
-      agenda: initialData.agenda || "",
-      type: initialData.type || "counseling",
-      description: initialData.description || "",
-      notificationOffset: initialData.notificationOffset || 60,
-      dates: initialData.dates || [],
-      location: initialData.location || "",
-      customLocation: initialData.customLocation || "",
-      multipleDate: initialData.multipleDate || false,
-    };
-
-    return JSON.stringify(current) !== JSON.stringify(initial);
-  };
-
-  const handleCancel = () => {
-    if (hasUnsavedChanges() && !hasShownUnsavedToast) {
-      setHasShownUnsavedToast(true);
-      toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
-        action: {
-          label: "Ya, batalkan",
-          onClick: () => {
-            setHasShownUnsavedToast(false);
-            onClose();
-          },
-          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854]"
-        },
-        cancel: {
-          label: "Tetap edit",
-          onClick: () => {
-            setHasShownUnsavedToast(false);
-          },
-          className: "!bg-transparent hover:!bg-gray-100 !text-[#EE4266] !border !border-[#EE4266] hover:!border-[#d63854]"
-        },
-        duration: 10000,
-        className: "!bg-white !border !border-gray-200 !shadow-lg",
-        onDismiss: () => setHasShownUnsavedToast(false)
+      animationFrameRef.current = requestAnimationFrame(() => {
+        const info = getInfoFromPosition(e.clientX, e.clientY);
+        if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
+          
+          const startDayIndex = selectedArea?.startDay || 0;
+          const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
+          const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
+          
+          const constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, info.dayIndex));
+          
+          const currentPos = `${constrainedDayIndex}-${info.hourIndex}-${info.minute}`;
+          if (lastMousePosRef.current !== currentPos) {
+            lastMousePosRef.current = currentPos;
+            setSelectedArea(prev => ({ 
+              ...prev, 
+              endDay: constrainedDayIndex, 
+              endHour: info.hour,
+              endMinute: info.minute,
+              endHourIndex: info.hourIndex,
+              endPixelX: info.exactPixelX,
+              endPixelY: info.exactPixelY
+            }));
+          }
+        }
       });
-    } else if (!hasUnsavedChanges()) {
-      onClose();
     }
-  };
+  }, [isMouseDown, isDragging, dragStartPos, dragTimer, getInfoFromPosition, days.length, selectedArea]);
 
-  if (!isOpen) return null;
+  const handleMouseUp = useCallback((e) => {
+    if (dragTimer) {
+      clearTimeout(dragTimer);
+      setDragTimer(null);
+    }
 
-  const selectedEventType = eventTypes.find(type => type.value === formData.type) || eventTypes[0];
-  const showParticipants = formData.type === "counseling";
+    if (!isMouseDown) return;
+
+    const wasClick = !isDragging && dragStartTimeRef.current && 
+                    (Date.now() - dragStartTimeRef.current) < CLICK_TIMEOUT;
+
+    if (wasClick && dragStartPos) {
+      const info = getInfoFromPosition(dragStartPos.x, dragStartPos.y);
+      if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
+        const today = new Date();
+        // FIXED: Calculate correct date based on clicked day
+        const todayMondayFormat = (today.getDay() + 6) % 7;
+        const clickedDate = new Date(today);
+        clickedDate.setDate(today.getDate() + (info.dayIndex - todayMondayFormat));
+        
+        const startDateTime = new Date(clickedDate);
+        startDateTime.setHours(info.hour, info.minute, 0, 0);
+        
+        const endDateTime = new Date(clickedDate);
+        endDateTime.setHours(info.hour, info.minute + 5, 0, 0);
+
+        const dayName = days[info.dayIndex]?.full;
+
+        onTimeSlotSelect && onTimeSlotSelect({ 
+          startDateTime, 
+          endDateTime, 
+          day: dayName,
+          isMultipleDays: false,
+          dates: [{
+            date: clickedDate.toISOString().split('T')[0],
+            startTime: `${info.hour.toString().padStart(2, '0')}:${info.minute.toString().padStart(2, '0')}`,
+            endTime: `${info.hour.toString().padStart(2, '0')}:${(info.minute + 5).toString().padStart(2, '0')}`,
+            timezone: 'WIB'
+          }],
+          draggedDays: 1
+        });
+      }
+    } else if (isDragging && selectedArea && dragStartPos) {
+      const dragDistance = Math.sqrt(
+        Math.pow(e.clientX - dragStartPos.x, 2) + Math.pow(e.clientY - dragStartPos.y, 2)
+      );
+      
+      if (dragDistance >= DRAG_THRESHOLD) {
+        const startHour = Math.min(selectedArea.startHour, selectedArea.endHour);
+        const endHour = Math.max(selectedArea.startHour, selectedArea.endHour);
+        const startMinute = Math.min(selectedArea.startMinute || 0, selectedArea.endMinute || 0);
+        const endMinute = Math.max(selectedArea.startMinute || 0, selectedArea.endMinute || 0);
+        const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
+        const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
+
+        let finalEndHour = endHour;
+        let finalEndMinute = endMinute + 5;
+        if (finalEndMinute >= 60) {
+          finalEndHour = endHour + 1;
+          finalEndMinute = finalEndMinute - 60;
+        }
+
+        if (startDay >= 0 && startDay < days.length) {
+          const today = new Date();
+          // FIXED: Calculate correct date based on dragged day
+          const todayMondayFormat = (today.getDay() + 6) % 7;
+          const draggedDate = new Date(today);
+          draggedDate.setDate(today.getDate() + (startDay - todayMondayFormat));
+          
+          const startDateTime = new Date(draggedDate);
+          startDateTime.setHours(startHour, startMinute, 0, 0);
+          
+          const endDateTime = new Date(draggedDate);
+          endDateTime.setHours(finalEndHour, finalEndMinute, 0, 0);
+
+          const dayName = days[startDay]?.full;
+          const isMultipleDays = startDay !== endDay;
+
+          const dates = [];
+          for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
+            const dayDate = new Date(today);
+            // Use the same todayMondayFormat calculation
+            dayDate.setDate(today.getDate() + (dayIndex - todayMondayFormat));
+            
+            dates.push({
+              date: dayDate.toISOString().split('T')[0],
+              startTime: `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
+              endTime: `${finalEndHour.toString().padStart(2, '0')}:${finalEndMinute.toString().padStart(2, '0')}`,
+              timezone: 'WIB'
+            });
+          }
+
+          onTimeSlotSelect && onTimeSlotSelect({ 
+            startDateTime, 
+            endDateTime, 
+            day: dayName,
+            isMultipleDays,
+            dates,
+            draggedDays: endDay - startDay + 1
+          });
+        }
+      }
+    }
+    
+    setIsDragging(false);
+    setIsMouseDown(false);
+    setSelectedArea(null);
+    setDragStartPos(null);
+    lastMousePosRef.current = null;
+    dragStartTimeRef.current = null;
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, [isMouseDown, isDragging, selectedArea, dragStartPos, dragTimer, days, onTimeSlotSelect, getInfoFromPosition]);
+
+  const handleScroll = useCallback((e) => {
+    const newScrollLeft = e.target.scrollLeft;
+    const newScrollTop = e.target.scrollTop;
+    setScrollLeft(newScrollLeft);
+    setScrollTop(newScrollTop);
+  }, []);
+
+  const selectionBox = useMemo(() => {
+    if (!selectedArea || !isDragging) return null;
+
+    const startDayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
+    const endDayIndex = Math.max(selectedArea.startDay, selectedArea.endDay);
+    
+    const startPixelX = Math.min(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
+    const endPixelX = Math.max(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
+
+    const top = getDayRowTop(startDayIndex);
+    let height = 0;
+    for (let i = startDayIndex; i <= endDayIndex; i++) {
+      const dayName = days[i]?.full;
+      height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
+    }
+    
+    const left = startPixelX;
+    const width = Math.max(endPixelX - startPixelX, 10);
+
+    return (
+      <div
+        className="absolute bg-blue-400/20 rounded-sm pointer-events-none"
+        style={{ top, left, width, height, zIndex: Z_INDICES.SELECTION_BOX }}
+      />
+    );
+  }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (e) => handleMouseMove(e);
+    const handleGlobalMouseUp = (e) => handleMouseUp(e);
+
+    if (isMouseDown) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isMouseDown, handleMouseMove, handleMouseUp]);
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-      onClick={(e) => e.target === e.currentTarget && handleCancel()}
+      className="rounded-md border border-zinc-400 bg-white select-none transition-all duration-300"
+      style={{ 
+        width: `${actualWidth}px`, 
+        height: `${actualHeight}px`,
+        overflow: 'hidden'
+      }}
     >
-      <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-        
-        {/* Header */}
-        <div className="flex justify-end items-center p-6">
-          <button
-            onClick={handleCancel}
-            disabled={loading}
-            className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
-          >
-            <span className="material-icons text-[20px]">close</span>
-          </button>
+      {/* Header */}
+      <div className="flex items-center px-5 py-3" style={{ height: `${HEADER_HEIGHT}px` }}>
+        <div className="flex items-center">
+          <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
+            <span className="material-icons text-white text-lg">calendar_month</span>
+          </div>
+          <h2 className="text-xl font-semibold text-[#488BBA]" style={{ marginLeft: '15px' }}>
+            Jadwal
+          </h2>
         </div>
-
-        <div className="p-6 space-y-6">
-          
-          {/* Agenda & Type */}
-          <div className="flex gap-4 items-center">
-            <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
-            <div className="flex-1 relative">
-              {/* FIXED: Hide mandatory indicator when field has value */}
-              {!formData.agenda.trim() && (
-                <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-              )}
-              <input
-                type="text"
-                value={formData.agenda}
-                onChange={(e) => handleInputChange('agenda', e.target.value)}
-                placeholder="Masukkan agenda"
-                disabled={loading}
-                className={`w-full pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                  formData.agenda.trim() ? 'pl-3' : 'pl-6'
-                }`}
-              />
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => !loading && toggleDropdown('type')}
-                disabled={loading}
-                className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[120px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              >
-                <span style={{ color: selectedEventType.textColor }} className="font-medium">
-                  {selectedEventType.label}
-                </span>
-                <span className="material-icons text-gray-400 ml-2">keyboard_arrow_down</span>
-              </button>
-              {dropdowns.type && !loading && (
-                <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
-                  {eventTypes.map((type) => (
-                    <button
-                      key={type.value}
-                      onClick={() => {
-                        handleInputChange('type', type.value);
-                        toggleDropdown('type');
-                      }}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
-                    >
-                      <span style={{ color: type.textColor }} className="font-medium">
-                        {type.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Date & Time with TIMEZONE DISPLAY */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
-            <div className="flex-1 space-y-3">
-              {formData.dates.map((dateInfo, index) => (
-                <div key={index} className="flex gap-2 items-center flex-wrap">
-                  <input
-                    type="date"
-                    value={dateInfo.date}
-                    onChange={(e) => {
-                      const newDates = [...formData.dates];
-                      newDates[index] = { ...newDates[index], date: e.target.value };
-                      handleInputChange('dates', newDates);
-                    }}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  />
-                  
-                  <select
-                    value={dateInfo.startTime}
-                    onChange={(e) => updateAdditionalDate(index, 'startTime', e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  >
-                    {timeOptions.map((time) => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-
-                  <span className="text-[#488BBA]">-</span>
-
-                  <select
-                    value={dateInfo.endTime}
-                    onChange={(e) => updateAdditionalDate(index, 'endTime', e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  >
-                    {timeOptions.map((time) => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={dateInfo.timezone}
-                    onChange={(e) => updateAdditionalDate(index, 'timezone', e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  >
-                    {timezoneOptions.map((tz) => (
-                      <option key={tz.value} value={tz.value}>{tz.label}</option>
-                    ))}
-                  </select>
-
-                  <div className="text-xs text-gray-500 px-2">
-                    {getTimezoneDisplay(dateInfo.timezone)}
-                  </div>
-
-                  {index > 0 && (
-                    <button
-                      onClick={() => removeDateSlot(index)}
-                      disabled={loading}
-                      className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50"
-                    >
-                      <span className="material-icons text-sm">close</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              {formData.dates.length > 1 && (
-                <div className="flex gap-2 items-center text-sm">
-                  <div className="flex shrink-0 w-4 h-4 bg-[#535353] border border-[#535353] rounded-sm">
-                    <span className="material-icons text-white text-xs leading-none">check</span>
-                  </div>
-                  <span className="text-[#535353]">Multiple Date</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Notification */}
-          <div className="flex gap-4 items-center">
-            <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
-            <select
-              value={formData.notificationOffset}
-              onChange={(e) => handleInputChange('notificationOffset', parseInt(e.target.value))}
-              disabled={loading}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-            >
-              {notificationOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* FIXED: Participants - Only for Counseling with proper styling */}
-          {showParticipants && (
-            <div className="space-y-4">
-              <div className="flex gap-4 items-start">
-                <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
-                <div className="flex-1">
-                  
-                  <div className="flex flex-col gap-4">
-                    
-                    {/* FIXED: Psychologist Field with improved card styling */}
-                    <div>
-                      <div className="relative">
-                        {/* FIXED: Hide mandatory indicator when psychologist selected */}
-                        {!formData.selectedPsychologist && (
-                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-                        )}
-                        <button
-                          onClick={() => !loading && toggleDropdown('psychologist')}
-                          disabled={loading}
-                          className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                            formData.selectedPsychologist ? 'px-3 py-2' : formData.selectedPsychologist ? 'pl-3' : 'pl-6'
-                          }`}
-                          style={{ minHeight: '42px' }}
-                        >
-                          {!formData.selectedPsychologist ? (
-                            <span className="text-gray-500">
-                              Email/nama Psikolog
-                            </span>
-                          ) : (
-                            /* FIXED: Card styling - proper positioning inside field */
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
-                                <div className="text-[#535353] text-sm font-normal truncate">
-                                  {formData.selectedPsychologist.fullName}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, selectedPsychologist: null })); }}
-                                  disabled={loading}
-                                  className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                                >
-                                  <span className="material-icons text-xs">close</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                        </button>
-                        {dropdowns.psychologist && !loading && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            {loadingPsychologists ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : psychologists.length > 0 ? (
-                              psychologists.map((psychologist) => (
-                                <button
-                                  key={psychologist.id}
-                                  onClick={() => {
-                                    setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
-                                    toggleDropdown('psychologist');
-                                  }}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                >
-                                  <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
-                                  <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
-                                </button>
-                              ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* FIXED: Participant 1 Field with improved card styling */}
-                    <div>
-                      <div className="relative">
-                        {/* FIXED: Hide mandatory indicator when participant 1 selected */}
-                        {!formData.selectedParticipants[0] && (
-                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-                        )}
-                        <button
-                          onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants1')}
-                          disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])}
-                          className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                            formData.selectedParticipants[0] ? 'px-3 py-2' : 'pl-6'
-                          }`}
-                          style={{ minHeight: '42px' }}
-                        >
-                          {!formData.selectedParticipants[0] ? (
-                            <span className="text-gray-500">
-                              Email/nama Klien 1
-                            </span>
-                          ) : (
-                            /* FIXED: Card styling - proper positioning inside field */
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
-                                <div className="text-[#535353] text-sm font-normal truncate">
-                                  {formData.selectedParticipants[0].fullName}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[0].id); }}
-                                  disabled={loading}
-                                  className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                                >
-                                  <span className="material-icons text-xs">close</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                        </button>
-                        {dropdowns.participants1 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            <div className="p-2 border-b">
-                              <input
-                                type="text"
-                                placeholder="Cari nama atau email..."
-                                value={participantSearch}
-                                onChange={(e) => setParticipantSearch(e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            {loadingParticipants ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : participants.length > 0 ? (
-                              participants
-                                .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                                .map((participant) => (
-                                  <button
-                                    key={participant.id}
-                                    onClick={() => handleParticipantSelect(participant, 0)}
-                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                  >
-                                    <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                    <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                  </button>
-                                ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">
-                                {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* FIXED: Participant 2 Field (Optional) with improved card styling */}
-                    <div>
-                      <div className="relative">
-                        <button
-                          onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants2')}
-                          disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])}
-                          className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                            formData.selectedParticipants[1] ? 'px-3 py-2' : 'pl-6'
-                          }`}
-                          style={{ minHeight: '42px' }}
-                        >
-                          {!formData.selectedParticipants[1] ? (
-                            <span className="text-gray-500">
-                              Email/nama Klien 2 (Opsional)
-                            </span>
-                          ) : (
-                            /* FIXED: Card styling - proper positioning inside field */
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
-                                <div className="text-[#535353] text-sm font-normal truncate">
-                                  {formData.selectedParticipants[1].fullName}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[1].id); }}
-                                  disabled={loading}
-                                  className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                                >
-                                  <span className="material-icons text-xs">close</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                        </button>
-                        {dropdowns.participants2 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            <div className="p-2 border-b">
-                              <input
-                                type="text"
-                                placeholder="Cari nama atau email..."
-                                value={participantSearch}
-                                onChange={(e) => setParticipantSearch(e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            {loadingParticipants ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : participants.length > 0 ? (
-                              participants
-                                .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                                .map((participant) => (
-                                  <button
-                                    key={participant.id}
-                                    onClick={() => handleParticipantSelect(participant, 1)}
-                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                  >
-                                    <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                    <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                  </button>
-                                ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">
-                                {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Location for Counseling */}
-              <div className="flex gap-4 items-center">
-                <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-                <select
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  disabled={loading}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                >
-                  <option value="">Pilih Lokasi</option>
-                  {getAvailableLocations().map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Custom Location - for non-counseling */}
-          {!showParticipants && (
-            <div className="flex gap-4 items-center">
-              <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-              <input
-                type="text"
-                value={formData.customLocation}
-                onChange={(e) => handleInputChange('customLocation', e.target.value)}
-                placeholder="Masukkan lokasi"
-                disabled={loading}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              />
-            </div>
-          )}
-
-          {/* Description & Attachments */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
-            <div className="flex-1">
-              <div className="border border-gray-300 rounded-md min-h-[100px] p-3">
-                <div
-                  ref={editorRef}
-                  contentEditable={!loading}
-                  onInput={() => {
-                    if (editorRef.current) {
-                      handleInputChange('description', editorRef.current.innerHTML);
-                    }
-                  }}
-                  className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
-                  style={{ wordBreak: 'break-word' }}
-                  suppressContentEditableWarning={true}
-                  data-placeholder="Masukkan deskripsi"
-                />
-                
-                {attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs">
-                        <span className="material-icons text-xs">
-                          {attachment.type === 'image' ? 'image' : 'description'}
-                        </span>
-                        <span className="max-w-20 truncate">{attachment.name}</span>
-                        <button
-                          onClick={() => removeAttachment(attachment.id)}
-                          className="text-red-500 hover:text-red-700 ml-1"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-3 mt-3">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
-                    onChange={(e) => handleFileSelect(e, 'document')}
-                    className="hidden"
-                    disabled={loading}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={loading}
-                    className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
-                    title="Upload Files"
-                  >
-                    <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>attach_file</span>
-                  </button>
-                  
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'image')}
-                    className="hidden"
-                    disabled={loading}
-                  />
-                  <button
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={loading}
-                    className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
-                    title="Upload Photos"
-                  >
-                    <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>add_photo_alternate</span>
-                  </button>
-                  
-                  {uploadingAttachments && (
-                    <span className="text-xs text-blue-500">Uploading...</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                <div className="text-xs text-gray-600">
-                  <span className="text-[#EE4266]">*</span> Wajib diisi
-                </div>
-
-                <div className="flex gap-3 justify-end">
-                  <button
-                    onClick={handleCancel}
-                    disabled={loading}
-                    className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading || !formData.agenda || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0))}
-                    className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
-                  >
-                    {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
-              <span className="text-[#488BBA] font-medium">Menyimpan...</span>
+          <div className="ml-auto text-sm text-gray-500">Loading...</div>
+        )}
+      </div>
+
+      {/* Grid Container */}
+      <div className="relative overflow-hidden" style={{ height: `${actualHeight - HEADER_HEIGHT}px` }}>
+        
+        {/* Time Header */}
+        <div 
+          className="absolute top-0 bg-white"
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH}px`,
+            right: '0px',
+            height: `${TIME_HEADER_HEIGHT}px`,
+            overflow: 'hidden',
+            zIndex: Z_INDICES.TIME_HEADERS
+          }}
+        >
+          <div className="h-full" style={{ overflow: 'hidden' }}>
+            <div 
+              className="flex relative h-full"
+              style={{ 
+                width: `${timeSlots.length * HOUR_WIDTH}px`,
+                minWidth: `${timeSlots.length * HOUR_WIDTH}px`, 
+                transform: `translateX(-${scrollLeft}px)`
+              }}
+            >
+              {timeSlots.map((time, i) => (
+                <div 
+                  key={time} 
+                  className="flex-shrink-0 relative"
+                  style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
+                >
+                  <span className="text-sm text-neutral-600 absolute top-1/2 transform -translate-y-1/2 left-2">
+                    {time}
+                  </span>
+                </div>
+              ))}
+
+              {halfHourDividers.map((divider, i) => (
+                <div 
+                  key={`divider-30min-${i}`}
+                  className="absolute pointer-events-none bg-red-400" 
+                  style={{ 
+                    left: `${divider.position}px`,
+                    top: '35%',
+                    width: '1px',       
+                    height: '10px',        
+                    zIndex: Z_INDICES.GRID_LINES
+                  }}
+                />
+              ))}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Sticky Day Column */}
+        <div 
+          className="absolute top-0 bg-white"
+          style={{ 
+            left: '0px',
+            width: `${DAY_COLUMN_WIDTH}px`,
+            height: '100%',
+            zIndex: Z_INDICES.DAY_HEADERS
+          }}
+        >
+          <div style={{ height: `${TIME_HEADER_HEIGHT}px` }} />
+          
+          <div 
+            style={{ 
+              height: `${totalGridHeight}px`,
+              transform: `translateY(-${scrollTop}px)`
+            }}
+          >
+            {days.map((day, index) => (
+              <div 
+                key={day.short} 
+                className="flex items-center justify-center bg-white"
+                style={{ 
+                  height: `${dayRowHeights[day.full]}px`
+                }}
+              >
+                <span className="text-sm font-semibold text-neutral-700">
+                  {day.short}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div 
+          className="absolute" 
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH}px`,
+            top: `${TIME_HEADER_HEIGHT}px`,
+            right: '0px',
+            bottom: '0px',
+            zIndex: Z_INDICES.SCROLL_CONTENT
+          }}
+        >
+          <div
+            ref={viewportRef}
+            className="w-full h-full overflow-x-scroll overflow-y-auto"
+            onScroll={handleScroll}
+          >
+            <div 
+              className="relative"
+              style={{ 
+                width: `${timeSlots.length * HOUR_WIDTH}px`, 
+                height: `${totalGridHeight}px`,
+                minWidth: `${timeSlots.length * HOUR_WIDTH}px`
+              }}
+            >
+              <div
+                className="absolute inset-0 cursor-pointer"
+                style={{ 
+                  zIndex: Z_INDICES.BACKGROUND,
+                  backgroundColor: 'transparent'
+                }}
+                onMouseDown={handleMouseDown}
+              />
+
+              {days.map((day, i) => {
+                if (i === 0) return null;
+                const top = getDayRowTop(i);
+                return (
+                  <div 
+                    key={`separator-${i}`}
+                    className="absolute left-0 right-0 pointer-events-none"
+                    style={{ 
+                      top: `${top}px`,
+                      height: '1px',
+                      backgroundColor: '#8B8B8B',
+                      zIndex: Z_INDICES.DAY_ROW_LINES
+                    }}
+                  />
+                );
+              })}
+
+              {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
+                const dayIndex = days.findIndex(d => d.full === dayName);
+                if (dayIndex === -1) return null;
+
+                const dayTop = getDayRowTop(dayIndex);
+
+                return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
+                  if (eventsInSlot.length === 0) return null;
+
+                  return eventsInSlot.map((event, eventIndex) => {
+                    const left = timeToPosition(event.startTime);
+                    const width = calculateEventWidth(event.startTime, event.endTime);
+                    
+                    const laneIndex = event.stackIndex || 0;
+                    const isStacked = event.isStacked;
+                    const totalLanes = event.totalLanes || 1;
+                    
+                    let laneOffset = 0;
+                    for (let i = 0; i < laneIndex; i++) {
+                      if (i === 0 && totalLanes === 1) {
+                        laneOffset += SCHEDULE_BASE_HEIGHT;
+                      } else {
+                        laneOffset += SCHEDULE_COMPRESSED_HEIGHT;
+                      }
+                      laneOffset += LANE_SPACING;
+                    }
+                    
+                    const top = dayTop + DAY_PADDING_TOP + laneOffset;
+
+                    return (
+                      <ScheduleEventCard
+                        key={`${event.id}-${laneIndex}`}
+                        event={event}
+                        style={{
+                          left: `${left}px`,
+                          top: `${top}px`,
+                          width: `${width}px`
+                        }}
+                        onClickEvent={(scheduleData) => handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)}
+                      />
+                    );
+                  });
+                });
+              })}
+
+              {selectedDates.length > 0 && days.map((day, dayIndex) => {
+                const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
+                const isDaySelected = selectedDates.some(date => {
+                  const selectedDayIndex = (date.getDay() + 6) % 7;
+                  return days[selectedDayIndex]?.full === day.full;
+                });
+                
+                if (isDaySelected && !hasEvents) {
+                  const dayTop = getDayRowTop(dayIndex);
+                  const dayHeight = dayRowHeights[day.full];
+                  
+                  return (
+                    <div
+                      key={`empty-${dayIndex}`}
+                      className="absolute pointer-events-none flex items-center justify-center"
+                      style={{
+                        left: '120px',
+                        top: `${dayTop + DAY_PADDING_TOP}px`,
+                        width: '240px',
+                        height: `${dayHeight - DAY_PADDING_TOP - DAY_PADDING_BOTTOM}px`,
+                        zIndex: Z_INDICES.BACKGROUND + 1
+                      }}
+                    >
+                      <div className="text-gray-400 text-xs font-medium bg-gray-50 px-3 py-1 rounded-md">
+                        Belum ada jadwal
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
+
+              {selectionBox}
+            </div>
+          </div>
+        </div>
+
+        {/* Current time line */}
+        <div 
+          className="absolute pointer-events-none" 
+          style={{ 
+            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
+            top: `${TIME_HEADER_HEIGHT}px`,
+            height: `${totalGridHeight}px`,
+            zIndex: Z_INDICES.CURRENT_TIME,
+            width: '2px'
+          }}
+        >
+          <div className="relative w-full h-full bg-red-500 shadow-sm">
+            <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm" 
+                 style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
+            
+            <div className="absolute" style={{ left: '6px', top: '2px' }}>
+              <div className="bg-black bg-opacity-90 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-md">
+                {getCurrentTimeString()}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default AddScheduleModal;
+export default ScheduleGrid;
