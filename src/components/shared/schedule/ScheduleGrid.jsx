@@ -317,7 +317,6 @@ const ScheduleGrid = ({
         }
       });
       
-      // PERFECT calculation for grid alignment
       if (hasEvents) {
         const visibleLanes = Math.min(maxLanes, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
@@ -801,7 +800,7 @@ const ScheduleGrid = ({
       }}
     >
       {/* Header */}
-      <div className="flex items-center px-5 py-3 border-b border-zinc-200" style={{ height: `${HEADER_HEIGHT}px` }}>
+      <div className="flex items-center px-5 py-3  border-zinc-200" style={{ height: `${HEADER_HEIGHT}px` }}>
         <div className="flex items-center">
           <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
             <span className="material-icons text-white text-lg">calendar_month</span>
@@ -820,7 +819,7 @@ const ScheduleGrid = ({
         
         {/* FIXED: Time Header with proper z-index */}
         <div 
-          className="absolute top-0 bg-white border-b border-zinc-200"
+          className="absolute top-0 bg-white border-zinc-200"
           style={{ 
             left: `${DAY_COLUMN_WIDTH - 15}px`,
             right: '0px',
@@ -881,10 +880,11 @@ const ScheduleGrid = ({
             onScroll={handleScroll}
             style={{ zIndex: Z_INDICES.SCROLL_BARS }}
           >
-            <div className="flex" style={{ minWidth: `${DAY_COLUMN_WIDTH + (timeSlots.length * HOUR_WIDTH)}px` }}>
+            <div className="flex"
+             style={{ minWidth: `${DAY_COLUMN_WIDTH + (timeSlots.length * HOUR_WIDTH)}px` }}
+             >
               {/* PERFECTLY ALIGNED: Day Column */}
               <div 
-                className="flex-shrink-0 bg-white sticky left-0 border-r border-zinc-200"
                 style={{ 
                   width: `${DAY_COLUMN_WIDTH}px`,
                   zIndex: Z_INDICES.DAY_HEADERS,
@@ -894,14 +894,14 @@ const ScheduleGrid = ({
                 {days.map((day, index) => (
                   <div 
                     key={day.short} 
-                    className="flex items-center justify-center border-b bg-white"
+                    className="flex items-center justify-center  bg-white"
                     style={{ 
                       height: `${dayRowHeights[day.full]}px`,
-                      borderColor: '#e4e4e7',
-                      borderBottomWidth: index === days.length - 1 ? '0' : '1px'
                     }}
                   >
-                    <span className="text-sm font-semibold text-neutral-700">
+                    <span
+                     className="text-sm font-semibold text-neutral-700"
+                    >
                       {day.short}
                     </span>
                   </div>
@@ -933,12 +933,12 @@ const ScheduleGrid = ({
                   const top = getDayRowTop(i);
                   return (
                     <div 
-                      key={`separator-${i}`}
-                      className="absolute left-0 right-0 border-t border-zinc-300 pointer-events-none"
+                    key={`separator-${i}`}
+                      className="absolute left-0 right-0 border-t pointer-events-none"
                       style={{ 
                         top: `${top}px`, 
                         zIndex: Z_INDICES.DAY_ROW_LINES,
-                        borderColor: '#e4e4e7' 
+                        borderColor: '#8B8B8B' 
                       }}
                     />
                   );
@@ -958,7 +958,6 @@ const ScheduleGrid = ({
                       const left = timeToPosition(event.startTime);
                       const width = calculateEventWidth(event.startTime, event.endTime);
                       
-                      // PERFECT GRID ALIGNMENT
                       const laneIndex = event.stackIndex || 0;
                       const isStacked = event.isStacked;
                       const totalLanes = event.totalLanes || 1;
