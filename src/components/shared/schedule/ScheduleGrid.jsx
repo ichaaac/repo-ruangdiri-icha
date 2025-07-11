@@ -249,25 +249,29 @@ const ScheduleGrid = ({
       events.forEach((event) => {
         let assignedLane = -1;
         
+        // Check for overlaps with existing lanes
         for (let i = 0; i < lanes.length; i++) {
           const lane = lanes[i];
           const lastEventInLane = lane[lane.length - 1];
           
+          // Check if this event can fit in this lane (no overlap)
           if (lastEventInLane.endMinutes <= event.startMinutes) {
             assignedLane = i;
             break;
           }
         }
         
+        // If no lane is available, create a new one
         if (assignedLane === -1) {
           assignedLane = lanes.length;
           lanes.push([]);
         }
         
+        // FIXED: Better stacking properties
         event.stackIndex = assignedLane;
-        event.totalLanes = Math.max(lanes.length, event.stackIndex + 1);
-        event.isStacked = lanes.length > 1 || lanes[0]?.length > 1;
+        event.totalLanes = lanes.length + 1; // Will be updated after all events processed
         
+        // Add to lane
         lanes[assignedLane].push(event);
         
         const startHour = event.startDateTime.getHours();
@@ -280,9 +284,12 @@ const ScheduleGrid = ({
         processed[dayName][timeSlot].push(event);
       });
       
+      // FIXED: Update total lanes for all events in this day AFTER all processing
+      const finalTotalLanes = lanes.length;
       events.forEach(event => {
-        event.totalLanes = lanes.length;
-        event.isStacked = lanes.length > 1;
+        event.totalLanes = finalTotalLanes;
+        // FIXED: Only mark as stacked if there are actually multiple lanes
+        event.isStacked = finalTotalLanes > 1;
       });
     });
 
@@ -308,13 +315,16 @@ const ScheduleGrid = ({
         const visibleLanes = Math.min(maxLanes, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
         
+        // FIXED: Calculate exact space needed for events
         for (let i = 0; i < visibleLanes; i++) {
-          if (i === 0 && maxLanes === 1) {
+          // FIXED: Single lane always gets full height, multiple lanes get compressed
+          if (maxLanes === 1) {
             totalHeight += SCHEDULE_BASE_HEIGHT;
           } else {
             totalHeight += SCHEDULE_COMPRESSED_HEIGHT;
           }
           
+          // Add spacing between lanes (except after last)
           if (i < visibleLanes - 1) {
             totalHeight += LANE_SPACING;
           }
@@ -349,16 +359,21 @@ const ScheduleGrid = ({
     const scrollLeft = viewportRef.current.scrollLeft;
     const scrollTop = viewportRef.current.scrollTop;
 
+    // FIXED: More precise position calculation
     const absoluteX = clientX - rect.left + scrollLeft;
     const absoluteY = clientY - rect.top + scrollTop;
 
+    // FIXED: Account for DAY_COLUMN_WIDTH and TIME_HEADER_HEIGHT properly
     const gridX = absoluteX - DAY_COLUMN_WIDTH;
     const gridY = absoluteY - TIME_HEADER_HEIGHT;
 
+    // FIXED: Better boundary checking
     if (gridX < 0 || gridY < 0) return null;
 
+    // FIXED: More accurate hour calculation
     const hourIndex = Math.floor(gridX / HOUR_WIDTH);
     
+    // FIXED: Better day index calculation with proper boundary checking
     let dayIndex = -1;
     let currentTop = 0;
     
@@ -371,6 +386,7 @@ const ScheduleGrid = ({
       currentTop += dayHeight;
     }
 
+    // FIXED: Strict boundary validation
     if (hourIndex < 0 || hourIndex >= timeSlots.length || dayIndex < 0 || dayIndex >= days.length) {
       return null;
     }
@@ -378,7 +394,7 @@ const ScheduleGrid = ({
     const actualHour = getActualHour(hourIndex);
     const pixelWithinHour = gridX % HOUR_WIDTH;
     const minuteWithinHour = Math.floor((pixelWithinHour / HOUR_WIDTH) * 60);
-    const actualMinute = Math.floor(minuteWithinHour / 5) * 5;
+    const actualMinute = Math.floor(minuteWithinHour / 5) * 5; // Snap to 5-minute intervals
     
     return { 
       hour: actualHour, 
@@ -390,104 +406,97 @@ const ScheduleGrid = ({
     };
   }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
 
-  const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
-    const isStacked = event.isStacked;
-    const isSingle = !isStacked;
-    const laneIndex = event.stackIndex || 0;
-    const totalLanes = event.totalLanes || 1;
-    
-    const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
-    const isVisible = laneIndex < MAX_VISIBLE_STACKS;
-    
-    if (!isVisible) {
-      return (
-        <div
-          className="absolute bg-gray-500 text-white text-[9px] rounded px-2 py-1 font-medium shadow-sm"
-          style={{
-            ...style,
-            height: `${SCHEDULE_COMPRESSED_HEIGHT}px`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: Z_INDICES.OVERFLOW_INDICATORS,
-            opacity: 0.9
-          }}
-        >
-          +{totalLanes - MAX_VISIBLE_STACKS}
-        </div>
-      );
-    }
+ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
+  const isStacked = event.totalLanes > 1; // Logika yang lebih sederhana untuk menentukan stacked
+  const isSingle = !isStacked;
+  const laneIndex = event.stackIndex || 0;
+  
+  const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
 
-    const currentWidth = style.width ? parseInt(style.width) : 0;
+  // Handler untuk mencegah event bubbling saat mengklik
+  const handleClick = (e) => {
+    e.stopPropagation(); // Mencegah grid menangani klik
+    onClickEvent && onClickEvent(event);
+  };
 
+  const handleMouseDown = (e) => {
+    e.stopPropagation(); // Mencegah grid memulai drag
+  };
+
+  // Jika kartu berada di luar batas tumpukan yang terlihat, jangan render sama sekali
+  // Ini akan ditangani oleh logika overflow indicator di tempat lain jika diperlukan.
+  if (laneIndex >= MAX_VISIBLE_STACKS) {
+    return null;
+  }
+
+  // Layout untuk Kartu Tunggal (Single Event)
+  if (isSingle) {
     return (
       <div
-        className={`schedule-event absolute rounded-lg cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all duration-200 ${className || ''}`}
+        className={`absolute flex flex-col justify-center items-start cursor-pointer transition-transform duration-200 hover:scale-[1.03] ${className || ''}`}
         style={{
           ...style,
-          width: `${currentWidth}px`,
           height: `${height}px`,
           backgroundColor: event.color,
-          opacity: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: isSingle ? 'flex-start' : 'center',
+          borderRadius: '5px',
+          paddingLeft: '8px', // Sesuai dengan 'px-2' Anda
+          paddingRight: '8px', // Sesuai dengan 'px-2' Anda
           overflow: 'hidden',
           zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
-          boxShadow: isSingle 
-            ? '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)' 
-            : '0 2px 6px rgba(0,0,0,0.1)',
-          border: 'none',
-          padding: isSingle ? '8px 12px' : '4px 8px',
-          backgroundImage: isSingle 
-            ? `linear-gradient(135deg, ${event.color} 0%, ${event.color}dd 100%)`
-            : 'none'
+          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
         }}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClickEvent && onClickEvent(event);
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
       >
-        <div 
-          className="text-white font-semibold truncate" 
-          style={{ 
-            lineHeight: '1.3',
-            fontSize: isSingle ? '13px' : '10px',
-            marginBottom: isSingle ? '2px' : '0'
-          }}
-        >
+        {/* Baris 1: Nama Agenda */}
+        <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
           {event.name}
         </div>
         
-        {isSingle && (
-          <>
-            <div 
-              className="text-white truncate" 
-              style={{ 
-                fontSize: '11px', 
-                opacity: 0.95,
-                fontWeight: '500',
-                marginBottom: '1px'
-              }}
-            >
-              {event.startTime} - {event.endTime}
-            </div>
-            <div 
-              className="text-white text-[10px] truncate"
-              style={{ 
-                opacity: 0.85,
-                fontWeight: '400'
-              }}
-            >
-              {event.timezoneDisplay} • {event.platform}
-            </div>
-          </>
-        )}
+        {/* Baris 2: Detail Waktu dan Lokasi */}
+        <div className="w-full flex items-center">
+          <span className="text-white text-[10px] font-normal font-['Public_Sans'] truncate">
+            {event.startTime} - {event.endTime} {event.timezoneDisplay}
+          </span>
+          <span className="text-white text-[10px] font-normal font-['Public_Sans'] mx-1">
+            |
+          </span>
+          {/* Untuk 'text-TEXT-NEW', saya asumsikan warna yang sedikit berbeda. 
+              Di sini saya menggunakan text-white dengan font-semibold untuk penekanan.
+              Ganti 'text-white' jika Anda punya kelas warna spesifik. */}
+          <span className="text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
+            {event.platform}
+          </span>
+        </div>
       </div>
     );
-  };
+  }
+
+  // Layout untuk Kartu Bertumpuk (Stacked Event)
+  return (
+    <div
+      className={`absolute flex items-center cursor-pointer transition-transform duration-200 hover:scale-[1.03] ${className || ''}`}
+      style={{
+        ...style,
+        height: `${height}px`,
+        backgroundColor: event.color,
+        borderRadius: '4px',
+        paddingLeft: '8px',
+        paddingRight: '8px',
+        overflow: 'hidden',
+        zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+      }}
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+    >
+      {/* Hanya menampilkan nama agenda untuk stacked card */}
+      <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
+        {event.name}
+      </div>
+    </div>
+  );
+};
 
   // Event handlers
   const handleScheduleClick = useCallback((event, scheduleData) => {
@@ -916,13 +925,18 @@ const ScheduleGrid = ({
                 minWidth: `${timeSlots.length * HOUR_WIDTH}px`
               }}
             >
+              {/* FIXED: Improved mouse event overlay for better hitbox */}
               <div
                 className="absolute inset-0 cursor-pointer"
                 style={{ 
                   zIndex: Z_INDICES.BACKGROUND,
-                  backgroundColor: 'transparent'
+                  backgroundColor: 'transparent',
+                  width: '100%',
+                  height: '100%'
                 }}
                 onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
               />
 
               {days.map((day, i) => {
@@ -956,18 +970,15 @@ const ScheduleGrid = ({
                     const width = calculateEventWidth(event.startTime, event.endTime);
                     
                     const laneIndex = event.stackIndex || 0;
-                    const isStacked = event.isStacked;
                     const totalLanes = event.totalLanes || 1;
                     
+                    // FIXED: Clean lane offset calculation
                     let laneOffset = 0;
-                    for (let i = 0; i < laneIndex; i++) {
-                      if (i === 0 && totalLanes === 1) {
-                        laneOffset += SCHEDULE_BASE_HEIGHT;
-                      } else {
-                        laneOffset += SCHEDULE_COMPRESSED_HEIGHT;
-                      }
-                      laneOffset += LANE_SPACING;
+                    if (totalLanes > 1) {
+                      // Multiple events, use compressed height and spacing
+                      laneOffset = laneIndex * (SCHEDULE_COMPRESSED_HEIGHT + LANE_SPACING);
                     }
+                    // Single event case: laneOffset remains 0
                     
                     const top = dayTop + DAY_PADDING_TOP + laneOffset;
 
