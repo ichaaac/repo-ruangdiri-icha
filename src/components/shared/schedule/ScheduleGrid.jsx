@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED EVERYTHING
+// src/components/shared/schedule/ScheduleGrid.jsx - FINAL FIXED ALL DATE MAPPINGS
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -64,7 +64,7 @@ const ScheduleGrid = ({
     MODALS: 100
   };
 
-  // Static data
+  // Static data - Monday=0 format
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
     { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
@@ -178,7 +178,7 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // FIXED Schedule processing
+  // FIXED Schedule processing with proper day mapping
   const processedSchedules = useMemo(() => {
     const processed = {};
     const dayEvents = {};
@@ -190,15 +190,15 @@ const ScheduleGrid = ({
 
     schedules.forEach(schedule => {
       const scheduleDate = new Date(schedule.startDateTime);
-      // FIXED: Proper day mapping
-      const dayIndex = (scheduleDate.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+      // Convert JS Date.getDay() (Sunday=0) to our format (Monday=0)
+      const dayIndex = (scheduleDate.getDay() + 6) % 7;
       const dayName = days[dayIndex]?.full;
       
       if (dayName) {
         if (selectedDates.length > 0) {
           const isDateSelected = selectedDates.some(date => {
-            const selectedDayIndex = (date.getDay() + 6) % 7;
-            return days[selectedDayIndex]?.full === dayName;
+            const selectedDateObj = new Date(date);
+            return selectedDateObj.toDateString() === scheduleDate.toDateString();
           });
           if (!isDateSelected) return;
         }
@@ -384,7 +384,7 @@ const ScheduleGrid = ({
       hour: actualHour, 
       minute: actualMinute,
       hourIndex, 
-      dayIndex,
+      dayIndex, // This is in Monday=0 format
       exactPixelX: gridX,
       exactPixelY: gridY - getDayRowTop(dayIndex)
     };
@@ -605,6 +605,20 @@ const ScheduleGrid = ({
     }
   }, [isMouseDown, isDragging, dragStartPos, dragTimer, getInfoFromPosition, days.length, selectedArea]);
 
+  // FIXED: Proper date calculation based on Monday week start
+  const getDateFromDayIndex = useCallback((dayIndex) => {
+    const today = new Date();
+    const todayDayIndex = (today.getDay() + 6) % 7; // Convert to Monday=0 format
+    
+    // Calculate how many days to add/subtract from today
+    const dayDiff = dayIndex - todayDayIndex;
+    
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + dayDiff);
+    
+    return targetDate;
+  }, []);
+
   const handleMouseUp = useCallback((e) => {
     if (dragTimer) {
       clearTimeout(dragTimer);
@@ -619,11 +633,13 @@ const ScheduleGrid = ({
     if (wasClick && dragStartPos) {
       const info = getInfoFromPosition(dragStartPos.x, dragStartPos.y);
       if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-        const today = new Date();
-        const startDateTime = new Date(today);
+        // FIXED: Calculate correct date for clicked day
+        const clickedDate = getDateFromDayIndex(info.dayIndex);
+        
+        const startDateTime = new Date(clickedDate);
         startDateTime.setHours(info.hour, info.minute, 0, 0);
         
-        const endDateTime = new Date(today);
+        const endDateTime = new Date(clickedDate);
         endDateTime.setHours(info.hour, info.minute + 5, 0, 0);
 
         const dayName = days[info.dayIndex]?.full;
@@ -634,7 +650,7 @@ const ScheduleGrid = ({
           day: dayName,
           isMultipleDays: false,
           dates: [{
-            date: today.toISOString().split('T')[0],
+            date: clickedDate.toISOString().split('T')[0],
             startTime: `${info.hour.toString().padStart(2, '0')}:${info.minute.toString().padStart(2, '0')}`,
             endTime: `${info.hour.toString().padStart(2, '0')}:${(info.minute + 5).toString().padStart(2, '0')}`,
             timezone: 'WIB'
@@ -663,11 +679,13 @@ const ScheduleGrid = ({
         }
 
         if (startDay >= 0 && startDay < days.length) {
-          const today = new Date();
-          const startDateTime = new Date(today);
+          // FIXED: Calculate correct date for dragged start day
+          const draggedStartDate = getDateFromDayIndex(startDay);
+          
+          const startDateTime = new Date(draggedStartDate);
           startDateTime.setHours(startHour, startMinute, 0, 0);
           
-          const endDateTime = new Date(today);
+          const endDateTime = new Date(draggedStartDate);
           endDateTime.setHours(finalEndHour, finalEndMinute, 0, 0);
 
           const dayName = days[startDay]?.full;
@@ -675,8 +693,7 @@ const ScheduleGrid = ({
 
           const dates = [];
           for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
-            const dayDate = new Date(today);
-            dayDate.setDate(today.getDate() + (dayIndex - today.getDay()));
+            const dayDate = getDateFromDayIndex(dayIndex);
             
             dates.push({
               date: dayDate.toISOString().split('T')[0],
@@ -709,7 +726,7 @@ const ScheduleGrid = ({
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-  }, [isMouseDown, isDragging, selectedArea, dragStartPos, dragTimer, days, onTimeSlotSelect, getInfoFromPosition]);
+  }, [isMouseDown, isDragging, selectedArea, dragStartPos, dragTimer, days, onTimeSlotSelect, getInfoFromPosition, getDateFromDayIndex]);
 
   const handleScroll = useCallback((e) => {
     const newScrollLeft = e.target.scrollLeft;
@@ -973,8 +990,9 @@ const ScheduleGrid = ({
               {selectedDates.length > 0 && days.map((day, dayIndex) => {
                 const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
                 const isDaySelected = selectedDates.some(date => {
-                  const selectedDayIndex = (date.getDay() + 6) % 7;
-                  return days[selectedDayIndex]?.full === day.full;
+                  const selectedDateObj = new Date(date);
+                  const selectedDayIndex = (selectedDateObj.getDay() + 6) % 7;
+                  return selectedDayIndex === dayIndex;
                 });
                 
                 if (isDaySelected && !hasEvents) {

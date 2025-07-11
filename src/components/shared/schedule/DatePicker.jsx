@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - Final Clean Version (Outlook Behavior)
+// src/components/shared/schedule/DatePicker.jsx - FIXED DATE CALCULATIONS
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,7 +11,6 @@ const DatePicker = ({
   onDateSelect = () => {},
   onWeekSelect = () => {}
 }) => {
-  // Initialize with current date, not selectedDate prop to avoid jumps
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -20,11 +19,9 @@ const DatePicker = ({
   const [isInitialized, setIsInitialized] = useState(false)
   const containerRef = useRef(null)
 
-  // Today's date for comparison
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Initial setup only - don't change view after user interactions
   useEffect(() => {
     if (!isInitialized) {
       if (selectedDate) {
@@ -39,14 +36,12 @@ const DatePicker = ({
     }
   }, [selectedDate, selectedDates, isInitialized]);
 
-  // Only sync selectedDates if they come from external source (not from our own clicks)
   useEffect(() => {
     if (isInitialized && selectedDates && JSON.stringify(selectedDates) !== JSON.stringify(internalSelectedDates)) {
       setInternalSelectedDates(selectedDates);
     }
   }, [selectedDates, isInitialized, internalSelectedDates]);
 
-  // Close month/year picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
@@ -63,22 +58,18 @@ const DatePicker = ({
     }
   }, [showMonthYearPicker])
 
-  // Base dimensions (Figma: 335x290)
   const baseWidth = 335;
   const baseHeight = 290;
   const actualWidth = Math.min(baseWidth, containerWidth);
   const actualHeight = baseHeight;
 
-  // Days of week
   const daysOfWeek = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
 
-  // Month names in Indonesian
   const monthNames = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ]
 
-  // Get header display text - show selected date range instead of current day
   const getHeaderText = () => {
     if (internalSelectedDates.length === 0) {
       return `${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
@@ -89,43 +80,42 @@ const DatePicker = ({
       return `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}`;
     }
     
-    // Show range for multiple dates
     const sortedDates = [...internalSelectedDates].sort((a, b) => a.getTime() - b.getTime());
     const startDate = sortedDates[0];
     const endDate = sortedDates[sortedDates.length - 1];
     
     if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
-      // Same month: "9-15 Juni 2025"
       return `${startDate.getDate()}-${endDate.getDate()} ${monthNames[startDate.getMonth()]} ${startDate.getFullYear()}`;
     } else if (startDate.getFullYear() === endDate.getFullYear()) {
-      // Same year: "29 Juni - 5 Juli 2025"
       return `${startDate.getDate()} ${monthNames[startDate.getMonth()]} - ${endDate.getDate()} ${monthNames[endDate.getMonth()]} ${startDate.getFullYear()}`;
     } else {
-      // Different years: "29 Juni 2024 - 5 Juli 2025"
       return `${startDate.getDate()} ${monthNames[startDate.getMonth()]} ${startDate.getFullYear()} - ${endDate.getDate()} ${monthNames[endDate.getMonth()]} ${endDate.getFullYear()}`;
     }
   };
 
-  // Get all dates in the same week as the given date (Monday to Sunday)
+  // FIXED: Get week dates with proper Monday start calculation
   const getWeekDates = (date) => {
     const weekDates = []
-    const dayOfWeek = (date.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0
+    // Convert JS Date.getDay() (Sunday=0) to Monday=0 format
+    const dayOfWeek = (date.getDay() + 6) % 7 // Monday=0, Tuesday=1, ..., Sunday=6
     
-    // Find Monday of the week
+    // Find Monday of the week by going back `dayOfWeek` days
     const mondayDate = new Date(date)
     mondayDate.setDate(date.getDate() - dayOfWeek)
+    mondayDate.setHours(0, 0, 0, 0)
     
-    // Generate all 7 days of the week
+    // Generate all 7 days of the week starting from Monday
     for (let i = 0; i < 7; i++) {
       const weekDate = new Date(mondayDate)
       weekDate.setDate(mondayDate.getDate() + i)
+      weekDate.setHours(0, 0, 0, 0) // Normalize time for consistent comparison
       weekDates.push(weekDate)
     }
     
+    console.log('Week dates calculated for', date.toDateString(), ':', weekDates.map(d => d.toDateString()));
     return weekDates
   }
 
-  // Get selection position for styling
   const getSelectionPosition = (date, selectedDates) => {
     if (selectedDates.length === 0) return null
     if (selectedDates.length === 1) return "single"
@@ -140,7 +130,6 @@ const DatePicker = ({
     return isInRange ? "middle" : null
   }
 
-  // Generate calendar days - always show current month's view
   const generateCalendarDays = () => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
@@ -149,7 +138,8 @@ const DatePicker = ({
     const lastDay = new Date(year, month + 1, 0)
     const startDate = new Date(firstDay)
 
-    const dayOfWeek = (firstDay.getDay() + 6) % 7
+    // FIXED: Proper calendar week start calculation
+    const dayOfWeek = (firstDay.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0
     startDate.setDate(startDate.getDate() - dayOfWeek)
 
     const days = []
@@ -157,7 +147,7 @@ const DatePicker = ({
     for (let i = 0; i < 35; i++) {
       const date = new Date(startDate)
       date.setDate(startDate.getDate() + i)
-      date.setHours(0, 0, 0, 0) // Normalize time for comparison
+      date.setHours(0, 0, 0, 0)
 
       const isCurrentMonth = date.getMonth() === month
       const isToday = date.getTime() === today.getTime()
@@ -184,11 +174,14 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  // Handle date click - TRUE OUTLOOK BEHAVIOR: NEVER CHANGE VIEW
+  // FIXED: Handle date click with proper week calculation
   const handleDateClick = (day) => {
-    const clickedWeekDates = getWeekDates(day.fullDate)
+    console.log('Date clicked:', day.fullDate.toDateString());
     
-    // Check if this week is already selected
+    const clickedWeekDates = getWeekDates(day.fullDate)
+    console.log('Week dates for clicked day:', clickedWeekDates.map(d => d.toDateString()));
+    
+    // Check if this week is already selected by comparing normalized dates
     const isWeekSelected = clickedWeekDates.every(weekDate => 
       internalSelectedDates.some(selectedDate => {
         const normalizedSelected = new Date(selectedDate)
@@ -202,6 +195,7 @@ const DatePicker = ({
     let newSelectedDates = [];
     
     if (isWeekSelected) {
+      console.log('Week is already selected, deselecting...');
       // Deselect the week
       newSelectedDates = internalSelectedDates.filter(selectedDate => 
         !clickedWeekDates.some(weekDate => {
@@ -213,17 +207,19 @@ const DatePicker = ({
         })
       );
     } else {
-      // Select the entire week - OUTLOOK BEHAVIOR: STAY IN CURRENT VIEW
-      newSelectedDates = clickedWeekDates;
-      // ABSOLUTELY NO CHANGES TO currentDate - view stays exactly where it is
+      console.log('Selecting week...');
+      // Select the entire week - FIXED: Use properly calculated week dates
+      newSelectedDates = [...clickedWeekDates]; // Use the correctly calculated week dates
     }
     
+    console.log('New selected dates:', newSelectedDates.map(d => d.toDateString()));
     setInternalSelectedDates(newSelectedDates);
     
-    // Notify parent components
+    // FIXED: Notify parent components with proper dates
     onDateSelect(newSelectedDates);
     if (newSelectedDates.length > 0) {
-      onWeekSelect(clickedWeekDates[0]); // Send Monday as week start
+      // Send Monday as week start (first date in our Monday-based week)
+      onWeekSelect(clickedWeekDates[0]); 
     }
   }
 
@@ -239,7 +235,6 @@ const DatePicker = ({
     setShowMonthYearPicker(false)
     setInternalSelectedDates([])
     
-    // Notify parent of date change
     onDateSelect([]);
   }
 
@@ -247,14 +242,12 @@ const DatePicker = ({
     setSelectedYear(prev => prev + direction)
   }
 
-  // Handle navigation arrows - ONLY manual navigation changes view
   const handlePreviousMonth = () => {
     const newDate = new Date(currentDate)
     newDate.setMonth(currentDate.getMonth() - 1)
     setCurrentDate(newDate)
     setSelectedMonth(newDate.getMonth())
     setSelectedYear(newDate.getFullYear())
-    // Keep selected dates when navigating
   }
 
   const handleNextMonth = () => {
@@ -263,7 +256,6 @@ const DatePicker = ({
     setCurrentDate(newDate)
     setSelectedMonth(newDate.getMonth())
     setSelectedYear(newDate.getFullYear())
-    // Keep selected dates when navigating
   }
 
   return (
@@ -273,10 +265,10 @@ const DatePicker = ({
       style={{ 
         width: `${actualWidth}px`, 
         height: `${actualHeight}px`,
-        padding: '14px 11px 0 11px' // 14px top, 11px left/right
+        padding: '14px 11px 0 11px'
       }}
     >
-      {/* Header - FIXED DIMENSIONS 312x35px */}
+      {/* Header */}
       <div 
         className="flex items-center justify-between px-2 py-2 bg-zinc-100 rounded-md flex-none"
         style={{ 
@@ -286,7 +278,6 @@ const DatePicker = ({
           marginRight: '0'
         }}
       >
-        {/* Navigation Arrows */}
         <button 
           onClick={handlePreviousMonth}
           className="hover:bg-zinc-200 p-1 rounded transition-colors"
@@ -318,7 +309,7 @@ const DatePicker = ({
           <motion.div 
             className="absolute bg-white border border-zinc-300 rounded-md shadow-lg z-50 p-4"
             style={{
-              top: '49px', // 14px + 35px header height
+              top: '49px',
               left: '11px',
               right: '11px'
             }}
@@ -327,7 +318,6 @@ const DatePicker = ({
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            {/* Year selector */}
             <div className="flex items-center justify-between mb-4">
               <button 
                 onClick={() => handleYearChange(-1)}
@@ -344,7 +334,6 @@ const DatePicker = ({
               </button>
             </div>
             
-            {/* Month grid */}
             <div className="grid grid-cols-3 gap-2">
               {monthNames.map((month, index) => (
                 <motion.button
@@ -418,6 +407,13 @@ const DatePicker = ({
             </div>
           ))}
         </div>
+
+        {/* FIXED: Debug info showing actual selected dates */}
+        {internalSelectedDates.length > 0 && (
+          <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded mt-2">
+            <strong>Selected dates:</strong> {internalSelectedDates.map(d => d.toLocaleDateString()).join(', ')}
+          </div>
+        )}
       </div>
     </div>
   )
