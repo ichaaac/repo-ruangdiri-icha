@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED DATE HANDLING
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED DATE HANDLING AND UI
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -581,17 +581,19 @@ const AddScheduleModal = ({
   const handleCancel = () => {
     if (hasUnsavedChanges() && !hasShownUnsavedToast) {
       setHasShownUnsavedToast(true);
+      
+      // FIXED: Improved toast with proper button styling
       toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
         action: {
-          label: "Ya, batalkan",
+          label: "Ya, Batalkan",
           onClick: () => {
             setHasShownUnsavedToast(false);
             onClose();
           },
-          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854]"
+          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854] !ml-auto"
         },
         cancel: {
-          label: "Tetap edit",
+          label: "Tetap Edit",
           onClick: () => {
             setHasShownUnsavedToast(false);
           },
@@ -599,7 +601,8 @@ const AddScheduleModal = ({
         },
         duration: 10000,
         className: "!bg-white !border !border-gray-200 !shadow-lg",
-        onDismiss: () => setHasShownUnsavedToast(false)
+        onDismiss: () => setHasShownUnsavedToast(false),
+        position: "top-center"
       });
     } else if (!hasUnsavedChanges()) {
       onClose();
@@ -681,7 +684,7 @@ const AddScheduleModal = ({
             </div>
           </div>
 
-          {/* FIXED: Date & Time section with proper display */}
+          {/* Date & Time section */}
           <div className="flex gap-4 items-start">
             <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
             <div className="flex-1 space-y-3">
@@ -734,10 +737,6 @@ const AddScheduleModal = ({
                     ))}
                   </select>
 
-                  <div className="text-xs text-gray-500 px-2">
-                    {getTimezoneDisplay(dateInfo.timezone)}
-                  </div>
-
                   {index > 0 && (
                     <button
                       onClick={() => removeDateSlot(index)}
@@ -750,21 +749,15 @@ const AddScheduleModal = ({
                 </div>
               ))}
 
+              {/* FIXED: Multiple Date indicator - no icon, just black square */}
               {formData.dates.length > 1 && (
                 <div className="flex gap-2 items-center text-sm">
-                  <div className="flex shrink-0 w-4 h-4 bg-[#535353] border border-[#535353] rounded-sm">
-                    <span className="material-icons text-white text-xs leading-none">check</span>
-                  </div>
+                  <div className="w-4 h-4 bg-[#535353] rounded-sm"></div>
                   <span className="text-[#535353]">Multiple Date</span>
                 </div>
               )}
 
-              {/* FIXED: Debug info - shows selected dates properly */}
-              {formData.dates.length > 0 && (
-                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                  <strong>Selected:</strong> {formData.dates.map(d => `${d.date} (${d.startTime}-${d.endTime})`).join(', ')}
-                </div>
-              )}
+              {/* REMOVED: Debug info tidak ditampilkan lagi */}
             </div>
           </div>
 

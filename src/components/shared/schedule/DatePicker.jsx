@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - FIXED DATE CALCULATIONS
+// src/components/shared/schedule/DatePicker.jsx - FIXED HEADER AND CURRENT DATE
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -70,9 +70,10 @@ const DatePicker = ({
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ]
 
+  // FIXED: Header text - hanya bulan tahun ketika tidak ada selected dates
   const getHeaderText = () => {
     if (internalSelectedDates.length === 0) {
-      return `${currentDate.getDate()} ${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+      return `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
     }
     
     if (internalSelectedDates.length === 1) {
@@ -159,6 +160,13 @@ const DatePicker = ({
 
       const selectionPosition = isSelected ? getSelectionPosition(date, internalSelectedDates) : null
 
+      // FIXED: Check if today is in selected week for bold styling
+      const isTodayInSelectedWeek = internalSelectedDates.length > 0 && 
+        internalSelectedDates.some(selectedDate => {
+          const weekDates = getWeekDates(selectedDate)
+          return weekDates.some(weekDate => weekDate.getTime() === today.getTime())
+        })
+
       days.push({
         date: date.getDate(),
         isCurrentMonth,
@@ -166,6 +174,7 @@ const DatePicker = ({
         isSelected,
         fullDate: new Date(date),
         selectionPosition,
+        isTodayInSelectedWeek
       })
     }
 
@@ -233,8 +242,9 @@ const DatePicker = ({
     setSelectedMonth(month)
     setSelectedYear(year)
     setShowMonthYearPicker(false)
-    setInternalSelectedDates([])
     
+    // FIXED: Clear selected dates when changing month/year
+    setInternalSelectedDates([])
     onDateSelect([]);
   }
 
@@ -248,6 +258,10 @@ const DatePicker = ({
     setCurrentDate(newDate)
     setSelectedMonth(newDate.getMonth())
     setSelectedYear(newDate.getFullYear())
+    
+    // FIXED: Clear selected dates when changing month
+    setInternalSelectedDates([])
+    onDateSelect([]);
   }
 
   const handleNextMonth = () => {
@@ -256,6 +270,10 @@ const DatePicker = ({
     setCurrentDate(newDate)
     setSelectedMonth(newDate.getMonth())
     setSelectedYear(newDate.getFullYear())
+    
+    // FIXED: Clear selected dates when changing month
+    setInternalSelectedDates([])
+    onDateSelect([]);
   }
 
   return (
@@ -396,7 +414,7 @@ const DatePicker = ({
                 onClick={() => handleDateClick(day)}
                 className={`relative z-10 w-full h-full flex items-center justify-center text-xs transition-colors 
                   ${day.isSelected ? 'text-white font-bold' 
-                  : day.isToday ? 'text-[#488BBA] font-bold'
+                  : day.isToday ? (day.isTodayInSelectedWeek ? 'text-[#488BBA] font-black' : 'text-[#488BBA] font-bold')
                   : day.isCurrentMonth ? 'text-neutral-600 hover:bg-gray-100' 
                   : 'text-gray-300 hover:bg-gray-50'}
                 `}
@@ -408,12 +426,7 @@ const DatePicker = ({
           ))}
         </div>
 
-        {/* FIXED: Debug info showing actual selected dates */}
-        {internalSelectedDates.length > 0 && (
-          <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded mt-2">
-            <strong>Selected dates:</strong> {internalSelectedDates.map(d => d.toLocaleDateString()).join(', ')}
-          </div>
-        )}
+        {/* REMOVED: Debug info tidak ditampilkan lagi */}
       </div>
     </div>
   )

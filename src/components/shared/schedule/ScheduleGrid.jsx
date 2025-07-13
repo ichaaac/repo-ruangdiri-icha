@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FINAL FIXED ALL DATE MAPPINGS
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED PRECISION AND STACKING
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -45,8 +45,8 @@ const ScheduleGrid = ({
   const TIME_HEADER_HEIGHT = 30;
   const DAY_COLUMN_WIDTH = 70;
   const HEADER_HEIGHT = 66;
-  const DRAG_THRESHOLD = 5;
-  const CLICK_TIMEOUT = 150;
+  const DRAG_THRESHOLD = 3; // FIXED: Reduced for better precision
+  const CLICK_TIMEOUT = 120; // FIXED: Reduced for better responsiveness
   const MAX_DRAG_DAYS = 2;
 
   const Z_INDICES = {
@@ -81,16 +81,17 @@ const ScheduleGrid = ({
     return slots;
   }, []);
 
-  const halfHourDividers = useMemo(() => {
-    const dividers = [];
-    for (let i = 0; i < timeSlots.length - 1; i++) {
-      const position = i * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
-      dividers.push({ position, hourIndex: i });
-    }
-    const last23Position = (timeSlots.length - 2) * HOUR_WIDTH + HOUR_WIDTH / 2 + 25;
-    dividers.push({ position: last23Position, hourIndex: timeSlots.length - 2, isHalfPast: true });
-    return dividers;
-  }, [timeSlots.length]);
+const halfHourDividers = useMemo(() => {
+  const dividers = [];
+  const PADDING_OFFSET = 40; // Biar bersih, pake variabel
+  
+  for (let i = 0; i < timeSlots.length - 1; i++) {
+    // --- PERUBAHAN DI SINI ---
+    const position = PADDING_OFFSET + (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
+    dividers.push({ position, hourIndex: i });
+  }
+  return dividers;
+}, [timeSlots.length]);
 
   // Helper functions
   const getTypeColor = useCallback((type) => {
@@ -178,7 +179,7 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // FIXED Schedule processing with proper day mapping
+  // FIXED: Enhanced schedule processing with proper stacking
   const processedSchedules = useMemo(() => {
     const processed = {};
     const dayEvents = {};
@@ -228,68 +229,55 @@ const ScheduleGrid = ({
           endDateTime: endTime,
           duration: endTime - startTime,
           startMinutes: startTime.getHours() * 60 + startTime.getMinutes(),
-          endMinutes: endTime.getHours() * 60 + endTime.getMinutes()
+          endMinutes: endTime.getHours() * 60 + endTime.getMinutes(),
+          createdAt: schedule.createdAt || startTime // FIXED: For sorting by creation time
         };
 
         dayEvents[dayName].push(displaySchedule);
       }
     });
 
+    // FIXED: Enhanced stacking algorithm for vertical arrangement
     Object.keys(dayEvents).forEach(dayName => {
       const events = dayEvents[dayName];
       
+      // Sort by start time first, then by creation time for consistent ordering
       events.sort((a, b) => {
         const timeDiff = a.startDateTime - b.startDateTime;
         if (timeDiff !== 0) return timeDiff;
-        return a.duration - b.duration;
+        // If same start time, sort by creation time (latest last)
+        return new Date(a.createdAt) - new Date(b.createdAt);
       });
 
-      const lanes = [];
+      // FIXED: Group events by time slots and assign vertical positions
+      const timeSlotGroups = {};
       
       events.forEach((event) => {
-        let assignedLane = -1;
-        
-        // Check for overlaps with existing lanes
-        for (let i = 0; i < lanes.length; i++) {
-          const lane = lanes[i];
-          const lastEventInLane = lane[lane.length - 1];
-          
-          // Check if this event can fit in this lane (no overlap)
-          if (lastEventInLane.endMinutes <= event.startMinutes) {
-            assignedLane = i;
-            break;
-          }
-        }
-        
-        // If no lane is available, create a new one
-        if (assignedLane === -1) {
-          assignedLane = lanes.length;
-          lanes.push([]);
-        }
-        
-        // FIXED: Better stacking properties
-        event.stackIndex = assignedLane;
-        event.totalLanes = lanes.length + 1; // Will be updated after all events processed
-        
-        // Add to lane
-        lanes[assignedLane].push(event);
-        
         const startHour = event.startDateTime.getHours();
         const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
         
+        if (!timeSlotGroups[timeSlot]) {
+          timeSlotGroups[timeSlot] = [];
+        }
+        timeSlotGroups[timeSlot].push(event);
+      });
+
+      // Process each time slot group for stacking
+      Object.keys(timeSlotGroups).forEach(timeSlot => {
+        const slotEvents = timeSlotGroups[timeSlot];
+        
+        // FIXED: Arrange events vertically without overlap
+        slotEvents.forEach((event, index) => {
+          event.stackIndex = index; // Simple vertical index
+          event.totalLanes = slotEvents.length;
+          event.isStacked = slotEvents.length > 1;
+        });
+
+        // Add to processed structure
         if (!processed[dayName][timeSlot]) {
           processed[dayName][timeSlot] = [];
         }
-        
-        processed[dayName][timeSlot].push(event);
-      });
-      
-      // FIXED: Update total lanes for all events in this day AFTER all processing
-      const finalTotalLanes = lanes.length;
-      events.forEach(event => {
-        event.totalLanes = finalTotalLanes;
-        // FIXED: Only mark as stacked if there are actually multiple lanes
-        event.isStacked = finalTotalLanes > 1;
+        processed[dayName][timeSlot] = slotEvents;
       });
     });
 
@@ -300,32 +288,29 @@ const ScheduleGrid = ({
     const heights = {};
     
     days.forEach(day => {
-      let maxLanes = 1;
+      let maxStacks = 1;
       let hasEvents = false;
       
       Object.values(processedSchedules[day.full] || {}).forEach(eventsInSlot => {
         if (eventsInSlot.length > 0) {
           hasEvents = true;
-          const dayMaxLanes = Math.max(...eventsInSlot.map(e => e.totalLanes || 1));
-          maxLanes = Math.max(maxLanes, dayMaxLanes);
+          maxStacks = Math.max(maxStacks, eventsInSlot.length);
         }
       });
       
       if (hasEvents) {
-        const visibleLanes = Math.min(maxLanes, MAX_VISIBLE_STACKS);
+        const visibleStacks = Math.min(maxStacks, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
         
-        // FIXED: Calculate exact space needed for events
-        for (let i = 0; i < visibleLanes; i++) {
-          // FIXED: Single lane always gets full height, multiple lanes get compressed
-          if (maxLanes === 1) {
+        // FIXED: Calculate space for vertical stacking
+        for (let i = 0; i < visibleStacks; i++) {
+          if (maxStacks === 1) {
             totalHeight += SCHEDULE_BASE_HEIGHT;
           } else {
             totalHeight += SCHEDULE_COMPRESSED_HEIGHT;
           }
           
-          // Add spacing between lanes (except after last)
-          if (i < visibleLanes - 1) {
+          if (i < visibleStacks - 1) {
             totalHeight += LANE_SPACING;
           }
         }
@@ -352,6 +337,7 @@ const ScheduleGrid = ({
     return top;
   }, [days, dayRowHeights]);
 
+  // FIXED: More precise position calculation like Google Calendar
   const getInfoFromPosition = useCallback((clientX, clientY) => {
     if (!viewportRef.current) return null;
     
@@ -359,21 +345,20 @@ const ScheduleGrid = ({
     const scrollLeft = viewportRef.current.scrollLeft;
     const scrollTop = viewportRef.current.scrollTop;
 
-    // FIXED: More precise position calculation
+    // FIXED: High precision position calculation
     const absoluteX = clientX - rect.left + scrollLeft;
     const absoluteY = clientY - rect.top + scrollTop;
 
-    // FIXED: Account for DAY_COLUMN_WIDTH and TIME_HEADER_HEIGHT properly
     const gridX = absoluteX - DAY_COLUMN_WIDTH;
     const gridY = absoluteY - TIME_HEADER_HEIGHT;
 
-    // FIXED: Better boundary checking
     if (gridX < 0 || gridY < 0) return null;
 
-    // FIXED: More accurate hour calculation
-    const hourIndex = Math.floor(gridX / HOUR_WIDTH);
+    // FIXED: More precise hour calculation with sub-pixel accuracy
+    const exactHourFloat = gridX / HOUR_WIDTH;
+    const hourIndex = Math.floor(exactHourFloat);
     
-    // FIXED: Better day index calculation with proper boundary checking
+    // FIXED: Precise day calculation
     let dayIndex = -1;
     let currentTop = 0;
     
@@ -386,28 +371,35 @@ const ScheduleGrid = ({
       currentTop += dayHeight;
     }
 
-    // FIXED: Strict boundary validation
     if (hourIndex < 0 || hourIndex >= timeSlots.length || dayIndex < 0 || dayIndex >= days.length) {
       return null;
     }
 
     const actualHour = getActualHour(hourIndex);
+    
+    // FIXED: Sub-minute precision for better drag accuracy
     const pixelWithinHour = gridX % HOUR_WIDTH;
-    const minuteWithinHour = Math.floor((pixelWithinHour / HOUR_WIDTH) * 60);
-    const actualMinute = Math.floor(minuteWithinHour / 5) * 5; // Snap to 5-minute intervals
+    const minuteFloat = (pixelWithinHour / HOUR_WIDTH) * 60;
+    
+    // FIXED: Round to nearest 5-minute interval but maintain precision
+    const actualMinute = Math.round(minuteFloat / 5) * 5;
+    const clampedMinute = Math.min(Math.max(actualMinute, 0), 55);
     
     return { 
       hour: actualHour, 
-      minute: actualMinute,
+      minute: clampedMinute,
       hourIndex, 
-      dayIndex, // This is in Monday=0 format
+      dayIndex,
       exactPixelX: gridX,
-      exactPixelY: gridY - getDayRowTop(dayIndex)
+      exactPixelY: gridY - getDayRowTop(dayIndex),
+      // FIXED: Additional precision data
+      subPixelX: gridX - Math.floor(gridX),
+      subPixelY: gridY - Math.floor(gridY)
     };
   }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
 
 const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
-  const [isHovered, setIsHovered] = useState(false); // State untuk deteksi hover
+  const [isHovered, setIsHovered] = useState(false);
 
   const isStacked = event.totalLanes > 1;
   const isSingle = !isStacked;
@@ -415,36 +407,30 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
   
   const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
 
-  // Handler untuk mencegah event bubbling
   const handleClick = (e) => {
     e.stopPropagation();
     onClickEvent && onClickEvent(event);
   };
   const handleMouseDown = (e) => e.stopPropagation();
 
-  // Jika kartu berada di luar batas tumpukan, jangan render
   if (laneIndex >= MAX_VISIBLE_STACKS) {
     return null;
   }
 
-  // Gabungkan style dari props dengan style dinamis dari hover
   const combinedStyle = {
     ...style,
     height: `${height}px`,
     backgroundColor: event.color,
-    zIndex: isHovered ? 99 : style.zIndex, // NAIKKAN z-index saat di-hover
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s linear', // Transisi yang smooth
+    zIndex: isHovered ? 99 : style.zIndex,
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s linear',
   };
 
-  // Tambahkan transform scale saat di-hover
   if (isHovered) {
-    // Gabungkan scale dari hover dengan transform yang sudah ada (untuk stacked card)
     const existingTransform = style.transform || '';
     combinedStyle.transform = `${existingTransform} scale(1.05)`;
     combinedStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
   }
 
-  // Layout untuk Kartu Tunggal (Single Event)
   if (isSingle) {
     return (
       <div
@@ -478,7 +464,6 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     );
   }
 
-  // Layout untuk Kartu Bertumpuk (Stacked Event)
   return (
     <div
       className={`absolute flex items-center cursor-pointer ${className || ''}`}
@@ -512,6 +497,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     }
   }, [isDragging, isMouseDown, onScheduleClick]);
 
+  // FIXED: More precise mouse handling for Google Calendar-like behavior
   const handleMouseDown = useCallback((e) => {
     if (e.target.closest('.schedule-event')) {
       return;
@@ -527,6 +513,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
       setDragStartPos({ x: e.clientX, y: e.clientY });
       dragStartTimeRef.current = Date.now();
       
+      // FIXED: Shorter timeout for more responsive feel
       const timer = setTimeout(() => {
         if (isMouseDown) {
           setIsDragging(true);
@@ -552,6 +539,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     }
   }, [getInfoFromPosition, days, isMouseDown]);
 
+  // FIXED: More responsive mouse movement
   const handleMouseMove = useCallback((e) => {
     if (!isMouseDown) return;
 
@@ -559,6 +547,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
       Math.pow(e.clientX - dragStartPos.x, 2) + Math.pow(e.clientY - dragStartPos.y, 2)
     ) : 0;
 
+    // FIXED: Lower threshold for more sensitive drag detection
     if (!isDragging && dragDistance > DRAG_THRESHOLD) {
       if (dragTimer) {
         clearTimeout(dragTimer);
@@ -839,7 +828,8 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
               style={{ 
                 width: `${timeSlots.length * HOUR_WIDTH}px`,
                 minWidth: `${timeSlots.length * HOUR_WIDTH}px`, 
-                transform: `translateX(-${scrollLeft}px)`
+                transform: `translateX(-${scrollLeft}px)`,
+                paddingLeft: '40px'
               }}
             >
               {timeSlots.map((time, i) => (
@@ -848,7 +838,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
                   className="flex-shrink-0 relative"
                   style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
                 >
-                  <span className="text-sm text-neutral-600 absolute top-1/2 transform -translate-y-1/2 left-2">
+                  <span className="text-sm text-neutral-600 absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-1/2">
                     {time}
                   </span>
                 </div>
@@ -926,7 +916,8 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
               style={{ 
                 width: `${timeSlots.length * HOUR_WIDTH}px`, 
                 height: `${totalGridHeight}px`,
-                minWidth: `${timeSlots.length * HOUR_WIDTH}px`
+                minWidth: `${timeSlots.length * HOUR_WIDTH}px`,
+                paddingLeft: '40px',
               }}
             >
               {/* FIXED: Improved mouse event overlay for better hitbox */}
@@ -960,6 +951,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
                 );
               })}
 
+              {/* FIXED: Render events with proper vertical stacking */}
               {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -976,10 +968,10 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
                     const laneIndex = event.stackIndex || 0;
                     const totalLanes = event.totalLanes || 1;
                     
-                    // FIXED: Clean lane offset calculation
+                    // FIXED: Clean vertical offset calculation - no overlap
                     let laneOffset = 0;
                     if (totalLanes > 1) {
-                      // Multiple events, use compressed height and spacing
+                      // Multiple events, stack vertically with proper spacing
                       laneOffset = laneIndex * (SCHEDULE_COMPRESSED_HEIGHT + LANE_SPACING);
                     }
                     // Single event case: laneOffset remains 0
@@ -993,7 +985,8 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
                         style={{
                           left: `${left}px`,
                           top: `${top}px`,
-                          width: `${width}px`
+                          width: `${width}px`,
+                          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex
                         }}
                         onClickEvent={(scheduleData) => handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)}
                       />
@@ -1044,7 +1037,7 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
         <div 
           className="absolute pointer-events-none" 
           style={{ 
-            left: `${DAY_COLUMN_WIDTH + getCurrentTimePosition() - scrollLeft}px`,
+            left: `${DAY_COLUMN_WIDTH + 40 + getCurrentTimePosition() - scrollLeft}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
             height: `${totalGridHeight}px`,
             zIndex: Z_INDICES.CURRENT_TIME,
