@@ -38,7 +38,7 @@ const ScheduleGrid = ({
   const SCHEDULE_COMPRESSED_HEIGHT = 22;
   const SCHEDULE_MARGIN = 2; 
   const LANE_SPACING = 6;
-  const MAX_VISIBLE_STACKS = 3; 
+  const MAX_VISIBLE_STACKS = 10; 
   const DAY_PADDING_TOP = 12;
   const DAY_PADDING_BOTTOM = 8;
   
@@ -406,64 +406,70 @@ const ScheduleGrid = ({
     };
   }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
 
- const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
-  const isStacked = event.totalLanes > 1; // Logika yang lebih sederhana untuk menentukan stacked
+const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
+  const [isHovered, setIsHovered] = useState(false); // State untuk deteksi hover
+
+  const isStacked = event.totalLanes > 1;
   const isSingle = !isStacked;
   const laneIndex = event.stackIndex || 0;
   
   const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
 
-  // Handler untuk mencegah event bubbling saat mengklik
+  // Handler untuk mencegah event bubbling
   const handleClick = (e) => {
-    e.stopPropagation(); // Mencegah grid menangani klik
+    e.stopPropagation();
     onClickEvent && onClickEvent(event);
   };
+  const handleMouseDown = (e) => e.stopPropagation();
 
-  const handleMouseDown = (e) => {
-    e.stopPropagation(); // Mencegah grid memulai drag
-  };
-
-  // Jika kartu berada di luar batas tumpukan yang terlihat, jangan render sama sekali
-  // Ini akan ditangani oleh logika overflow indicator di tempat lain jika diperlukan.
+  // Jika kartu berada di luar batas tumpukan, jangan render
   if (laneIndex >= MAX_VISIBLE_STACKS) {
     return null;
+  }
+
+  // Gabungkan style dari props dengan style dinamis dari hover
+  const combinedStyle = {
+    ...style,
+    height: `${height}px`,
+    backgroundColor: event.color,
+    zIndex: isHovered ? 99 : style.zIndex, // NAIKKAN z-index saat di-hover
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s linear', // Transisi yang smooth
+  };
+
+  // Tambahkan transform scale saat di-hover
+  if (isHovered) {
+    // Gabungkan scale dari hover dengan transform yang sudah ada (untuk stacked card)
+    const existingTransform = style.transform || '';
+    combinedStyle.transform = `${existingTransform} scale(1.05)`;
+    combinedStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
   }
 
   // Layout untuk Kartu Tunggal (Single Event)
   if (isSingle) {
     return (
       <div
-        className={`absolute flex flex-col justify-center items-start cursor-pointer transition-transform duration-200 hover:scale-[1.03] ${className || ''}`}
+        className={`absolute flex flex-col justify-center items-start cursor-pointer ${className || ''}`}
         style={{
-          ...style,
-          height: `${height}px`,
-          backgroundColor: event.color,
+          ...combinedStyle,
           borderRadius: '5px',
-          paddingLeft: '8px', // Sesuai dengan 'px-2' Anda
-          paddingRight: '8px', // Sesuai dengan 'px-2' Anda
+          paddingLeft: '8px',
+          paddingRight: '8px',
           overflow: 'hidden',
-          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
-          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+          boxShadow: isHovered ? combinedStyle.boxShadow : '0 2px 6px rgba(0,0,0,0.12)',
         }}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Baris 1: Nama Agenda */}
         <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
           {event.name}
         </div>
-        
-        {/* Baris 2: Detail Waktu dan Lokasi */}
         <div className="w-full flex items-center">
           <span className="text-white text-[10px] font-normal font-['Public_Sans'] truncate">
             {event.startTime} - {event.endTime} {event.timezoneDisplay}
           </span>
-          <span className="text-white text-[10px] font-normal font-['Public_Sans'] mx-1">
-            |
-          </span>
-          {/* Untuk 'text-TEXT-NEW', saya asumsikan warna yang sedikit berbeda. 
-              Di sini saya menggunakan text-white dengan font-semibold untuk penekanan.
-              Ganti 'text-white' jika Anda punya kelas warna spesifik. */}
+          <span className="text-white text-[10px] font-normal font-['Public_Sans'] mx-1">|</span>
           <span className="text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
             {event.platform}
           </span>
@@ -475,22 +481,20 @@ const ScheduleGrid = ({
   // Layout untuk Kartu Bertumpuk (Stacked Event)
   return (
     <div
-      className={`absolute flex items-center cursor-pointer transition-transform duration-200 hover:scale-[1.03] ${className || ''}`}
+      className={`absolute flex items-center cursor-pointer ${className || ''}`}
       style={{
-        ...style,
-        height: `${height}px`,
-        backgroundColor: event.color,
+        ...combinedStyle,
         borderRadius: '4px',
         paddingLeft: '8px',
         paddingRight: '8px',
         overflow: 'hidden',
-        zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+        boxShadow: isHovered ? combinedStyle.boxShadow : '0 1px 4px rgba(0,0,0,0.1)',
       }}
       onClick={handleClick}
       onMouseDown={handleMouseDown}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Hanya menampilkan nama agenda untuk stacked card */}
       <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
         {event.name}
       </div>
