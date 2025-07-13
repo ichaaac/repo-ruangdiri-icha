@@ -114,12 +114,15 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
                 onClick={handleResend}
                 disabled={!canResend || isResending}
                 className={clsx(
-                  'font-bold transition-colors cursor-pointer',
-                  {
-                    'text-primary hover:text-primary-variant1': canResend,
-                    'text-zinc-400 cursor-not-allowed': !canResend
-                  }
-                )}
+                  'font-bold transition-colors cursor-pointer',
+                    // 👇 INI DIA YANG DITAMBAHIN BRO!
+                  'flex items-center justify-center w-full px- py-1',
+                    // 👆 SAMPE SINI
+                  {
+                    'text-primary hover:text-primary-variant1': canResend,
+                    'text-zinc-400 cursor-not-allowed': !canResend
+                  }
+                )}
                 whileHover={canResend ? { scale: 1.05 } : {}}
                 whileTap={canResend ? { scale: 0.95 } : {}}
               >
