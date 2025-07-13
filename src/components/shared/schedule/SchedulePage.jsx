@@ -252,6 +252,7 @@ const SchedulePage = ({ type = "school" }) => {
                   schedules={schedules}
                   loading={loading.schedules}
                   getScheduleAtTime={getScheduleAtTime}
+                  weekStartDate={selectedWeek}
                 />
               </div>
 

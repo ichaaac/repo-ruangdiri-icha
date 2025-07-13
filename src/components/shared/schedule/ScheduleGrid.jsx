@@ -8,6 +8,7 @@ const ScheduleGrid = ({
   containerWidth = 808,
   sidebarExpanded = false,
   selectedDates = [],
+  weekStartDate, 
   schedules = [],
   loading = false,
   getScheduleAtTime
@@ -64,6 +65,8 @@ const ScheduleGrid = ({
     MODALS: 100
   };
 
+  const PADDING_OFFSET = 40;
+
   // Static data - Monday=0 format
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
@@ -81,10 +84,9 @@ const ScheduleGrid = ({
     return slots;
   }, []);
 
+
 const halfHourDividers = useMemo(() => {
-  const dividers = [];
-  const PADDING_OFFSET = 40; // Biar bersih, pake variabel
-  
+  const dividers = [];  
   for (let i = 0; i < timeSlots.length - 1; i++) {
     // --- PERUBAHAN DI SINI ---
     const position = PADDING_OFFSET + (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
@@ -92,6 +94,7 @@ const halfHourDividers = useMemo(() => {
   }
   return dividers;
 }, [timeSlots.length]);
+
 
   // Helper functions
   const getTypeColor = useCallback((type) => {
@@ -349,7 +352,7 @@ const halfHourDividers = useMemo(() => {
     const absoluteX = clientX - rect.left + scrollLeft;
     const absoluteY = clientY - rect.top + scrollTop;
 
-    const gridX = absoluteX - DAY_COLUMN_WIDTH;
+    const gridX = absoluteX - PADDING_OFFSET;
     const gridY = absoluteY - TIME_HEADER_HEIGHT;
 
     if (gridX < 0 || gridY < 0) return null;
@@ -607,19 +610,20 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     }
   }, [isMouseDown, isDragging, dragStartPos, dragTimer, getInfoFromPosition, days.length, selectedArea]);
 
-  // FIXED: Proper date calculation based on Monday week start
-  const getDateFromDayIndex = useCallback((dayIndex) => {
-    const today = new Date();
-    const todayDayIndex = (today.getDay() + 6) % 7; // Convert to Monday=0 format
+const getDateFromDayIndex = useCallback((dayIndex) => {
+    // Jika tidak ada acuan, pakai minggu ini sebagai default
+    const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
     
-    // Calculate how many days to add/subtract from today
-    const dayDiff = dayIndex - todayDayIndex;
-    
-    const targetDate = new Date(today);
-    targetDate.setDate(today.getDate() + dayDiff);
-    
+    // Pastikan baseDate adalah hari Senin di minggunya
+    const baseDayOfWeek = (baseDate.getDay() + 6) % 7; // Senin=0, ..., Minggu=6
+    baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
+    baseDate.setHours(0, 0, 0, 0);
+
+    // Hitung tanggal target dari hari Senin tersebut
+    const targetDate = new Date(baseDate);
+    targetDate.setDate(baseDate.getDate() + dayIndex);
     return targetDate;
-  }, []);
+  }, [weekStartDate]); // <-- tambah
 
   const handleMouseUp = useCallback((e) => {
     if (dragTimer) {
