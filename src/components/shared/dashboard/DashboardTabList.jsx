@@ -1,3 +1,5 @@
+// src/components/shared/dashboard/DashboardTabList.jsx
+
 import { useState } from "react"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
@@ -140,7 +142,7 @@ const DashboardTabList = ({
         </div>
 
         <div 
-          className="bg-[#D7EDFF] min-h-[400px] rounded-xl overflow-hidden -mt-3"
+          className="bg-[#D7EDFF] rounded-xl overflow-hidden -mt-3"
           style={{
             width: '100%',
             maxWidth: `calc(100% - 32px)`,

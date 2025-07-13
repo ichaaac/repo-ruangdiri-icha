@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardTable.jsx - Fixed infinite scroll and dynamic height
+// src/components/shared/dashboard/DashboardTable.jsx 
 
 import React, { useCallback, useState, useRef, useEffect } from "react"
 
@@ -204,21 +204,6 @@ const DashboardTable = ({
     }
   }, [])
 
-  // Dynamic height calculation - more compact
-  const calculateMinHeight = () => {
-    if (itemsData.length === 0) return "200px"
-    
-    const baseHeight = 80 // Reduced base height
-    const rowHeight = 50 // Reduced row height
-    const totalHeight = baseHeight + (itemsData.length * rowHeight)
-    
-    // More compact constraints
-    const minHeight = Math.max(200, totalHeight)
-    const maxHeight = 600 // Reduced max height
-    
-    return `${Math.min(minHeight, maxHeight)}px`
-  }
-
   // Show empty state only when truly no data
   if (!itemsData || itemsData.length === 0) {
     return (
@@ -235,18 +220,9 @@ const DashboardTable = ({
   }
 
   return (
-    <div 
-      className="flex flex-col w-full"
-      style={{ minHeight: calculateMinHeight() }}
-    >
-      {/* Compact Table Container */}
-      <div 
-        className="w-full overflow-x-auto bg-white rounded-lg shadow-sm"
-        style={{ 
-          minHeight: calculateMinHeight(),
-          transition: "min-height 0.3s ease-in-out"
-        }}
-      >
+    <div className="flex flex-col w-full">
+      {/* Table Container - Let it size naturally based on content */}
+      <div className="w-full overflow-x-auto bg-white rounded-lg shadow-sm">
         <table className="w-full border-collapse table-fixed">
           <TableHeader type={type} />
           <tbody>
