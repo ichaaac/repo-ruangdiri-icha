@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED PRECISION AND STACKING
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED PRECISION POSITIONING & GOOGLE CALENDAR BEHAVIOR
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -19,15 +19,11 @@ const ScheduleGrid = ({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scrollLeft, setScrollLeft] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
-  const [isMouseDown, setIsMouseDown] = useState(false);
-  const [dragTimer, setDragTimer] = useState(null);
+  const [dragTimeTooltip, setDragTimeTooltip] = useState(null);
   
   const viewportRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const lastMousePosRef = useRef(null);
-  const dragStartTimeRef = useRef(null);
 
-  // Constants
+  // CONSTANTS - FIXED PRECISION
   const baseWidth = 808;
   const baseHeight = 254;
   const actualWidth = Math.max(baseWidth, containerWidth);
@@ -46,9 +42,10 @@ const ScheduleGrid = ({
   const TIME_HEADER_HEIGHT = 30;
   const DAY_COLUMN_WIDTH = 70;
   const HEADER_HEIGHT = 66;
-  const DRAG_THRESHOLD = 3; // FIXED: Reduced for better precision
-  const CLICK_TIMEOUT = 120; // FIXED: Reduced for better responsiveness
   const MAX_DRAG_DAYS = 2;
+
+  // FIXED: Consistent padding offset
+  const PADDING_OFFSET = 40;
 
   const Z_INDICES = {
     BACKGROUND: 0,
@@ -62,12 +59,11 @@ const ScheduleGrid = ({
     TIME_HEADERS: 40,
     CURRENT_TIME: 45,
     DAY_HEADERS: 50,
+    TOOLTIP: 60,
     MODALS: 100
   };
 
-  const PADDING_OFFSET = 40;
-
-  // Static data - Monday=0 format
+  // Static data
   const days = useMemo(() => [
     { short: "Sen", full: "Senin" }, { short: "Sel", full: "Selasa" },
     { short: "Rab", full: "Rabu" }, { short: "Kam", full: "Kamis" },
@@ -84,17 +80,15 @@ const ScheduleGrid = ({
     return slots;
   }, []);
 
-
-const halfHourDividers = useMemo(() => {
-  const dividers = [];  
-  for (let i = 0; i < timeSlots.length - 1; i++) {
-    // --- PERUBAHAN DI SINI ---
-    const position = PADDING_OFFSET + (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
-    dividers.push({ position, hourIndex: i });
-  }
-  return dividers;
-}, [timeSlots.length]);
-
+  const halfHourDividers = useMemo(() => {
+    const dividers = [];  
+    for (let i = 0; i < timeSlots.length - 1; i++) {
+      // FIXED: Half hour dividers positioned correctly with padding offset
+      const position = (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
+      dividers.push({ position, hourIndex: i });
+    }
+    return dividers;
+  }, [timeSlots.length]);
 
   // Helper functions
   const getTypeColor = useCallback((type) => {
@@ -150,11 +144,15 @@ const halfHourDividers = useMemo(() => {
     return 6;
   }, [timeSlots.length]);
 
+  // FIXED: Precise time to position conversion (without padding)
   const timeToPosition = useCallback((timeStr) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     const hourIndex = getHourDisplayIndex(hours);
+    
+    // PRECISE: Return position without padding (padding added during render)
     const basePosition = hourIndex * HOUR_WIDTH;
     const minuteOffset = (minutes / 60) * HOUR_WIDTH;
+    
     return basePosition + minuteOffset;
   }, [getHourDisplayIndex]);
 
@@ -164,7 +162,7 @@ const halfHourDividers = useMemo(() => {
     return Math.max(endPos - startPos, 60);
   }, [timeToPosition]);
 
-  // Current time helpers
+  // Current time helpers with precise positioning
   const getCurrentTimePosition = useCallback(() => {
     const now = currentTime;
     const hour = now.getHours();
@@ -172,7 +170,7 @@ const halfHourDividers = useMemo(() => {
     const hourIndex = getHourDisplayIndex(hour);
     const minuteOffset = (minutes / 60);
     const totalOffset = hourIndex + minuteOffset;
-    return totalOffset * HOUR_WIDTH;
+    return totalOffset * HOUR_WIDTH; // Without padding
   }, [currentTime, getHourDisplayIndex]);
 
   const getCurrentTimeString = useCallback(() => {
@@ -182,7 +180,7 @@ const halfHourDividers = useMemo(() => {
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // FIXED: Enhanced schedule processing with proper stacking
+  // Schedule processing
   const processedSchedules = useMemo(() => {
     const processed = {};
     const dayEvents = {};
@@ -194,7 +192,6 @@ const halfHourDividers = useMemo(() => {
 
     schedules.forEach(schedule => {
       const scheduleDate = new Date(schedule.startDateTime);
-      // Convert JS Date.getDay() (Sunday=0) to our format (Monday=0)
       const dayIndex = (scheduleDate.getDay() + 6) % 7;
       const dayName = days[dayIndex]?.full;
       
@@ -233,26 +230,22 @@ const halfHourDividers = useMemo(() => {
           duration: endTime - startTime,
           startMinutes: startTime.getHours() * 60 + startTime.getMinutes(),
           endMinutes: endTime.getHours() * 60 + endTime.getMinutes(),
-          createdAt: schedule.createdAt || startTime // FIXED: For sorting by creation time
+          createdAt: schedule.createdAt || startTime
         };
 
         dayEvents[dayName].push(displaySchedule);
       }
     });
 
-    // FIXED: Enhanced stacking algorithm for vertical arrangement
     Object.keys(dayEvents).forEach(dayName => {
       const events = dayEvents[dayName];
       
-      // Sort by start time first, then by creation time for consistent ordering
       events.sort((a, b) => {
         const timeDiff = a.startDateTime - b.startDateTime;
         if (timeDiff !== 0) return timeDiff;
-        // If same start time, sort by creation time (latest last)
         return new Date(a.createdAt) - new Date(b.createdAt);
       });
 
-      // FIXED: Group events by time slots and assign vertical positions
       const timeSlotGroups = {};
       
       events.forEach((event) => {
@@ -265,18 +258,15 @@ const halfHourDividers = useMemo(() => {
         timeSlotGroups[timeSlot].push(event);
       });
 
-      // Process each time slot group for stacking
       Object.keys(timeSlotGroups).forEach(timeSlot => {
         const slotEvents = timeSlotGroups[timeSlot];
         
-        // FIXED: Arrange events vertically without overlap
         slotEvents.forEach((event, index) => {
-          event.stackIndex = index; // Simple vertical index
+          event.stackIndex = index;
           event.totalLanes = slotEvents.length;
           event.isStacked = slotEvents.length > 1;
         });
 
-        // Add to processed structure
         if (!processed[dayName][timeSlot]) {
           processed[dayName][timeSlot] = [];
         }
@@ -305,7 +295,6 @@ const halfHourDividers = useMemo(() => {
         const visibleStacks = Math.min(maxStacks, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
         
-        // FIXED: Calculate space for vertical stacking
         for (let i = 0; i < visibleStacks; i++) {
           if (maxStacks === 1) {
             totalHeight += SCHEDULE_BASE_HEIGHT;
@@ -327,6 +316,239 @@ const halfHourDividers = useMemo(() => {
     return heights;
   }, [processedSchedules, days]);
 
+  // FIXED: Precise mouse position to time calculation
+  const getTimeFromPosition = useCallback((clientX, clientY) => {
+    if (!viewportRef.current) return null;
+    
+    const rect = viewportRef.current.getBoundingClientRect();
+    
+    // Get exact coordinates within viewport
+    const x = clientX - rect.left + scrollLeft;
+    const y = clientY - rect.top + scrollTop;
+    
+    // Remove padding to get pure grid position
+    const gridX = x - PADDING_OFFSET;
+    const gridY = y;
+    
+    if (gridX < 0 || gridY < 0) return null;
+    
+    // FIXED: 15-minute precision like Google Calendar
+    const hourIndex = Math.floor(gridX / HOUR_WIDTH);
+    if (hourIndex < 0 || hourIndex >= timeSlots.length) return null;
+    
+    // Calculate day index
+    let dayIndex = -1;
+    let currentTop = 0;
+    
+    for (let i = 0; i < days.length; i++) {
+      const dayHeight = dayRowHeights[days[i].full] || MIN_DAY_ROW_HEIGHT;
+      if (gridY >= currentTop && gridY < currentTop + dayHeight) {
+        dayIndex = i;
+        break;
+      }
+      currentTop += dayHeight;
+    }
+    
+    if (dayIndex < 0) return null;
+    
+    // FIXED: 15-minute precision calculation
+    const actualHour = getActualHour(hourIndex);
+    const pixelWithinHour = gridX - (hourIndex * HOUR_WIDTH);
+    const exactMinute = (pixelWithinHour / HOUR_WIDTH) * 60;
+    
+    // GOOGLE CALENDAR: 15-minute snapping
+    const snappedMinute = Math.round(exactMinute / 15) * 15;
+    const finalMinute = Math.min(snappedMinute, 45);
+    
+    // FIXED: Return exact position for consistency
+    const pixelX = hourIndex * HOUR_WIDTH + (finalMinute / 60) * HOUR_WIDTH;
+    
+    return {
+      hour: actualHour,
+      minute: finalMinute,
+      hourIndex: hourIndex,
+      dayIndex: dayIndex,
+      exactMinute: exactMinute,
+      pixelX: pixelX // Position without padding
+    };
+  }, [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour]);
+
+  const getDateFromDayIndex = useCallback((dayIndex) => {
+    const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
+    const baseDayOfWeek = (baseDate.getDay() + 6) % 7;
+    baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
+    baseDate.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(baseDate);
+    targetDate.setDate(baseDate.getDate() + dayIndex);
+    return targetDate;
+  }, [weekStartDate]);
+
+  // FIXED: Mouse handlers with proper tooltip positioning
+  const handleMouseDown = useCallback((e) => {
+    if (e.target.closest('.schedule-event')) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const timeInfo = getTimeFromPosition(e.clientX, e.clientY);
+    if (!timeInfo) return;
+    
+    setDragStartPos(timeInfo);
+    setSelectedArea({
+      startDay: timeInfo.dayIndex,
+      endDay: timeInfo.dayIndex,
+      startHour: timeInfo.hour,
+      endHour: timeInfo.hour,
+      startMinute: timeInfo.minute,
+      endMinute: timeInfo.minute,
+      startPixelX: timeInfo.pixelX,
+      endPixelX: timeInfo.pixelX
+    });
+    setIsDragging(true);
+    
+    // FIXED: Tooltip positioned relative to viewport
+    const rect = viewportRef.current.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
+    
+    setDragTimeTooltip({
+      x: relativeX,
+      y: relativeY,
+      startTime: `${timeInfo.hour.toString().padStart(2, '0')}:${timeInfo.minute.toString().padStart(2, '0')}`,
+      endTime: `${timeInfo.hour.toString().padStart(2, '0')}:${(timeInfo.minute + 15).toString().padStart(2, '0')}`
+    });
+  }, [getTimeFromPosition]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging || !dragStartPos) return;
+    
+    const timeInfo = getTimeFromPosition(e.clientX, e.clientY);
+    if (!timeInfo) return;
+    
+    // Constrain to max drag days
+    const startDayIndex = dragStartPos.dayIndex;
+    const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
+    const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
+    const constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, timeInfo.dayIndex));
+    
+    setSelectedArea(prev => ({
+      ...prev,
+      endDay: constrainedDayIndex,
+      endHour: timeInfo.hour,
+      endMinute: timeInfo.minute,
+      endPixelX: timeInfo.pixelX
+    }));
+    
+    // FIXED: Update tooltip with relative positioning
+    const rect = viewportRef.current.getBoundingClientRect();
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
+    
+    const startTime = `${dragStartPos.hour.toString().padStart(2, '0')}:${dragStartPos.minute.toString().padStart(2, '0')}`;
+    const endTime = `${timeInfo.hour.toString().padStart(2, '0')}:${timeInfo.minute.toString().padStart(2, '0')}`;
+    
+    setDragTimeTooltip({
+      x: relativeX,
+      y: relativeY - 10,
+      startTime: startTime,
+      endTime: endTime
+    });
+  }, [isDragging, dragStartPos, days.length, getTimeFromPosition]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging || !selectedArea || !dragStartPos) return;
+    
+    const isClick = selectedArea.startDay === selectedArea.endDay && 
+                   selectedArea.startHour === selectedArea.endHour && 
+                   selectedArea.startMinute === selectedArea.endMinute;
+    
+    if (isClick) {
+      // CLICK: Create 30-minute slot
+      const clickedDate = getDateFromDayIndex(selectedArea.startDay);
+      const startDateTime = new Date(clickedDate);
+      startDateTime.setHours(selectedArea.startHour, selectedArea.startMinute, 0, 0);
+      
+      const endDateTime = new Date(startDateTime);
+      endDateTime.setMinutes(endDateTime.getMinutes() + 30);
+      
+      onTimeSlotSelect && onTimeSlotSelect({
+        startDateTime,
+        endDateTime,
+        day: days[selectedArea.startDay]?.full,
+        isMultipleDays: false,
+        dates: [{
+          date: clickedDate.toISOString().split('T')[0],
+          startTime: `${selectedArea.startHour.toString().padStart(2, '0')}:${selectedArea.startMinute.toString().padStart(2, '0')}`,
+          endTime: `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`,
+          timezone: 'WIB'
+        }],
+        draggedDays: 1
+      });
+    } else {
+      // DRAG: Create range selection
+      const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
+      const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
+      
+      // Preserve exact start and end times
+      let startHour, startMinute, endHour, endMinute;
+      
+      if (selectedArea.startDay <= selectedArea.endDay) {
+        startHour = selectedArea.startHour;
+        startMinute = selectedArea.startMinute;
+        endHour = selectedArea.endHour;
+        endMinute = selectedArea.endMinute;
+      } else {
+        startHour = selectedArea.endHour;
+        startMinute = selectedArea.endMinute;
+        endHour = selectedArea.startHour;
+        endMinute = selectedArea.startMinute;
+      }
+      
+      // Ensure minimum 15 minutes
+      if (startHour === endHour && startMinute === endMinute) {
+        endMinute += 15;
+        if (endMinute >= 60) {
+          endHour += 1;
+          endMinute -= 60;
+        }
+      }
+      
+      const startDate = getDateFromDayIndex(startDay);
+      const startDateTime = new Date(startDate);
+      startDateTime.setHours(startHour, startMinute, 0, 0);
+      
+      const endDateTime = new Date(startDate);
+      endDateTime.setHours(endHour, endMinute, 0, 0);
+      
+      const dates = [];
+      for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
+        const dayDate = getDateFromDayIndex(dayIndex);
+        dates.push({
+          date: dayDate.toISOString().split('T')[0],
+          startTime: `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
+          endTime: `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`,
+          timezone: 'WIB'
+        });
+      }
+      
+      onTimeSlotSelect && onTimeSlotSelect({
+        startDateTime,
+        endDateTime,
+        day: days[startDay]?.full,
+        isMultipleDays: startDay !== endDay,
+        dates,
+        draggedDays: endDay - startDay + 1
+      });
+    }
+    
+    // Reset states
+    setIsDragging(false);
+    setSelectedArea(null);
+    setDragStartPos(null);
+    setDragTimeTooltip(null);
+  }, [isDragging, selectedArea, dragStartPos, days, getDateFromDayIndex, onTimeSlotSelect]);
+
   const totalGridHeight = useMemo(() => {
     return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0);
   }, [dayRowHeights]);
@@ -340,111 +562,124 @@ const halfHourDividers = useMemo(() => {
     return top;
   }, [days, dayRowHeights]);
 
-  // FIXED: More precise position calculation like Google Calendar
-  const getInfoFromPosition = useCallback((clientX, clientY) => {
-    if (!viewportRef.current) return null;
+  const handleScheduleClick = useCallback((event, scheduleData) => {
+    event.preventDefault();
+    event.stopPropagation();
     
-    const rect = viewportRef.current.getBoundingClientRect();
-    const scrollLeft = viewportRef.current.scrollLeft;
-    const scrollTop = viewportRef.current.scrollTop;
-
-    // FIXED: High precision position calculation
-    const absoluteX = clientX - rect.left + scrollLeft;
-    const absoluteY = clientY - rect.top + scrollTop;
-
-    const gridX = absoluteX - PADDING_OFFSET;
-    const gridY = absoluteY - TIME_HEADER_HEIGHT;
-
-    if (gridX < 0 || gridY < 0) return null;
-
-    // FIXED: More precise hour calculation with sub-pixel accuracy
-    const exactHourFloat = gridX / HOUR_WIDTH;
-    const hourIndex = Math.floor(exactHourFloat);
-    
-    // FIXED: Precise day calculation
-    let dayIndex = -1;
-    let currentTop = 0;
-    
-    for (let i = 0; i < days.length; i++) {
-      const dayHeight = dayRowHeights[days[i].full] || MIN_DAY_ROW_HEIGHT;
-      if (gridY >= currentTop && gridY < currentTop + dayHeight) {
-        dayIndex = i;
-        break;
-      }
-      currentTop += dayHeight;
+    if (!isDragging) {
+      onScheduleClick && onScheduleClick(scheduleData.originalData || scheduleData);
     }
+  }, [isDragging, onScheduleClick]);
 
-    if (hourIndex < 0 || hourIndex >= timeSlots.length || dayIndex < 0 || dayIndex >= days.length) {
+  const handleScroll = useCallback((e) => {
+    setScrollLeft(e.target.scrollLeft);
+    setScrollTop(e.target.scrollTop);
+  }, []);
+
+  // Selection box visualization with fixed positioning
+  const selectionBox = useMemo(() => {
+    if (!selectedArea || !isDragging) return null;
+    
+    const startDayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
+    const endDayIndex = Math.max(selectedArea.startDay, selectedArea.endDay);
+    const startPixelX = Math.min(selectedArea.startPixelX, selectedArea.endPixelX);
+    const endPixelX = Math.max(selectedArea.startPixelX, selectedArea.endPixelX);
+    
+    const top = getDayRowTop(startDayIndex);
+    let height = 0;
+    for (let i = startDayIndex; i <= endDayIndex; i++) {
+      const dayName = days[i]?.full;
+      height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
+    }
+    
+    // FIXED: Position with padding offset for proper alignment
+    const left = PADDING_OFFSET + startPixelX;
+    const width = Math.max(endPixelX - startPixelX, 30);
+    
+    return (
+      <div
+        className="absolute bg-blue-400/20 border border-blue-400 rounded pointer-events-none"
+        style={{ top, left, width, height, zIndex: Z_INDICES.SELECTION_BOX }}
+      />
+    );
+  }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
+
+  const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
+    const isStacked = event.totalLanes > 1;
+    const isSingle = !isStacked;
+    const laneIndex = event.stackIndex || 0;
+    
+    const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
+
+    const handleClick = (e) => {
+      e.stopPropagation();
+      onClickEvent && onClickEvent(event);
+    };
+    const handleMouseDown = (e) => e.stopPropagation();
+
+    if (laneIndex >= MAX_VISIBLE_STACKS) {
       return null;
     }
 
-    const actualHour = getActualHour(hourIndex);
-    
-    // FIXED: Sub-minute precision for better drag accuracy
-    const pixelWithinHour = gridX % HOUR_WIDTH;
-    const minuteFloat = (pixelWithinHour / HOUR_WIDTH) * 60;
-    
-    // FIXED: Round to nearest 5-minute interval but maintain precision
-    const actualMinute = Math.round(minuteFloat / 5) * 5;
-    const clampedMinute = Math.min(Math.max(actualMinute, 0), 55);
-    
-    return { 
-      hour: actualHour, 
-      minute: clampedMinute,
-      hourIndex, 
-      dayIndex,
-      exactPixelX: gridX,
-      exactPixelY: gridY - getDayRowTop(dayIndex),
-      // FIXED: Additional precision data
-      subPixelX: gridX - Math.floor(gridX),
-      subPixelY: gridY - Math.floor(gridY)
+    const combinedStyle = {
+      ...style,
+      height: `${height}px`,
+      backgroundColor: event.color,
+      zIndex: isHovered ? 99 : style.zIndex,
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s linear',
     };
-  }, [getActualHour, days.length, timeSlots.length, dayRowHeights, getDayRowTop]);
 
-const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
-  const [isHovered, setIsHovered] = useState(false);
+    if (isHovered) {
+      const existingTransform = style.transform || '';
+      combinedStyle.transform = `${existingTransform} scale(1.05)`;
+      combinedStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
+    }
 
-  const isStacked = event.totalLanes > 1;
-  const isSingle = !isStacked;
-  const laneIndex = event.stackIndex || 0;
-  
-  const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
+    if (isSingle) {
+      return (
+        <div
+          className={`absolute flex flex-col justify-center items-start cursor-pointer schedule-event ${className || ''}`}
+          style={{
+            ...combinedStyle,
+            borderRadius: '5px',
+            paddingLeft: '8px',
+            paddingRight: '8px',
+            overflow: 'hidden',
+            boxShadow: isHovered ? combinedStyle.boxShadow : '0 2px 6px rgba(0,0,0,0.12)',
+          }}
+          onClick={handleClick}
+          onMouseDown={handleMouseDown}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
+            {event.name}
+          </div>
+          <div className="w-full flex items-center">
+            <span className="text-white text-[10px] font-normal font-['Public_Sans'] truncate">
+              {event.startTime} - {event.endTime} {event.timezoneDisplay}
+            </span>
+            <span className="text-white text-[10px] font-normal font-['Public_Sans'] mx-1">|</span>
+            <span className="text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
+              {event.platform}
+            </span>
+          </div>
+        </div>
+      );
+    }
 
-  const handleClick = (e) => {
-    e.stopPropagation();
-    onClickEvent && onClickEvent(event);
-  };
-  const handleMouseDown = (e) => e.stopPropagation();
-
-  if (laneIndex >= MAX_VISIBLE_STACKS) {
-    return null;
-  }
-
-  const combinedStyle = {
-    ...style,
-    height: `${height}px`,
-    backgroundColor: event.color,
-    zIndex: isHovered ? 99 : style.zIndex,
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s linear',
-  };
-
-  if (isHovered) {
-    const existingTransform = style.transform || '';
-    combinedStyle.transform = `${existingTransform} scale(1.05)`;
-    combinedStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
-  }
-
-  if (isSingle) {
     return (
       <div
-        className={`absolute flex flex-col justify-center items-start cursor-pointer ${className || ''}`}
+        className={`absolute flex items-center cursor-pointer schedule-event ${className || ''}`}
         style={{
           ...combinedStyle,
-          borderRadius: '5px',
+          borderRadius: '4px',
           paddingLeft: '8px',
           paddingRight: '8px',
           overflow: 'hidden',
-          boxShadow: isHovered ? combinedStyle.boxShadow : '0 2px 6px rgba(0,0,0,0.12)',
+          boxShadow: isHovered ? combinedStyle.boxShadow : '0 1px 4px rgba(0,0,0,0.1)',
         }}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
@@ -454,330 +689,20 @@ const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
         <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
           {event.name}
         </div>
-        <div className="w-full flex items-center">
-          <span className="text-white text-[10px] font-normal font-['Public_Sans'] truncate">
-            {event.startTime} - {event.endTime} {event.timezoneDisplay}
-          </span>
-          <span className="text-white text-[10px] font-normal font-['Public_Sans'] mx-1">|</span>
-          <span className="text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
-            {event.platform}
-          </span>
-        </div>
       </div>
     );
-  }
+  };
 
-  return (
-    <div
-      className={`absolute flex items-center cursor-pointer ${className || ''}`}
-      style={{
-        ...combinedStyle,
-        borderRadius: '4px',
-        paddingLeft: '8px',
-        paddingRight: '8px',
-        overflow: 'hidden',
-        boxShadow: isHovered ? combinedStyle.boxShadow : '0 1px 4px rgba(0,0,0,0.1)',
-      }}
-      onClick={handleClick}
-      onMouseDown={handleMouseDown}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
-        {event.name}
-      </div>
-    </div>
-  );
-};
-
-  // Event handlers
-  const handleScheduleClick = useCallback((event, scheduleData) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    if (!isDragging && !isMouseDown) {
-      onScheduleClick && onScheduleClick(scheduleData.originalData || scheduleData);
-    }
-  }, [isDragging, isMouseDown, onScheduleClick]);
-
-  // FIXED: More precise mouse handling for Google Calendar-like behavior
-  const handleMouseDown = useCallback((e) => {
-    if (e.target.closest('.schedule-event')) {
-      return;
-    }
-
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const info = getInfoFromPosition(e.clientX, e.clientY);
-    
-    if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-      setIsMouseDown(true);
-      setDragStartPos({ x: e.clientX, y: e.clientY });
-      dragStartTimeRef.current = Date.now();
-      
-      // FIXED: Shorter timeout for more responsive feel
-      const timer = setTimeout(() => {
-        if (isMouseDown) {
-          setIsDragging(true);
-          setSelectedArea({
-            startDay: info.dayIndex, 
-            endDay: info.dayIndex,
-            startHour: info.hour,
-            endHour: info.hour,
-            startMinute: info.minute,
-            endMinute: info.minute,
-            startHourIndex: info.hourIndex,
-            endHourIndex: info.hourIndex,
-            startPixelX: info.exactPixelX,
-            endPixelX: info.exactPixelX,
-            startPixelY: info.exactPixelY,
-            endPixelY: info.exactPixelY
-          });
-          lastMousePosRef.current = `${info.dayIndex}-${info.hourIndex}-${info.minute}`;
-        }
-      }, CLICK_TIMEOUT);
-      
-      setDragTimer(timer);
-    }
-  }, [getInfoFromPosition, days, isMouseDown]);
-
-  // FIXED: More responsive mouse movement
-  const handleMouseMove = useCallback((e) => {
-    if (!isMouseDown) return;
-
-    const dragDistance = dragStartPos ? Math.sqrt(
-      Math.pow(e.clientX - dragStartPos.x, 2) + Math.pow(e.clientY - dragStartPos.y, 2)
-    ) : 0;
-
-    // FIXED: Lower threshold for more sensitive drag detection
-    if (!isDragging && dragDistance > DRAG_THRESHOLD) {
-      if (dragTimer) {
-        clearTimeout(dragTimer);
-        setDragTimer(null);
-      }
-      setIsDragging(true);
-      
-      const info = getInfoFromPosition(dragStartPos.x, dragStartPos.y);
-      if (info) {
-        setSelectedArea({
-          startDay: info.dayIndex, 
-          endDay: info.dayIndex,
-          startHour: info.hour,
-          endHour: info.hour,
-          startMinute: info.minute,
-          endMinute: info.minute,
-          startHourIndex: info.hourIndex,
-          endHourIndex: info.hourIndex,
-          startPixelX: info.exactPixelX,
-          endPixelX: info.exactPixelX,
-          startPixelY: info.exactPixelY,
-          endPixelY: info.exactPixelY
-        });
-      }
-    }
+  // Global mouse events
+  useEffect(() => {
+    const handleGlobalMouseMove = (e) => {
+      handleMouseMove(e);
+    };
+    const handleGlobalMouseUp = () => {
+      handleMouseUp();
+    };
 
     if (isDragging) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-
-      animationFrameRef.current = requestAnimationFrame(() => {
-        const info = getInfoFromPosition(e.clientX, e.clientY);
-        if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-          
-          const startDayIndex = selectedArea?.startDay || 0;
-          const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
-          const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
-          
-          const constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, info.dayIndex));
-          
-          const currentPos = `${constrainedDayIndex}-${info.hourIndex}-${info.minute}`;
-          if (lastMousePosRef.current !== currentPos) {
-            lastMousePosRef.current = currentPos;
-            setSelectedArea(prev => ({ 
-              ...prev, 
-              endDay: constrainedDayIndex, 
-              endHour: info.hour,
-              endMinute: info.minute,
-              endHourIndex: info.hourIndex,
-              endPixelX: info.exactPixelX,
-              endPixelY: info.exactPixelY
-            }));
-          }
-        }
-      });
-    }
-  }, [isMouseDown, isDragging, dragStartPos, dragTimer, getInfoFromPosition, days.length, selectedArea]);
-
-const getDateFromDayIndex = useCallback((dayIndex) => {
-    // Jika tidak ada acuan, pakai minggu ini sebagai default
-    const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
-    
-    // Pastikan baseDate adalah hari Senin di minggunya
-    const baseDayOfWeek = (baseDate.getDay() + 6) % 7; // Senin=0, ..., Minggu=6
-    baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
-    baseDate.setHours(0, 0, 0, 0);
-
-    // Hitung tanggal target dari hari Senin tersebut
-    const targetDate = new Date(baseDate);
-    targetDate.setDate(baseDate.getDate() + dayIndex);
-    return targetDate;
-  }, [weekStartDate]); // <-- tambah
-
-  const handleMouseUp = useCallback((e) => {
-    if (dragTimer) {
-      clearTimeout(dragTimer);
-      setDragTimer(null);
-    }
-
-    if (!isMouseDown) return;
-
-    const wasClick = !isDragging && dragStartTimeRef.current && 
-                    (Date.now() - dragStartTimeRef.current) < CLICK_TIMEOUT;
-
-    if (wasClick && dragStartPos) {
-      const info = getInfoFromPosition(dragStartPos.x, dragStartPos.y);
-      if (info && info.dayIndex >= 0 && info.dayIndex < days.length) {
-        // FIXED: Calculate correct date for clicked day
-        const clickedDate = getDateFromDayIndex(info.dayIndex);
-        
-        const startDateTime = new Date(clickedDate);
-        startDateTime.setHours(info.hour, info.minute, 0, 0);
-        
-        const endDateTime = new Date(clickedDate);
-        endDateTime.setHours(info.hour, info.minute + 5, 0, 0);
-
-        const dayName = days[info.dayIndex]?.full;
-
-        onTimeSlotSelect && onTimeSlotSelect({ 
-          startDateTime, 
-          endDateTime, 
-          day: dayName,
-          isMultipleDays: false,
-          dates: [{
-            date: clickedDate.toISOString().split('T')[0],
-            startTime: `${info.hour.toString().padStart(2, '0')}:${info.minute.toString().padStart(2, '0')}`,
-            endTime: `${info.hour.toString().padStart(2, '0')}:${(info.minute + 5).toString().padStart(2, '0')}`,
-            timezone: 'WIB'
-          }],
-          draggedDays: 1
-        });
-      }
-    } else if (isDragging && selectedArea && dragStartPos) {
-      const dragDistance = Math.sqrt(
-        Math.pow(e.clientX - dragStartPos.x, 2) + Math.pow(e.clientY - dragStartPos.y, 2)
-      );
-      
-      if (dragDistance >= DRAG_THRESHOLD) {
-        const startHour = Math.min(selectedArea.startHour, selectedArea.endHour);
-        const endHour = Math.max(selectedArea.startHour, selectedArea.endHour);
-        const startMinute = Math.min(selectedArea.startMinute || 0, selectedArea.endMinute || 0);
-        const endMinute = Math.max(selectedArea.startMinute || 0, selectedArea.endMinute || 0);
-        const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
-        const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
-
-        let finalEndHour = endHour;
-        let finalEndMinute = endMinute + 5;
-        if (finalEndMinute >= 60) {
-          finalEndHour = endHour + 1;
-          finalEndMinute = finalEndMinute - 60;
-        }
-
-        if (startDay >= 0 && startDay < days.length) {
-          // FIXED: Calculate correct date for dragged start day
-          const draggedStartDate = getDateFromDayIndex(startDay);
-          
-          const startDateTime = new Date(draggedStartDate);
-          startDateTime.setHours(startHour, startMinute, 0, 0);
-          
-          const endDateTime = new Date(draggedStartDate);
-          endDateTime.setHours(finalEndHour, finalEndMinute, 0, 0);
-
-          const dayName = days[startDay]?.full;
-          const isMultipleDays = startDay !== endDay;
-
-          const dates = [];
-          for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
-            const dayDate = getDateFromDayIndex(dayIndex);
-            
-            dates.push({
-              date: dayDate.toISOString().split('T')[0],
-              startTime: `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
-              endTime: `${finalEndHour.toString().padStart(2, '0')}:${finalEndMinute.toString().padStart(2, '0')}`,
-              timezone: 'WIB'
-            });
-          }
-
-          onTimeSlotSelect && onTimeSlotSelect({ 
-            startDateTime, 
-            endDateTime, 
-            day: dayName,
-            isMultipleDays,
-            dates,
-            draggedDays: endDay - startDay + 1
-          });
-        }
-      }
-    }
-    
-    setIsDragging(false);
-    setIsMouseDown(false);
-    setSelectedArea(null);
-    setDragStartPos(null);
-    lastMousePosRef.current = null;
-    dragStartTimeRef.current = null;
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-  }, [isMouseDown, isDragging, selectedArea, dragStartPos, dragTimer, days, onTimeSlotSelect, getInfoFromPosition, getDateFromDayIndex]);
-
-  const handleScroll = useCallback((e) => {
-    const newScrollLeft = e.target.scrollLeft;
-    const newScrollTop = e.target.scrollTop;
-    setScrollLeft(newScrollLeft);
-    setScrollTop(newScrollTop);
-  }, []);
-
-  const selectionBox = useMemo(() => {
-    if (!selectedArea || !isDragging) return null;
-
-    const startDayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
-    const endDayIndex = Math.max(selectedArea.startDay, selectedArea.endDay);
-    
-    const startPixelX = Math.min(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
-    const endPixelX = Math.max(selectedArea.startPixelX || 0, selectedArea.endPixelX || 0);
-
-    const top = getDayRowTop(startDayIndex);
-    let height = 0;
-    for (let i = startDayIndex; i <= endDayIndex; i++) {
-      const dayName = days[i]?.full;
-      height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
-    }
-    
-    const left = startPixelX;
-    const width = Math.max(endPixelX - startPixelX, 10);
-
-    return (
-      <div
-        className="absolute bg-blue-400/20 rounded-sm pointer-events-none"
-        style={{ top, left, width, height, zIndex: Z_INDICES.SELECTION_BOX }}
-      />
-    );
-  }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const handleGlobalMouseMove = (e) => handleMouseMove(e);
-    const handleGlobalMouseUp = (e) => handleMouseUp(e);
-
-    if (isMouseDown) {
       document.addEventListener('mousemove', handleGlobalMouseMove);
       document.addEventListener('mouseup', handleGlobalMouseUp);
     }
@@ -786,7 +711,12 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [isMouseDown, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div 
@@ -815,7 +745,7 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
       {/* Grid Container */}
       <div className="relative overflow-hidden" style={{ height: `${actualHeight - HEADER_HEIGHT}px` }}>
         
-        {/* Time Header */}
+        {/* Time Header - FIXED with proper padding */}
         <div 
           className="absolute top-0 bg-white"
           style={{ 
@@ -833,7 +763,7 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                 width: `${timeSlots.length * HOUR_WIDTH}px`,
                 minWidth: `${timeSlots.length * HOUR_WIDTH}px`, 
                 transform: `translateX(-${scrollLeft}px)`,
-                paddingLeft: '40px'
+                paddingLeft: `${PADDING_OFFSET}px`
               }}
             >
               {timeSlots.map((time, i) => (
@@ -848,12 +778,13 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                 </div>
               ))}
 
+              {/* FIXED: Half hour dividers with proper positioning */}
               {halfHourDividers.map((divider, i) => (
                 <div 
                   key={`divider-30min-${i}`}
                   className="absolute pointer-events-none bg-red-400" 
                   style={{ 
-                    left: `${divider.position}px`,
+                    left: `${PADDING_OFFSET + divider.position}px`,
                     top: '35%',
                     width: '1px',       
                     height: '10px',        
@@ -921,23 +852,21 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                 width: `${timeSlots.length * HOUR_WIDTH}px`, 
                 height: `${totalGridHeight}px`,
                 minWidth: `${timeSlots.length * HOUR_WIDTH}px`,
-                paddingLeft: '40px',
+                paddingLeft: `${PADDING_OFFSET}px`,
               }}
             >
-              {/* FIXED: Improved mouse event overlay for better hitbox */}
+              {/* Direct drag area */}
               <div
-                className="absolute inset-0 cursor-pointer"
+                className="absolute inset-0"
                 style={{ 
                   zIndex: Z_INDICES.BACKGROUND,
                   backgroundColor: 'transparent',
-                  width: '100%',
-                  height: '100%'
+                  cursor: isDragging ? 'grabbing' : 'cell'
                 }}
                 onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
               />
 
+              {/* Day separator lines */}
               {days.map((day, i) => {
                 if (i === 0) return null;
                 const top = getDayRowTop(i);
@@ -955,7 +884,7 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                 );
               })}
 
-              {/* FIXED: Render events with proper vertical stacking */}
+              {/* FIXED: Schedule events with precise positioning */}
               {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -966,19 +895,17 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                   if (eventsInSlot.length === 0) return null;
 
                   return eventsInSlot.map((event, eventIndex) => {
+                    // FIXED: Use timeToPosition (returns position without padding)
                     const left = timeToPosition(event.startTime);
                     const width = calculateEventWidth(event.startTime, event.endTime);
                     
                     const laneIndex = event.stackIndex || 0;
                     const totalLanes = event.totalLanes || 1;
                     
-                    // FIXED: Clean vertical offset calculation - no overlap
                     let laneOffset = 0;
                     if (totalLanes > 1) {
-                      // Multiple events, stack vertically with proper spacing
                       laneOffset = laneIndex * (SCHEDULE_COMPRESSED_HEIGHT + LANE_SPACING);
                     }
-                    // Single event case: laneOffset remains 0
                     
                     const top = dayTop + DAY_PADDING_TOP + laneOffset;
 
@@ -987,7 +914,7 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                         key={`${event.id}-${laneIndex}`}
                         event={event}
                         style={{
-                          left: `${left}px`,
+                          left: `${left}px`, // Position without padding (padding handled by container)
                           top: `${top}px`,
                           width: `${width}px`,
                           zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex
@@ -999,6 +926,7 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                 });
               })}
 
+              {/* Empty state messages */}
               {selectedDates.length > 0 && days.map((day, dayIndex) => {
                 const hasEvents = Object.values(processedSchedules[day.full] || {}).some(events => events.length > 0);
                 const isDaySelected = selectedDates.some(date => {
@@ -1032,16 +960,17 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
                 return null;
               })}
 
+              {/* Selection box */}
               {selectionBox}
             </div>
           </div>
         </div>
 
-        {/* Current time line */}
+        {/* FIXED: Current time line with precise positioning */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
-            left: `${DAY_COLUMN_WIDTH + 40 + getCurrentTimePosition() - scrollLeft}px`,
+            left: `${DAY_COLUMN_WIDTH + PADDING_OFFSET + getCurrentTimePosition() - scrollLeft}px`,
             top: `${TIME_HEADER_HEIGHT}px`,
             height: `${totalGridHeight}px`,
             zIndex: Z_INDICES.CURRENT_TIME,
@@ -1059,6 +988,20 @@ const getDateFromDayIndex = useCallback((dayIndex) => {
             </div>
           </div>
         </div>
+
+        {/* FIXED: Tooltip positioned within viewport */}
+        {dragTimeTooltip && (
+          <div
+            className="absolute pointer-events-none bg-black text-white text-xs px-2 py-1 rounded shadow-lg"
+            style={{
+              left: `${dragTimeTooltip.x + 10}px`,
+              top: `${dragTimeTooltip.y - 30}px`,
+              zIndex: Z_INDICES.TOOLTIP
+            }}
+          >
+            {dragTimeTooltip.startTime} - {dragTimeTooltip.endTime}
+          </div>
+        )}
       </div>
     </div>
   );

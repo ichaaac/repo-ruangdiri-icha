@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED DATE HANDLING AND UI
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED TIME RANGE & DATE CALCULATION
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -47,7 +47,7 @@ const AddScheduleModal = ({
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // FIXED: Initialize form when modal opens or mode changes
+  // Initialize form when modal opens or mode changes
   useEffect(() => {
     if (isOpen) {
       if (mode === "edit" && initialData) {
@@ -173,14 +173,17 @@ const AddScheduleModal = ({
     { label: "Seed-in", value: "organization" }
   ];
 
-  // Generate time options
+  // FIXED: Generate time options matching ScheduleGrid (06:00-00:00 with 5-minute intervals)
   const timeOptions = (() => {
     const times = [];
-    for (let hour = 6; hour < 22; hour++) {
+    // From 6:00 to 23:55 (ScheduleGrid shows 6:00-23:00 + 00:00)
+    for (let hour = 6; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
         times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
       }
     }
+    // Add 00:00 to match ScheduleGrid
+    times.push('00:00');
     return times;
   })();
 
@@ -582,7 +585,6 @@ const AddScheduleModal = ({
     if (hasUnsavedChanges() && !hasShownUnsavedToast) {
       setHasShownUnsavedToast(true);
       
-      // FIXED: Improved toast with proper button styling
       toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
         action: {
           label: "Ya, Batalkan",
@@ -749,15 +751,13 @@ const AddScheduleModal = ({
                 </div>
               ))}
 
-              {/* FIXED: Multiple Date indicator - no icon, just black square */}
+              {/* Multiple Date indicator */}
               {formData.dates.length > 1 && (
                 <div className="flex gap-2 items-center text-sm">
                   <div className="w-4 h-4 bg-[#535353] rounded-sm"></div>
                   <span className="text-[#535353]">Multiple Date</span>
                 </div>
               )}
-
-              {/* REMOVED: Debug info tidak ditampilkan lagi */}
             </div>
           </div>
 
