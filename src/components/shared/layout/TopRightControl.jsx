@@ -1,100 +1,55 @@
+// src/components/shared/layout/TopRightControl.jsx - Updated with notifications
+
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
+import { useNotificationDropdown } from "@/components/shared/notifications/hooks/useNotificationDropdown";
 
-// Komponen Dropdown Notifikasi
-const NotificationDropdown = () => {
-  const notifications = [
-    {
-      icon: "settings",
-      title: "Kamu sudah mengubah password kamu",
-      time: "3 jam yang lalu",
-    },
-    {
-      icon: "event",
-      title: "Antony Martial buat jadwal konseling baru",
-      description: "New bookings",
-      time: "3 jam yang lalu",
-    },
-    {
-      icon: "check_circle",
-      title: "Kamu telah mengirim Laporan Berisiko ke e....",
-      time: "3 jam yang lalu",
-    },
-  ];
-
-  return (
-    <div className="absolute right-0 mt-2 w-[395px] max-h-[350px] overflow-y-auto bg-white shadow-lg rounded-b-xl z-50 p-5 flex flex-col gap-4">
-      {/* Title */}
-      <div className="text-[#488abe] font-semibold text-base">Notifikasi</div>
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-5 text-sm text-[#535353]">
-        <div className="flex items-center gap-1 font-bold underline cursor-pointer">
-          Semua
-          <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-            150
-          </span>
-        </div>
-        <div className="font-normal cursor-pointer">Konseling</div>
-      </div>
-
-      {/* Date Separator */}
-      <div className="text-xs text-[#8a8a8a]">Hari ini</div>
-
-      {/* Notification List */}
-      <div className="flex flex-col gap-4">
-        {notifications.map((item, idx) => (
-          <div key={idx} className="flex gap-3 items-start">
-            <i className="material-icons text-[32px] text-[#535353]">
-              {item.icon}
-            </i>
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold text-[#535353]">{item.title}</p>
-              <p className="text-[10px] text-[#8a8a8a]">
-                {item.description && (
-                  <>
-                    <span className="font-medium text-[#535353]">{item.description}</span>
-                    <span className="mx-1">|</span>
-                  </>
-                )}
-                {item.time}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className="text-xs text-[#488abe] text-center mt-2 cursor-pointer hover:underline">
-        Lihat semua
-      </div>
-    </div>
-  );
-};
-
-
-// Komponen Utama
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const [openNotif, setOpenNotif] = useState(false);
-  const notifRef = useRef(null); // 1. Membuat Ref
+  const notifRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // 2. Logic untuk menutup dropdown saat klik di luar
+  // Get notification data for dropdown
+  const { unreadCount } = useNotificationDropdown();
+
+  // US-AC-Notif-1-4: Close on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Jika ref ada dan klik terjadi di luar area ref
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setOpenNotif(false);
       }
     };
 
-    // Menambahkan event listener saat komponen dimuat
     document.addEventListener("mousedown", handleClickOutside);
-
-    // Membersihkan event listener saat komponen dibongkar (penting!)
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [notifRef]); // Dependensi array, efek ini hanya berjalan jika notifRef berubah
+  }, []);
 
+  // US-AC-Notif-1-6: Close dropdown when navigating to other pages
+  useEffect(() => {
+    setOpenNotif(false);
+  }, [location.pathname]);
+
+  // US-AC-Notif-2-1: Navigate to organization-specific notification page
+  const handleViewAllNotifications = () => {
+    setOpenNotif(false);
+    
+    // Determine organization type from current path
+    const isSchool = location.pathname.includes('/organization/school');
+    const isCompany = location.pathname.includes('/organization/company');
+    
+    if (isSchool) {
+      navigate("/organization/school/notifications");
+    } else if (isCompany) {
+      navigate("/organization/company/notifications");
+    } else {
+      // Fallback - shouldn't happen in normal flow
+      navigate("/notifications");
+    }
+  };
 
   const wrapperClass = isAbsolute
     ? "absolute top-[29px] right-[12px]"
@@ -110,18 +65,29 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       </div>
 
       {/* Notification Container */}
-      {/* 3. Menetapkan Ref ke container notifikasi */}
       <div className="relative" ref={notifRef}>
         <button
           aria-label="Notifications"
-          onClick={() => setOpenNotif(!openNotif)} // Toggle dropdown
-          className="material-icons text-zinc-500 text-xl sm:text-2xl"
+          onClick={() => setOpenNotif(!openNotif)}
+          className="material-icons text-zinc-500 text-xl sm:text-2xl hover:text-[#488BBE] transition-colors relative"
         >
           notifications
+          
+          {/* US-AC-Notif-1-1: Badge indicator dengan number merah */}
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-[#EE4266] text-white text-[8px] font-semibold rounded-full flex items-center justify-center px-1">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
         </button>
 
-        {/* Dropdown akan muncul atau hilang berdasarkan state openNotif */}
-        {openNotif && <NotificationDropdown />}
+        {/* US-AC-Notif-1-2, US-AC-Notif-1-3: Dropdown */}
+        {openNotif && (
+          <NotificationDropdown
+            onViewAll={handleViewAllNotifications}
+            onClose={() => setOpenNotif(false)}
+          />
+        )}
       </div>
     </div>
   );

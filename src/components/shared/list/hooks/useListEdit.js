@@ -2,6 +2,8 @@
 import { useCallback, useEffect } from "react" // ✅ Tambah useEffect
 import { useEditStore } from "../stores/editStores"
 import { useListStore } from "../stores/listStores"
+// ✅ ADD: Import validation functions
+import { validateStudentData, validateEmployeeData, getChangedFields } from "../utils/validationUtils"
 
 /**
  * Hook for inline editing

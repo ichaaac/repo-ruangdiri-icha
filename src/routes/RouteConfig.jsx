@@ -1,4 +1,4 @@
-// src/routes/routeConfig.jsx - SIMPLIFIED ROUTES
+// src/routes/routeConfig.jsx - FINAL WITH ORGANIZATION-SPECIFIC NOTIFICATION ROUTES
 
 import React from "react";
 import { Navigate } from "react-router-dom";
@@ -17,6 +17,9 @@ import ResetPassword from "../pages/shared/auth/ResetPassword";
 // === ONBOARDING PAGES ===
 import OnboardingForm from "@/pages/shared/OnboardingForm";
 import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
+
+// === SHARED PAGES ===
+import NotificationPage from "@/pages/shared/NotificationPage";
 
 // === COMPANY PAGES ===
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
@@ -126,6 +129,18 @@ const routes = [
         element: <SchoolSchedule />
       },
       {
+        path: "notifications",
+        element: <NotificationPage />
+      },
+      {
+        path: "message",
+        element: <UnderDevelopmentPage 
+          title="Messages" 
+          description="Sistem pesan untuk komunikasi dengan siswa dan orangtua"
+          icon="chat"
+        />
+      },
+      {
         path: "settings",
         element: <Navigate to="profile" replace />
       }
@@ -166,6 +181,18 @@ const routes = [
       {
         path: "schedule",
         element: <CompanySchedule />
+      },
+      {
+        path: "notifications",
+        element: <NotificationPage />
+      },
+      {
+        path: "message",
+        element: <UnderDevelopmentPage 
+          title="Messages" 
+          description="Sistem pesan untuk komunikasi dengan karyawan"
+          icon="chat"
+        />
       },
       {
         path: "candidates",
