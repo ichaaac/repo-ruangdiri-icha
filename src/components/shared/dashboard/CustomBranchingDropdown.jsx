@@ -113,7 +113,7 @@ const CustomBranchingDropdown = ({
   // Get dropdown container positioning
   const getDropdownContainerStyle = () => {
     const baseStyle = {
-      zIndex: 999999,
+      zIndex: 9999999999999999,
       position: 'absolute',
     }
 
@@ -164,7 +164,7 @@ const CustomBranchingDropdown = ({
       <div
         ref={triggerRef}
         onClick={handleToggle}
-        className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
+        className="relative z-0 flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
       >
         <span className="self-stretch my-auto text-gray-700">
           {selectedClassroom && selectedGrade
@@ -247,7 +247,7 @@ const CustomBranchingDropdown = ({
       {isOpen && (
         <div 
           className="fixed inset-0"
-          style={{ zIndex: 999998 }}
+          style={{ zIndex: 9999999 }}
           onClick={() => {
             setIsOpen(false)
             setShowGrades(false)

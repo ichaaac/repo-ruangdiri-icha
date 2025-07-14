@@ -1,5 +1,4 @@
-
-// src/components/shared/dashboard/DashboardHome.jsx - Smooth zoom with moving labels
+// src/components/shared/dashboard/DashboardHome.jsx - Fixed chevron z-index issue
 
 import { useCallback, useState, useEffect, useRef } from "react"
 import {
@@ -397,7 +396,7 @@ const DashboardHome = ({
         </div>
 
         <div
-          className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5"
+          className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5 mt-[19px]"
           style={{
             width: "100%",
             maxWidth: `calc(100% - 40px)`,
@@ -458,9 +457,9 @@ const DashboardHome = ({
                       {type === "student" && barChartGrade ? ` ${barChartGrade}` : ""}
                     </span>
                   </p>
-                  <div className="flex gap-2 flex-shrink-0" style={{ position: "relative", zIndex: 1000 }}>
+                  <div className="flex gap-2 flex-shrink-0" style={{ position: "relative", zIndex: 99999 }}>
                     {type === "student" ? (
-                      <div className="relative">
+                      <div className="relative" style={{ zIndex: 99999 }}>
                         <CustomBranchingDropdown
                           selectedClassroom={barChartClassroom}
                           selectedGrade={barChartGrade}
@@ -471,14 +470,14 @@ const DashboardHome = ({
                         />
                       </div>
                     ) : (
-                      <Menu as="div" className="relative">
+                      <Menu as="div" className="relative" style={{ zIndex: 99999 }}>
                         <Menu.Button className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer text-gray-700">
                           <span className="self-stretch my-auto">{barChartClassroom || config.filterLabel}</span>
                           <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
                         </Menu.Button>
                         <Menu.Items
                           className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                          style={{ zIndex: 9999 }}
+                          style={{ zIndex: 99999 }}
                         >
                           {(options?.departments || []).map((department) => (
                             <Menu.Item key={department}>
@@ -508,49 +507,54 @@ const DashboardHome = ({
                   <h3 className="text-lg font-bold text-gray-700">2025</h3>
                 </div>
 
-                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={getSemesterData()}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      barSize={12}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "white",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: "8px",
-                          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                        }}
-                      />
-                      <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="stable" fill="#9BCA61" name="Aman" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="relative">
+                  <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={getSemesterData()}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                        barSize={12}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "white",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                          }}
+                        />
+                        <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="stable" fill="#9BCA61" name="Aman" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
 
+                  {/* Chevron buttons moved outside overflow container */}
                   <button
                     disabled={!canNavigatePrev()}
                     onClick={handlePrev}
-                    className={`absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors z-10 ${
+                    className={`absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
                       canNavigatePrev()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
+                    style={{ zIndex: 1 }}
                   >
                     <span className="material-icons text-2xl sm:text-3xl">chevron_left</span>
                   </button>
                   <button
                     disabled={!canNavigateNext()}
                     onClick={handleNext}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors z-10 ${
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
                       canNavigateNext()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
+                    style={{ zIndex: 1 }}
                   >
                     <span className="material-icons text-2xl sm:text-3xl">chevron_right</span>
                   </button>
@@ -559,8 +563,8 @@ const DashboardHome = ({
             </div>
           </div>
 
-          <div className="mt-4 w-full">
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 mb-6">
+          <div className="mt-[5px] w-full">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
               <div className="w-full lg:w-6/12">
                 <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
                   Status <span className="font-bold">Skrining {config.entityName}</span>
