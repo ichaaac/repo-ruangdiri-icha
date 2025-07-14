@@ -507,8 +507,12 @@ const DashboardHome = ({
                   <h3 className="text-lg font-bold text-gray-700">2025</h3>
                 </div>
 
-                <div className="relative">
-                  <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative overflow-hidden">
+                <div className="text-center mb-3">
+                  <h3 className="text-lg font-bold text-gray-700">2025</h3>
+                </div>
+
+                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
+                  <div className="w-full h-full overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={getSemesterData()}
@@ -533,28 +537,34 @@ const DashboardHome = ({
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Chevron buttons moved outside overflow container */}
+                  {/* Chevron buttons - HARDCODED position */}
                   <button
                     disabled={!canNavigatePrev()}
                     onClick={handlePrev}
-                    className={`absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
+                    className={`absolute left-3 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
                       canNavigatePrev()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
-                    style={{ zIndex: 1 }}
+                    style={{ 
+                      zIndex: 1,
+                      top: '60px' // Hardcoded - tengah dari 250px chart
+                    }}
                   >
                     <span className="material-icons text-2xl sm:text-3xl">chevron_left</span>
                   </button>
                   <button
                     disabled={!canNavigateNext()}
                     onClick={handleNext}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
+                    className={`absolute right-3 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
                       canNavigateNext()
                         ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
-                    style={{ zIndex: 1 }}
+                    style={{ 
+                      zIndex: 1,
+                      top: '60px' // Hardcoded - tengah dari 250px chart
+                    }}
                   >
                     <span className="material-icons text-2xl sm:text-3xl">chevron_right</span>
                   </button>
