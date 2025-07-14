@@ -22,15 +22,22 @@ const DatePicker = ({
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // FIXED: Calculate current week (Monday to Sunday) for default selection
+  // FIXED: Calculate current week (Monday to Sunday) based on current date
   const getCurrentWeekDates = () => {
-    const now = new Date();
-    const dayOfWeek = (now.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+    const today = new Date();
+    console.log('Current date for week calculation:', today.toDateString());
     
-    const mondayDate = new Date(now);
-    mondayDate.setDate(now.getDate() - dayOfWeek);
+    // Convert Sunday=0 to Monday=0 system
+    const dayOfWeek = (today.getDay() + 6) % 7; // Monday=0, Tuesday=1, ..., Sunday=6
+    console.log('Day of week (Monday=0):', dayOfWeek);
+    
+    // Calculate Monday of current week
+    const mondayDate = new Date(today);
+    mondayDate.setDate(today.getDate() - dayOfWeek);
     mondayDate.setHours(0, 0, 0, 0);
+    console.log('Monday of current week:', mondayDate.toDateString());
     
+    // Generate all 7 days starting from Monday
     const weekDates = [];
     for (let i = 0; i < 7; i++) {
       const weekDate = new Date(mondayDate);
@@ -39,6 +46,7 @@ const DatePicker = ({
       weekDates.push(weekDate);
     }
     
+    console.log('Current week dates:', weekDates.map(d => `${d.toDateString()} (${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d.getDay() === 0 ? 6 : d.getDay() - 1]})`));
     return weekDates;
   };
 

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// src/components/shared/schedule/ViewScheduleModal.jsx - FIXED STATE PERSISTENCE AFTER EDIT
+
+import React, { useState, useEffect } from "react";
 import AddScheduleModal from "./AddScheduleModal"; // Import AddScheduleModal for edit
 
 const ViewScheduleModal = ({
@@ -6,11 +8,19 @@ const ViewScheduleModal = ({
   onClose,
   onEdit,
   onDelete,
-  scheduleData,
+  scheduleData: initialScheduleData,
   loading = false,
 }) => {
   const [downloadingAttachment, setDownloadingAttachment] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [scheduleData, setScheduleData] = useState(initialScheduleData); // Local state for schedule data
+
+  // FIXED: Update local state when prop changes
+  useEffect(() => {
+    if (initialScheduleData) {
+      setScheduleData(initialScheduleData);
+    }
+  }, [initialScheduleData]);
 
   if (!isOpen || !scheduleData) return null;
 
@@ -24,9 +34,18 @@ const ViewScheduleModal = ({
 
   const selectedEventType = eventTypes.find(type => type.value === scheduleData.type) || eventTypes[0];
 
-  // Handle multiple dates
-  const dates = scheduleData.dates || [];
-  if (dates.length === 0) {
+  // FIXED: Better date handling for multiple dates
+  const getDatesFromSchedule = () => {
+    const dates = [];
+    
+    if (scheduleData.dates && scheduleData.dates.length > 0) {
+      return scheduleData.dates.map(dateInfo => ({
+        ...dateInfo,
+        timezone: dateInfo.timezone || "WIB"
+      }));
+    }
+    
+    // Fallback to startDateTime/endDateTime
     if (scheduleData.startDateTime || scheduleData.date) {
       const dateStr = scheduleData.date || 
         (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toISOString().split("T")[0] : "");
@@ -39,9 +58,18 @@ const ViewScheduleModal = ({
           hour: "2-digit", minute: "2-digit"
         }) : "");
 
-      dates.push({ date: dateStr, startTime: startTime, endTime: endTime, timezone: "WIB" });
+      dates.push({ 
+        date: dateStr, 
+        startTime: startTime, 
+        endTime: endTime, 
+        timezone: scheduleData.timezone || "WIB" 
+      });
     }
-  }
+    
+    return dates;
+  };
+
+  const dates = getDatesFromSchedule();
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -74,17 +102,6 @@ const ViewScheduleModal = ({
     return [];
   };
 
-  const getParticipantsText = () => {
-    const psychologist = getPsychologist();
-    const clients = getClients();
-    const names = [];
-    
-    if (psychologist) names.push(psychologist.fullName || psychologist.email);
-    clients.forEach(client => names.push(client.fullName || client.email));
-    
-    return names.join(", ") || "Tidak ada peserta";
-  };
-
   const getLocationText = () => {
     if (scheduleData.type === "counseling") {
       return scheduleData.location || "Lokasi tidak ditentukan";
@@ -93,7 +110,7 @@ const ViewScheduleModal = ({
     }
   };
 
-  // FIXED: Enhanced attachment handlers for new API structure
+  // Enhanced attachment handlers for new API structure
   const handleAttachmentClick = async (attachment) => {
     const isImage = attachment.fileType?.includes('image') || 
       attachment.originalName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
@@ -131,7 +148,7 @@ const ViewScheduleModal = ({
     try {
       setDownloadingAttachment(attachment.id);
       
-      // FIXED: Try direct URL first with new field name
+      // Try direct URL first with new field name
       if (attachment.fileUrl) {
         const link = document.createElement('a');
         link.href = attachment.fileUrl;
@@ -207,42 +224,53 @@ const ViewScheduleModal = ({
     return isImage ? 'Preview' : 'Download';
   };
 
-  // MOVED: Edit logic to this component
+  // FIXED: Enhanced edit handling with proper state update
   const handleEdit = () => {
     if (loading) return;
-    
-    // Prepare initial data for edit mode
-    const editData = {
-      ...scheduleData,
-      // Ensure proper format for edit
-      dates: dates.length > 0 ? dates : [{
-        date: new Date().toISOString().split('T')[0],
-        startTime: "09:00",
-        endTime: "10:00", 
-        timezone: "WIB"
-      }],
-      // Handle participants properly
-      selectedPsychologist: getPsychologist(),
-      selectedParticipants: getClients(),
-      // Handle location properly
-      location: scheduleData.type === "counseling" ? scheduleData.location : "",
-      customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || scheduleData.location) : "",
-      multipleDate: dates.length > 1
-    };
-    
     setShowEditModal(true);
   };
 
   const handleEditSubmit = async (formData) => {
     try {
       if (onEdit) {
-        await onEdit(scheduleData.id, formData);
+        const result = await onEdit(scheduleData.id, formData);
+        
+        // FIXED: Update local state with the new data to persist changes
+        if (result?.data?.data) {
+          // Backend returned updated schedule data
+          setScheduleData(result.data.data);
+        } else {
+          // Optimistically update local state with form data
+          const updatedScheduleData = {
+            ...scheduleData,
+            agenda: formData.agenda,
+            type: formData.type,
+            description: formData.description,
+            notificationOffset: formData.notificationOffset,
+            dates: formData.dates,
+            location: formData.type === "counseling" ? formData.location : scheduleData.location,
+            customLocation: formData.type !== "counseling" ? formData.customLocation : scheduleData.customLocation,
+            multipleDate: formData.dates?.length > 1,
+            // Update participants if provided
+            ...(formData.participants && {
+              participants: [
+                ...(formData.selectedPsychologist ? [formData.selectedPsychologist] : []),
+                ...(formData.selectedParticipants || [])
+              ]
+            })
+          };
+          
+          console.log('Optimistically updating schedule data:', updatedScheduleData);
+          setScheduleData(updatedScheduleData);
+        }
+        
         setShowEditModal(false); // Close edit modal on success
-        onClose(); // Close view modal on success
+        // Note: Don't close view modal here - let user see updated data
       }
     } catch (error) {
       console.error('Error updating schedule:', error);
       // Keep edit modal open on error so user can retry
+      throw error;
     }
   };
 
@@ -260,20 +288,31 @@ const ViewScheduleModal = ({
     }
   };
 
-  // Prepare edit data
-  const editInitialData = {
-    ...scheduleData,
-    dates: dates.length > 0 ? dates : [{
-      date: new Date().toISOString().split('T')[0],
-      startTime: "09:00",
-      endTime: "10:00",
-      timezone: "WIB"
-    }],
-    selectedPsychologist: getPsychologist(),
-    selectedParticipants: getClients(),
-    location: scheduleData.type === "counseling" ? scheduleData.location : "",
-    customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || scheduleData.location) : "",
-    multipleDate: dates.length > 1
+  // FIXED: Prepare edit data with better transformation
+  const prepareEditData = () => {
+    const psychologist = getPsychologist();
+    const clients = getClients();
+    
+    return {
+      id: scheduleData.id,
+      agenda: scheduleData.agenda || "",
+      type: scheduleData.type || "counseling",
+      description: scheduleData.description || "",
+      notificationOffset: scheduleData.notificationOffset || 60,
+      dates: dates.length > 0 ? dates : [{
+        date: new Date().toISOString().split('T')[0],
+        startTime: "09:00",
+        endTime: "10:00",
+        timezone: "WIB"
+      }],
+      selectedPsychologist: psychologist,
+      selectedParticipants: clients,
+      location: scheduleData.type === "counseling" ? (scheduleData.location || "") : "",
+      customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || scheduleData.location || "") : "",
+      multipleDate: dates.length > 1,
+      // Pass original data for reference
+      originalData: scheduleData
+    };
   };
 
   const showParticipants = scheduleData.type === "counseling";
@@ -471,12 +510,12 @@ const ViewScheduleModal = ({
                     }}
                   />
                   
-                  {/* FIXED: Enhanced Attachments */}
+                  {/* Enhanced Attachments */}
                   {scheduleData.attachments && scheduleData.attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
                       {scheduleData.attachments.map((attachment, index) => (
                         <button
-                          key={index}
+                          key={attachment.id || index}
                           onClick={() => handleAttachmentClick(attachment)}
                           disabled={downloadingAttachment === attachment.id}
                           className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors disabled:opacity-50 group"
@@ -536,13 +575,13 @@ const ViewScheduleModal = ({
         </div>
       </div>
 
-      {/* MOVED: Edit Modal - Now handled in ViewSchedule */}
+      {/* FIXED: Edit Modal with proper data preparation */}
       {showEditModal && (
         <AddScheduleModal
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
           onSubmit={handleEditSubmit}
-          initialData={editInitialData}
+          initialData={prepareEditData()}
           loading={loading}
           mode="edit"
         />

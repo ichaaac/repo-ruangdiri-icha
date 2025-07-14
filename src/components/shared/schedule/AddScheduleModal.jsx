@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED TIME RANGE & DATE CALCULATION
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED WITH ATTACHMENT PREVIEW & BETTER STATE
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -9,6 +9,63 @@ import {
   parseScheduleDateTime, 
   createDateTimeWithOffset 
 } from "@/components/shared/schedule/utils/timezoneHandler";
+
+// Attachment Preview Modal Component
+const AttachmentPreviewModal = ({ attachment, isOpen, onClose }) => {
+  if (!isOpen || !attachment) return null;
+
+  const isImage = attachment.type === 'image' || attachment.file?.type?.startsWith('image/');
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[10000]"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center p-4">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2 z-10"
+        >
+          <span className="material-icons text-[24px]">close</span>
+        </button>
+        
+        <div className="bg-white rounded-lg p-4 max-w-full max-h-full overflow-auto">
+          <div className="flex items-center gap-3 mb-4 border-b pb-3">
+            <span className="material-icons text-[#488BBA] text-[20px]">
+              {isImage ? 'image' : 'description'}
+            </span>
+            <div>
+              <div className="font-medium text-gray-900">{attachment.name}</div>
+              <div className="text-sm text-gray-500">
+                {(attachment.file?.size ? (attachment.file.size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size')}
+              </div>
+            </div>
+          </div>
+          
+          {isImage ? (
+            <img 
+              src={attachment.preview} 
+              alt={attachment.name}
+              className="max-w-full max-h-[70vh] object-contain rounded"
+              style={{ minHeight: '200px' }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-8 text-center">
+              <span className="material-icons text-[64px] text-gray-400 mb-4">description</span>
+              <div className="text-lg font-medium text-gray-700 mb-2">{attachment.name}</div>
+              <div className="text-gray-500 mb-4">
+                File will be uploaded when you submit the form
+              </div>
+              <div className="text-sm text-gray-400">
+                Preview not available for this file type
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AddScheduleModal = ({ 
   isOpen, 
@@ -42,12 +99,13 @@ const AddScheduleModal = ({
   const [psychologistLocations, setPsychologistLocations] = useState([]);
   const [participantSearch, setParticipantSearch] = useState("");
   const [hasShownUnsavedToast, setHasShownUnsavedToast] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState(null);
   
   const editorRef = useRef(null);
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Initialize form when modal opens or mode changes
+  // FIXED: Initialize form data properly
   useEffect(() => {
     if (isOpen) {
       if (mode === "edit" && initialData) {
@@ -108,11 +166,11 @@ const AddScheduleModal = ({
           timezone: "WIB"
         }];
 
-        // FIXED: Handle initialData from ScheduleGrid drag/click properly
+        // Handle initialData from ScheduleGrid properly
         if (initialData?.dates && initialData.dates.length > 0) {
           console.log('Received dates from ScheduleGrid:', initialData.dates);
           defaultDates = initialData.dates.map(dateInfo => ({
-            date: dateInfo.date, // This should now be correct from ScheduleGrid
+            date: dateInfo.date,
             startTime: dateInfo.startTime || "09:00",
             endTime: dateInfo.endTime || "10:00", 
             timezone: dateInfo.timezone || "WIB"
@@ -143,6 +201,7 @@ const AddScheduleModal = ({
       setDropdowns({});
       setParticipantSearch("");
       setHasShownUnsavedToast(false);
+      setPreviewAttachment(null);
     }
   }, [isOpen, mode, initialData]);
 
@@ -173,16 +232,14 @@ const AddScheduleModal = ({
     { label: "Seed-in", value: "organization" }
   ];
 
-  // FIXED: Generate time options matching ScheduleGrid (06:00-00:00 with 5-minute intervals)
+  // Generate time options matching ScheduleGrid (06:00-00:00 with 5-minute intervals)
   const timeOptions = (() => {
     const times = [];
-    // From 6:00 to 23:55 (ScheduleGrid shows 6:00-23:00 + 00:00)
     for (let hour = 6; hour < 24; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
         times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
       }
     }
-    // Add 00:00 to match ScheduleGrid
     times.push('00:00');
     return times;
   })();
@@ -318,6 +375,7 @@ const AddScheduleModal = ({
     });
   };
 
+  // FIXED: Enhanced file handling with preview
   const handleFileSelect = (e, type) => {
     const files = Array.from(e.target.files);
     const maxSize = 15 * 1024 * 1024;
@@ -330,13 +388,27 @@ const AddScheduleModal = ({
         return;
       }
       
-      validFiles.push({
+      const attachment = {
         file,
         id: Date.now() + Math.random(),
         name: file.name,
         size: file.size,
         type: type
-      });
+      };
+
+      // Create preview for images
+      if (type === 'image' && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          attachment.preview = e.target.result;
+          setAttachments(prev => 
+            prev.map(att => att.id === attachment.id ? { ...att, preview: e.target.result } : att)
+          );
+        };
+        reader.readAsDataURL(file);
+      }
+
+      validFiles.push(attachment);
       totalSize += file.size;
     });
     
@@ -346,6 +418,10 @@ const AddScheduleModal = ({
 
   const removeAttachment = (attachmentId) => {
     setAttachments(prev => prev.filter(att => att.id !== attachmentId));
+  };
+
+  const openAttachmentPreview = (attachment) => {
+    setPreviewAttachment(attachment);
   };
 
   const handleParticipantSelect = (participant, slotIndex = 0) => {
@@ -487,7 +563,7 @@ const AddScheduleModal = ({
     try {
       const result = await onSubmit(submitData);
       
-      // Handle attachments
+      // FIXED: Handle attachments only after successful schedule creation/update
       if (result?.data && attachments.length > 0) {
         setUploadingAttachments(true);
         
@@ -553,7 +629,8 @@ const AddScheduleModal = ({
       return formData.agenda.trim() !== '' || 
              formData.description.trim() !== '' ||
              formData.selectedParticipants.length > 0 ||
-             formData.selectedPsychologist !== null;
+             formData.selectedPsychologist !== null ||
+             attachments.length > 0;
     }
 
     const current = {
@@ -578,7 +655,7 @@ const AddScheduleModal = ({
       multipleDate: initialData.multipleDate || false,
     };
 
-    return JSON.stringify(current) !== JSON.stringify(initial);
+    return JSON.stringify(current) !== JSON.stringify(initial) || attachments.length > 0;
   };
 
   const handleCancel = () => {
@@ -617,534 +694,551 @@ const AddScheduleModal = ({
   const showParticipants = formData.type === "counseling";
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-      onClick={(e) => e.target === e.currentTarget && handleCancel()}
-    >
-      <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-        
-        {/* Header */}
-        <div className="flex justify-end items-center p-6">
-          <button
-            onClick={handleCancel}
-            disabled={loading}
-            className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
-          >
-            <span className="material-icons text-[20px]">close</span>
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
+    <>
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+        onClick={(e) => e.target === e.currentTarget && handleCancel()}
+      >
+        <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
           
-          {/* Agenda & Type */}
-          <div className="flex gap-4 items-center">
-            <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
-            <div className="flex-1 relative">
-              {!formData.agenda.trim() && (
-                <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-              )}
-              <input
-                type="text"
-                value={formData.agenda}
-                onChange={(e) => handleInputChange('agenda', e.target.value)}
-                placeholder="Masukkan agenda"
-                disabled={loading}
-                className={`w-full pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                  formData.agenda.trim() ? 'pl-3' : 'pl-6'
-                }`}
-              />
-            </div>
-            <div className="relative">
-              <button
-                onClick={() => !loading && toggleDropdown('type')}
-                disabled={loading}
-                className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[120px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              >
-                <span style={{ color: selectedEventType.textColor }} className="font-medium">
-                  {selectedEventType.label}
-                </span>
-                <span className="material-icons text-gray-400 ml-2">keyboard_arrow_down</span>
-              </button>
-              {dropdowns.type && !loading && (
-                <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
-                  {eventTypes.map((type) => (
-                    <button
-                      key={type.value}
-                      onClick={() => {
-                        handleInputChange('type', type.value);
-                        toggleDropdown('type');
-                      }}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
-                    >
-                      <span style={{ color: type.textColor }} className="font-medium">
-                        {type.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Date & Time section */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
-            <div className="flex-1 space-y-3">
-              {formData.dates.map((dateInfo, index) => (
-                <div key={index} className="flex gap-2 items-center flex-wrap">
-                  <input
-                    type="date"
-                    value={dateInfo.date}
-                    onChange={(e) => {
-                      const newDates = [...formData.dates];
-                      newDates[index] = { ...newDates[index], date: e.target.value };
-                      handleInputChange('dates', newDates);
-                    }}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  />
-                  
-                  <select
-                    value={dateInfo.startTime}
-                    onChange={(e) => updateAdditionalDate(index, 'startTime', e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  >
-                    {timeOptions.map((time) => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-
-                  <span className="text-[#488BBA]">-</span>
-
-                  <select
-                    value={dateInfo.endTime}
-                    onChange={(e) => updateAdditionalDate(index, 'endTime', e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  >
-                    {timeOptions.map((time) => (
-                      <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={dateInfo.timezone}
-                    onChange={(e) => updateAdditionalDate(index, 'timezone', e.target.value)}
-                    disabled={loading}
-                    className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                  >
-                    {timezoneOptions.map((tz) => (
-                      <option key={tz.value} value={tz.value}>{tz.label}</option>
-                    ))}
-                  </select>
-
-                  {index > 0 && (
-                    <button
-                      onClick={() => removeDateSlot(index)}
-                      disabled={loading}
-                      className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50"
-                    >
-                      <span className="material-icons text-sm">close</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-
-              {/* Multiple Date indicator */}
-              {formData.dates.length > 1 && (
-                <div className="flex gap-2 items-center text-sm">
-                  <div className="w-4 h-4 bg-[#535353] rounded-sm"></div>
-                  <span className="text-[#535353]">Multiple Date</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Notification */}
-          <div className="flex gap-4 items-center">
-            <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
-            <select
-              value={formData.notificationOffset}
-              onChange={(e) => handleInputChange('notificationOffset', parseInt(e.target.value))}
+          {/* Header */}
+          <div className="flex justify-end items-center p-6">
+            <button
+              onClick={handleCancel}
               disabled={loading}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+              className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
-              {notificationOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+              <span className="material-icons text-[20px]">close</span>
+            </button>
           </div>
 
-          {/* Participants - Only for Counseling */}
-          {showParticipants && (
-            <div className="space-y-4">
-              <div className="flex gap-4 items-start">
-                <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
-                <div className="flex-1">
-                  
-                  <div className="flex flex-col gap-4">
-                    
-                    {/* Psychologist Field */}
-                    <div>
-                      <div className="relative">
-                        {!formData.selectedPsychologist && (
-                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-                        )}
-                        <button
-                          onClick={() => !loading && toggleDropdown('psychologist')}
-                          disabled={loading}
-                          className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                            formData.selectedPsychologist ? 'px-3 py-2' : 'pl-6'
-                          }`}
-                          style={{ minHeight: '42px' }}
-                        >
-                          {!formData.selectedPsychologist ? (
-                            <span className="text-gray-500">
-                              Email/nama Psikolog
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
-                                <div className="text-[#535353] text-sm font-normal truncate">
-                                  {formData.selectedPsychologist.fullName}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, selectedPsychologist: null })); }}
-                                  disabled={loading}
-                                  className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                                >
-                                  <span className="material-icons text-xs">close</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                        </button>
-                        {dropdowns.psychologist && !loading && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            {loadingPsychologists ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : psychologists.length > 0 ? (
-                              psychologists.map((psychologist) => (
-                                <button
-                                  key={psychologist.id}
-                                  onClick={() => {
-                                    setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
-                                    toggleDropdown('psychologist');
-                                  }}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                >
-                                  <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
-                                  <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
-                                </button>
-                              ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Participant 1 Field */}
-                    <div>
-                      <div className="relative">
-                        {!formData.selectedParticipants[0] && (
-                          <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-                        )}
-                        <button
-                          onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants1')}
-                          disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])}
-                          className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                            formData.selectedParticipants[0] ? 'px-3 py-2' : 'pl-6'
-                          }`}
-                          style={{ minHeight: '42px' }}
-                        >
-                          {!formData.selectedParticipants[0] ? (
-                            <span className="text-gray-500">
-                              Email/nama Klien 1
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
-                                <div className="text-[#535353] text-sm font-normal truncate">
-                                  {formData.selectedParticipants[0].fullName}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[0].id); }}
-                                  disabled={loading}
-                                  className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                                >
-                                  <span className="material-icons text-xs">close</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                        </button>
-                        {dropdowns.participants1 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            <div className="p-2 border-b">
-                              <input
-                                type="text"
-                                placeholder="Cari nama atau email..."
-                                value={participantSearch}
-                                onChange={(e) => setParticipantSearch(e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            {loadingParticipants ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : participants.length > 0 ? (
-                              participants
-                                .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                                .map((participant) => (
-                                  <button
-                                    key={participant.id}
-                                    onClick={() => handleParticipantSelect(participant, 0)}
-                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                  >
-                                    <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                    <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                  </button>
-                                ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">
-                                {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Participant 2 Field (Optional) */}
-                    <div>
-                      <div className="relative">
-                        <button
-                          onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants2')}
-                          disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])}
-                          className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                            formData.selectedParticipants[1] ? 'px-3 py-2' : 'pl-6'
-                          }`}
-                          style={{ minHeight: '42px' }}
-                        >
-                          {!formData.selectedParticipants[1] ? (
-                            <span className="text-gray-500">
-                              Email/nama Klien 2 (Opsional)
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-2 py-1">
-                              <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
-                                <div className="text-[#535353] text-sm font-normal truncate">
-                                  {formData.selectedParticipants[1].fullName}
-                                </div>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[1].id); }}
-                                  disabled={loading}
-                                  className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                                >
-                                  <span className="material-icons text-xs">close</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
-                        </button>
-                        {dropdowns.participants2 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
-                          <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                            <div className="p-2 border-b">
-                              <input
-                                type="text"
-                                placeholder="Cari nama atau email..."
-                                value={participantSearch}
-                                onChange={(e) => setParticipantSearch(e.target.value)}
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            {loadingParticipants ? (
-                              <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                            ) : participants.length > 0 ? (
-                              participants
-                                .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                                .map((participant) => (
-                                  <button
-                                    key={participant.id}
-                                    onClick={() => handleParticipantSelect(participant, 1)}
-                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                  >
-                                    <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                    <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                  </button>
-                                ))
-                            ) : (
-                              <div className="p-3 text-center text-gray-500 text-sm">
-                                {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Location for Counseling */}
-              <div className="flex gap-4 items-center">
-                <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-                <select
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  disabled={loading}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-                >
-                  <option value="">Pilih Lokasi</option>
-                  {getAvailableLocations().map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Custom Location - for non-counseling */}
-          {!showParticipants && (
+          <div className="p-6 space-y-6">
+            
+            {/* Agenda & Type */}
             <div className="flex gap-4 items-center">
-              <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-              <input
-                type="text"
-                value={formData.customLocation}
-                onChange={(e) => handleInputChange('customLocation', e.target.value)}
-                placeholder="Masukkan lokasi"
-                disabled={loading}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              />
-            </div>
-          )}
-
-          {/* Description & Attachments */}
-          <div className="flex gap-4 items-start">
-            <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
-            <div className="flex-1">
-              <div className="border border-gray-300 rounded-md min-h-[100px] p-3">
-                <div
-                  ref={editorRef}
-                  contentEditable={!loading}
-                  onInput={() => {
-                    if (editorRef.current) {
-                      handleInputChange('description', editorRef.current.innerHTML);
-                    }
-                  }}
-                  className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
-                  style={{ wordBreak: 'break-word' }}
-                  suppressContentEditableWarning={true}
-                  data-placeholder="Masukkan deskripsi"
+              <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
+              <div className="flex-1 relative">
+                {!formData.agenda.trim() && (
+                  <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
+                )}
+                <input
+                  type="text"
+                  value={formData.agenda}
+                  onChange={(e) => handleInputChange('agenda', e.target.value)}
+                  placeholder="Masukkan agenda"
+                  disabled={loading}
+                  className={`w-full pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
+                    formData.agenda.trim() ? 'pl-3' : 'pl-6'
+                  }`}
                 />
-                
-                {attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {attachments.map((attachment) => (
-                      <div key={attachment.id} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs">
-                        <span className="material-icons text-xs">
-                          {attachment.type === 'image' ? 'image' : 'description'}
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => !loading && toggleDropdown('type')}
+                  disabled={loading}
+                  className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[120px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                >
+                  <span style={{ color: selectedEventType.textColor }} className="font-medium">
+                    {selectedEventType.label}
+                  </span>
+                  <span className="material-icons text-gray-400 ml-2">keyboard_arrow_down</span>
+                </button>
+                {dropdowns.type && !loading && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
+                    {eventTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        onClick={() => {
+                          handleInputChange('type', type.value);
+                          toggleDropdown('type');
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
+                      >
+                        <span style={{ color: type.textColor }} className="font-medium">
+                          {type.label}
                         </span>
-                        <span className="max-w-20 truncate">{attachment.name}</span>
-                        <button
-                          onClick={() => removeAttachment(attachment.id)}
-                          className="text-red-500 hover:text-red-700 ml-1"
-                        >
-                          ×
-                        </button>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
-                
-                <div className="flex items-center gap-3 mt-3">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
-                    onChange={(e) => handleFileSelect(e, 'document')}
-                    className="hidden"
+              </div>
+            </div>
+
+            {/* Date & Time section */}
+            <div className="flex gap-4 items-start">
+              <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
+              <div className="flex-1 space-y-3">
+                {formData.dates.map((dateInfo, index) => (
+                  <div key={index} className="flex gap-2 items-center flex-wrap">
+                    <input
+                      type="date"
+                      value={dateInfo.date}
+                      onChange={(e) => {
+                        const newDates = [...formData.dates];
+                        newDates[index] = { ...newDates[index], date: e.target.value };
+                        handleInputChange('dates', newDates);
+                      }}
+                      disabled={loading}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                    />
+                    
+                    <select
+                      value={dateInfo.startTime}
+                      onChange={(e) => updateAdditionalDate(index, 'startTime', e.target.value)}
+                      disabled={loading}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+
+                    <span className="text-[#488BBA]">-</span>
+
+                    <select
+                      value={dateInfo.endTime}
+                      onChange={(e) => updateAdditionalDate(index, 'endTime', e.target.value)}
+                      disabled={loading}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={dateInfo.timezone}
+                      onChange={(e) => updateAdditionalDate(index, 'timezone', e.target.value)}
+                      disabled={loading}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                    >
+                      {timezoneOptions.map((tz) => (
+                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                      ))}
+                    </select>
+
+                    {index > 0 && (
+                      <button
+                        onClick={() => removeDateSlot(index)}
+                        disabled={loading}
+                        className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50"
+                      >
+                        <span className="material-icons text-sm">close</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {/* Multiple Date indicator */}
+                {formData.dates.length > 1 && (
+                  <div className="flex gap-2 items-center text-sm">
+                    <div className="w-4 h-4 bg-[#535353] rounded-sm"></div>
+                    <span className="text-[#535353]">Multiple Date</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Notification */}
+            <div className="flex gap-4 items-center">
+              <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
+              <select
+                value={formData.notificationOffset}
+                onChange={(e) => handleInputChange('notificationOffset', parseInt(e.target.value))}
+                disabled={loading}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+              >
+                {notificationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Participants - Only for Counseling */}
+            {showParticipants && (
+              <div className="space-y-4">
+                <div className="flex gap-4 items-start">
+                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
+                  <div className="flex-1">
+                    
+                    <div className="flex flex-col gap-4">
+                      
+                      {/* Psychologist Field */}
+                      <div>
+                        <div className="relative">
+                          {!formData.selectedPsychologist && (
+                            <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
+                          )}
+                          <button
+                            onClick={() => !loading && toggleDropdown('psychologist')}
+                            disabled={loading}
+                            className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
+                              formData.selectedPsychologist ? 'px-3 py-2' : 'pl-6'
+                            }`}
+                            style={{ minHeight: '42px' }}
+                          >
+                            {!formData.selectedPsychologist ? (
+                              <span className="text-gray-500">
+                                Email/nama Psikolog
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-2 py-1">
+                                <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
+                                  <div className="text-[#535353] text-sm font-normal truncate">
+                                    {formData.selectedPsychologist.fullName}
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, selectedPsychologist: null })); }}
+                                    disabled={loading}
+                                    className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
+                                  >
+                                    <span className="material-icons text-xs">close</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                          </button>
+                          {dropdowns.psychologist && !loading && (
+                            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                              {loadingPsychologists ? (
+                                <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                              ) : psychologists.length > 0 ? (
+                                psychologists.map((psychologist) => (
+                                  <button
+                                    key={psychologist.id}
+                                    onClick={() => {
+                                      setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
+                                      toggleDropdown('psychologist');
+                                    }}
+                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                  >
+                                    <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
+                                    <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
+                                  </button>
+                                ))
+                              ) : (
+                                <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Participant 1 Field */}
+                      <div>
+                        <div className="relative">
+                          {!formData.selectedParticipants[0] && (
+                            <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
+                          )}
+                          <button
+                            onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants1')}
+                            disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])}
+                            className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
+                              formData.selectedParticipants[0] ? 'px-3 py-2' : 'pl-6'
+                            }`}
+                            style={{ minHeight: '42px' }}
+                          >
+                            {!formData.selectedParticipants[0] ? (
+                              <span className="text-gray-500">
+                                Email/nama Klien 1
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-2 py-1">
+                                <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
+                                  <div className="text-[#535353] text-sm font-normal truncate">
+                                    {formData.selectedParticipants[0].fullName}
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[0].id); }}
+                                    disabled={loading}
+                                    className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
+                                  >
+                                    <span className="material-icons text-xs">close</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                          </button>
+                          {dropdowns.participants1 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
+                            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                              <div className="p-2 border-b">
+                                <input
+                                  type="text"
+                                  placeholder="Cari nama atau email..."
+                                  value={participantSearch}
+                                  onChange={(e) => setParticipantSearch(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                              {loadingParticipants ? (
+                                <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                              ) : participants.length > 0 ? (
+                                participants
+                                  .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
+                                  .map((participant) => (
+                                    <button
+                                      key={participant.id}
+                                      onClick={() => handleParticipantSelect(participant, 0)}
+                                      className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                    >
+                                      <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                                      <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                                    </button>
+                                  ))
+                              ) : (
+                                <div className="p-3 text-center text-gray-500 text-sm">
+                                  {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Participant 2 Field (Optional) */}
+                      <div>
+                        <div className="relative">
+                          <button
+                            onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants2')}
+                            disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])}
+                            className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
+                              formData.selectedParticipants[1] ? 'px-3 py-2' : 'pl-6'
+                            }`}
+                            style={{ minHeight: '42px' }}
+                          >
+                            {!formData.selectedParticipants[1] ? (
+                              <span className="text-gray-500">
+                                Email/nama Klien 2 (Opsional)
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-2 py-1">
+                                <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
+                                  <div className="text-[#535353] text-sm font-normal truncate">
+                                    {formData.selectedParticipants[1].fullName}
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[1].id); }}
+                                    disabled={loading}
+                                    className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
+                                  >
+                                    <span className="material-icons text-xs">close</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                          </button>
+                          {dropdowns.participants2 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
+                            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                              <div className="p-2 border-b">
+                                <input
+                                  type="text"
+                                  placeholder="Cari nama atau email..."
+                                  value={participantSearch}
+                                  onChange={(e) => setParticipantSearch(e.target.value)}
+                                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                              {loadingParticipants ? (
+                                <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                              ) : participants.length > 0 ? (
+                                participants
+                                  .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
+                                  .map((participant) => (
+                                    <button
+                                      key={participant.id}
+                                      onClick={() => handleParticipantSelect(participant, 1)}
+                                      className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                    >
+                                      <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                                      <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                                    </button>
+                                  ))
+                              ) : (
+                                <div className="p-3 text-center text-gray-500 text-sm">
+                                  {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location for Counseling */}
+                <div className="flex gap-4 items-center">
+                  <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+                  <select
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
                     disabled={loading}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={loading}
-                    className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
-                    title="Upload Files"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
                   >
-                    <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>attach_file</span>
-                  </button>
-                  
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, 'image')}
-                    className="hidden"
-                    disabled={loading}
+                    <option value="">Pilih Lokasi</option>
+                    {getAvailableLocations().map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Location - for non-counseling */}
+            {!showParticipants && (
+              <div className="flex gap-4 items-center">
+                <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+                <input
+                  type="text"
+                  value={formData.customLocation}
+                  onChange={(e) => handleInputChange('customLocation', e.target.value)}
+                  placeholder="Masukkan lokasi"
+                  disabled={loading}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                />
+              </div>
+            )}
+
+            {/* Description & Attachments */}
+            <div className="flex gap-4 items-start">
+              <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
+              <div className="flex-1">
+                <div className="border border-gray-300 rounded-md min-h-[100px] p-3">
+                  <div
+                    ref={editorRef}
+                    contentEditable={!loading}
+                    onInput={() => {
+                      if (editorRef.current) {
+                        handleInputChange('description', editorRef.current.innerHTML);
+                      }
+                    }}
+                    className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
+                    style={{ wordBreak: 'break-word' }}
+                    suppressContentEditableWarning={true}
+                    data-placeholder="Masukkan deskripsi"
                   />
-                  <button
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={loading}
-                    className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
-                    title="Upload Photos"
-                  >
-                    <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>add_photo_alternate</span>
-                  </button>
                   
-                  {uploadingAttachments && (
-                    <span className="text-xs text-blue-500">Uploading...</span>
+                  {/* FIXED: Enhanced Attachment Preview */}
+                  {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {attachments.map((attachment) => (
+                        <div key={attachment.id} className="relative group">
+                          <button
+                            onClick={() => openAttachmentPreview(attachment)}
+                            className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-xs transition-colors"
+                            title="Click to preview"
+                          >
+                            <span className="material-icons text-xs">
+                              {attachment.type === 'image' ? 'image' : 'description'}
+                            </span>
+                            <span className="max-w-20 truncate">{attachment.name}</span>
+                          </button>
+                          <button
+                            onClick={() => removeAttachment(attachment.id)}
+                            className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Remove attachment"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
+                  
+                  <div className="flex items-center gap-3 mt-3">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
+                      onChange={(e) => handleFileSelect(e, 'document')}
+                      className="hidden"
+                      disabled={loading}
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                      className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
+                      title="Upload Files"
+                    >
+                      <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>attach_file</span>
+                    </button>
+                    
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => handleFileSelect(e, 'image')}
+                      className="hidden"
+                      disabled={loading}
+                    />
+                    <button
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={loading}
+                      className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
+                      title="Upload Photos"
+                    >
+                      <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>add_photo_alternate</span>
+                    </button>
+                    
+                    {uploadingAttachments && (
+                      <span className="text-xs text-blue-500">Uploading...</span>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-4 space-y-3">
-                <div className="text-xs text-gray-600">
-                  <span className="text-[#EE4266]">*</span> Wajib diisi
-                </div>
+                <div className="mt-4 space-y-3">
+                  <div className="text-xs text-gray-600">
+                    <span className="text-[#EE4266]">*</span> Wajib diisi
+                  </div>
 
-                <div className="flex gap-3 justify-end">
-                  <button
-                    onClick={handleCancel}
-                    disabled={loading}
-                    className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={loading || !formData.agenda || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0))}
-                    className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
-                  >
-                    {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}
-                  </button>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      onClick={handleCancel}
+                      disabled={loading}
+                      className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={loading || !formData.agenda || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0))}
+                      className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
+                    >
+                      {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {loading && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
+                <span className="text-[#488BBA] font-medium">Menyimpan...</span>
+              </div>
+            </div>
+          )}
         </div>
-
-        {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
-              <span className="text-[#488BBA] font-medium">Menyimpan...</span>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+
+      {/* Attachment Preview Modal */}
+      <AttachmentPreviewModal
+        attachment={previewAttachment}
+        isOpen={!!previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+      />
+    </>
   );
 };
 

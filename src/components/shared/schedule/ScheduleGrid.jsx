@@ -373,14 +373,36 @@ const ScheduleGrid = ({
     };
   }, [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour]);
 
+  // FIXED: Get date from day index using proper week calculation
   const getDateFromDayIndex = useCallback((dayIndex) => {
-    const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
-    const baseDayOfWeek = (baseDate.getDay() + 6) % 7;
-    baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
+    if (!weekStartDate) {
+      // Fallback to current week
+      const today = new Date();
+      const dayOfWeek = (today.getDay() + 6) % 7; // Monday = 0
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - dayOfWeek);
+      monday.setHours(0, 0, 0, 0);
+      
+      const targetDate = new Date(monday);
+      targetDate.setDate(monday.getDate() + dayIndex);
+      return targetDate;
+    }
+    
+    // Use the provided weekStartDate (should be Monday)
+    const baseDate = new Date(weekStartDate);
     baseDate.setHours(0, 0, 0, 0);
+    
+    // weekStartDate should already be Monday, but ensure it is
+    const baseDayOfWeek = (baseDate.getDay() + 6) % 7; // Convert to Monday=0
+    if (baseDayOfWeek !== 0) {
+      // Adjust to Monday if not already
+      baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
+    }
     
     const targetDate = new Date(baseDate);
     targetDate.setDate(baseDate.getDate() + dayIndex);
+    
+    console.log(`Day index ${dayIndex}: ${targetDate.toDateString()} (week start: ${baseDate.toDateString()})`);
     return targetDate;
   }, [weekStartDate]);
 
