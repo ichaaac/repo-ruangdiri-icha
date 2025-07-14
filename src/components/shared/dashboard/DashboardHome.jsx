@@ -543,12 +543,13 @@ const DashboardHome = ({
                     onClick={handlePrev}
                     className={`absolute left-3 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
                       canNavigatePrev()
-                        ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
+                        ? "text-[#488BBE] hover:text-[#3a7ba8]"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                     style={{ 
                       zIndex: 1,
-                      top: '60px' // Hardcoded - tengah dari 250px chart
+                      top: '60px',
+                      left: '-20px' // Hardcoded - tengah dari 250px chart
                     }}
                   >
                     <span className="material-icons text-2xl sm:text-3xl">chevron_left</span>
@@ -558,12 +559,13 @@ const DashboardHome = ({
                     onClick={handleNext}
                     className={`absolute right-3 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
                       canNavigateNext()
-                        ? "text-[#488BBE] hover:text-[#3a7ba8] hover:bg-blue-50"
+                        ? "text-[#488BBE] hover:text-[#3a7ba8]"
                         : "text-gray-300 cursor-not-allowed"
                     }`}
                     style={{ 
                       zIndex: 1,
-                      top: '60px' // Hardcoded - tengah dari 250px chart
+                      top: '60px',
+                      right: '-20px' // Hardcoded - tengah dari 250px chart
                     }}
                   >
                     <span className="material-icons text-2xl sm:text-3xl">chevron_right</span>
