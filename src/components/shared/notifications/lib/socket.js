@@ -9,18 +9,14 @@ class NotificationSocket {
     this.listeners = new Map()
   }
 
-  /**
-   * Connect ke notification namespace dengan Bearer token
-   */
   connect() {
     const token = localStorage.getItem('token')
     const apiUrl = import.meta.env.VITE_API_URL
     
     if (!token || this.isConnected) return
 
-    // Connect sesuai backend gateway spec
     this.socket = io(`${apiUrl}/notifications`, {
-      auth: { token: `Bearer ${token}` },
+      auth: { authorization: `Bearer ${token}` },
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
@@ -28,9 +24,8 @@ class NotificationSocket {
       reconnectionDelay: 1000,
     })
 
-    // Connection events
     this.socket.on('connect', () => {
-      console.log('🔗 Notification socket connected:', this.socket.id)
+      console.log('🔗 Notification socket connected')
       this.isConnected = true
     })
 
@@ -40,29 +35,23 @@ class NotificationSocket {
     })
 
     this.socket.on('connect_error', (error) => {
-      console.error('🚨 Socket connection error:', error)
+      console.error('🚨 Socket connection error:', error.message)
     })
 
-    // Listen backend events sesuai NotificationGateway
+    // Listen for backend events
     this.socket.on('notification:created', (payload) => {
-      console.log('📢 New notification:', payload)
-      this.emit('notification:created', payload.data)
+      this.emit('notification:created', payload.data || payload)
     })
 
     this.socket.on('notification:updated', (payload) => {
-      console.log('📝 Notification updated:', payload)
-      this.emit('notification:updated', payload.data)
+      this.emit('notification:updated', payload.data || payload)
     })
 
     this.socket.on('notification:read', (payload) => {
-      console.log('✅ Notifications read:', payload)
-      this.emit('notification:read', payload.data)
+      this.emit('notification:read', payload.data || payload)
     })
   }
 
-  /**
-   * Disconnect socket
-   */
   disconnect() {
     if (this.socket) {
       this.socket.disconnect()
@@ -72,9 +61,6 @@ class NotificationSocket {
     }
   }
 
-  /**
-   * Add event listener
-   */
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set())
@@ -82,18 +68,12 @@ class NotificationSocket {
     this.listeners.get(event).add(callback)
   }
 
-  /**
-   * Remove event listener
-   */
   off(event, callback) {
     if (this.listeners.has(event)) {
       this.listeners.get(event).delete(callback)
     }
   }
 
-  /**
-   * Emit event ke listeners
-   */
   emit(event, data) {
     if (this.listeners.has(event)) {
       this.listeners.get(event).forEach(callback => {
@@ -106,24 +86,13 @@ class NotificationSocket {
     }
   }
 
-  /**
-   * Check connection status
-   */
-  isSocketConnected() {
-    return this.isConnected && this.socket?.connected
-  }
-
-  /**
-   * Ensure connection (reconnect if needed)
-   */
   ensureConnection() {
-    if (!this.isSocketConnected()) {
+    if (!this.isConnected) {
       this.connect()
     }
   }
 }
 
-// Singleton instance
 const notificationSocket = new NotificationSocket()
 
 export default notificationSocket

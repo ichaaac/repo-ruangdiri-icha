@@ -2,67 +2,56 @@
 
 import { apiClient } from '@/lib/api'
 
-/**
- * Notifications API - menggunakan base apiClient untuk auth & config
- */
 const notificationsAPI = {
   /**
-   * Get notifications dengan filtering & pagination
-   * US-AC-Notif-2-2: Max 10 items per page
+   * Get notifications - SIMPLE WORKAROUND for Zod number validation
+   * Backend needs to fix: use z.coerce.number() instead of z.number()
    */
-  getNotifications: async (params = {}) => {
-    const queryParams = new URLSearchParams()
-    
-    // Pagination
-    if (params.page) queryParams.append('page', params.page)
-    if (params.limit) queryParams.append('limit', params.limit)
-    
-    // Filter berdasarkan type
-    if (params.type === 'counseling') {
-      queryParams.append('type', 'schedule_created')
+  async getNotifications(params = {}) {
+    const requestData = {
+      page: parseInt(params.page || 1, 10),
+      limit: parseInt(params.limit || 10, 10), 
+      type: params.type === 'counseling' ? 'schedule' : 'system'
     }
-    // Untuk 'all' tidak ada filter type
     
-    // Filter lainnya
-    if (params.status) queryParams.append('status', params.status)
-    if (params.isRead !== undefined) queryParams.append('isRead', params.isRead)
-    if (params.from) queryParams.append('from', params.from)
-    if (params.to) queryParams.append('to', params.to)
+    if (params.status) requestData.status = params.status
+    if (params.isRead !== undefined) requestData.isRead = Boolean(params.isRead)
+    if (params.from) requestData.from = params.from
+    if (params.to) requestData.to = params.to
 
-    const response = await apiClient.get(`/notifications?${queryParams}`)
+    // SIMPLE WORKAROUND: Build URL manually to bypass axios param serialization
+    const searchParams = new URLSearchParams()
+    Object.entries(requestData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, String(value))
+      }
+    })
+
+    const url = `/notifications?${searchParams.toString()}`
+    console.log('🔧 Manual URL:', url)
+    
+    const response = await apiClient.get(url)
     return response.data
   },
 
-  /**
-   * Get unread count untuk badge - US-AC-Notif-1-1
-   */
-  getUnreadCount: async () => {
+  async getUnreadCount() {
     const response = await apiClient.get('/notifications/unread-count')
     return response.data
   },
 
-  /**
-   * Mark notifications as read - US-AC-Notif-3-1
-   */
-  markAsRead: async (notificationIds) => {
+  async markAsRead(notificationIds) {
     const response = await apiClient.post('/notifications/mark-as-read', {
       notificationIds: Array.isArray(notificationIds) ? notificationIds : [notificationIds]
     })
     return response.data
   },
 
-  /**
-   * Get notification by ID
-   */
-  getById: async (id) => {
+  async getById(id) {
     const response = await apiClient.get(`/notifications/${id}`)
     return response.data
   },
 
-  /**
-   * Delete notification (soft delete)
-   */
-  delete: async (id) => {
+  async delete(id) {
     const response = await apiClient.delete(`/notifications/${id}`)
     return response.data
   }
