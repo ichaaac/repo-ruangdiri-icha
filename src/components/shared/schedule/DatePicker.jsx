@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - FIXED DATE FORMATTING
+// src/components/shared/schedule/DatePicker.jsx - CURRENT DATE EXTRA BOLD
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -472,17 +472,26 @@ const DatePicker = ({
 
               {/* Background for today's date */}
               {day.isToday && !day.isSelected && (
-                <div className="absolute z-0 top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#488BBA] opacity-30" />
+                <div className="absolute z-0 top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#488BBA]" />
               )}
   
               <button
                 onClick={() => handleDateClick(day)}
                 className={`relative z-10 w-full h-full flex items-center justify-center text-xs transition-colors 
                   ${day.isSelected ? 'text-white font-bold' 
-                  : day.isToday ? (day.isTodayInSelectedWeek ? 'text-[#488BBA] font-black' : 'text-[#488BBA] font-bold')
+                  : day.isToday ? 'text-white font-black tracking-wider' // SUPER BOLD untuk today dengan text putih
                   : day.isCurrentMonth ? 'text-neutral-600 hover:bg-gray-100' 
                   : 'text-gray-300 hover:bg-gray-50'}
                 `}
+                style={{
+                  // Tambahan styling untuk current date agar lebih menonjol
+                  ...(day.isToday && {
+                    fontWeight: '1000', // Ultra bold
+                    textShadow: '0 0 2px rgba(0, 0, 0, 0.3)', // Strong shadow
+                    fontSize: '14px', // Larger text
+                    letterSpacing: '0.5px' // Extra letter spacing
+                  })
+                }}
               >
                 {day.date}
               </button>

@@ -93,10 +93,13 @@ const ScheduleGrid = ({
     for (let i = 0; i < timeSlots.length - 1; i++) {
       // FIXED: Half hour dividers positioned correctly with padding offset
       const position = (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
-      dividers.push({ position, hourIndex: i });
+      dividers.push({ position, hourIndex: i, timeSlot: timeSlots[i] });
+      
+      // DEBUG: Log divider positioning
+      console.log(`Half-hour divider ${i}: timeSlot=${timeSlots[i]}, position=${position}px`);
     }
     return dividers;
-  }, [timeSlots.length]);
+  }, [timeSlots]);
 
   // Helper functions
   const getTypeColor = useCallback((type) => {
@@ -157,11 +160,17 @@ const ScheduleGrid = ({
     const [hours, minutes] = timeStr.split(':').map(Number);
     const hourIndex = getHourDisplayIndex(hours);
     
+    // DEBUG: Log time positioning
+    console.log(`timeToPosition: ${timeStr} → hour=${hours}, hourIndex=${hourIndex}, minutes=${minutes}`);
+    
     // PRECISE: Return position without padding (padding added during render)
     const basePosition = hourIndex * HOUR_WIDTH;
     const minuteOffset = (minutes / 60) * HOUR_WIDTH;
+    const totalPosition = basePosition + minuteOffset;
     
-    return basePosition + minuteOffset;
+    console.log(`  basePosition=${basePosition}, minuteOffset=${minuteOffset}, total=${totalPosition}`);
+    
+    return totalPosition;
   }, [getHourDisplayIndex]);
 
   const calculateEventWidth = useCallback((startTime, endTime) => {
@@ -212,8 +221,29 @@ const ScheduleGrid = ({
           if (!isDateSelected) return;
         }
 
-        const startTime = new Date(schedule.startDateTime);
-        const endTime = new Date(schedule.endDateTime);
+        // FIXED: Handle timezone-aware date parsing
+        let startTime, endTime;
+        
+        // Try to parse dates properly considering timezone
+        if (typeof schedule.startDateTime === 'string') {
+          // If it's a string, create date in local timezone
+          startTime = new Date(schedule.startDateTime.replace('Z', ''));
+        } else {
+          startTime = new Date(schedule.startDateTime);
+        }
+        
+        if (typeof schedule.endDateTime === 'string') {
+          endTime = new Date(schedule.endDateTime.replace('Z', ''));
+        } else {
+          endTime = new Date(schedule.endDateTime);
+        }
+        
+        // DEBUG: Log schedule time processing
+        console.log(`Processing schedule: ${schedule.agenda}`);
+        console.log(`  startDateTime: ${schedule.startDateTime}`);
+        console.log(`  endDateTime: ${schedule.endDateTime}`);
+        console.log(`  parsed startTime: ${startTime} (${startTime.getHours()}:${startTime.getMinutes().toString().padStart(2,'0')})`);
+        console.log(`  parsed endTime: ${endTime} (${endTime.getHours()}:${endTime.getMinutes().toString().padStart(2,'0')})`);
         
         const displaySchedule = {
           id: schedule.id,
@@ -240,6 +270,10 @@ const ScheduleGrid = ({
           endMinutes: endTime.getHours() * 60 + endTime.getMinutes(),
           createdAt: schedule.createdAt || startTime
         };
+        
+        // DEBUG: Log final display schedule
+        console.log(`  final startTime: ${displaySchedule.startTime}`);
+        console.log(`  final endTime: ${displaySchedule.endTime}`);
 
         dayEvents[dayName].push(displaySchedule);
       }
@@ -943,6 +977,12 @@ const ScheduleGrid = ({
                     // FIXED: Use timeToPosition (returns position without padding)
                     const left = timeToPosition(event.startTime);
                     const width = calculateEventWidth(event.startTime, event.endTime);
+                    
+                    // DEBUG: Log event positioning
+                    console.log(`Rendering event: ${event.name}`);
+                    console.log(`  startTime: ${event.startTime}, endTime: ${event.endTime}`);
+                    console.log(`  calculated left: ${left}px, width: ${width}px`);
+                    console.log(`  dayName: ${dayName}, dayIndex: ${dayIndex}`);
                     
                     const laneIndex = event.stackIndex || 0;
                     const totalLanes = event.totalLanes || 1;
