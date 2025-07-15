@@ -816,9 +816,6 @@ const ScheduleGrid = ({
             Jadwal
           </h2>
         </div>
-        {loading && (
-          <div className="ml-auto text-sm text-gray-500">Loading...</div>
-        )}
       </div>
 
       {/* Grid Container */}
