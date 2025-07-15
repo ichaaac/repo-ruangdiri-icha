@@ -281,30 +281,32 @@ const Sidebar = ({
               </motion.div>
             </div>
             
-            <AnimatePresence>
-              {isProfileDropdownOpen && (expanded || hovered) && (
-                <motion.div
-                  className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden`}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
+          <AnimatePresence>
+            {isProfileDropdownOpen && (expanded || hovered) && (
+              <motion.div
+                className={`${isMobile ? "mt-2 pl-8" : "mt-3 pl-12"} overflow-hidden`}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                <Link
+                  to={`/organization/${organizationType}/profile`}
+                  className={`block py-2 ${isMobile ? "text-xs" : "text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors ${
+                    isActive(`/organization/${organizationType}/profile`) ? "font-bold underline" : ""
+                  }`}
                 >
-                  <Link
-                    to={`/organization/${organizationType}/profile`}
-                    className={`block py-2 ${isMobile ? "text-xs" : "text-sm"} text-[#488BBE] hover:text-[#3399E9] transition-colors`}
-                  >
-                    Profil
-                  </Link>
-                  <button
-                    className={`block py-2 w-full text-left ${isMobile ? "text-xs" : "text-sm"} text-rose-500 hover:text-rose-600 transition-colors`}
-                    onClick={handleLogout}
-                  >
-                    Keluar
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  Profil
+                </Link>
+                <button
+                  className={`block py-2 w-full text-left ${isMobile ? "text-xs" : "text-sm"} text-rose-500 hover:text-rose-600 transition-colors`}
+                  onClick={handleLogout}
+                >
+                  Keluar
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
           </div>
           
           <div className={`${isMobile ? "px-2" : "px-3"} mb-6`}>
