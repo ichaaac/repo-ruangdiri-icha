@@ -1,4 +1,4 @@
-// src/components/shared/notifications/Notifications.jsx
+// src/components/shared/notifications/Notifications.jsx - Updated with unlimited count display
 
 import React, { useCallback, useRef, forwardRef } from "react"
 import TopRightControl from "@/components/shared/layout/TopRightControl"
@@ -67,7 +67,17 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
   </div>
 )
 
-// Tabs Component
+// 🔥 NEW: Format count with no limits for main page (can show thousands)
+const formatCount = (count) => {
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1)}M`
+  } else if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`
+  }
+  return count.toString()
+}
+
+// Tabs Component - 🔥 UPDATED: Show full counts (no limits)
 const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChange }) => (
   <div className="flex items-center gap-10 mb-6">
     {/* US-AC-Notif-3-2: Tab Semua */}
@@ -82,7 +92,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
       <span>Semua</span>
       {selectedTab === "all" && totalCount > 0 && (
         <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-          {totalCount}
+          {formatCount(totalCount)}
         </div>
       )}
     </button>
@@ -99,7 +109,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
       <span>Konseling</span>
       {selectedTab === "counseling" && counselingCount > 0 && (
         <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-          {counselingCount}
+          {formatCount(counselingCount)}
         </div>
       )}
     </button>
@@ -281,7 +291,9 @@ const getNotificationIcon = (type) => {
     schedule_deleted: "event_busy",
     schedule_reminder: "schedule",
     system_announcement: "campaign",
-    mental_health_alert: "psychology"
+    mental_health_alert: "psychology",
+    system: "notifications",
+    general: "info"
   }
   return iconMap[type] || "notifications"
 }

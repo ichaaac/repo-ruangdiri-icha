@@ -1,14 +1,19 @@
-// src/components/shared/notifications/NotificationDropdown.jsx - FIXED VERSION
+// src/components/shared/notifications/NotificationDropdown.jsx - Fixed with max 999 display & functional tabs
 
-import React from "react"
+import React, { useState } from "react"
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown"
 
 const NotificationDropdown = ({ onViewAll, onClose }) => {
+  // 🔥 NEW: Local state for dropdown tabs
+  const [selectedTab, setSelectedTab] = useState('all')
+  
   const { 
     notifications, 
-    unreadCount, 
-    isLoading 
-  } = useNotificationDropdown()
+    unreadCount,
+    counselingCount,
+    isLoading,
+    refetch 
+  } = useNotificationDropdown(selectedTab) // Pass selectedTab to hook
 
   // US-AC-Notif-1-2: Max 3 items in dropdown
   const displayNotifications = notifications.slice(0, 3)
@@ -21,8 +26,8 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       schedule_reminder: "schedule",
       system_announcement: "campaign",
       mental_health_alert: "psychology",
-      system: "notifications", // 🔥 ADD: Handle 'system' type from API
-      general: "info" // 🔥 ADD: Handle 'general' subtype
+      system: "notifications", 
+      general: "info"
     }
     return iconMap[type] || "notifications"
   }
@@ -32,7 +37,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       const now = new Date()
       const notifTime = new Date(timestamp)
       
-      // 🔥 FIX: Validate timestamp
       if (isNaN(notifTime.getTime())) {
         console.error('Invalid timestamp:', timestamp)
         return 'Baru saja'
@@ -57,13 +61,24 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     }
   }
 
-  // 🔥 DEBUG: Log dropdown data
-  console.log('🎯 Dropdown render:', {
-    notifications: notifications.length,
-    displayNotifications: displayNotifications.length,
-    unreadCount,
-    isLoading
-  })
+  // 🔥 NEW: Format unread count for dropdown (max 999)
+  const formatUnreadCount = (count) => {
+    if (count > 999) return "999+";
+    return count.toString();
+  }
+
+  // 🔥 NEW: Handle tab switching
+  const handleTabChange = (tab) => {
+    setSelectedTab(tab)
+  }
+
+  // 🔥 NEW: Get current count based on selected tab
+  const getCurrentCount = () => {
+    if (selectedTab === 'counseling') {
+      return counselingCount || 0
+    }
+    return unreadCount || 0
+  }
 
   return (
     <div className="absolute right-0 mt-2 w-[395px] max-h-[350px] overflow-y-auto bg-white shadow-lg rounded-b-xl z-50 p-5 flex flex-col gap-4">
@@ -71,17 +86,39 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       {/* Title */}
       <div className="text-[#488abe] font-semibold text-base">Notifikasi</div>
 
-      {/* Filter Tabs with counts */}
+      {/* Filter Tabs with counts - 🔥 NOW FUNCTIONAL */}
       <div className="flex items-center gap-5 text-sm text-[#535353]">
-        <div className="flex items-center gap-1 font-bold underline cursor-pointer">
-          Semua
-          {unreadCount > 0 && (
+        <button
+          onClick={() => handleTabChange('all')}
+          className={`flex items-center gap-1 cursor-pointer transition-colors ${
+            selectedTab === 'all' 
+              ? "font-bold underline text-[#535353]" 
+              : "font-normal text-[#8a8a8a] hover:text-[#535353]"
+          }`}
+        >
+          <span>Semua</span>
+          {selectedTab === 'all' && unreadCount > 0 && (
             <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {formatUnreadCount(unreadCount)}
             </span>
           )}
-        </div>
-        <div className="font-normal cursor-pointer">Konseling</div>
+        </button>
+        
+        <button
+          onClick={() => handleTabChange('counseling')}
+          className={`flex items-center gap-1 cursor-pointer transition-colors ${
+            selectedTab === 'counseling' 
+              ? "font-bold underline text-[#535353]" 
+              : "font-normal text-[#8a8a8a] hover:text-[#535353]"
+          }`}
+        >
+          <span>Konseling</span>
+          {selectedTab === 'counseling' && counselingCount > 0 && (
+            <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+              {formatUnreadCount(counselingCount)}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Date Separator */}
@@ -102,10 +139,8 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         <div className="flex flex-col gap-4">
           {displayNotifications.length > 0 ? (
             displayNotifications.map((notification) => {
-              // 🔥 FIX: Handle both readAt and isRead properties
               const isRead = notification.isRead || !!notification.readAt
               
-              // 🔥 FIX: Validate notification object
               if (!notification || !notification.id || !notification.title) {
                 console.warn('Invalid notification in dropdown:', notification)
                 return null
@@ -152,7 +187,10 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             })
           ) : (
             <div className="text-center py-4 text-gray-500 text-sm">
-              Tidak ada notifikasi baru
+              {selectedTab === 'counseling' 
+                ? "Tidak ada notifikasi konseling" 
+                : "Tidak ada notifikasi baru"
+              }
             </div>
           )}
         </div>

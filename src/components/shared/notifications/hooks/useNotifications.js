@@ -87,7 +87,7 @@ export const useNotifications = () => {
     }
   }, [queryClient])
 
-  // Infinite query
+  // Infinite query with error handling - FIXED: Don't send 'all' directly  
   const {
     data,
     isLoading,
@@ -104,7 +104,7 @@ export const useNotifications = () => {
       return notificationsAPI.getNotifications({
         page: pageParam,
         limit: ITEMS_PER_PAGE,
-        type: selectedTab
+        type: selectedTab // API will handle 'all' correctly
       })
     },
     getNextPageParam: (lastPage, allPages) => {
@@ -115,6 +115,11 @@ export const useNotifications = () => {
       return nextPage <= totalPages ? nextPage : undefined
     },
     staleTime: 30000,
+    retry: 3,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+    onError: (error) => {
+      console.error('❌ Main notifications query failed:', error)
+    }
   })
 
   // 🔥 FIX: Extract and validate notifications data

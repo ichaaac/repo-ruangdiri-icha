@@ -1,9 +1,10 @@
-// src/components/shared/layout/TopRightControl.jsx - Updated with notifications
+// src/components/shared/layout/TopRightControl.jsx - FINAL FIXED VERSION
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query"; // 1. Import useQuery
+import notificationsAPI from "@/components/shared/notifications/lib/api"; // 2. Import API
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
-import { useNotificationDropdown } from "@/components/shared/notifications/hooks/useNotificationDropdown";
 
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const [openNotif, setOpenNotif] = useState(false);
@@ -11,33 +12,49 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Get notification data for dropdown
-  const { unreadCount } = useNotificationDropdown();
+  // 3. 🔥 AMBIL DATA LANGSUNG, JANGAN LEWAT HOOK
+  // Ini membuat komponen mandiri dan hanya mengambil data yang dibutuhkan.
+  const { data: unreadData, isLoading: isCountLoading } = useQuery({
+    queryKey: ['notifications-unread-count'], // Kunci query yang sama untuk caching
+    queryFn: notificationsAPI.getUnreadCount,
+    staleTime: 15000, // Konsisten dengan hook lain
+    refetchInterval: 15000, // Agar data tetap fresh
+    keepPreviousData: true, // Memastikan data sebelumnya tetap ada saat loading
+  });
 
-  // US-AC-Notif-1-4: Close on outside click
+  // 4. Proses data langsung dari hasil query
+  const unreadCount = parseInt(unreadData?.count, 10) || 0;
+
+  // 5. Fungsi format sekarang menggunakan status loading-nya sendiri
+  const formatUnreadCount = (count) => {
+    if (isCountLoading || !count || count === 0) return null;
+    if (count > 99) return "99+";
+    return count.toString();
+  };
+
+  const displayCount = formatUnreadCount(unreadCount);
+  // const
+
+  // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setOpenNotif(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
-  // US-AC-Notif-1-6: Close dropdown when navigating to other pages
+  // Close dropdown when navigating
   useEffect(() => {
     setOpenNotif(false);
   }, [location.pathname]);
 
-  // US-AC-Notif-2-1: Navigate to organization-specific notification page
   const handleViewAllNotifications = () => {
     setOpenNotif(false);
-    
-    // Determine organization type from current path
     const isSchool = location.pathname.includes('/organization/school');
     const isCompany = location.pathname.includes('/organization/company');
     
@@ -46,7 +63,6 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     } else if (isCompany) {
       navigate("/organization/company/notifications");
     } else {
-      // Fallback - shouldn't happen in normal flow
       navigate("/notifications");
     }
   };
@@ -73,15 +89,14 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         >
           notifications
           
-          {/* US-AC-Notif-1-1: Badge indicator dengan number merah */}
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-[#EE4266] text-white text-[8px] font-semibold rounded-full flex items-center justify-center px-1">
-              {unreadCount > 99 ? "99+" : unreadCount}
+          {/* Badge indicator sekarang akan bekerja dengan benar */}
+          {displayCount && (
+            <span className="absolute top-0 -right-1 w-6 h-[11px] bg-[#EE4266] text-white text-[8px] font-bold rounded-xl flex items-center justify-center transform-gpu">
+              {displayCount}
             </span>
           )}
         </button>
 
-        {/* US-AC-Notif-1-2, US-AC-Notif-1-3: Dropdown */}
         {openNotif && (
           <NotificationDropdown
             onViewAll={handleViewAllNotifications}
