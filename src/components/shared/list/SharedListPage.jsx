@@ -6,6 +6,7 @@ import { useList } from "./hooks/useList"
 import SharedTable from "./SharedTable"
 import FloatingTableScrollbar from "./FloatingTableScrollbar"
 import TopRightControl from "../layout/TopRightControl"
+// import ChatWidget from "../chats/ChatWidget"
 
 const SharedListPage = ({
   type = "student",
@@ -273,6 +274,12 @@ const SharedListPage = ({
           />
         )}
       </AnimatePresence>
+
+      {/* 🔥 ChatWidget Implementation
+      <ChatWidget 
+        position="custom"
+      className="chat-widget-list-page"
+      /> */}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import NotificationPanel from "./NotificationsPanel";
 import AddScheduleModal from "./AddScheduleModal";
 import ViewScheduleModal from "./ViewScheduleModal";
 import { useSchedule } from "./hooks/useSchedule";
+import ChatWidget from "../chats/ChatWidget";
 
 const SchedulePage = ({ type = "school" }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

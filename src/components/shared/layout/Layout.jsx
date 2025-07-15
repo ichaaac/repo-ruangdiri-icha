@@ -1,14 +1,15 @@
-// src/components/shared/layout/Layout.jsx - Fixed Layout with dashboard tab state management
+// src/components/shared/layout/Layout.jsx - WITH CHATWIDGET INTEGRATION
 
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useDashboard } from "../../../hooks/useDashboardMetrics";
 import { useAuth } from "../../../hooks/useAuth";
+import ChatWidget from "../chats/ChatWidget";
 
 /**
  * Responsive Layout Component for both School and Company
- * FIXED: Proper dashboard tab state management and metrics passing
+ * ENHANCED: Added ChatWidget integration with sidebar-aware positioning
  */
 const Layout = ({ 
   organizationType = "school", 
@@ -72,6 +73,28 @@ const Layout = ({
     return "80px"; // 60px sidebar + 20px gap
   };
 
+  // 🔥 Calculate ChatWidget positioning based on sidebar state
+  const getChatWidgetStyle = () => {
+    if (isMobile) {
+      // Mobile: Standard bottom-right positioning
+      return {
+        position: 'fixed',
+        bottom: '24px',
+        right: '24px',
+        zIndex: 40 // Below sidebar (z-40) but above content
+      };
+    }
+    
+    // Desktop: Adjust for sidebar
+    const sidebarWidth = (expanded || sidebarHovered) ? 237 : 60;
+    return {
+      position: 'fixed',
+      bottom: '24px',
+      right: '24px',
+      zIndex: 40 // Below sidebar but above content
+    };
+  };
+
   // Force window resize event when sidebar state changes
   useEffect(() => {
     const dispatchResize = () => {
@@ -115,7 +138,17 @@ const Layout = ({
           onDashboardTabChange: handleDashboardTabChange,
           dashboardMetrics, // FIXED: Pass metrics to children
         }} />
-    </div>
+      </div>
+
+      {/* 🔥 CHATWIDGET - Layout Level Implementation */}
+      <div style={getChatWidgetStyle()}>
+        <ChatWidget 
+          className="layout-chat-widget"
+          // Pass sidebar state for potential future enhancements
+          sidebarExpanded={expanded || sidebarHovered}
+          isMobile={isMobile}
+        />
+      </div>
     </div>
   );
 };
