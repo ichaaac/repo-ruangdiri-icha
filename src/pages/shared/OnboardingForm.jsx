@@ -1,499 +1,132 @@
-// src/pages/shared/OnboardingForm.jsx
-import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { useForm, Controller } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { useQueryClient } from "@tanstack/react-query"
+// src/pages/shared/OnboardingSplashScreen.jsx
+import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
-import { useAuth } from "@/hooks/useAuth"
-import api from "@/lib/api"
-import clsx from "clsx"
 
-// Components & utilities
-import TextareaAutosize from "react-textarea-autosize"
-import { PhoneInput } from "react-international-phone"
-import "react-international-phone/style.css"
-import { validatePhoneNumber, isEmptyPhone, extractDigits } from "@/lib/phoneUtils"
-import { toast } from "sonner"
-
-// --- KOMPONEN UPLOAD PROFILE PICTURE KHUSUS ONBOARDING ---
-const OnboardingProfilePictureUpload = ({ currentProfilePicture, organizationType = "school", onFileSelect }) => {
-  const fileInputRef = useRef(null)
-  const [previewImage, setPreviewImage] = useState(currentProfilePicture)
-  const [isHovering, setIsHovering] = useState(false)
-  const [imageError, setImageError] = useState(false)
-
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
-  const maxSize = 2 * 1024 * 1024 // 2MB
-
-  useEffect(() => {
-    setPreviewImage(currentProfilePicture)
-    setImageError(false)
-  }, [currentProfilePicture])
-
-  const toastStyle = {
-    backgroundColor: "#FEE2E2",
-    color: "#B91C1C",
-    fontSize: "0.75rem",
-    textAlign: "center",
-    padding: "6px 12px",
-    borderRadius: "6px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-    maxWidth: "200px",
-  }
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) {
-      console.log("No file selected - user canceled file picker")
-      return
-    }
-
-    console.log("File selected for onboarding:", file.name)
-    e.target.value = ""
-
-    if (!allowedTypes.includes(file.type)) {
-      toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
-      return
-    }
-    if (file.size > maxSize) {
-      toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
-      return
-    }
-
-    // Set preview dan notify parent component
-    const previewUrl = URL.createObjectURL(file)
-    setPreviewImage(previewUrl)
-    setImageError(false)
-    
-    // Notify parent component about file selection
-    onFileSelect(file, previewUrl)
-  }
-
-  const handleButtonClick = () => {
-    console.log("Onboarding profile picture button clicked - opening file picker")
-    fileInputRef.current.click()
-  }
-
-  const getFallbackIcon = () => {
-    return organizationType === "company" ? "business" : "person"
-  }
-
-  const handleImageError = () => {
-    setImageError(true)
-  }
-
-  return (
-    <div className="relative z-10">
-      <div className="relative" onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-          {previewImage && !imageError ? (
-            <img
-              src={previewImage || "/placeholder.svg"}
-              alt="Profile"
-              className="w-full h-full object-cover"
-              onError={handleImageError}
-            />
-          ) : (
-            <span className="material-icons text-gray-400" style={{ fontSize: "2.5rem" }}>
-              {getFallbackIcon()}
-            </span>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleButtonClick}
-          className={clsx(
-            "absolute right-0 bottom-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center",
-            "transition-all duration-200",
-            isHovering ? "opacity-100 scale-110" : "opacity-75"
-          )}
-          aria-label="Upload profile picture"
-        >
-          <span className="material-icons text-white text-xs sm:text-sm">photo_camera</span>
-        </button>
-
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/jpeg, image/png, image/gif, image/webp"
-          className="hidden"
-        />
-      </div>
-    </div>
-  )
-}
-
-// Validation schema
-const onboardingSchema = z.object({
-  address: z.string().max(255, "Alamat maksimal 255 karakter").optional(),
-  phone: z
-    .string()
-    .optional()
-    .refine(
-      (phone) => {
-        if (!phone || isEmptyPhone(phone)) return true
-        return validatePhoneNumber(phone) === null
-      },
-      { message: "Format nomor telepon tidak valid" },
-    ),
-})
-
-const OnboardingForm = () => {
-  const { user, getOrganizationType } = useAuth()
+// Props 'onboardingBackground' tidak akan kita pakai lagi untuk background besar
+function OnboardingSplashScreen({ imageSrc, navigatePath }) { // Hapus onboardingBackground dari props
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [phoneValidationError, setPhoneValidationError] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [selectedProfilePicture, setSelectedProfilePicture] = useState(null)
-  const [profilePicturePreview, setProfilePicturePreview] = useState(null)
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    trigger,
-    setValue,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(onboardingSchema),
-    mode: "onBlur",
-    defaultValues: {
-      address: user?.address || "",
-      phone: user?.phone || "",
+  // SIMPLIFIED ANIMATIONS (tetap sama)
+  const pageVariants = {
+    initial: { opacity: 0 },
+    in: { opacity: 1 },
+    out: { opacity: 0, x: -50 },
+  }
+
+  const pageTransition = {
+    type: "tween",
+    ease: "anticipate",
+    duration: 0.5,
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  }
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.2 },
     },
-  })
-
-  // Pre-fill form with existing user data
-  useEffect(() => {
-    if (user) {
-      console.log("Pre-filling onboarding form with user data:", {
-        address: user.address,
-        phone: user.phone,
-        fullName: user.fullName
-      })
-      
-      // Pre-fill address jika ada
-      if (user.address) {
-        setValue("address", user.address)
-      }
-      // Pre-fill phone jika ada  
-      if (user.phone) {
-        setValue("phone", user.phone)
-      }
-    }
-  }, [user, setValue])
-
-  // Cleanup preview URL on unmount
-  useEffect(() => {
-    return () => {
-      if (profilePicturePreview) {
-        URL.revokeObjectURL(profilePicturePreview)
-      }
-    }
-  }, [profilePicturePreview])
-
-  const handleProfilePictureSelect = (file, previewUrl) => {
-    console.log("Profile picture selected for onboarding:", file.name)
-    
-    // Cleanup previous preview
-    if (profilePicturePreview) {
-      URL.revokeObjectURL(profilePicturePreview)
-    }
-    
-    setSelectedProfilePicture(file)
-    setProfilePicturePreview(previewUrl)
   }
 
-  // FIXED: Complete onboarding with address and phone data
-  const completeOnboarding = async (formData = {}) => {
-    setIsSubmitting(true)
-
-    try {
-      console.log("Starting onboarding completion...")
-
-      // Step 1: Upload profile picture first if selected
-      if (selectedProfilePicture) {
-        console.log("Uploading profile picture...")
-        try {
-          await api.organization.updateProfilePicture(selectedProfilePicture)
-          console.log("Profile picture uploaded successfully")
-        } catch (error) {
-          console.error("Profile picture upload failed:", error)
-          // Continue with onboarding even if profile picture fails
-          toast.error("Foto profil gagal diupload, tapi onboarding akan dilanjutkan")
-        }
-      }
-
-      // Step 2: Complete onboarding with address and phone data
-      const payload = {
-        onboarded: true, // Mark onboarding as completed
-      }
-
-      // Only add address and phone if form data is provided (not skipped)
-      if (formData && typeof formData === 'object') {
-        if (formData.address?.trim()) {
-          payload.address = formData.address.trim()
-        }
-        
-        if (formData.phone?.trim() && !isEmptyPhone(formData.phone)) {
-          payload.phone = formData.phone.trim()
-        }
-      }
-
-      console.log("Sending onboarding payload:", payload)
-
-      // Call API
-      const response = await api.organization.updateProfile(payload)
-      console.log("Onboarding API Response:", response)
-
-      if (response?.status === "success") {
-        // Clear cache and redirect
-        queryClient.clear()
-        await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-
-        // Wait for cache refresh then redirect
-        setTimeout(() => {
-          const orgType = getOrganizationType()
-          const redirectPath = orgType === "school" 
-            ? "/organization/school/dashboard"
-            : orgType === "company"
-            ? "/organization/company/dashboard"
-            : "/"
-          
-          console.log(`Onboarding completed! Redirecting to: ${redirectPath}`)
-          window.location.replace(redirectPath)
-        }, 1000)
-      } else {
-        throw new Error("API response unsuccessful")
-      }
-    } catch (error) {
-      console.error("Onboarding failed:", error)
-      alert("Gagal menyelesaikan onboarding. Silakan coba lagi.")
-      setIsSubmitting(false)
-    }
-  }
-
-  const onSubmit = async (data) => {
-    console.log("Form submitted with data:", data)
-    setPhoneValidationError("")
-
-    // Validate phone if provided
-    if (data.phone && !isEmptyPhone(data.phone)) {
-      const phoneError = validatePhoneNumber(data.phone)
-      if (phoneError) {
-        setPhoneValidationError(phoneError)
-        return
-      }
-    }
-
-    await completeOnboarding(data)
-  }
-
-  const handleSkip = async () => {
-    console.log("Skipping onboarding form...")
-    setIsSubmitting(true)
-    
-    try {
-      // Upload profile picture if selected
-      if (selectedProfilePicture) {
-        console.log("Uploading profile picture during skip...")
-        try {
-          await api.organization.updateProfilePicture(selectedProfilePicture)
-          console.log("Profile picture uploaded during skip")
-        } catch (error) {
-          console.error("Profile picture upload failed during skip:", error)
-          toast.error("Foto profil gagal diupload")
-        }
-      }
-      
-      // Complete onboarding without form data - only send onboarded: true
-      const payload = { onboarded: true }
-      console.log("Sending skip payload:", payload)
-      
-      const response = await api.organization.updateProfile(payload)
-      console.log("Skip API Response:", response)
-
-      if (response?.status === "success") {
-        // Clear cache and redirect
-        queryClient.clear()
-        await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-
-        // Wait for cache refresh then redirect
-        setTimeout(() => {
-          const orgType = getOrganizationType()
-          const redirectPath = orgType === "school" 
-            ? "/organization/school/dashboard"
-            : orgType === "company"
-            ? "/organization/company/dashboard"
-            : "/"
-          
-          console.log(`Onboarding skipped! Redirecting to: ${redirectPath}`)
-          window.location.replace(redirectPath)
-        }, 1000)
-      } else {
-        throw new Error("API response unsuccessful")
-      }
-    } catch (error) {
-      console.error("Skip onboarding failed:", error)
-      alert("Gagal melewati onboarding. Silakan coba lagi.")
-      setIsSubmitting(false)
-    }
-  }
-
-  const handlePhoneChange = (value, field) => {
-    if (isEmptyPhone(value)) {
-      field.onChange("")
-      setPhoneValidationError("")
-      return
-    }
-
-    const digits = extractDigits(value)
-    if (digits.length <= 15) {
-      field.onChange(value)
-      const error = validatePhoneNumber(value)
-      setPhoneValidationError(error || "")
-      setTimeout(() => trigger("phone"), 100)
-    }
-  }
-
-  // Simplified animations
-  const fadeInUp = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.4 }
+  const buttonVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: { opacity: 1, scale: 1, transition: { duration: 0.3 } },
+    hover: { scale: 1.05, transition: { duration: 0.2 } },
+    tap: { scale: 0.95 },
   }
 
   return (
-    <div className="flex flex-col md:flex-row w-full min-h-screen">
-      {/* Left Section - Hero */}
-      <section
-        className="hidden md:flex flex-col w-full md:w-1/2 relative justify-center items-center p-8"
-        style={{
-          background: "linear-gradient(135deg, #91D9E1 0%, #5E6EC3 100%)",
-        }}
-      >
-        <motion.div 
-          className="text-center text-white max-w-md"
-          {...fadeInUp}
+    <motion.main
+      className="overflow-hidden bg-white" // Background utama halaman tetap putih
+      initial="initial"
+      animate="in"
+      exit="out"
+      variants={pageVariants}
+      transition={pageTransition}
+    >
+      <div className="relative flex flex-col items-center justify-start w-full min-h-screen pb-8">
+        
+        {/* ✨ DIV BACKGROUND GRADIENT DIHAPUS DARI SINI ✨ */}
+        {/* Kalaupun ada props onboardingBackground, tidak lagi dipakai di sini untuk background besar */}
+
+        {/* Main illustration */}
+        <motion.img
+          src={imageSrc}
+          className="absolute top-[20px] left-[20px] right-[20px] object-cover z-10 rounded-3xl"
+          alt="Onboarding illustration"
+          variants={itemVariants}
+          style={{ 
+            height: "444px",
+            width: "calc(100% - 40px)",
+          }}
+        />
+
+        {/* Content section */}
+        <motion.section
+          className="relative z-20 flex flex-col items-center justify-center w-full max-w-sm md:max-w-xl lg:max-w-4xl px-4 py-8
+                     mt-[460px] md:mt-[470px] lg:mt-[480px]"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
         >
-          <h1 className="text-5xl lg:text-6xl font-bold drop-shadow-lg">
-            Lengkapi Profilmu
-          </h1>
-          <p className="mt-8 text-2xl lg:text-3xl font-medium drop-shadow-md">
-            {user?.fullName || "User"}
-          </p>
-        </motion.div>
-      </section>
-
-      {/* Right Section - Form */}
-      <section className="relative flex flex-1 justify-center items-center w-full md:w-1/2 py-8 md:py-16 px-4 bg-white overflow-auto">
-        <motion.form 
-          onSubmit={handleSubmit(onSubmit)} 
-          className="w-full max-w-[454px] flex flex-col gap-6 md:gap-8"
-          {...fadeInUp}
-        >
-          {/* Mobile Title */}
-          <h2 className="text-2xl font-bold text-primary mb-6 text-center w-full md:hidden">
-            Lengkapi Profil
-          </h2>
-
-          {/* Profile Picture Upload - ONBOARDING VERSION */}
-          <div className="flex flex-col items-start">
-            <OnboardingProfilePictureUpload
-              currentProfilePicture={user?.profilePicture || null}
-              organizationType={user?.organization?.type || "school"}
-              onFileSelect={handleProfilePictureSelect}
-            />
-          </div>
-
-          {/* Address Field */}
-          <div>
-            <label className="block mb-2 text-sm text-zinc-600">Alamat</label>
-            <TextareaAutosize
-              {...register("address")}
-              minRows={1}
-              maxLength={255}
-              className="w-full p-3 border border-zinc-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none transition-colors"
-              style={{ height: "42px" }}
-              placeholder="Masukkan alamat lengkap"
-              disabled={isSubmitting}
-            />
-            {errors.address && (
-              <span className="text-xs text-red-500 mt-1 block">
-                {errors.address.message}
-              </span>
-            )}
-          </div>
-
-          {/* Phone Field */}
-          <div>
-            <label className="block mb-2 text-sm text-zinc-600">Nomor Telepon</label>
-            <Controller
-              name="phone"
-              control={control}
-              render={({ field }) => (
-                <PhoneInput
-                  defaultCountry="id"
-                  value={field.value || ""}
-                  onChange={(value) => handlePhoneChange(value, field)}
-                  onBlur={field.onBlur}
-                  inputClassName={clsx(
-                    "w-full h-[42px] border-[1.5px] text-base px-4 transition-colors",
-                    errors.phone || phoneValidationError 
-                      ? "border-red-500" 
-                      : "border-zinc-300",
-                  )}
-                  disabled={isSubmitting}
-                />
-              )}
-            />
-            {(errors.phone || phoneValidationError) && (
-              <span className="text-xs text-red-500 mt-1 block">
-                {phoneValidationError || errors.phone?.message}
-              </span>
-            )}
-          </div>
-
-          {/* Submit Button */}
-          <div className="mt-2 flex justify-end">
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center justify-center font-semibold text-white bg-primary rounded-lg transition-all duration-200 hover:bg-primary-variant1 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              style={{ width: "114px", height: "32px" }}
+          <motion.div
+            className="flex flex-col items-center gap-6 mb-12"
+            variants={itemVariants}
+          >
+            <motion.h1
+              className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight text-center max-w-xs md:max-w-md lg:max-w-4xl text-ruangdiri-gradient"
+              variants={itemVariants}
+              style={{ 
+                fontFamily: "Public Sans",
+                fontWeight: "700",
+                lineHeight: "normal"
+              }}
             >
-              {isSubmitting ? (
-                <span className="material-icons animate-spin text-sm">sync</span>
-              ) : (
-                "Simpan"
-              )}
-            </button>
-          </div>
-        </motion.form>
+              Selamat datang di Ruangdiri.id
+            </motion.h1>
 
-        {/* Skip Button */}
-        <button
-          type="button"
-          onClick={handleSkip}
-          disabled={isSubmitting}
-          className="absolute bottom-8 right-8 text-sm text-zinc-500 hover hover:text-primary md:bottom-12 md:right-12 disabled:opacity-50 transition-colors"
-        >
-          {isSubmitting ? (
-            <span className="flex items-center gap-2">
-              <span className="material-icons animate-spin text-xs">sync</span>
-              Memproses...
-            </span>
-          ) : (
-            "Lewati Langkah Ini"
-          )}
-        </button>
-      </section>
-    </div>
+            <motion.p
+              className="text-sm md:text-base text-center text-[#535353] max-w-xs md:max-w-md lg:max-w-4xl px-4"
+              variants={itemVariants}
+              style={{
+                fontFamily: "Public Sans",
+                fontWeight: "400",
+                lineHeight: "20px"
+              }}
+            >
+              Ruang Diri adalah platform yang berfokus pada penyediaan layanan kesehatan mental, menggabungkan keahlian di bidang teknologi 
+              dan kesehatan untuk menciptakan solusi yang inovatif dan praktis.
+            </motion.p>
+          </motion.div>
+
+          {/* ✨ TOMBOL KEMBALI MENGGUNAKAN BACKGROUND SOLID ✨ */}
+          <motion.button
+            className="flex items-center justify-center
+                       bg-[#488BBE] text-white /* BACKGROUND SOLID INI YA, BUKAN TRANSPARAN */
+                       rounded-lg shadow-lg focus:outline-none focus:ring-4 focus:ring-[#488BBE]/30
+                       w-[150px] md:w-[189px] h-[40px] md:h-[42px] text-base md:text-lg lg:text-xl font-semibold"
+            style={{
+              fontFamily: "Public Sans",
+              fontWeight: "600",
+              lineHeight: "normal",
+              boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.07)",
+              borderRadius: "5px"
+            }}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+            onClick={() => navigate(navigatePath)}
+          >
+            Mulai Sekarang
+          </motion.button>
+        </motion.section>
+      </div>
+    </motion.main>
   )
 }
 
-export default OnboardingForm
+export default OnboardingSplashScreen;

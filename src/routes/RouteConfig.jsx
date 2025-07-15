@@ -1,4 +1,4 @@
-// src/routes/routeConfig.jsx - FINAL WITH ORGANIZATION-SPECIFIC NOTIFICATION ROUTES
+// src/routes/routeConfig.jsx - WITH DEVELOPMENT ROUTES FOR STUDENT/EMPLOYEE
 
 import React from "react";
 import { Navigate } from "react-router-dom";
@@ -17,6 +17,11 @@ import ResetPassword from "../pages/shared/auth/ResetPassword";
 // === ONBOARDING PAGES ===
 import OnboardingForm from "@/pages/shared/OnboardingForm";
 import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
+
+// === ONBOARDING PAGES - STUDENT/EMPLOYEE ===
+import StudentOnboardingSplashScreen from "@/pages/user/student/OnboardingSplashScreen";
+import EmployeeOnboardingSplashScreen from "@/pages/user/employee/OnboardingSplashScreen";
+import UserOnboardingForm from "@/pages/user/shared/OnboardingForm";
 
 // === SHARED PAGES ===
 import NotificationPage from "@/pages/shared/NotificationPage";
@@ -74,7 +79,7 @@ const routes = [
   },
 
   // ==========================================
-  // ONBOARDING ROUTES (PROTECTED)
+  // ONBOARDING ROUTES (PROTECTED) - ORGANIZATION ADMIN
   // ==========================================
   {
     path: "/onboarding",
@@ -91,6 +96,50 @@ const routes = [
         <OnboardingForm />
       </ProtectedRoute>
     )
+  },
+
+  // ==========================================
+  // ONBOARDING ROUTES (PROTECTED) - STUDENT/EMPLOYEE
+  // ==========================================
+  {
+    path: "/user/onboarding/student",
+    element: (
+      <ProtectedRoute>
+        <StudentOnboardingSplashScreen />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/user/onboarding/employee",
+    element: (
+      <ProtectedRoute>
+        <EmployeeOnboardingSplashScreen />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/user/onboarding/form",
+    element: (
+      <ProtectedRoute>
+        <UserOnboardingForm />
+      </ProtectedRoute>
+    )
+  },
+
+  // ==========================================
+  // DEVELOPMENT ROUTES - REMOVE IN PRODUCTION
+  // ==========================================
+  {
+    path: "/dev/student-onboarding",
+    element: <StudentOnboardingSplashScreen />
+  },
+  {
+    path: "/dev/employee-onboarding",
+    element: <EmployeeOnboardingSplashScreen />
+  },
+  {
+    path: "/dev/user-onboarding-form",
+    element: <UserOnboardingForm />
   },
 
   // ==========================================
@@ -230,10 +279,6 @@ const routes = [
   },
   {
     path: "/demo/*",
-    element: <Navigate to="/" replace />
-  },
-  {
-    path: "/dev/*",
     element: <Navigate to="/" replace />
   },
 

@@ -450,3 +450,10 @@ Firefox scrollbar
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1); /* Efek border "bayangan" */
   border-radius: 50%; /* Biar tetep bulet */
 }
+.text-ruangdiri-gradient {
+  background-image: linear-gradient(to right, #91D9E1, #5E6EC3);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent; /* Fallback for browsers that don't support -webkit-text-fill-color */
+}
