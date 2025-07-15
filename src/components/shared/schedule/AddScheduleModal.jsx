@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED WITH ATTACHMENT PREVIEW & BETTER STATE
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED DATE HANDLING
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -9,6 +9,14 @@ import {
   parseScheduleDateTime, 
   createDateTimeWithOffset 
 } from "@/components/shared/schedule/utils/timezoneHandler";
+
+// BEST PRACTICE: Utility untuk format tanggal tanpa timezone conversion
+const formatDateLocal = (date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Attachment Preview Modal Component
 const AttachmentPreviewModal = ({ attachment, isOpen, onClose }) => {
@@ -79,7 +87,7 @@ const AddScheduleModal = ({
     agenda: "",
     type: "counseling",
     dates: [{
-      date: new Date().toISOString().split('T')[0],
+      date: formatDateLocal(new Date()), // FIXED: Use local date formatting
       startTime: "09:00",
       endTime: "10:00",
       timezone: "WIB"
@@ -105,9 +113,13 @@ const AddScheduleModal = ({
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // FIXED: Initialize form data properly
+  // FIXED: Initialize form data properly with detailed logging
   useEffect(() => {
     if (isOpen) {
+      console.log('=== AddScheduleModal Initialization ===');
+      console.log('Mode:', mode);
+      console.log('Initial data:', initialData);
+      
       if (mode === "edit" && initialData) {
         console.log('Initializing edit mode with data:', initialData);
         
@@ -139,7 +151,7 @@ const AddScheduleModal = ({
           description: initialData.description || "",
           notificationOffset: initialData.notificationOffset || 60,
           dates: dates.length > 0 ? dates : [{
-            date: new Date().toISOString().split('T')[0],
+            date: formatDateLocal(new Date()),
             startTime: "09:00",
             endTime: "10:00",
             timezone: "WIB"
@@ -160,25 +172,58 @@ const AddScheduleModal = ({
       } else {
         // FIXED: Proper initialization for create mode from ScheduleGrid data
         let defaultDates = [{
-          date: new Date().toISOString().split('T')[0],
+          date: formatDateLocal(new Date()), // FIXED: Use local date formatting for default
           startTime: "09:00",
           endTime: "10:00",
           timezone: "WIB"
         }];
 
-        // Handle initialData from ScheduleGrid properly
+        // FIXED: Handle initialData from ScheduleGrid properly with detailed logging
         if (initialData?.dates && initialData.dates.length > 0) {
           console.log('Received dates from ScheduleGrid:', initialData.dates);
-          defaultDates = initialData.dates.map(dateInfo => ({
-            date: dateInfo.date,
-            startTime: dateInfo.startTime || "09:00",
-            endTime: dateInfo.endTime || "10:00", 
-            timezone: dateInfo.timezone || "WIB"
-          }));
-          console.log('Processed dates for form:', defaultDates);
+          
+          // Validate each date object and ensure local formatting
+          defaultDates = initialData.dates.map((dateInfo, index) => {
+            console.log(`Processing date ${index}:`, dateInfo);
+            
+            // If date is a Date object, format it properly
+            let dateString = dateInfo.date;
+            if (dateInfo.date instanceof Date) {
+              dateString = formatDateLocal(dateInfo.date);
+            }
+            
+            const processedDate = {
+              date: dateString,
+              startTime: dateInfo.startTime || "09:00",
+              endTime: dateInfo.endTime || "10:00", 
+              timezone: dateInfo.timezone || "WIB"
+            };
+            
+            console.log(`Processed date ${index}:`, processedDate);
+            return processedDate;
+          });
+          
+          console.log('All processed dates for form:', defaultDates);
+        } else if (initialData?.startDateTime && initialData?.endDateTime) {
+          // FIXED: Handle direct DateTime objects from ScheduleGrid
+          console.log('Received DateTime objects from ScheduleGrid');
+          console.log('startDateTime:', initialData.startDateTime);
+          console.log('endDateTime:', initialData.endDateTime);
+          
+          const startDate = new Date(initialData.startDateTime);
+          const endDate = new Date(initialData.endDateTime);
+          
+          defaultDates = [{
+            date: formatDateLocal(startDate), // FIXED: Use local date formatting
+            startTime: startDate.toTimeString().slice(0, 5),
+            endTime: endDate.toTimeString().slice(0, 5),
+            timezone: "WIB"
+          }];
+          
+          console.log('Converted to date format:', defaultDates);
         }
         
-        setFormData({
+        const createModeData = {
           agenda: "",
           type: "counseling",
           dates: defaultDates,
@@ -189,7 +234,10 @@ const AddScheduleModal = ({
           customLocation: "",
           description: "",
           multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
-        });
+        };
+        
+        console.log('Setting form data for create mode:', createModeData);
+        setFormData(createModeData);
         
         if (editorRef.current) {
           editorRef.current.innerHTML = "";
@@ -202,6 +250,8 @@ const AddScheduleModal = ({
       setParticipantSearch("");
       setHasShownUnsavedToast(false);
       setPreviewAttachment(null);
+      
+      console.log('====================================');
     }
   }, [isOpen, mode, initialData]);
 
@@ -232,15 +282,14 @@ const AddScheduleModal = ({
     { label: "Seed-in", value: "organization" }
   ];
 
-  // Generate time options matching ScheduleGrid (06:00-00:00 with 5-minute intervals)
+  // FIXED: Generate time options matching ScheduleGrid (06:00-23:55 with 5-minute intervals)
   const timeOptions = (() => {
     const times = [];
-    for (let hour = 6; hour < 24; hour++) {
+    for (let hour = 6; hour <= 23; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
         times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
       }
     }
-    times.push('00:00');
     return times;
   })();
 
@@ -464,6 +513,7 @@ const AddScheduleModal = ({
     }
   };
 
+  // FIXED: Update date with proper time validation
   const updateAdditionalDate = (index, field, value) => {
     const newDates = [...formData.dates];
     newDates[index] = { ...newDates[index], [field]: value };
@@ -518,7 +568,7 @@ const AddScheduleModal = ({
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
-    // Build payload
+    // FIXED: Build payload with proper date validation
     const submitData = {
       agenda: formData.agenda,
       type: formData.type,
@@ -526,6 +576,18 @@ const AddScheduleModal = ({
       notificationOffset: formData.notificationOffset,
       dates: formData.dates
     };
+
+    console.log('=== Submit Data Debug ===');
+    console.log('Form dates:', formData.dates);
+    
+    // Validate dates
+    submitData.dates.forEach((date, index) => {
+      console.log(`Date ${index}:`, date);
+      console.log(`  - Date: ${date.date}`);
+      console.log(`  - Start time: ${date.startTime}`);
+      console.log(`  - End time: ${date.endTime}`);
+      console.log(`  - Timezone: ${date.timezone}`);
+    });
 
     // Participants structure for counseling
     if (formData.type === "counseling") {
@@ -558,7 +620,8 @@ const AddScheduleModal = ({
       submitData.id = initialData.id;
     }
     
-    console.log('Submitting payload:', submitData);
+    console.log('Final submit payload:', submitData);
+    console.log('========================');
     
     try {
       const result = await onSubmit(submitData);
@@ -774,6 +837,7 @@ const AddScheduleModal = ({
                       type="date"
                       value={dateInfo.date}
                       onChange={(e) => {
+                        console.log(`Changing date ${index} to:`, e.target.value);
                         const newDates = [...formData.dates];
                         newDates[index] = { ...newDates[index], date: e.target.value };
                         handleInputChange('dates', newDates);

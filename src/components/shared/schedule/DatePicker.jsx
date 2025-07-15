@@ -1,7 +1,15 @@
-// src/components/shared/schedule/DatePicker.jsx - FIXED DEFAULT WEEK SELECTION & CALCULATION
+// src/components/shared/schedule/DatePicker.jsx - FIXED DATE FORMATTING
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+
+// BEST PRACTICE: Utility untuk format tanggal tanpa timezone conversion
+const formatDateLocal = (date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const DatePicker = ({ 
   containerWidth = 335,
@@ -22,10 +30,12 @@ const DatePicker = ({
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // FIXED: Calculate current week (Monday to Sunday) based on current date
+  // FIXED: Calculate current week (Monday to Sunday) - LOCAL TIMEZONE
   const getCurrentWeekDates = () => {
     const today = new Date();
+    console.log('=== DatePicker getCurrentWeekDates ===');
     console.log('Current date for week calculation:', today.toDateString());
+    console.log('Today day of week (0=Sunday):', today.getDay());
     
     // Convert Sunday=0 to Monday=0 system
     const dayOfWeek = (today.getDay() + 6) % 7; // Monday=0, Tuesday=1, ..., Sunday=6
@@ -46,7 +56,8 @@ const DatePicker = ({
       weekDates.push(weekDate);
     }
     
-    console.log('Current week dates:', weekDates.map(d => `${d.toDateString()} (${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][d.getDay() === 0 ? 6 : d.getDay() - 1]})`));
+    console.log('Current week dates:', weekDates.map((d, i) => `${d.toDateString()} (${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]})`));
+    console.log('======================================');
     return weekDates;
   };
 
@@ -60,11 +71,12 @@ const DatePicker = ({
       }
       
       if (selectedDates && selectedDates.length > 0) {
+        console.log('DatePicker: Using provided selectedDates:', selectedDates.map(d => d.toDateString()));
         setInternalSelectedDates(selectedDates);
       } else {
         // FIXED: Default to current week if no selection
         const currentWeekDates = getCurrentWeekDates();
-        console.log('Default selecting current week:', currentWeekDates.map(d => d.toDateString()));
+        console.log('DatePicker: Default selecting current week:', currentWeekDates.map(d => d.toDateString()));
         setInternalSelectedDates(currentWeekDates);
         
         // Notify parent components immediately
@@ -77,6 +89,7 @@ const DatePicker = ({
 
   useEffect(() => {
     if (isInitialized && selectedDates && JSON.stringify(selectedDates) !== JSON.stringify(internalSelectedDates)) {
+      console.log('DatePicker: Updating internal selected dates:', selectedDates.map(d => d.toDateString()));
       setInternalSelectedDates(selectedDates);
     }
   }, [selectedDates, isInitialized, internalSelectedDates]);
@@ -133,16 +146,22 @@ const DatePicker = ({
     }
   };
 
-  // FIXED: Consistent week calculation (Monday-based)
+  // FIXED: Consistent week calculation (Monday-based) - LOCAL TIMEZONE
   const getWeekDates = (date) => {
+    console.log('=== DatePicker getWeekDates ===');
+    console.log('Input date:', date.toDateString());
+    console.log('Input date day of week (0=Sunday):', date.getDay());
+    
     const weekDates = []
     // Convert JS Date.getDay() (Sunday=0) to Monday=0 format
     const dayOfWeek = (date.getDay() + 6) % 7 // Monday=0, Tuesday=1, ..., Sunday=6
+    console.log('Day of week (Monday=0):', dayOfWeek);
     
     // Find Monday of the week by going back `dayOfWeek` days
     const mondayDate = new Date(date)
     mondayDate.setDate(date.getDate() - dayOfWeek)
     mondayDate.setHours(0, 0, 0, 0)
+    console.log('Monday of the week:', mondayDate.toDateString());
     
     // Generate all 7 days of the week starting from Monday
     for (let i = 0; i < 7; i++) {
@@ -152,7 +171,8 @@ const DatePicker = ({
       weekDates.push(weekDate)
     }
     
-    console.log('Week dates calculated for', date.toDateString(), ':', weekDates.map(d => d.toDateString()));
+    console.log('Week dates calculated:', weekDates.map((d, i) => `${d.toDateString()} (${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]})`));
+    console.log('===============================');
     return weekDates
   }
 
@@ -222,12 +242,14 @@ const DatePicker = ({
 
   const calendarDays = generateCalendarDays()
 
-  // FIXED: Handle date click with precise week calculation
+  // FIXED: Handle date click with precise week calculation and detailed logging
   const handleDateClick = (day) => {
+    console.log('=== DatePicker handleDateClick ===');
     console.log('Date clicked:', day.fullDate.toDateString());
+    console.log('Date clicked day of week (0=Sunday):', day.fullDate.getDay());
     
     const clickedWeekDates = getWeekDates(day.fullDate)
-    console.log('Week dates for clicked day:', clickedWeekDates.map(d => d.toDateString()));
+    console.log('Week dates for clicked day:', clickedWeekDates.map((d, i) => `${d.toDateString()} (${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]})`));
     
     // Check if this week is already selected by comparing normalized dates
     const isWeekSelected = clickedWeekDates.every(weekDate => 
@@ -239,6 +261,8 @@ const DatePicker = ({
         return normalizedSelected.getTime() === normalizedWeek.getTime()
       })
     )
+    
+    console.log('Is week already selected?', isWeekSelected);
     
     let newSelectedDates = [];
     
@@ -267,8 +291,10 @@ const DatePicker = ({
     onDateSelect(newSelectedDates);
     if (newSelectedDates.length > 0) {
       // Send Monday as week start (first date in our Monday-based week)
+      console.log('Sending week start (Monday) to parent:', clickedWeekDates[0].toDateString());
       onWeekSelect(clickedWeekDates[0]); 
     }
+    console.log('===================================');
   }
 
   const handleMonthYearClick = () => {

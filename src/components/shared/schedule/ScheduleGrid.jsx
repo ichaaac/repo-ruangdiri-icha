@@ -1,6 +1,14 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED PRECISION POSITIONING & GOOGLE CALENDAR BEHAVIOR
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED DATE FORMATTING
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+
+// BEST PRACTICE: Utility untuk format tanggal tanpa timezone conversion
+const formatDateLocal = (date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const ScheduleGrid = ({ 
   onTimeSlotSelect, 
@@ -373,36 +381,16 @@ const ScheduleGrid = ({
     };
   }, [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour]);
 
-  // FIXED: Get date from day index using proper week calculation
+  // FIXED: Use local date formatting without timezone conversion
   const getDateFromDayIndex = useCallback((dayIndex) => {
-    if (!weekStartDate) {
-      // Fallback to current week
-      const today = new Date();
-      const dayOfWeek = (today.getDay() + 6) % 7; // Monday = 0
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - dayOfWeek);
-      monday.setHours(0, 0, 0, 0);
-      
-      const targetDate = new Date(monday);
-      targetDate.setDate(monday.getDate() + dayIndex);
-      return targetDate;
-    }
-    
-    // Use the provided weekStartDate (should be Monday)
-    const baseDate = new Date(weekStartDate);
+    const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
+    const baseDayOfWeek = (baseDate.getDay() + 6) % 7;
+    baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
     baseDate.setHours(0, 0, 0, 0);
-    
-    // weekStartDate should already be Monday, but ensure it is
-    const baseDayOfWeek = (baseDate.getDay() + 6) % 7; // Convert to Monday=0
-    if (baseDayOfWeek !== 0) {
-      // Adjust to Monday if not already
-      baseDate.setDate(baseDate.getDate() - baseDayOfWeek);
-    }
     
     const targetDate = new Date(baseDate);
     targetDate.setDate(baseDate.getDate() + dayIndex);
-    
-    console.log(`Day index ${dayIndex}: ${targetDate.toDateString()} (week start: ${baseDate.toDateString()})`);
+    targetDate.setHours(0, 0, 0, 0);
     return targetDate;
   }, [weekStartDate]);
 
@@ -500,7 +488,7 @@ const ScheduleGrid = ({
         day: days[selectedArea.startDay]?.full,
         isMultipleDays: false,
         dates: [{
-          date: clickedDate.toISOString().split('T')[0],
+          date: formatDateLocal(clickedDate), // FIXED: Use local date formatting
           startTime: `${selectedArea.startHour.toString().padStart(2, '0')}:${selectedArea.startMinute.toString().padStart(2, '0')}`,
           endTime: `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`,
           timezone: 'WIB'
@@ -547,7 +535,7 @@ const ScheduleGrid = ({
       for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
         const dayDate = getDateFromDayIndex(dayIndex);
         dates.push({
-          date: dayDate.toISOString().split('T')[0],
+          date: formatDateLocal(dayDate), // FIXED: Use local date formatting
           startTime: `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
           endTime: `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`,
           timezone: 'WIB'
