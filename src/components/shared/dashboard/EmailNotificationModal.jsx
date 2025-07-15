@@ -26,7 +26,7 @@ const EmailNotificationModal = ({
           >
           <div className="absolute top-3 right-3">
             <span
-              className="material-icons-outlined text-[#488BBE] text-[24px] leading-none cursor-pointer hover:scale-110 transition-transform"
+              className="material-icons-outlined text-[#EE4266] text-[24px] leading-none cursor-pointer hover:scale-110 transition-transform"
               role="button"
               aria-label="Tutup modal"
               onClick={onClose}
