@@ -1,4 +1,4 @@
-// src/components/shared/notifications/NotificationDropdown.jsx
+// src/components/shared/notifications/NotificationDropdown.jsx - FIXED VERSION
 
 import React from "react"
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown"
@@ -20,26 +20,50 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       schedule_deleted: "event_busy",
       schedule_reminder: "schedule",
       system_announcement: "campaign",
-      mental_health_alert: "psychology"
+      mental_health_alert: "psychology",
+      system: "notifications", // 🔥 ADD: Handle 'system' type from API
+      general: "info" // 🔥 ADD: Handle 'general' subtype
     }
     return iconMap[type] || "notifications"
   }
 
   const formatTimeAgo = (timestamp) => {
-    const now = new Date()
-    const notifTime = new Date(timestamp)
-    const diffInMinutes = Math.floor((now - notifTime) / (1000 * 60))
-    
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes} menit yang lalu`
-    } else if (diffInMinutes < 1440) {
-      const hours = Math.floor(diffInMinutes / 60)
-      return `${hours} jam yang lalu`
-    } else {
-      const days = Math.floor(diffInMinutes / 1440)
-      return `${days} hari yang lalu`
+    try {
+      const now = new Date()
+      const notifTime = new Date(timestamp)
+      
+      // 🔥 FIX: Validate timestamp
+      if (isNaN(notifTime.getTime())) {
+        console.error('Invalid timestamp:', timestamp)
+        return 'Baru saja'
+      }
+      
+      const diffInMinutes = Math.floor((now - notifTime) / (1000 * 60))
+      
+      if (diffInMinutes < 1) {
+        return 'Baru saja'
+      } else if (diffInMinutes < 60) {
+        return `${diffInMinutes} menit yang lalu`
+      } else if (diffInMinutes < 1440) {
+        const hours = Math.floor(diffInMinutes / 60)
+        return `${hours} jam yang lalu`
+      } else {
+        const days = Math.floor(diffInMinutes / 1440)
+        return `${days} hari yang lalu`
+      }
+    } catch (error) {
+      console.error('Error formatting time:', error, timestamp)
+      return 'Baru saja'
     }
   }
+
+  // 🔥 DEBUG: Log dropdown data
+  console.log('🎯 Dropdown render:', {
+    notifications: notifications.length,
+    displayNotifications: displayNotifications.length,
+    unreadCount,
+    isLoading
+  })
 
   return (
     <div className="absolute right-0 mt-2 w-[395px] max-h-[350px] overflow-y-auto bg-white shadow-lg rounded-b-xl z-50 p-5 flex flex-col gap-4">
@@ -78,7 +102,14 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         <div className="flex flex-col gap-4">
           {displayNotifications.length > 0 ? (
             displayNotifications.map((notification) => {
-              const isRead = notification.isRead || notification.readAt
+              // 🔥 FIX: Handle both readAt and isRead properties
+              const isRead = notification.isRead || !!notification.readAt
+              
+              // 🔥 FIX: Validate notification object
+              if (!notification || !notification.id || !notification.title) {
+                console.warn('Invalid notification in dropdown:', notification)
+                return null
+              }
               
               return (
                 <div key={notification.id} className="flex gap-3 items-start">
@@ -86,7 +117,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                     className="material-icons text-[32px]"
                     style={{ color: notification.iconColor || "#535353" }}
                   >
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationIcon(notification.type || notification.subType)}
                   </span>
                   <div className="flex flex-col gap-1 flex-1">
                     <p className={`text-sm font-semibold line-clamp-2 ${
