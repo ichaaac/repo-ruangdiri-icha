@@ -506,11 +506,6 @@ const DashboardHome = ({
                 <div className="text-center mb-3">
                   <h3 className="text-lg font-bold text-gray-700">2025</h3>
                 </div>
-
-                <div className="text-center mb-3">
-                  <h3 className="text-lg font-bold text-gray-700">2025</h3>
-                </div>
-
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
                   <div className="w-full h-full overflow-hidden">
                     <ResponsiveContainer width="100%" height="100%">
