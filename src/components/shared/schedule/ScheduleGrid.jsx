@@ -340,9 +340,12 @@ const ScheduleGrid = ({
     
     if (gridX < 0 || gridY < 0) return null;
     
-    // FIXED: 15-minute precision like Google Calendar
+    // FIXED: Allow full time range calculation
     const hourIndex = Math.floor(gridX / HOUR_WIDTH);
-    if (hourIndex < 0 || hourIndex >= timeSlots.length) return null;
+    if (hourIndex < 0 || hourIndex >= timeSlots.length) {
+      console.log(`Hour index out of bounds: ${hourIndex}, max: ${timeSlots.length - 1}`);
+      return null;
+    }
     
     // Calculate day index
     let dayIndex = -1;
@@ -359,17 +362,19 @@ const ScheduleGrid = ({
     
     if (dayIndex < 0) return null;
     
-    // FIXED: 15-minute precision calculation
+    // FIXED: 15-minute precision calculation - remove 45 minute limit
     const actualHour = getActualHour(hourIndex);
     const pixelWithinHour = gridX - (hourIndex * HOUR_WIDTH);
     const exactMinute = (pixelWithinHour / HOUR_WIDTH) * 60;
     
     // GOOGLE CALENDAR: 15-minute snapping
     const snappedMinute = Math.round(exactMinute / 15) * 15;
-    const finalMinute = Math.min(snappedMinute, 45);
+    const finalMinute = Math.min(snappedMinute, 59); // FIXED: Allow up to 59 minutes
     
     // FIXED: Return exact position for consistency
     const pixelX = hourIndex * HOUR_WIDTH + (finalMinute / 60) * HOUR_WIDTH;
+    
+    console.log(`Mouse position: gridX=${gridX}, hourIndex=${hourIndex}, actualHour=${actualHour}, finalMinute=${finalMinute}`);
     
     return {
       hour: actualHour,
@@ -436,12 +441,18 @@ const ScheduleGrid = ({
     const timeInfo = getTimeFromPosition(e.clientX, e.clientY);
     if (!timeInfo) return;
     
-    // Constrain to max drag days
-    const startDayIndex = dragStartPos.dayIndex;
-    const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
-    const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
-    const constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, timeInfo.dayIndex));
+    // FIXED: Remove day constraint for same-day drag, keep for cross-day
+    let constrainedDayIndex = timeInfo.dayIndex;
     
+    // Only apply constraints for cross-day drags
+    if (timeInfo.dayIndex !== dragStartPos.dayIndex) {
+      const startDayIndex = dragStartPos.dayIndex;
+      const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
+      const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0);
+      constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, timeInfo.dayIndex));
+    }
+    
+    // FIXED: Always update selectedArea with actual values
     setSelectedArea(prev => ({
       ...prev,
       endDay: constrainedDayIndex,
@@ -450,13 +461,28 @@ const ScheduleGrid = ({
       endPixelX: timeInfo.pixelX
     }));
     
-    // FIXED: Update tooltip with relative positioning
+    // FIXED: Update tooltip with proper time ordering (always show start < end)
     const rect = viewportRef.current.getBoundingClientRect();
     const relativeX = e.clientX - rect.left;
     const relativeY = e.clientY - rect.top;
     
-    const startTime = `${dragStartPos.hour.toString().padStart(2, '0')}:${dragStartPos.minute.toString().padStart(2, '0')}`;
-    const endTime = `${timeInfo.hour.toString().padStart(2, '0')}:${timeInfo.minute.toString().padStart(2, '0')}`;
+    // Determine which time is earlier regardless of drag direction
+    const time1 = { hour: dragStartPos.hour, minute: dragStartPos.minute, day: dragStartPos.dayIndex };
+    const time2 = { hour: timeInfo.hour, minute: timeInfo.minute, day: constrainedDayIndex };
+    
+    const time1Minutes = time1.day * 1440 + time1.hour * 60 + time1.minute;
+    const time2Minutes = time2.day * 1440 + time2.hour * 60 + time2.minute;
+    
+    let startTime, endTime;
+    if (time1Minutes <= time2Minutes) {
+      startTime = `${time1.hour.toString().padStart(2, '0')}:${time1.minute.toString().padStart(2, '0')}`;
+      endTime = `${time2.hour.toString().padStart(2, '0')}:${time2.minute.toString().padStart(2, '0')}`;
+    } else {
+      startTime = `${time2.hour.toString().padStart(2, '0')}:${time2.minute.toString().padStart(2, '0')}`;
+      endTime = `${time1.hour.toString().padStart(2, '0')}:${time1.minute.toString().padStart(2, '0')}`;
+    }
+    
+    console.log(`Drag: ${dragStartPos.hour}:${dragStartPos.minute.toString().padStart(2,'0')} → ${timeInfo.hour}:${timeInfo.minute.toString().padStart(2,'0')} = Tooltip: ${startTime} - ${endTime}`);
     
     setDragTimeTooltip({
       x: relativeX,
@@ -500,23 +526,32 @@ const ScheduleGrid = ({
       const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
       const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
       
-      // Preserve exact start and end times
+      // FIXED: Always use earlier time as start, later time as end (regardless of drag direction)
       let startHour, startMinute, endHour, endMinute;
       
-      if (selectedArea.startDay <= selectedArea.endDay) {
-        startHour = selectedArea.startHour;
-        startMinute = selectedArea.startMinute;
-        endHour = selectedArea.endHour;
-        endMinute = selectedArea.endMinute;
+      // Get all time points
+      const time1 = { hour: selectedArea.startHour, minute: selectedArea.startMinute, day: selectedArea.startDay };
+      const time2 = { hour: selectedArea.endHour, minute: selectedArea.endMinute, day: selectedArea.endDay };
+      
+      // Convert to comparable values (day * 1440 + hour * 60 + minute)
+      const time1Minutes = time1.day * 1440 + time1.hour * 60 + time1.minute;
+      const time2Minutes = time2.day * 1440 + time2.hour * 60 + time2.minute;
+      
+      // Always use earlier time as start
+      if (time1Minutes <= time2Minutes) {
+        startHour = time1.hour;
+        startMinute = time1.minute;
+        endHour = time2.hour;
+        endMinute = time2.minute;
       } else {
-        startHour = selectedArea.endHour;
-        startMinute = selectedArea.endMinute;
-        endHour = selectedArea.startHour;
-        endMinute = selectedArea.startMinute;
+        startHour = time2.hour;
+        startMinute = time2.minute;
+        endHour = time1.hour;
+        endMinute = time1.minute;
       }
       
-      // Ensure minimum 15 minutes
-      if (startHour === endHour && startMinute === endMinute) {
+      // Ensure minimum 15 minutes duration
+      if (startDay === endDay && startHour === endHour && startMinute === endMinute) {
         endMinute += 15;
         if (endMinute >= 60) {
           endHour += 1;
