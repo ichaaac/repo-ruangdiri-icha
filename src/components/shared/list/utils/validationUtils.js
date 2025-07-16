@@ -1,4 +1,3 @@
-
 // src/components/list/utils/validationUtils.js
 
 /**

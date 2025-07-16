@@ -137,16 +137,30 @@ export class StudentListService extends BaseListService {
   }
 
   /**
-   * Update student
-   * @param {string} studentId - Student ID
-   * @param {Object} data - Update data
+   * Update student - Handle flat payload structure
+   * @param {Object} payload - Flat payload with id and update fields
    * @returns {Promise} Updated student
    */
-  async updateStudent(studentId, data) {
+  async updateStudent(payload) {
     try {
-      return await api.organization.school.updateStudent(studentId, data)
+      console.log("🔧 StudentListService.updateStudent called with payload:", payload)
+      
+      const { id, ...updateData } = payload
+      
+      console.log("🆔 Extracted ID:", id)
+      console.log("📝 Update data:", updateData)
+      
+      if (!id) {
+        throw new Error("Student ID is required for update")
+      }
+      
+      const result = await api.organization.school.updateStudent(id, updateData)
+      console.log("✅ API call successful:", result)
+      
+      return result
     } catch (error) {
-      console.error(`Error updating student ${studentId}:`, error)
+      console.error(`❌ Error updating student ${payload?.id}:`, error)
+      console.error("❌ Failed payload:", payload)
       throw error
     }
   }
@@ -251,16 +265,30 @@ export class EmployeeListService extends BaseListService {
   }
 
   /**
-   * Update employee
-   * @param {string} employeeId - Employee ID
-   * @param {Object} data - Update data
+   * Update employee - Handle flat payload structure
+   * @param {Object} payload - Flat payload with id and update fields
    * @returns {Promise} Updated employee
    */
-  async updateEmployee(employeeId, data) {
+  async updateEmployee(payload) {
     try {
-      return await api.organization.company.updateEmployee(employeeId, data)
+      console.log("🔧 EmployeeListService.updateEmployee called with payload:", payload)
+      
+      const { id, ...updateData } = payload
+      
+      console.log("🆔 Extracted ID:", id)
+      console.log("📝 Update data:", updateData)
+      
+      if (!id) {
+        throw new Error("Employee ID is required for update")
+      }
+      
+      const result = await api.organization.company.updateEmployee(id, updateData)
+      console.log("✅ API call successful:", result)
+      
+      return result
     } catch (error) {
-      console.error(`Error updating employee ${employeeId}:`, error)
+      console.error(`❌ Error updating employee ${payload?.id}:`, error)
+      console.error("❌ Failed payload:", payload)
       throw error
     }
   }

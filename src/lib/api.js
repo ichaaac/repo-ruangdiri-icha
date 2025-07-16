@@ -442,36 +442,37 @@ const api = {
       /**
        * Update employee profile
        */
-      updateEmployee: async (employeeId, employeeData) => {
-        try {
-          // Format data for API
-          const formattedData = {
-            fullName: employeeData.fullName,
-            profile: {
-              employeeId: employeeData.employeeId,
-              department: employeeData.department,
-              position: employeeData.position,
-              gender: employeeData.gender,
-              age: employeeData.age ? parseInt(employeeData.age) : undefined,
-              yearsOfService: employeeData.workDuration ? parseInt(employeeData.workDuration) : undefined,
-              screeningStatus: employeeData.screeningStatus,
-              counselingStatus: employeeData.counselingStatus,
+ updateEmployee: async (employeeId, employeeData) => { // employeeData DI SINI SUDAH FLAT DARI useListData
+        try {
+          // Tidak perlu lagi membuat formattedData dengan 'profile' bersarang
+          // Karena 'employeeData' dari useListData.js sudah berisi field-field yang berubah secara flat.
+          // Namun, kita perlu memastikan 'age' dan 'yearsOfService' di-parse ke integer jika ada
+            // dan menghapus field yang undefined jika API tidak suka undefined.
+
+            const payloadToSend = { ...employeeData }; // Mulai dengan salinan data yang flat
+
+            // Parsing ulang angka jika perlu (ini sudah dilakukan di SharedTable, tapi bisa jaga-jaga di sini)
+            if (payloadToSend.age !== undefined) {
+                payloadToSend.age = parseInt(payloadToSend.age) || 0;
             }
-          };
-          
-          // Remove undefined values
-          Object.keys(formattedData.profile).forEach(key => {
-            if (formattedData.profile[key] === undefined) {
-              delete formattedData.profile[key];
+            if (payloadToSend.yearsOfService !== undefined) { // Perhatikan: ini harusnya yearsOfService, bukan workDuration
+                payloadToSend.yearsOfService = parseInt(payloadToSend.yearsOfService) || 0;
             }
-          });
-          
-          const response = await apiClient.patch(`/organizations/employees/${employeeId}`, formattedData);
-          return response.data;
-        } catch (error) {
-          handleApiError(error, `organization.company.updateEmployee(${employeeId})`);
-        }
-      },
+
+            // Optional: Hapus properti dengan nilai undefined jika API tidak suka
+            Object.keys(payloadToSend).forEach(key => {
+                if (payloadToSend[key] === undefined) {
+                    delete payloadToSend[key];
+                }
+            });
+
+          const response = await apiClient.patch(`/organizations/employees/${employeeId}`, payloadToSend);
+          return response.data;
+        } catch (error) {
+          handleApiError(error, `organization.company.updateEmployee(${employeeId})`);
+        }
+      },
+
 
       /**
        * Get departments and roles
