@@ -1,4 +1,4 @@
-// src/components/shared/schedule/DatePicker.jsx - CURRENT DATE EXTRA BOLD
+// src/components/shared/schedule/DatePicker.jsx - UPDATED STYLING
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -455,7 +455,7 @@ const DatePicker = ({
           {calendarDays.map((day, i) => (
             <div key={i} className="relative flex items-center justify-center">
   
-              {/* Background highlight pill for selected dates */}
+              {/* Background highlight for selected week - 50% opacity, always continuous */}
               {day.isSelected && (
                 <div className={`
                   absolute z-0
@@ -466,25 +466,28 @@ const DatePicker = ({
                       : day.selectionPosition === 'end'
                         ? 'top-1/2 -translate-y-1/2 left-0 right-[20%] h-[60%] rounded-r-full'
                         : 'top-1/2 -translate-y-1/2 left-0 right-0 h-[60%]'}
-                  bg-[#488BBA]
+                  bg-[#488BBA] opacity-50
                 `} />
               )}
 
-              {/* Background for today's date */}
-              {day.isToday && !day.isSelected && (
-                <div className="absolute z-0 top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#488BBA]" />
+              {/* Current date circle overlay - 100% opacity, on top of selected week background */}
+              {day.isToday && (
+                <div className="absolute z-10 top-1/2 left-1/2 w-[60%] h-[60%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#488BBA]" />
               )}
   
               <button
                 onClick={() => handleDateClick(day)}
-                className={`relative z-10 w-full h-full flex items-center justify-center text-xs transition-colors 
-                  ${day.isSelected ? 'text-white font-bold' 
-                  : day.isToday ? 'text-white font-black tracking-wider' // SUPER BOLD untuk today dengan text putih
-                  : day.isCurrentMonth ? 'text-neutral-600 hover:bg-gray-100' 
-                  : 'text-gray-300 hover:bg-gray-50'}
+                className={`relative z-20 w-full h-full flex items-center justify-center text-xs transition-colors 
+                  ${day.isToday 
+                    ? 'text-white font-black tracking-wider' // Current date always white and extra bold
+                    : day.isSelected 
+                      ? 'text-black' // Selected week dates black, no bold
+                      : day.isCurrentMonth 
+                        ? 'text-neutral-600 hover:bg-gray-100' 
+                        : 'text-gray-300 hover:bg-gray-50'}
                 `}
                 style={{
-                  // Tambahan styling untuk current date agar lebih menonjol
+                  // Extra styling for current date to make it prominent
                   ...(day.isToday && {
                     fontWeight: '1000', // Ultra bold
                     textShadow: '0 0 2px rgba(0, 0, 0, 0.3)', // Strong shadow

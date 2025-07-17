@@ -622,7 +622,7 @@ const ScheduleGrid = ({
     setScrollTop(e.target.scrollTop);
   }, []);
 
-  // Selection box visualization
+  // FIXED: Selection box - simple without optimizations
   const selectionBox = useMemo(() => {
     if (!selectedArea || !isDragging) return null;
     
@@ -644,12 +644,18 @@ const ScheduleGrid = ({
     return (
       <div
         className="absolute bg-blue-400/20 border border-blue-400 rounded pointer-events-none"
-        style={{ top, left, width, height, zIndex: Z_INDICES.SELECTION_BOX }}
+        style={{ 
+          top, 
+          left, 
+          width, 
+          height, 
+          zIndex: Z_INDICES.SELECTION_BOX,
+        }}
       />
     );
   }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
 
-  // FIXED: Schedule Event Card Component - properly scaled
+  // FIXED: Schedule Event Card Component - SIMPLE hover without any animation
   const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -668,19 +674,15 @@ const ScheduleGrid = ({
       return null;
     }
 
+    // Simple static hover - NO ANIMATIONS
     const combinedStyle = {
       ...style,
       height: `${height}px`,
       backgroundColor: event.color,
-      zIndex: isHovered ? 99 : style.zIndex,
-      transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s linear',
+      zIndex: isHovered ? style.zIndex + 50 : style.zIndex,
+      // NO transitions, NO animations - just static states
+      boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
     };
-
-    if (isHovered) {
-      const existingTransform = style.transform || '';
-      combinedStyle.transform = `${existingTransform} scale(1.05)`;
-      combinedStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
-    }
 
     return (
       <div
@@ -688,10 +690,9 @@ const ScheduleGrid = ({
         style={{
           ...combinedStyle,
           borderRadius: '6px',
-          paddingLeft: '8px', // Optimized padding for new scale
+          paddingLeft: '8px',
           paddingRight: '8px',
           overflow: 'hidden',
-          boxShadow: isHovered ? combinedStyle.boxShadow : '0 2px 6px rgba(0,0,0,0.12)',
         }}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
@@ -874,7 +875,7 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* Sticky Day Column */}
+        {/* FIXED: Sticky Day Column - completely fixed positioning */}
         <div 
           className="absolute top-0 bg-white"
           style={{ 
@@ -884,31 +885,42 @@ const ScheduleGrid = ({
             zIndex: Z_INDICES.DAY_HEADERS
           }}
         >
+          {/* Fixed time header space */}
           <div style={{ height: `${TIME_HEADER_HEIGHT}px` }} />
           
+          {/* Day labels container - FIXED structure */}
           <div 
+            className="absolute overflow-hidden"
             style={{ 
-              height: `${totalGridHeight}px`,
-              transform: `translateY(-${scrollTop}px)`
+              top: `${TIME_HEADER_HEIGHT}px`,
+              left: 0,
+              right: 0,
+              bottom: 0,
             }}
           >
-            {days.map((day, index) => (
-              <div 
-                key={day.short} 
-                className="flex items-center justify-center bg-white"
-                style={{ 
-                  height: `${dayRowHeights[day.full]}px`
-                }}
-              >
-                <span className="text-sm font-semibold text-neutral-700">
-                  {day.short}
-                </span>
-              </div>
-            ))}
+            <div
+              style={{ 
+                transform: `translateY(-${scrollTop}px)`,
+              }}
+            >
+              {days.map((day, index) => (
+                <div 
+                  key={day.short} 
+                  className="flex items-center justify-center bg-white"
+                  style={{ 
+                    height: `${dayRowHeights[day.full]}px`,
+                  }}
+                >
+                  <span className="text-sm font-semibold text-neutral-700">
+                    {day.short}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Scrollable Content Area */}
+        {/* Scrollable Content Area - simplified */}
         <div 
           className="absolute" 
           style={{ 
@@ -962,7 +974,7 @@ const ScheduleGrid = ({
                 );
               })}
 
-              {/* FIXED: Schedule events with consistent positioning */}
+              {/* FIXED: Schedule events - simple and stable */}
               {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -988,17 +1000,17 @@ const ScheduleGrid = ({
                       laneOffset = laneIndex * (SCHEDULE_STACKED_HEIGHT + LANE_SPACING);
                     }
                     
-                    const top = dayTop + DAY_PADDING_TOP + laneOffset ;
+                    const top = dayTop + DAY_PADDING_TOP + laneOffset;
 
                     return (
                       <ScheduleEventCard
                         key={`${event.id}-${laneIndex}`}
                         event={event}
                         style={{
-                          left: `${leftPosition + 55}px`, // FIXED: Direct positioning
+                          left: `${leftPosition + 55}px`, // Keep manual calculation
                           top: `${top}px`,
                           width: `${width}px`,
-                          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex
+                          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
                         }}
                         onClickEvent={(scheduleData) => handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)}
                       />
@@ -1047,11 +1059,11 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* FIXED: Current time line with accurate positioning (removed +12 offset) */}
+        {/* FIXED: Current time line with accurate positioning - consistent with dividers */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
-            left: `${DAY_COLUMN_WIDTH + PADDING_OFFSET + getCurrentTimePosition() - scrollLeft}px`,
+            left: `${DAY_COLUMN_WIDTH + PADDING_OFFSET + getCurrentTimePosition() + 15 - scrollLeft}px`, // +15 untuk konsisten dengan dividers
             top: `${TIME_HEADER_HEIGHT}px`,
             height: `${totalGridHeight}px`,
             zIndex: Z_INDICES.CURRENT_TIME,
