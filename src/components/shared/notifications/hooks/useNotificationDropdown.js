@@ -1,14 +1,13 @@
-// src/components/shared/notifications/hooks/useNotificationDropdown.js - FIXED: KEEP REACT QUERY
+// src/components/shared/notifications/hooks/useNotificationDropdown.js
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import notificationsAPI from '../lib/api'
-import notificationSocket from '../lib/socket'
+import { notificationsAPI } from '../lib/api'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/id'
+import { useWebSocket } from "@/components/shared/schedule/hooks/useWebSocket"
 
-// Configure dayjs
 dayjs.extend(relativeTime)
 dayjs.locale('id')
 
@@ -16,43 +15,22 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
   const queryClient = useQueryClient()
   const MAX_DROPDOWN_ITEMS = 3
 
-  // 🔥 OPTIMIZED: Dropdown notifications - fetch ONCE, socket updates
-  const {
-    data: dropdownData,
-    isLoading,
-    isError,
-    error
-  } = useQuery({
-    queryKey: ['notifications-dropdown', selectedTab],
-    queryFn: () => {
-      console.log(`📡 Fetching dropdown notifications for tab: ${selectedTab}`)
-      return notificationsAPI.getNotifications({
-        page: 1,
-        limit: MAX_DROPDOWN_ITEMS,
-        type: selectedTab
-      })
-    },
-    staleTime: Infinity, // 🔥 NEVER REFETCH - socket will handle updates
-    cacheTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    onError: (error) => {
-      console.error('❌ Dropdown notifications query failed:', error)
-    }
-  })
+  // 🔥 PERBAIKAN: JANGAN PAKE useQuery BARU UNTUK DROPDOWN NOTIFIKASI
+  // KITA AKAN BACA DARI CACHE UTAMA 'notifications'
+  // const { data: dropdownData, isLoading, isError, error } = useQuery({ ... });
 
-  // 🔥 OPTIMIZED: Unread count - shared query, no refetch
+  // 🔥 OPTIMIZED: Unread count - shared query (tidak ada perubahan di sini)
   const {
     data: unreadData,
     isLoading: isUnreadLoading
   } = useQuery({
     queryKey: ['notifications-unread-count'],
-    queryFn: () => {
+    queryFn: async () => {
       console.log('📊 Fetching unread count for dropdown')
-      return notificationsAPI.getUnreadCount()
+      const response = await notificationsAPI.getUnreadCount()
+      return response.data?.data || response.data
     },
-    staleTime: Infinity, // 🔥 NEVER REFETCH - mutations will update
+    staleTime: Infinity,
     cacheTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -60,117 +38,93 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
     keepPreviousData: true,
   })
 
-  // 🔥 SOCKET SETUP - REAL-TIME UPDATES FOR DROPDOWN
+  const { socket, isConnected: isSocketConnected, on, off } = useWebSocket()
+
+  // 🔥 PERBAIKAN: Handler socket hanya perlu invalidate, bukan update cache detail
+  // Karena data detail notifikasi diurus oleh useNotifications (infinite query)
+  // yang nanti akan me-refetch dan meng-update cache utama.
+
   useEffect(() => {
+    if (!socket || !isSocketConnected) {
+      console.log('🔗 Dropdown: Waiting for WebSocket connection to be established.')
+      return
+    }
+    
     console.log('🔗 Dropdown: Setting up socket listeners')
-    notificationSocket.ensureConnection()
+    
+    const handleNotificationCreated = useCallback((data) => {
+      console.log('🔔 Dropdown: New notification created. Invalidating relevant queries.', data)
+      // Invalidasi unread count
+      queryClient.invalidateQueries(['notifications-unread-count']);
+      // Invalidasi cache notifikasi utama (untuk semua tab)
+      queryClient.invalidateQueries(['notifications']);
+      // Jika ada kebutuhan update UI toast cepat, bisa dilakukan di sini,
+      // tapi untuk data display dropdown, kita andalkan refetch cache utama.
+    }, [queryClient]);
 
-    const handleNotificationCreated = (data) => {
-      console.log('🔔 Dropdown: New notification created')
-      
-      // Check if notification matches current tab
-      const isCounselingNotification = [
-        'schedule_created',
-        'schedule_updated', 
-        'schedule_deleted',
-        'schedule_reminder'
-      ].includes(data.type)
-
-      const shouldUpdateDropdown = 
-        selectedTab === 'all' || 
-        (selectedTab === 'counseling' && isCounselingNotification) ||
-        (selectedTab === 'system' && !isCounselingNotification)
-
-      if (shouldUpdateDropdown) {
-        // Add to dropdown cache - 🔥 FIXED: Better null checks
-        queryClient.setQueryData(['notifications-dropdown', selectedTab], (oldData) => {
-          if (!oldData || !oldData.notifications || !Array.isArray(oldData.notifications)) {
-            console.log('⚠️ Invalid dropdown oldData structure:', oldData)
-            return oldData
-          }
-          
-          const newNotifications = [data, ...oldData.notifications].slice(0, MAX_DROPDOWN_ITEMS)
-          return {
-            ...oldData,
-            notifications: newNotifications
-          }
-        })
-      }
-
-      // Update unread count
-      queryClient.setQueryData(['notifications-unread-count'], (oldData) => {
-        const currentCount = parseInt(oldData?.count || 0, 10)
-        return { count: currentCount + 1 }
-      })
-    }
-
-    const handleNotificationRead = (data) => {
-      console.log('✅ Dropdown: Notification marked as read')
-      
-      // Update dropdown cache - 🔥 FIXED: Better null checks
-      queryClient.setQueryData(['notifications-dropdown', selectedTab], (oldData) => {
-        if (!oldData || !oldData.notifications || !Array.isArray(oldData.notifications)) {
-          console.log('⚠️ Invalid dropdown oldData structure for read:', oldData)
-          return oldData
-        }
-        
-        return {
-          ...oldData,
-          notifications: oldData.notifications.map(notification => 
-            data.notificationIds?.includes(notification.id)
-              ? { ...notification, readAt: dayjs().toISOString(), isRead: true }
-              : notification
-          )
-        }
-      })
-
-      // Update unread count
-      if (data.newUnreadCount !== undefined) {
-        queryClient.setQueryData(['notifications-unread-count'], () => ({
-          count: data.newUnreadCount
-        }))
-      }
-    }
-
-    notificationSocket.on('notification:created', handleNotificationCreated)
-    notificationSocket.on('notification:read', handleNotificationRead)
+    const handleNotificationRead = useCallback((data) => {
+      console.log('✅ Dropdown: Notification marked as read. Invalidating relevant queries.', data)
+      // Invalidasi unread count
+      queryClient.invalidateQueries(['notifications-unread-count']);
+      // Invalidasi cache notifikasi utama (untuk semua tab)
+      queryClient.invalidateQueries(['notifications']);
+    }, [queryClient]);
+    
+    on('notification:created', handleNotificationCreated)
+    on('notification:new', handleNotificationCreated)
+    on('notification:read', handleNotificationRead)
+    on('read', handleNotificationRead)
 
     return () => {
       console.log('🔌 Dropdown: Cleaning up socket listeners')
-      notificationSocket.off('notification:created', handleNotificationCreated)
-      notificationSocket.off('notification:read', handleNotificationRead)
+      off('notification:created', handleNotificationCreated)
+      off('notification:new', handleNotificationCreated)
+      off('notification:read', handleNotificationRead)
+      off('read', handleNotificationRead)
     }
-  }, [queryClient, selectedTab])
+  }, [socket, isSocketConnected, on, off, queryClient]) // Perbaiki dependensi
 
-  // Extract data
-  const notifications = dropdownData?.notifications || []
+  // 🔥 PERBAIKAN: Ambil notifikasi dari cache utama useNotifications
+  const allMainNotificationsData = queryClient.getQueryData(['notifications', 'all']); // Coba ambil dari tab 'all'
+  const counselingMainNotificationsData = queryClient.getQueryData(['notifications', 'counseling']); // Coba ambil dari tab 'counseling'
+
+  const notifications = useMemo(() => {
+    let sourceNotifications = [];
+    if (selectedTab === 'all') {
+        sourceNotifications = allMainNotificationsData?.pages?.flatMap(page => page.notifications) || [];
+    } else if (selectedTab === 'counseling') {
+        sourceNotifications = counselingMainNotificationsData?.pages?.flatMap(page => page.notifications) || [];
+        // Fallback jika tab counseling belum ter-load, ambil dari 'all' lalu filter
+        if (sourceNotifications.length === 0 && allMainNotificationsData) {
+             sourceNotifications = allMainNotificationsData.pages.flatMap(page => page.notifications).filter(notification => {
+                const isCounselingType = ['schedule_created', 'schedule_updated', 'schedule_deleted', 'schedule_reminder'].includes(notification.type) || (notification.type === 'counseling' || notification.type === 'schedule');
+                return isCounselingType;
+             });
+        }
+    }
+    // Filter dan ambil hanya yang belum dibaca jika tab bukan 'all', atau ambil semua jika tab 'all'
+    // Lalu ambil MAX_DROPDOWN_ITEMS yang terbaru
+    return sourceNotifications
+        // .filter(notif => selectedTab === 'all' ? true : (!notif.isRead && !notif.readAt)) // Tidak perlu filter unread di sini, biarkan UI component yang filter
+        .slice(0, MAX_DROPDOWN_ITEMS);
+  }, [allMainNotificationsData, counselingMainNotificationsData, selectedTab, queryClient]); // Tambahkan queryClient sebagai dependency
+
   const rawCount = unreadData?.count;
   const unreadCount = parseInt(rawCount, 10) || 0;
 
-  // 🔥 CALCULATE COUNSELING COUNT FROM CURRENT NOTIFICATIONS
+  // 🔥 PERBAIKAN: counselingCount juga ambil dari cache utama dan dihitung ulang
   const counselingCount = useMemo(() => {
-    // Get all notifications to calculate counseling count
-    const allNotificationsData = queryClient.getQueryData(['notifications-dropdown', 'all'])
-    const allNotifications = allNotificationsData?.notifications || []
-    
-    const counselingNotifications = allNotifications.filter(notification => {
-      const isCounselingType = [
-        'schedule_created',
-        'schedule_updated', 
-        'schedule_deleted',
-        'schedule_reminder'
-      ].includes(notification.type)
-      
-      const isUnread = !notification.readAt && !notification.isRead
-      
-      return isCounselingType && isUnread
-    })
-    
-    console.log(`💬 Counseling count: ${counselingNotifications.length}`)
-    return counselingNotifications.length
-  }, [queryClient])
+    const allNotifs = allMainNotificationsData?.pages?.flatMap(page => page.notifications) || [];
+    const count = allNotifs.filter(notification => {
+      const isCounselingType = ['schedule_created', 'schedule_updated', 'schedule_deleted', 'schedule_reminder'].includes(notification.type) || (notification.type === 'counseling' || notification.type === 'schedule');
+      const isUnread = !notification.readAt && !notification.isRead;
+      return isCounselingType && isUnread;
+    }).length;
+    console.log(`💬 Counseling count (dropdown memo from main cache): ${count}`);
+    return count;
+  }, [allMainNotificationsData]);
 
-  // 🔥 FORMAT TIME WITH DAYJS
+
   const formatTimeAgo = (timestamp) => {
     try {
       const time = dayjs(timestamp)
@@ -178,24 +132,19 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
         console.error('Invalid timestamp:', timestamp)
         return 'Baru saja'
       }
-      
       const now = dayjs()
       const diffInMinutes = now.diff(time, 'minute')
-      
       if (diffInMinutes < 1) return 'Baru saja'
       if (diffInMinutes < 60) return `${diffInMinutes} menit yang lalu`
       if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} jam yang lalu`
-      
       const diffInDays = now.diff(time, 'day')
       return `${diffInDays} hari yang lalu`
-      
     } catch (error) {
       console.error('Error formatting time:', error, timestamp)
       return 'Baru saja'
     }
   }
 
-  // 🔥 FORMAT UNREAD COUNT FOR DROPDOWN (max 999)
   const formatUnreadCount = (count) => {
     if (count > 999) return "999+";
     return count.toString();
@@ -220,5 +169,3 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
     formatUnreadCount,
   }
 }
-
-export default useNotificationDropdown

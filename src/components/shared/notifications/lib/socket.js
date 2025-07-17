@@ -1,4 +1,4 @@
-// src/components/shared/notifications/lib/socket.js - ENHANCED FOR AUTO-CONNECTION
+// src/components/shared/notifications/lib/socket.js - SIMPLE AUTO-RECONNECT
 
 import { io } from 'socket.io-client'
 
@@ -37,7 +37,7 @@ class NotificationSocket {
       reconnectionDelayMax: 5000,
       maxReconnectionAttempts: this.maxReconnectAttempts,
       timeout: 20000,
-      forceNew: false, // 🔥 Reuse existing connection if possible
+      forceNew: false,
     })
 
     this.socket.on('connect', () => {
@@ -80,9 +80,14 @@ class NotificationSocket {
       console.error('🚨 Socket reconnection failed completely')
     })
 
-    // 🔥 LISTEN FOR BACKEND EVENTS WITH BETTER LOGGING
+    // 🔥 LISTEN FOR BACKEND EVENTS - HANDLE BOTH EVENT FORMATS
     this.socket.on('notification:created', (payload) => {
       console.log('🔔 Socket received notification:created:', payload)
+      this.emit('notification:created', payload.data || payload)
+    })
+
+    this.socket.on('created', (payload) => {
+      console.log('🔔 Socket received created:', payload)
       this.emit('notification:created', payload.data || payload)
     })
 
@@ -91,13 +96,28 @@ class NotificationSocket {
       this.emit('notification:updated', payload.data || payload)
     })
 
+    this.socket.on('updated', (payload) => {
+      console.log('📝 Socket received updated:', payload)
+      this.emit('notification:updated', payload.data || payload)
+    })
+
     this.socket.on('notification:read', (payload) => {
       console.log('✅ Socket received notification:read:', payload)
       this.emit('notification:read', payload.data || payload)
     })
 
+    this.socket.on('read', (payload) => {
+      console.log('✅ Socket received read:', payload)
+      this.emit('notification:read', payload.data || payload)
+    })
+
     this.socket.on('notification:mark-all-read', (payload) => {
       console.log('✅ Socket received notification:mark-all-read:', payload)
+      this.emit('notification:mark-all-read', payload.data || payload)
+    })
+
+    this.socket.on('mark-all-read', (payload) => {
+      console.log('✅ Socket received mark-all-read:', payload)
       this.emit('notification:mark-all-read', payload.data || payload)
     })
 

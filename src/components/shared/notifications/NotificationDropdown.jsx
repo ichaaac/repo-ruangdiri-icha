@@ -1,79 +1,122 @@
-// src/components/shared/notifications/NotificationDropdown.jsx - ENHANCED WITH CONTEXT
+// src/components/shared/notifications/NotificationDropdown.jsx - TANPA CONTEXT, ICON DARI TITLE
 
 import React, { useState } from "react"
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/id'
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown"
 
-const NotificationDropdown = ({ onViewAll, onClose }) => {
-  // 🔥 LOCAL STATE FOR DROPDOWN TABS
+// Configure dayjs
+dayjs.extend(relativeTime)
+dayjs.locale('id')
+
+const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRead }) => {
   const [selectedTab, setSelectedTab] = useState('all')
   
-  // 🔥 USE ENHANCED HOOK (NO MORE QUERIES!)
+  // 🔥 Gunakan hook useNotificationDropdown
   const { 
     notifications, 
-    unreadCount,
-    counselingCount,
-    isLoading,
-    formatTimeAgo,
-    formatUnreadCount
+    unreadCount, 
+    counselingCount, 
+    isLoading, 
+    formatTimeAgo, 
+    formatUnreadCount 
   } = useNotificationDropdown(selectedTab)
 
-  // US-AC-Notif-1-2: Max 3 items in dropdown (handled in hook)
-  const displayNotifications = notifications
-  
-  // 🔥 ENHANCED: Handle type + subType combinations for icons
-  const getNotificationIcon = (type, subType) => {
-    // 🔥 SPECIFIC COMBINATIONS based on backend data
-    if (type === 'schedule' && subType === 'general') {
-      return 'check_circle' // Green check circle for schedule notifications
+
+  // 🔥 ICON LOGIC BASED ON TITLE INCLUDES
+  const getNotificationIcon = (notification) => {
+    const title = notification.title?.toLowerCase() || ''
+    const message = notification.message?.toLowerCase() || ''
+    const text = `${title} ${message}`
+    
+    // Schedule/Counseling related
+    if (text.includes('jadwal') || text.includes('schedule') || text.includes('konseling') || text.includes('appointment')) {
+      if (text.includes('membuat') || text.includes('baru') || text.includes('created')) {
+        return 'event'
+      }
+      if (text.includes('mengubah') || text.includes('ubah') || text.includes('updated')) {
+        return 'event_available'
+      }
+      if (text.includes('menghapus') || text.includes('hapus') || text.includes('deleted')) {
+        return 'event_busy'
+      }
+      if (text.includes('reminder') || text.includes('pengingat')) {
+        return 'schedule'
+      }
+      return 'check_circle' // Default schedule icon
     }
     
-    if (type === 'system' && subType === 'general') {
-      return 'settings' // Settings icon for system notifications
+    // System notifications
+    if (text.includes('system') || text.includes('sistem')) {
+      return 'settings'
     }
     
-    // Legacy icon mapping (fallback)
-    const iconMap = {
-      schedule_created: "event",
-      schedule_updated: "event_available", 
-      schedule_deleted: "event_busy",
-      schedule_reminder: "schedule",
-      system_announcement: "campaign",
-      mental_health_alert: "psychology",
-      system: "settings",
-      schedule: "check_circle",
-      general: "info"
+    // Mental health (jika ada notifikasi khusus kesehatan mental)
+    if (text.includes('mental') || text.includes('psikolog')) {
+      return 'psychology'
     }
     
-    return iconMap[type] || iconMap[subType] || "notifications"
+    // Announcements
+    if (text.includes('pengumuman') || text.includes('announcement')) {
+      return 'campaign'
+    }
+    
+    // Default fallback
+    return 'notifications'
   }
 
-  // 🔥 ENHANCED: Get notification icon color
-  const getNotificationIconColor = (type, subType) => {
-    // 🔥 SPECIFIC COMBINATIONS based on backend data
-    if (type === 'schedule' && subType === 'general') {
-      return '#9BCA61' // Green color for schedule notifications
+  // 🔥 ICON COLOR BASED ON TITLE
+  const getNotificationIconColor = (notification) => {
+    const title = notification.title?.toLowerCase() || ''
+    const message = notification.message?.toLowerCase() || ''
+    const text = `${title} ${message}`
+    
+    // Schedule/Counseling - Green
+    if (text.includes('jadwal') || text.includes('schedule') || text.includes('konseling') || text.includes('appointment')) {
+      return '#9BCA61'
     }
     
-    if (type === 'system' && subType === 'general') {
-      return '#535353' // Default gray for system notifications
+    // System - Gray
+    if (text.includes('system') || text.includes('sistem')) {
+      return '#535353'
     }
     
-    // Default color fallback
+    // Mental health - Purple
+    if (text.includes('mental') || text.includes('psikolog')) {
+      return '#9986ff'
+    }
+    
+    // Announcements - Blue
+    if (text.includes('pengumuman') || text.includes('announcement')) {
+      return '#488BBE'
+    }
+    
+    // Default
     return '#535353'
   }
 
-  // 🔥 HANDLE TAB SWITCHING
+
+  // 🔥 HANDLE TAB CHANGE
   const handleTabChange = (tab) => {
     setSelectedTab(tab)
   }
 
-  // 🔥 GET CURRENT COUNT BASED ON SELECTED TAB
+  // 🔥 GET CURRENT COUNT BASED ON TAB (Sekarang unreadCount dan counselingCount dari hook)
   const getCurrentCount = () => {
     if (selectedTab === 'counseling') {
-      return counselingCount || 0
+      return counselingCount
     }
-    return unreadCount || 0
+    return unreadCount
   }
+
+  console.log('🎯 Dropdown state:', {
+    selectedTab,
+    notifications: notifications.length,
+    unreadCount,
+    counselingCount,
+    isLoading
+  })
 
   return (
     <div className="absolute right-0 mt-2 w-[395px] max-h-[350px] overflow-y-auto bg-white shadow-lg rounded-b-xl z-50 p-5 flex flex-col gap-4">
@@ -81,13 +124,13 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       {/* Title */}
       <div className="text-[#488abe] font-semibold text-base">Notifikasi</div>
 
-      {/* Filter Tabs with counts - 🔥 ENHANCED WITH CONTEXT DATA */}
+      {/* Filter Tabs with counts */}
       <div className="flex items-center gap-5 text-sm text-[#535353]">
         <button
           onClick={() => handleTabChange('all')}
           className={`flex items-center gap-1 cursor-pointer transition-colors ${
             selectedTab === 'all' 
-              ? "font-bold underline text-[#535353]" 
+              ? "font-bold text-[#535353]" 
               : "font-normal text-[#8a8a8a] hover:text-[#535353]"
           }`}
         >
@@ -103,7 +146,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           onClick={() => handleTabChange('counseling')}
           className={`flex items-center gap-1 cursor-pointer transition-colors ${
             selectedTab === 'counseling' 
-              ? "font-bold underline text-[#535353]" 
+              ? "font-bold text-[#535353]" 
               : "font-normal text-[#8a8a8a] hover:text-[#535353]"
           }`}
         >
@@ -116,10 +159,10 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         </button>
       </div>
 
-      {/* Date Separator */}
-      <div className="text-xs text-[#8a8a8a]">Hari ini</div>
+      {/* Date Separator (sementara, karena dropdown notif hanya menampilkan 3 terakhir) */}
+      <div className="text-xs text-[#8a8a8a]">Terbaru</div>
 
-      {/* Loading State - 🔥 ONLY INITIAL LOADING */}
+      {/* Loading State */}
       {isLoading && (
         <div className="flex justify-center py-4">
           <div className="flex items-center gap-2">
@@ -129,27 +172,30 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         </div>
       )}
 
-      {/* Notification List - US-AC-Notif-1-2: Max 3 items */}
+      {/* Notification List */}
       {!isLoading && (
         <div className="flex flex-col gap-4">
-          {displayNotifications.length > 0 ? (
-            displayNotifications.map((notification) => {
+          {notifications.length > 0 ? (
+            notifications.map((notification) => {
               const isRead = notification.isRead || !!notification.readAt
               
               if (!notification || !notification.id || !notification.title) {
-                console.warn('Invalid notification in dropdown:', notification)
                 return null
               }
               
               return (
-                <div key={notification.id} className="flex gap-3 items-start">
+                <div 
+                  key={notification.id} 
+                  className="flex gap-3 items-start cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  onClick={() => onMarkAsRead && onMarkAsRead(notification.id)}
+                >
                   <span 
-                    className="material-icons text-[32px]"
-                    style={{ color: getNotificationIconColor(notification.type, notification.subType) }}
+                    className="material-icons text-[32px] flex-shrink-0"
+                    style={{ color: getNotificationIconColor(notification) }}
                   >
-                    {getNotificationIcon(notification.type, notification.subType)}
+                    {getNotificationIcon(notification)}
                   </span>
-                  <div className="flex flex-col gap-1 flex-1">
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
                     <p className={`text-sm font-semibold line-clamp-2 ${
                       isRead ? "text-gray-500" : "text-[#535353]"
                     }`}>
@@ -169,7 +215,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                           <span className="mx-1">|</span>
                         </>
                       )}
-                      {/* 🔥 USE CONTEXT FORMAT TIME AGO WITH DAYJS */}
                       <span>{formatTimeAgo(notification.createdAt)}</span>
                     </p>
                   </div>
@@ -192,13 +237,15 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         </div>
       )}
 
-      {/* US-AC-Notif-1-3: Footer "Lihat semua" button */}
-      <button
-        onClick={onViewAll}
-        className="text-xs text-[#488abe] text-center mt-2 cursor-pointer hover:underline transition-colors py-2 hover:bg-gray-50 rounded"
-      >
-        Lihat semua
-      </button>
+      {/* Footer Actions */}
+      <div className="border-t pt-2 flex justify-center items-center">
+        <button
+          onClick={onViewAll}
+          className="text-xs text-[#488abe] hover transition-colors"
+        >
+          Lihat semua
+        </button>
+      </div>
     </div>
   )
 }

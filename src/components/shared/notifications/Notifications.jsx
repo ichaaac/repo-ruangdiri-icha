@@ -1,7 +1,6 @@
-// src/components/shared/notifications/Notifications.jsx - ENHANCED WITH CONTEXT & DAYJS
+// src/components/shared/notifications/Notifications.jsx
 
 import React, { useCallback, useRef, forwardRef } from "react"
-import TopRightControl from "@/components/shared/layout/TopRightControl"
 import { useNotifications } from "./hooks/useNotifications"
 
 // Loading State Component
@@ -75,7 +74,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
       onClick={() => onTabChange("all")}
       className={`flex items-center gap-1 ${
         selectedTab === "all" 
-          ? "font-bold underline text-[#535353]" 
+          ? "font-bold text-[#535353]" 
           : "font-normal text-[#8a8a8a] hover:text-[#535353]"
       } transition-colors`}
     >
@@ -92,7 +91,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
       onClick={() => onTabChange("counseling")}
       className={`flex items-center gap-1 ${
         selectedTab === "counseling" 
-          ? "font-bold underline text-[#535353]" 
+          ? "font-bold text-[#535353]" 
           : "font-normal text-[#8a8a8a] hover:text-[#535353]"
       } transition-colors`}
     >
@@ -135,9 +134,9 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
         >
           <span 
             className="material-icons text-lg"
-            style={{ color: getNotificationIconColor(notification.type, notification.subType) }}
+            style={{ color: getNotificationIconColor(notification) }}
           >
-            {getNotificationIcon(notification.type, notification.subType)}
+            {getNotificationIcon(notification)}
           </span>
         </div>
       </div>
@@ -191,11 +190,11 @@ const NotificationList = ({
   groupedNotifications, 
   hasNextPage, 
   isFetchingNextPage, 
-  onMarkAsRead, 
+  onMarkAsRead, // 🔥 PASTIKAN INI DITERIMA SEBAGAI PROP
   onFetchNextPage, 
   getDateLabel,
   formatTimeAgo,
-  isMarkingAsRead 
+  isMarkingAsRead // 🔥 PASTIKAN INI DITERIMA SEBAGAI PROP
 }) => {
   const observer = useRef()
   
@@ -247,8 +246,8 @@ const NotificationList = ({
                       key={notification.id}
                       ref={isLastItem ? lastElementRef : null}
                       notification={notification}
-                      onMarkAsRead={onMarkAsRead}
-                      isMarkingAsRead={isMarkingAsRead}
+                      onMarkAsRead={onMarkAsRead} // 🔥 PENTING: TERUSKAN PROP INI!
+                      isMarkingAsRead={isMarkingAsRead} // 🔥 PENTING: TERUSKAN PROP INI!
                       formatTimeAgo={formatTimeAgo}
                     />
                   )
@@ -276,45 +275,75 @@ const NotificationList = ({
   )
 }
 
-// Utility functions - 🔥 ENHANCED: Handle type + subType combinations
-const getNotificationIcon = (type, subType) => {
-  // 🔥 SPECIFIC COMBINATIONS based on backend data
-  if (type === 'schedule' && subType === 'general') {
-    return 'check_circle' // Green check circle for schedule notifications
+// Utility functions - 🔥 ICON LOGIC BASED ON TITLE INCLUDES
+const getNotificationIcon = (notification) => {
+  const title = notification.title?.toLowerCase() || ''
+  const message = notification.message?.toLowerCase() || ''
+  const text = `${title} ${message}`
+  
+  // Schedule/Counseling related
+  if (text.includes('jadwal') || text.includes('schedule') || text.includes('konseling') || text.includes('appointment')) {
+    if (text.includes('membuat') || text.includes('baru') || text.includes('created')) {
+      return 'event'
+    }
+    if (text.includes('mengubah') || text.includes('ubah') || text.includes('updated')) {
+      return 'event_available'
+    }
+    if (text.includes('menghapus') || text.includes('hapus') || text.includes('deleted')) {
+      return 'event_busy'
+    }
+    if (text.includes('reminder') || text.includes('pengingat')) {
+      return 'schedule'
+    }
+    return 'check_circle' // Default schedule icon
   }
   
-  if (type === 'system' && subType === 'general') {
-    return 'settings' // Settings icon for system notifications
+  // System notifications
+  if (text.includes('system') || text.includes('sistem')) {
+    return 'settings'
   }
   
-  // Legacy icon mapping (fallback)
-  const iconMap = {
-    schedule_created: "event",
-    schedule_updated: "event_available", 
-    schedule_deleted: "event_busy",
-    schedule_reminder: "schedule",
-    system_announcement: "campaign",
-    mental_health_alert: "psychology",
-    system: "settings",
-    schedule: "check_circle",
-    general: "info"
+  // Mental health
+  if (text.includes('mental') || text.includes('psikolog')) {
+    return 'psychology'
   }
   
-  return iconMap[type] || iconMap[subType] || "notifications"
+  // Announcements
+  if (text.includes('pengumuman') || text.includes('announcement')) {
+    return 'campaign'
+  }
+  
+  // Default fallback
+  return 'notifications'
 }
 
-// 🔥 ENHANCED: Get notification icon color
-const getNotificationIconColor = (type, subType) => {
-  // 🔥 SPECIFIC COMBINATIONS based on backend data
-  if (type === 'schedule' && subType === 'general') {
-    return '#9BCA61' // Green color for schedule notifications
+// 🔥 ICON COLOR BASED ON TITLE
+const getNotificationIconColor = (notification) => {
+  const title = notification.title?.toLowerCase() || ''
+  const message = notification.message?.toLowerCase() || ''
+  const text = `${title} ${message}`
+  
+  // Schedule/Counseling - Green
+  if (text.includes('jadwal') || text.includes('schedule') || text.includes('konseling') || text.includes('appointment')) {
+    return '#9BCA61'
   }
   
-  if (type === 'system' && subType === 'general') {
-    return '#535353' // Default gray for system notifications
+  // System - Gray
+  if (text.includes('system') || text.includes('sistem')) {
+    return '#535353'
   }
   
-  // Default color fallback
+  // Mental health - Purple
+  if (text.includes('mental') || text.includes('psikolog')) {
+    return '#9986ff'
+  }
+  
+  // Announcements - Blue
+  if (text.includes('pengumuman') || text.includes('announcement')) {
+    return '#488BBE'
+  }
+  
+  // Default
   return '#535353'
 }
 
@@ -372,11 +401,11 @@ const Notifications = ({ sidebarExpanded = false }) => {
               groupedNotifications={groupedNotifications}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}
-              onMarkAsRead={handleMarkAsRead}
+              onMarkAsRead={handleMarkAsRead} // 🔥 PENTING: TERUSKAN PROP INI DARI HOOK!
               onFetchNextPage={fetchNextPage}
               getDateLabel={getDateLabel}
               formatTimeAgo={formatTimeAgo}
-              isMarkingAsRead={isMarkingAsRead}
+              isMarkingAsRead={isMarkingAsRead} // 🔥 PENTING: TERUSKAN PROP INI DARI HOOK!
             />
           )}
 
