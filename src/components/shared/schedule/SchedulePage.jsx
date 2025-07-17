@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
-import TopRightControl from "../layout/TopRightControl";
 import ScheduleGrid from "./ScheduleGrid";
 import CounselingQueue from "./CounselingQueue";
 import DatePicker from "./DatePicker";
@@ -11,7 +10,7 @@ import NotificationPanel from "./NotificationsPanel";
 import AddScheduleModal from "./AddScheduleModal";
 import ViewScheduleModal from "./ViewScheduleModal";
 import { useSchedule } from "./hooks/useSchedule";
-import ChatWidget from "../chats/ChatWidget";
+import TopRightControl from "../layout/TopRightControl";
 
 const SchedulePage = ({ type = "school" }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -220,8 +219,7 @@ const SchedulePage = ({ type = "school" }) => {
 
   return (
     <div className="relative bg-white min-h-screen w-full">
-      <TopRightControl />
-
+      <TopRightControl isAbsolute />
       <div 
         className="transition-all duration-300"
         style={{ 

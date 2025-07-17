@@ -82,7 +82,6 @@ const DashboardTabList = ({
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden relative">
-      <TopRightControl isAbsolute />
 
       <div className="px-4 sm:px-6 lg:px-8 xl:px-20 mt-6 sm:mt-8 pt-[72px]">
       <div className="w-full lg:w-auto">

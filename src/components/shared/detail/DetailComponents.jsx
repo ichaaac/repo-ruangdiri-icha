@@ -107,12 +107,7 @@ export const SuccessModal = ({ isOpen, message, onClose }) => {
   )
 }
 
-// Language Switcher Component (Tidak ada perubahan)
-export const LanguageSwitcher = () => {
-  return (
-    <TopRightControl isAbsolute />
-  )
-}
+
 
 // Profile Component - Responsive (Tidak ada perubahan)
 export const SharedProfile = ({ data, type = "student", onEdit, title, sidebarExpanded = false }) => {

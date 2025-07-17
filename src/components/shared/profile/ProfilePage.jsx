@@ -173,7 +173,6 @@ const ProfilePage = ({
 <div className="box-border w-full min-h-screen bg-white relative">
 {/* Profile header */}
 <div className="relative">
-  <TopRightControl />
   <h1
     className="absolute text-base sm:text-lg font-semibold text-primary"
     style={{

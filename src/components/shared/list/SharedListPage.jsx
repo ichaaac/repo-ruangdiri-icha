@@ -119,7 +119,6 @@ const SharedListPage = ({
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-      <TopRightControl isAbsolute />
 
       {/* Title and Stats */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between px-2 sm:px-4 lg:px-6 mt-6 sm:mt-8 pt-[72px] gap-4 lg:gap-6">

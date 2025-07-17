@@ -305,7 +305,7 @@ export const useNotifications = () => {
     handleMarkAsRead,
     handleMarkAllAsRead,
     fetchNextPage,
-    refetch,``
+    refetch,
     getDateLabel,
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,
