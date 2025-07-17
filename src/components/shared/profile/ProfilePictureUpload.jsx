@@ -251,7 +251,7 @@ const handleFileChange = (e) => {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="image/jpeg, image/png, image/gif, image/webp"
+            accept="image/jpeg, image/png"
             className="hidden"
           />
         </div>

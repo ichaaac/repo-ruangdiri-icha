@@ -80,9 +80,9 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
     if (!file) return;
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedTypes = ['image/jpeg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
-      setUploadError("Format file tidak didukung. Gunakan JPG, PNG, GIF, atau WebP.");
+      setUploadError("Format file tidak didukung. Gunakan JPG atau PNG");
       setTimeout(() => setUploadError(null), 3000);
       return;
     }
@@ -165,7 +165,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept="image/jpeg, image/png, image/gif, image/webp"
+          accept="image/jpeg, image/png"
           className="hidden"
         />
       </div>

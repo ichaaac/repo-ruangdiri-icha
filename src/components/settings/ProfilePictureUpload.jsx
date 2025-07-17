@@ -31,9 +31,9 @@ const ProfilePictureUpload = ({ currentImage = null, queryKey = "profile" }) => 
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      const validTypes = ['image/jpeg', 'image/png'];
       if (!validTypes.includes(file.type)) {
-        alert('Format file tidak didukung. Gunakan format JPG, PNG, GIF, atau WEBP.');
+        alert('Format file tidak didukung. Gunakan format JPG atau PNG');
         return;
       }
       

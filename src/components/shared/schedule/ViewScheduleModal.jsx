@@ -1,7 +1,9 @@
-// src/components/shared/schedule/ViewScheduleModal.jsx - FIXED STATE PERSISTENCE AFTER EDIT
+// src/components/shared/schedule/ViewScheduleModal.jsx - FIXED FOR NEW API RESPONSE
 
 import React, { useState, useEffect } from "react";
-import AddScheduleModal from "./AddScheduleModal"; // Import AddScheduleModal for edit
+import { useQuery } from '@tanstack/react-query';
+import { createScheduleApi } from './lib/scheduleApi';
+import AddScheduleModal from "./AddScheduleModal";
 
 const ViewScheduleModal = ({
   isOpen,
@@ -10,17 +12,45 @@ const ViewScheduleModal = ({
   onDelete,
   scheduleData: initialScheduleData,
   loading = false,
+  organizationType = "school"
 }) => {
   const [downloadingAttachment, setDownloadingAttachment] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [scheduleData, setScheduleData] = useState(initialScheduleData); // Local state for schedule data
+  const [scheduleData, setScheduleData] = useState(initialScheduleData);
+  
+  const scheduleApi = createScheduleApi(organizationType);
 
-  // FIXED: Update local state when prop changes
+  // FIXED: Fetch detailed schedule data using the API
+  const { data: detailedScheduleData, isLoading: isLoadingDetail } = useQuery({
+    queryKey: ['schedule-detail', initialScheduleData?.id],
+    queryFn: async () => {
+      if (!initialScheduleData?.id) return null;
+      
+      console.log('Fetching detailed schedule for ID:', initialScheduleData.id);
+      const response = await scheduleApi.getScheduleById(initialScheduleData.id);
+      
+      console.log('Detailed schedule response:', response);
+      
+      if (response.data?.status === 'success') {
+        return response.data.data;
+      }
+      return response.data?.data || null;
+    },
+    enabled: !!initialScheduleData?.id && isOpen,
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
+  });
+
+  // FIXED: Update local state when detailed data is available
   useEffect(() => {
-    if (initialScheduleData) {
+    if (detailedScheduleData) {
+      console.log('Setting detailed schedule data:', detailedScheduleData);
+      setScheduleData(detailedScheduleData);
+    } else if (initialScheduleData) {
+      console.log('Using initial schedule data:', initialScheduleData);
       setScheduleData(initialScheduleData);
     }
-  }, [initialScheduleData]);
+  }, [detailedScheduleData, initialScheduleData]);
 
   if (!isOpen || !scheduleData) return null;
 
@@ -36,8 +66,7 @@ const ViewScheduleModal = ({
 
   // FIXED: Better date handling for multiple dates
   const getDatesFromSchedule = () => {
-    const dates = [];
-    
+    // Priority 1: Use dates array if available (from transformed data)
     if (scheduleData.dates && scheduleData.dates.length > 0) {
       return scheduleData.dates.map(dateInfo => ({
         ...dateInfo,
@@ -45,28 +74,24 @@ const ViewScheduleModal = ({
       }));
     }
     
-    // Fallback to startDateTime/endDateTime
-    if (scheduleData.startDateTime || scheduleData.date) {
-      const dateStr = scheduleData.date || 
-        (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toISOString().split("T")[0] : "");
-      const startTime = scheduleData.startTime ||
-        (scheduleData.startDateTime ? new Date(scheduleData.startDateTime).toLocaleTimeString("en-GB", {
+    // Priority 2: Parse from startDateTime/endDateTime
+    if (scheduleData.startDateTime) {
+      const startDate = new Date(scheduleData.startDateTime);
+      const endDate = new Date(scheduleData.endDateTime);
+      
+      return [{
+        date: startDate.toISOString().split("T")[0],
+        startTime: startDate.toLocaleTimeString("en-GB", {
           hour: "2-digit", minute: "2-digit"
-        }) : "");
-      const endTime = scheduleData.endTime ||
-        (scheduleData.endDateTime ? new Date(scheduleData.endDateTime).toLocaleTimeString("en-GB", {
+        }),
+        endTime: endDate.toLocaleTimeString("en-GB", {
           hour: "2-digit", minute: "2-digit"
-        }) : "");
-
-      dates.push({ 
-        date: dateStr, 
-        startTime: startTime, 
-        endTime: endTime, 
-        timezone: scheduleData.timezone || "WIB" 
-      });
+        }),
+        timezone: "WIB"
+      }];
     }
     
-    return dates;
+    return [];
   };
 
   const dates = getDatesFromSchedule();
@@ -88,58 +113,113 @@ const ViewScheduleModal = ({
     return `${offset} menit`;
   };
 
+  // FIXED: Get psychologist from new API structure (usersSchedules)
   const getPsychologist = () => {
-    if (scheduleData.type === "counseling" && scheduleData.participants) {
-      return scheduleData.participants.find((p) => p.role === "psychologist");
+    console.log('Getting psychologist from scheduleData:', scheduleData);
+    
+    if (scheduleData.type === "counseling") {
+      // Method 1: From transformed participants data
+      if (scheduleData.participants) {
+        const psychologist = scheduleData.participants.find((p) => p.role === "psychologist");
+        if (psychologist) {
+          console.log('Found psychologist from participants:', psychologist);
+          return psychologist;
+        }
+      }
+      
+      // Method 2: From raw API data (usersSchedules)
+      if (scheduleData.usersSchedules) {
+        const psychSchedule = scheduleData.usersSchedules.find(us => us.user.role === "psychologist");
+        if (psychSchedule?.user) {
+          console.log('Found psychologist from usersSchedules:', psychSchedule.user);
+          return psychSchedule.user;
+        }
+      }
     }
+    
+    console.log('No psychologist found');
     return null;
   };
 
+  // FIXED: Get clients from new API structure with proper filtering
   const getClients = () => {
-    if (scheduleData.type === "counseling" && scheduleData.participants) {
-      return scheduleData.participants.filter((p) => p.role !== "psychologist");
+    console.log('Getting clients from scheduleData:', scheduleData);
+    
+    if (scheduleData.type === "counseling") {
+      // Method 1: From transformed participants data
+      if (scheduleData.participants) {
+        const clients = scheduleData.participants.filter((p) => p.role !== "psychologist");
+        if (clients.length > 0) {
+          console.log('Found clients from participants:', clients);
+          return clients;
+        }
+      }
+      
+      // Method 2: From raw API data (usersSchedules)
+      if (scheduleData.usersSchedules) {
+        const clients = scheduleData.usersSchedules
+          .filter(us => us.user.role !== "psychologist")
+          .map(us => us.user);
+        
+        console.log('Found clients from usersSchedules:', clients);
+        return clients;
+      }
     }
+    
+    console.log('No clients found');
     return [];
   };
 
+  // FIXED: Get location text with enhanced logic and proper field handling
   const getLocationText = () => {
+    // For counseling: use location field
     if (scheduleData.type === "counseling") {
-      return scheduleData.location || "Lokasi tidak ditentukan";
+      const location = scheduleData.location;
+      
+      if (location === "online") {
+        return "Zoom Meeting";
+      } else if (location === "offline") {
+        return "Offline";
+      } else if (location === "organization" || location === "seed-in") {
+        return "Seed-in";
+      } else if (location) {
+        return location;
+      }
     } else {
-      return scheduleData.customLocation || scheduleData.location || "Lokasi tidak ditentukan";
+      // For non-counseling: use customLocation field
+      const customLocation = scheduleData.customLocation;
+      if (customLocation) {
+        return customLocation;
+      }
     }
+    
+    return "Lokasi tidak ditentukan";
   };
 
-  // Enhanced attachment handlers for new API structure
+  // FIXED: Enhanced attachment handlers - window.open for images, download for files
   const handleAttachmentClick = async (attachment) => {
-    const isImage = attachment.fileType?.includes('image') || 
-      attachment.originalName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    console.log('Attachment clicked:', attachment);
+    
+    // Check if it's an image based on fileType
+    const isImage = attachment.fileType?.startsWith('image/');
 
     if (isImage) {
-      // Images: open in new window with proper URL handling
+      // FIXED: For images, open in new window
       try {
-        let imageUrl = attachment.fileUrl;
-        if (!imageUrl) {
-          imageUrl = `/api/schedules/${scheduleData.id}/attachments/${attachment.id}/preview`;
+        const imageUrl = attachment.fileUrl;
+        if (imageUrl) {
+          // Open image in new window
+          window.open(imageUrl, '_blank', 'width=800,height=600,scrollbars=yes');
+        } else {
+          console.error('No fileUrl found for image attachment');
+          alert('Gagal membuka gambar: URL tidak ditemukan');
         }
-        
-        // Create a temporary link to test if URL is accessible
-        const testImage = new Image();
-        testImage.onload = () => {
-          window.open(imageUrl, '_blank');
-        };
-        testImage.onerror = () => {
-          // Fallback: try to download instead
-          handleDocumentDownload(attachment);
-        };
-        testImage.src = imageUrl;
-        
       } catch (error) {
         console.error('Error opening image:', error);
         alert('Gagal membuka gambar');
       }
     } else {
-      // Documents: download
+      // FIXED: For files, download
       handleDocumentDownload(attachment);
     }
   };
@@ -148,19 +228,19 @@ const ViewScheduleModal = ({
     try {
       setDownloadingAttachment(attachment.id);
       
-      // Try direct URL first with new field name
+      // FIXED: Use fileUrl directly from attachment
       if (attachment.fileUrl) {
         const link = document.createElement('a');
         link.href = attachment.fileUrl;
         link.download = attachment.originalName || 'attachment';
-        link.target = '_blank'; // Open in new tab if download fails
+        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         return;
       }
       
-      // Fallback to API download
+      // Fallback to API download if fileUrl not available
       const response = await fetch(`/api/schedules/${scheduleData.id}/attachments/${attachment.id}/download`, {
         method: 'GET',
         headers: {
@@ -172,7 +252,6 @@ const ViewScheduleModal = ({
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      // Get filename from response headers or use default
       const contentDisposition = response.headers.get('content-disposition');
       let filename = attachment.originalName || 'attachment';
       
@@ -202,16 +281,16 @@ const ViewScheduleModal = ({
   };
 
   const getFileIcon = (attachment) => {
-    const type = attachment.fileType || attachment.mimeType || '';
+    const fileType = attachment.fileType || '';
     const extension = attachment.originalName?.split('.').pop()?.toLowerCase() || '';
     
-    if (type.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) {
+    if (fileType.startsWith('image/') || ['jpg', 'jpeg', 'png'].includes(extension)) {
       return 'image';
-    } else if (type.includes('pdf') || extension === 'pdf') {
+    } else if (fileType === 'application/pdf' || extension === 'pdf') {
       return 'picture_as_pdf';
-    } else if (type.includes('word') || ['doc', 'docx'].includes(extension)) {
+    } else if (fileType.includes('word') || ['doc', 'docx'].includes(extension)) {
       return 'description';
-    } else if (type.includes('excel') || type.includes('spreadsheet') || ['xls', 'xlsx'].includes(extension)) {
+    } else if (fileType.includes('excel') || fileType.includes('spreadsheet') || ['xls', 'xlsx'].includes(extension)) {
       return 'table_chart';
     } else {
       return 'description';
@@ -219,14 +298,13 @@ const ViewScheduleModal = ({
   };
 
   const getFileTypeLabel = (attachment) => {
-    const isImage = attachment.fileType?.includes('image') || 
-      attachment.originalName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    const isImage = attachment.fileType?.startsWith('image/');
     return isImage ? 'Preview' : 'Download';
   };
 
   // FIXED: Enhanced edit handling with proper state update
   const handleEdit = () => {
-    if (loading) return;
+    if (loading || isLoadingDetail) return;
     setShowEditModal(true);
   };
 
@@ -235,12 +313,9 @@ const ViewScheduleModal = ({
       if (onEdit) {
         const result = await onEdit(scheduleData.id, formData);
         
-        // FIXED: Update local state with the new data to persist changes
         if (result?.data?.data) {
-          // Backend returned updated schedule data
           setScheduleData(result.data.data);
         } else {
-          // Optimistically update local state with form data
           const updatedScheduleData = {
             ...scheduleData,
             agenda: formData.agenda,
@@ -251,7 +326,6 @@ const ViewScheduleModal = ({
             location: formData.type === "counseling" ? formData.location : scheduleData.location,
             customLocation: formData.type !== "counseling" ? formData.customLocation : scheduleData.customLocation,
             multipleDate: formData.dates?.length > 1,
-            // Update participants if provided
             ...(formData.participants && {
               participants: [
                 ...(formData.selectedPsychologist ? [formData.selectedPsychologist] : []),
@@ -264,18 +338,16 @@ const ViewScheduleModal = ({
           setScheduleData(updatedScheduleData);
         }
         
-        setShowEditModal(false); // Close edit modal on success
-        // Note: Don't close view modal here - let user see updated data
+        setShowEditModal(false);
       }
     } catch (error) {
       console.error('Error updating schedule:', error);
-      // Keep edit modal open on error so user can retry
       throw error;
     }
   };
 
   const handleDelete = () => {
-    if (onDelete && !loading) {
+    if (onDelete && !loading && !isLoadingDetail) {
       if (window.confirm("Apakah Anda yakin ingin menghapus jadwal ini?")) {
         onDelete(scheduleData);
       }
@@ -288,10 +360,19 @@ const ViewScheduleModal = ({
     }
   };
 
-  // FIXED: Prepare edit data with better transformation
+  // FIXED: Prepare edit data with new participants structure
   const prepareEditData = () => {
     const psychologist = getPsychologist();
     const clients = getClients();
+    
+    // FIXED: Prepare participants in new format for editing
+    let participants = null;
+    if (scheduleData.type === "counseling" && psychologist && clients.length > 0) {
+      participants = {
+        psychologistId: psychologist.id,
+        patientIds: clients.map(client => client.id)
+      };
+    }
     
     return {
       id: scheduleData.id,
@@ -307,15 +388,38 @@ const ViewScheduleModal = ({
       }],
       selectedPsychologist: psychologist,
       selectedParticipants: clients,
+      participants: participants, // New format for API
       location: scheduleData.type === "counseling" ? (scheduleData.location || "") : "",
-      customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || scheduleData.location || "") : "",
+      customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || "") : "",
       multipleDate: dates.length > 1,
-      // Pass original data for reference
       originalData: scheduleData
     };
   };
 
+  // FIXED: Handle Zoom meeting access
+  const handleZoomJoin = () => {
+    if (scheduleData.zoomJoinUrl) {
+      window.open(scheduleData.zoomJoinUrl, '_blank');
+    }
+  };
+
+  const handleZoomStart = () => {
+    if (scheduleData.zoomStartUrl) {
+      window.open(scheduleData.zoomStartUrl, '_blank');
+    }
+  };
+
   const showParticipants = scheduleData.type === "counseling";
+
+  console.log('=== ViewScheduleModal Debug ===');
+  console.log('scheduleData:', scheduleData);
+  console.log('showParticipants:', showParticipants);
+  console.log('psychologist:', getPsychologist());
+  console.log('clients:', getClients());
+  console.log('location:', scheduleData.location);
+  console.log('customLocation:', scheduleData.customLocation);
+  console.log('attachments:', scheduleData.attachments);
+  console.log('============================');
 
   return (
     <>
@@ -329,7 +433,7 @@ const ViewScheduleModal = ({
           <div className="flex justify-end items-center p-6">
             <button
               onClick={onClose}
-              disabled={loading}
+              disabled={loading || isLoadingDetail}
               className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
               <span className="material-icons text-[20px]">close</span>
@@ -477,11 +581,39 @@ const ViewScheduleModal = ({
                   </div>
                 </div>
 
-                {/* Location for Counseling - VIEW ONLY */}
+                {/* Location for Counseling - VIEW ONLY with Zoom integration */}
                 <div className="flex gap-4 items-center">
                   <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-                  <div className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                    {getLocationText()}
+                  <div className="flex-1 flex items-center gap-3">
+                    <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {getLocationText()}
+                    </div>
+                    
+                    {/* FIXED: Show Zoom buttons only for online counseling sessions */}
+                    {scheduleData.type === "counseling" && scheduleData.location === "online" && (
+                      <div className="flex gap-2">
+                        {scheduleData.zoomJoinUrl && (
+                          <button
+                            onClick={() => window.open(scheduleData.zoomJoinUrl, '_blank')}
+                            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
+                            title="Join Zoom Meeting"
+                          >
+                            <span className="material-icons text-sm">videocam</span>
+                            Join Meeting
+                          </button>
+                        )}
+                        {scheduleData.zoomStartUrl && (
+                          <button
+                            onClick={() => window.open(scheduleData.zoomStartUrl, '_blank')}
+                            className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors flex items-center gap-1"
+                            title="Start Zoom Meeting"
+                          >
+                            <span className="material-icons text-sm">play_arrow</span>
+                            Start Meeting
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -544,7 +676,7 @@ const ViewScheduleModal = ({
                   <div className="flex gap-3 justify-end">
                     <button
                       onClick={handleDelete}
-                      disabled={loading}
+                      disabled={loading || isLoadingDetail}
                       className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                       title="Hapus jadwal"
                     >
@@ -552,10 +684,10 @@ const ViewScheduleModal = ({
                     </button>
                     <button
                       onClick={handleEdit}
-                      disabled={loading}
+                      disabled={loading || isLoadingDetail}
                       className="px-6 py-2 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
                     >
-                      {loading ? "Loading..." : "Edit"}
+                      {loading || isLoadingDetail ? "Loading..." : "Edit"}
                     </button>
                   </div>
                 </div>
@@ -564,7 +696,7 @@ const ViewScheduleModal = ({
           </div>
 
           {/* Loading Overlay */}
-          {loading && (
+          {(loading || isLoadingDetail) && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
@@ -575,7 +707,7 @@ const ViewScheduleModal = ({
         </div>
       </div>
 
-      {/* FIXED: Edit Modal with proper data preparation */}
+      {/* Edit Modal */}
       {showEditModal && (
         <AddScheduleModal
           isOpen={showEditModal}

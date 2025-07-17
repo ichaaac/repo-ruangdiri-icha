@@ -205,7 +205,6 @@ export const useNotifications = () => {
     return count
   }, [notifications])
 
-  // Mark as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: (notificationIds) => {
       console.log('✏️ Marking as read:', notificationIds)
@@ -241,14 +240,13 @@ export const useNotifications = () => {
     }
   })
 
-  // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: () => {
       const unreadIds = notifications
         .filter(n => !n.readAt && !n.isRead)
         .map(n => n.id)
       console.log('✏️ Marking all as read:', unreadIds)
-      return notificationsAPI.markAsRead(unreadIds)
+      return notificationsAPI.markallAsRead(unreadIds)
     },
     onSuccess: () => {
       console.log('✅ Mark all as read success')
@@ -307,7 +305,7 @@ export const useNotifications = () => {
     handleMarkAsRead,
     handleMarkAllAsRead,
     fetchNextPage,
-    refetch,
+    refetch,``
     getDateLabel,
     isMarkingAsRead: markAsReadMutation.isPending,
     isMarkingAllAsRead: markAllAsReadMutation.isPending,

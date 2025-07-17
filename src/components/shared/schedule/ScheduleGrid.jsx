@@ -1,8 +1,8 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED DATE FORMATTING
+// src/components/shared/schedule/ScheduleGrid.jsx - OPTIMIZED POSITIONING & SCALING
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
-// BEST PRACTICE: Utility untuk format tanggal tanpa timezone conversion
+// Utility untuk format tanggal tanpa timezone conversion
 const formatDateLocal = (date) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -28,22 +28,23 @@ const ScheduleGrid = ({
   const [scrollLeft, setScrollLeft] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
   const [dragTimeTooltip, setDragTimeTooltip] = useState(null);
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false);
   
   const viewportRef = useRef(null);
 
-  // CONSTANTS - FIXED PRECISION
+  // CONSTANTS - OPTIMIZED SCALING
   const baseWidth = 808;
   const baseHeight = 254;
   const actualWidth = Math.max(baseWidth, containerWidth);
   const actualHeight = baseHeight;
-  const HOUR_WIDTH = 80;
+  const HOUR_WIDTH = 120; // Optimized scale
   const MIN_DAY_ROW_HEIGHT = 60;
   
-  const SCHEDULE_BASE_HEIGHT = 40;
-  const SCHEDULE_COMPRESSED_HEIGHT = 22;
+  const SCHEDULE_BASE_HEIGHT = 44;
+  const SCHEDULE_STACKED_HEIGHT = 38;
   const SCHEDULE_MARGIN = 2; 
   const LANE_SPACING = 6;
-  const MAX_VISIBLE_STACKS = 10; 
+  const MAX_VISIBLE_STACKS = 20;
   const DAY_PADDING_TOP = 12;
   const DAY_PADDING_BOTTOM = 8;
   
@@ -52,8 +53,7 @@ const ScheduleGrid = ({
   const HEADER_HEIGHT = 66;
   const MAX_DRAG_DAYS = 2;
 
-  // FIXED: Consistent padding offset
-  const PADDING_OFFSET = 40;
+  const PADDING_OFFSET = 38; // Optimized for accurate positioning
 
   const Z_INDICES = {
     BACKGROUND: 0,
@@ -67,6 +67,7 @@ const ScheduleGrid = ({
     TIME_HEADERS: 40,
     CURRENT_TIME: 45,
     DAY_HEADERS: 50,
+    HELP_ICON: 55,
     TOOLTIP: 60,
     MODALS: 100
   };
@@ -91,15 +92,12 @@ const ScheduleGrid = ({
   const halfHourDividers = useMemo(() => {
     const dividers = [];  
     for (let i = 0; i < timeSlots.length - 1; i++) {
-      // FIXED: Half hour dividers positioned correctly with padding offset
+      // Fix: Position divider tepat di tengah jam tanpa offset tambahan
       const position = (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
       dividers.push({ position, hourIndex: i, timeSlot: timeSlots[i] });
-      
-      // DEBUG: Log divider positioning
-      console.log(`Half-hour divider ${i}: timeSlot=${timeSlots[i]}, position=${position}px`);
     }
     return dividers;
-  }, [timeSlots]);
+  }, [timeSlots, HOUR_WIDTH]);
 
   // Helper functions
   const getTypeColor = useCallback((type) => {
@@ -108,40 +106,35 @@ const ScheduleGrid = ({
       class: "#3CE69E", 
       seminar: "#FF886D",
       meeting: "#3399E9",
-      other: "#979797"
+      other: "#979797",
+      others: "#979797"
     };
     return colors[type] || colors.other;
   }, []);
 
-  const getTimezoneDisplay = useCallback((timezone) => {
-    if (timezone === "WIB" || timezone === "WITA" || timezone === "WIT") {
-      return timezone;
-    }
+  const getLocationDisplay = useCallback((schedule) => {
+    const location = schedule.location || schedule.customLocation;
     
-    if (typeof timezone === 'string' && timezone.includes('+')) {
-      const offset = timezone.split('+')[1];
-      switch (offset) {
-        case '07': return 'WIB';
-        case '08': return 'WITA'; 
-        case '09': return 'WIT';
-        default: return 'WIB';
-      }
+    if (location === "online") {
+      return "Zoom";
+    } else if (location === "offline") {
+      return "Offline";
+    } else if (location === "organization" || location === "seed-in") {
+      return "Seed-in";
+    } else if (location) {
+      return location;
+    } else {
+      return "TBD";
     }
+  }, []);
+
+  const parseUTCToLocal = useCallback((utcDateTimeString) => {
+    const utcDate = new Date(utcDateTimeString);
+    const wibOffset = 7 * 60 * 60 * 1000;
+    const wibDate = new Date(utcDate.getTime() + wibOffset);
     
-    if (typeof timezone === 'string' && (timezone.includes('T') || timezone.includes(' '))) {
-      const offsetMatch = timezone.match(/([+-]\d{2})/);
-      if (offsetMatch) {
-        const offset = offsetMatch[1].replace('+', '');
-        switch (offset) {
-          case '07': return 'WIB';
-          case '08': return 'WITA';
-          case '09': return 'WIT';
-          default: return 'WIB';
-        }
-      }
-    }
-    
-    return 'WIB';
+    return new Date(wibDate.getUTCFullYear(), wibDate.getUTCMonth(), wibDate.getUTCDate(), 
+                   wibDate.getUTCHours(), wibDate.getUTCMinutes(), wibDate.getUTCSeconds());
   }, []);
 
   const getHourDisplayIndex = useCallback((hour) => {
@@ -155,40 +148,33 @@ const ScheduleGrid = ({
     return 6;
   }, [timeSlots.length]);
 
-  // FIXED: Precise time to position conversion (without padding)
-  const timeToPosition = useCallback((timeStr) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const hourIndex = getHourDisplayIndex(hours);
-    
-    // DEBUG: Log time positioning
-    console.log(`timeToPosition: ${timeStr} → hour=${hours}, hourIndex=${hourIndex}, minutes=${minutes}`);
-    
-    // PRECISE: Return position without padding (padding added during render)
+  // FIXED: Simplified time positioning
+  const timeToPosition = useCallback((hour, minute) => {
+    const hourIndex = getHourDisplayIndex(hour);
     const basePosition = hourIndex * HOUR_WIDTH;
-    const minuteOffset = (minutes / 60) * HOUR_WIDTH;
+    const minuteOffset = (minute / 60) * HOUR_WIDTH;
     const totalPosition = basePosition + minuteOffset;
-    
-    console.log(`  basePosition=${basePosition}, minuteOffset=${minuteOffset}, total=${totalPosition}`);
     
     return totalPosition;
   }, [getHourDisplayIndex]);
 
-  const calculateEventWidth = useCallback((startTime, endTime) => {
-    const startPos = timeToPosition(startTime);
-    const endPos = timeToPosition(endTime);
-    return Math.max(endPos - startPos, 60);
+  // FIXED: Optimized event width calculation for better positioning
+  const calculateEventWidth = useCallback((startHour, startMinute, endHour, endMinute) => {
+    const startPos = timeToPosition(startHour, startMinute);
+    const endPos = timeToPosition(endHour, endMinute);
+    // Minimum width optimized for readability
+    const width = Math.max(endPos - startPos, HOUR_WIDTH * 0.4); // 40% of hour width minimum
+    
+    return width;
   }, [timeToPosition]);
 
-  // Current time helpers with precise positioning
+  // Current time helpers
   const getCurrentTimePosition = useCallback(() => {
     const now = currentTime;
     const hour = now.getHours();
     const minutes = now.getMinutes();
-    const hourIndex = getHourDisplayIndex(hour);
-    const minuteOffset = (minutes / 60);
-    const totalOffset = hourIndex + minuteOffset;
-    return totalOffset * HOUR_WIDTH; // Without padding
-  }, [currentTime, getHourDisplayIndex]);
+    return timeToPosition(hour, minutes);
+  }, [currentTime, timeToPosition]);
 
   const getCurrentTimeString = useCallback(() => {
     const now = currentTime;
@@ -197,7 +183,7 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // Schedule processing
+  // Schedule processing with proper vertical stacking
   const processedSchedules = useMemo(() => {
     const processed = {};
     const dayEvents = {};
@@ -208,91 +194,108 @@ const ScheduleGrid = ({
     });
 
     schedules.forEach(schedule => {
-      const scheduleDate = new Date(schedule.startDateTime);
-      const dayIndex = (scheduleDate.getDay() + 6) % 7;
+      const startDateTimeWIB = parseUTCToLocal(schedule.startDateTime);
+      const endDateTimeWIB = parseUTCToLocal(schedule.endDateTime);
+      
+      const dayIndex = (startDateTimeWIB.getDay() + 6) % 7;
       const dayName = days[dayIndex]?.full;
       
       if (dayName) {
+        // Filter by selected dates if any
         if (selectedDates.length > 0) {
           const isDateSelected = selectedDates.some(date => {
             const selectedDateObj = new Date(date);
-            return selectedDateObj.toDateString() === scheduleDate.toDateString();
+            return selectedDateObj.toDateString() === startDateTimeWIB.toDateString();
           });
-          if (!isDateSelected) return;
+          if (!isDateSelected) {
+            return;
+          }
         }
-
-        // FIXED: Handle timezone-aware date parsing
-        let startTime, endTime;
-        
-        // Try to parse dates properly considering timezone
-        if (typeof schedule.startDateTime === 'string') {
-          // If it's a string, create date in local timezone
-          startTime = new Date(schedule.startDateTime.replace('Z', ''));
-        } else {
-          startTime = new Date(schedule.startDateTime);
-        }
-        
-        if (typeof schedule.endDateTime === 'string') {
-          endTime = new Date(schedule.endDateTime.replace('Z', ''));
-        } else {
-          endTime = new Date(schedule.endDateTime);
-        }
-        
-        // DEBUG: Log schedule time processing
-        console.log(`Processing schedule: ${schedule.agenda}`);
-        console.log(`  startDateTime: ${schedule.startDateTime}`);
-        console.log(`  endDateTime: ${schedule.endDateTime}`);
-        console.log(`  parsed startTime: ${startTime} (${startTime.getHours()}:${startTime.getMinutes().toString().padStart(2,'0')})`);
-        console.log(`  parsed endTime: ${endTime} (${endTime.getHours()}:${endTime.getMinutes().toString().padStart(2,'0')})`);
         
         const displaySchedule = {
           id: schedule.id,
-          name: schedule.agenda || schedule.displayName || "No Title",
-          startTime: startTime.toLocaleTimeString('en-GB', { 
+          name: schedule.agenda || "No Title",
+          startHour: startDateTimeWIB.getHours(),
+          startMinute: startDateTimeWIB.getMinutes(),
+          endHour: endDateTimeWIB.getHours(),
+          endMinute: endDateTimeWIB.getMinutes(),
+          startTime: startDateTimeWIB.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit' 
           }),
-          endTime: endTime.toLocaleTimeString('en-GB', { 
+          endTime: endDateTimeWIB.toLocaleTimeString('en-GB', { 
             hour: '2-digit', 
             minute: '2-digit' 
           }),
-          platform: schedule.location || "Location",
+          location: getLocationDisplay(schedule),
           type: schedule.type || "other",
           color: getTypeColor(schedule.type),
-          timezone: schedule.timezone || "WIB",
-          timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
+          timezone: "WIB",
           participants: schedule.participants || [],
           originalData: schedule,
-          startDateTime: startTime,
-          endDateTime: endTime,
-          duration: endTime - startTime,
-          startMinutes: startTime.getHours() * 60 + startTime.getMinutes(),
-          endMinutes: endTime.getHours() * 60 + endTime.getMinutes(),
-          createdAt: schedule.createdAt || startTime
+          startDateTime: startDateTimeWIB,
+          endDateTime: endDateTimeWIB,
+          duration: endDateTimeWIB - startDateTimeWIB,
+          startMinutes: startDateTimeWIB.getHours() * 60 + startDateTimeWIB.getMinutes(),
+          endMinutes: endDateTimeWIB.getHours() * 60 + endDateTimeWIB.getMinutes(),
+          createdAt: schedule.createdAt || startDateTimeWIB
         };
         
-        // DEBUG: Log final display schedule
-        console.log(`  final startTime: ${displaySchedule.startTime}`);
-        console.log(`  final endTime: ${displaySchedule.endTime}`);
-
         dayEvents[dayName].push(displaySchedule);
       }
     });
 
+    // Vertical stacking logic - group overlapping events by day
     Object.keys(dayEvents).forEach(dayName => {
       const events = dayEvents[dayName];
       
+      // Sort by start time first, then by creation time
       events.sort((a, b) => {
         const timeDiff = a.startDateTime - b.startDateTime;
         if (timeDiff !== 0) return timeDiff;
         return new Date(a.createdAt) - new Date(b.createdAt);
       });
 
-      const timeSlotGroups = {};
+      // Group overlapping events for vertical stacking
+      const lanes = [];
       
       events.forEach((event) => {
-        const startHour = event.startDateTime.getHours();
-        const timeSlot = `${startHour.toString().padStart(2, '0')}:00`;
+        // Find the first lane where this event doesn't overlap
+        let laneIndex = 0;
+        let placed = false;
+        
+        for (let i = 0; i < lanes.length; i++) {
+          const lastEventInLane = lanes[i][lanes[i].length - 1];
+          
+          // Check if current event starts after the last event in this lane ends
+          if (event.startMinutes >= lastEventInLane.endMinutes) {
+            lanes[i].push(event);
+            laneIndex = i;
+            placed = true;
+            break;
+          }
+        }
+        
+        // If no suitable lane found, create a new one
+        if (!placed) {
+          lanes.push([event]);
+          laneIndex = lanes.length - 1;
+        }
+        
+        // Assign stack properties
+        event.stackIndex = laneIndex;
+        event.isStacked = lanes.length > 1;
+      });
+
+      // Update totalLanes for all events in this day
+      events.forEach(event => {
+        event.totalLanes = lanes.length;
+      });
+
+      // Group events by hour for processing (keeping original structure)
+      const timeSlotGroups = {};
+      events.forEach((event) => {
+        const timeSlot = `${event.startHour.toString().padStart(2, '0')}:00`;
         
         if (!timeSlotGroups[timeSlot]) {
           timeSlotGroups[timeSlot] = [];
@@ -301,23 +304,15 @@ const ScheduleGrid = ({
       });
 
       Object.keys(timeSlotGroups).forEach(timeSlot => {
-        const slotEvents = timeSlotGroups[timeSlot];
-        
-        slotEvents.forEach((event, index) => {
-          event.stackIndex = index;
-          event.totalLanes = slotEvents.length;
-          event.isStacked = slotEvents.length > 1;
-        });
-
         if (!processed[dayName][timeSlot]) {
           processed[dayName][timeSlot] = [];
         }
-        processed[dayName][timeSlot] = slotEvents;
+        processed[dayName][timeSlot] = timeSlotGroups[timeSlot];
       });
     });
 
     return processed;
-  }, [schedules, selectedDates, days, getTypeColor, getTimezoneDisplay]);
+  }, [schedules, selectedDates, days, parseUTCToLocal, getLocationDisplay, getTypeColor]);
 
   const dayRowHeights = useMemo(() => {
     const heights = {};
@@ -326,10 +321,15 @@ const ScheduleGrid = ({
       let maxStacks = 1;
       let hasEvents = false;
       
+      // Find maximum number of stacked events for this day
       Object.values(processedSchedules[day.full] || {}).forEach(eventsInSlot => {
         if (eventsInSlot.length > 0) {
           hasEvents = true;
-          maxStacks = Math.max(maxStacks, eventsInSlot.length);
+          eventsInSlot.forEach(event => {
+            if (event.totalLanes) {
+              maxStacks = Math.max(maxStacks, event.totalLanes);
+            }
+          });
         }
       });
       
@@ -337,11 +337,12 @@ const ScheduleGrid = ({
         const visibleStacks = Math.min(maxStacks, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
         
+        // Calculate height based on stacking
         for (let i = 0; i < visibleStacks; i++) {
           if (maxStacks === 1) {
             totalHeight += SCHEDULE_BASE_HEIGHT;
           } else {
-            totalHeight += SCHEDULE_COMPRESSED_HEIGHT;
+            totalHeight += SCHEDULE_STACKED_HEIGHT;
           }
           
           if (i < visibleStacks - 1) {
@@ -358,30 +359,20 @@ const ScheduleGrid = ({
     return heights;
   }, [processedSchedules, days]);
 
-  // FIXED: Precise mouse position to time calculation
   const getTimeFromPosition = useCallback((clientX, clientY) => {
     if (!viewportRef.current) return null;
     
     const rect = viewportRef.current.getBoundingClientRect();
-    
-    // Get exact coordinates within viewport
     const x = clientX - rect.left + scrollLeft;
     const y = clientY - rect.top + scrollTop;
-    
-    // Remove padding to get pure grid position
     const gridX = x - PADDING_OFFSET;
     const gridY = y;
     
     if (gridX < 0 || gridY < 0) return null;
     
-    // FIXED: Allow full time range calculation
     const hourIndex = Math.floor(gridX / HOUR_WIDTH);
-    if (hourIndex < 0 || hourIndex >= timeSlots.length) {
-      console.log(`Hour index out of bounds: ${hourIndex}, max: ${timeSlots.length - 1}`);
-      return null;
-    }
+    if (hourIndex < 0 || hourIndex >= timeSlots.length) return null;
     
-    // Calculate day index
     let dayIndex = -1;
     let currentTop = 0;
     
@@ -396,19 +387,12 @@ const ScheduleGrid = ({
     
     if (dayIndex < 0) return null;
     
-    // FIXED: 15-minute precision calculation - remove 45 minute limit
     const actualHour = getActualHour(hourIndex);
     const pixelWithinHour = gridX - (hourIndex * HOUR_WIDTH);
     const exactMinute = (pixelWithinHour / HOUR_WIDTH) * 60;
-    
-    // GOOGLE CALENDAR: 15-minute snapping
     const snappedMinute = Math.round(exactMinute / 15) * 15;
-    const finalMinute = Math.min(snappedMinute, 59); // FIXED: Allow up to 59 minutes
-    
-    // FIXED: Return exact position for consistency
+    const finalMinute = Math.min(snappedMinute, 59);
     const pixelX = hourIndex * HOUR_WIDTH + (finalMinute / 60) * HOUR_WIDTH;
-    
-    console.log(`Mouse position: gridX=${gridX}, hourIndex=${hourIndex}, actualHour=${actualHour}, finalMinute=${finalMinute}`);
     
     return {
       hour: actualHour,
@@ -416,11 +400,10 @@ const ScheduleGrid = ({
       hourIndex: hourIndex,
       dayIndex: dayIndex,
       exactMinute: exactMinute,
-      pixelX: pixelX // Position without padding
+      pixelX: pixelX
     };
   }, [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour]);
 
-  // FIXED: Use local date formatting without timezone conversion
   const getDateFromDayIndex = useCallback((dayIndex) => {
     const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
     const baseDayOfWeek = (baseDate.getDay() + 6) % 7;
@@ -433,9 +416,9 @@ const ScheduleGrid = ({
     return targetDate;
   }, [weekStartDate]);
 
-  // FIXED: Mouse handlers with proper tooltip positioning
+  // Mouse handlers
   const handleMouseDown = useCallback((e) => {
-    if (e.target.closest('.schedule-event')) return;
+    if (e.target.closest('.schedule-event') || e.target.closest('.help-icon')) return;
     
     e.preventDefault();
     e.stopPropagation();
@@ -456,7 +439,6 @@ const ScheduleGrid = ({
     });
     setIsDragging(true);
     
-    // FIXED: Tooltip positioned relative to viewport
     const rect = viewportRef.current.getBoundingClientRect();
     const relativeX = e.clientX - rect.left;
     const relativeY = e.clientY - rect.top;
@@ -475,10 +457,8 @@ const ScheduleGrid = ({
     const timeInfo = getTimeFromPosition(e.clientX, e.clientY);
     if (!timeInfo) return;
     
-    // FIXED: Remove day constraint for same-day drag, keep for cross-day
     let constrainedDayIndex = timeInfo.dayIndex;
     
-    // Only apply constraints for cross-day drags
     if (timeInfo.dayIndex !== dragStartPos.dayIndex) {
       const startDayIndex = dragStartPos.dayIndex;
       const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1);
@@ -486,7 +466,6 @@ const ScheduleGrid = ({
       constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, timeInfo.dayIndex));
     }
     
-    // FIXED: Always update selectedArea with actual values
     setSelectedArea(prev => ({
       ...prev,
       endDay: constrainedDayIndex,
@@ -495,12 +474,10 @@ const ScheduleGrid = ({
       endPixelX: timeInfo.pixelX
     }));
     
-    // FIXED: Update tooltip with proper time ordering (always show start < end)
     const rect = viewportRef.current.getBoundingClientRect();
     const relativeX = e.clientX - rect.left;
     const relativeY = e.clientY - rect.top;
     
-    // Determine which time is earlier regardless of drag direction
     const time1 = { hour: dragStartPos.hour, minute: dragStartPos.minute, day: dragStartPos.dayIndex };
     const time2 = { hour: timeInfo.hour, minute: timeInfo.minute, day: constrainedDayIndex };
     
@@ -515,8 +492,6 @@ const ScheduleGrid = ({
       startTime = `${time2.hour.toString().padStart(2, '0')}:${time2.minute.toString().padStart(2, '0')}`;
       endTime = `${time1.hour.toString().padStart(2, '0')}:${time1.minute.toString().padStart(2, '0')}`;
     }
-    
-    console.log(`Drag: ${dragStartPos.hour}:${dragStartPos.minute.toString().padStart(2,'0')} → ${timeInfo.hour}:${timeInfo.minute.toString().padStart(2,'0')} = Tooltip: ${startTime} - ${endTime}`);
     
     setDragTimeTooltip({
       x: relativeX,
@@ -534,7 +509,6 @@ const ScheduleGrid = ({
                    selectedArea.startMinute === selectedArea.endMinute;
     
     if (isClick) {
-      // CLICK: Create 30-minute slot
       const clickedDate = getDateFromDayIndex(selectedArea.startDay);
       const startDateTime = new Date(clickedDate);
       startDateTime.setHours(selectedArea.startHour, selectedArea.startMinute, 0, 0);
@@ -548,7 +522,7 @@ const ScheduleGrid = ({
         day: days[selectedArea.startDay]?.full,
         isMultipleDays: false,
         dates: [{
-          date: formatDateLocal(clickedDate), // FIXED: Use local date formatting
+          date: formatDateLocal(clickedDate),
           startTime: `${selectedArea.startHour.toString().padStart(2, '0')}:${selectedArea.startMinute.toString().padStart(2, '0')}`,
           endTime: `${endDateTime.getHours().toString().padStart(2, '0')}:${endDateTime.getMinutes().toString().padStart(2, '0')}`,
           timezone: 'WIB'
@@ -556,22 +530,17 @@ const ScheduleGrid = ({
         draggedDays: 1
       });
     } else {
-      // DRAG: Create range selection
       const startDay = Math.min(selectedArea.startDay, selectedArea.endDay);
       const endDay = Math.max(selectedArea.startDay, selectedArea.endDay);
       
-      // FIXED: Always use earlier time as start, later time as end (regardless of drag direction)
       let startHour, startMinute, endHour, endMinute;
       
-      // Get all time points
       const time1 = { hour: selectedArea.startHour, minute: selectedArea.startMinute, day: selectedArea.startDay };
       const time2 = { hour: selectedArea.endHour, minute: selectedArea.endMinute, day: selectedArea.endDay };
       
-      // Convert to comparable values (day * 1440 + hour * 60 + minute)
       const time1Minutes = time1.day * 1440 + time1.hour * 60 + time1.minute;
       const time2Minutes = time2.day * 1440 + time2.hour * 60 + time2.minute;
       
-      // Always use earlier time as start
       if (time1Minutes <= time2Minutes) {
         startHour = time1.hour;
         startMinute = time1.minute;
@@ -584,7 +553,6 @@ const ScheduleGrid = ({
         endMinute = time1.minute;
       }
       
-      // Ensure minimum 15 minutes duration
       if (startDay === endDay && startHour === endHour && startMinute === endMinute) {
         endMinute += 15;
         if (endMinute >= 60) {
@@ -604,7 +572,7 @@ const ScheduleGrid = ({
       for (let dayIndex = startDay; dayIndex <= endDay; dayIndex++) {
         const dayDate = getDateFromDayIndex(dayIndex);
         dates.push({
-          date: formatDateLocal(dayDate), // FIXED: Use local date formatting
+          date: formatDateLocal(dayDate),
           startTime: `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
           endTime: `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`,
           timezone: 'WIB'
@@ -621,7 +589,6 @@ const ScheduleGrid = ({
       });
     }
     
-    // Reset states
     setIsDragging(false);
     setSelectedArea(null);
     setDragStartPos(null);
@@ -655,7 +622,7 @@ const ScheduleGrid = ({
     setScrollTop(e.target.scrollTop);
   }, []);
 
-  // Selection box visualization with fixed positioning
+  // Selection box visualization
   const selectionBox = useMemo(() => {
     if (!selectedArea || !isDragging) return null;
     
@@ -671,7 +638,6 @@ const ScheduleGrid = ({
       height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
     }
     
-    // FIXED: Position with padding offset for proper alignment
     const left = PADDING_OFFSET + startPixelX;
     const width = Math.max(endPixelX - startPixelX, 30);
     
@@ -683,14 +649,14 @@ const ScheduleGrid = ({
     );
   }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
 
+  // FIXED: Schedule Event Card Component - properly scaled
   const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     const [isHovered, setIsHovered] = useState(false);
 
     const isStacked = event.totalLanes > 1;
-    const isSingle = !isStacked;
     const laneIndex = event.stackIndex || 0;
     
-    const height = isSingle ? SCHEDULE_BASE_HEIGHT : SCHEDULE_COMPRESSED_HEIGHT;
+    const height = isStacked ? SCHEDULE_STACKED_HEIGHT : SCHEDULE_BASE_HEIGHT;
 
     const handleClick = (e) => {
       e.stopPropagation();
@@ -716,61 +682,73 @@ const ScheduleGrid = ({
       combinedStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
     }
 
-    if (isSingle) {
-      return (
-        <div
-          className={`absolute flex flex-col justify-center items-start cursor-pointer schedule-event ${className || ''}`}
-          style={{
-            ...combinedStyle,
-            borderRadius: '5px',
-            paddingLeft: '8px',
-            paddingRight: '8px',
-            overflow: 'hidden',
-            boxShadow: isHovered ? combinedStyle.boxShadow : '0 2px 6px rgba(0,0,0,0.12)',
-          }}
-          onClick={handleClick}
-          onMouseDown={handleMouseDown}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
-            {event.name}
-          </div>
-          <div className="w-full flex items-center">
-            <span className="text-white text-[10px] font-normal font-['Public_Sans'] truncate">
-              {event.startTime} - {event.endTime} {event.timezoneDisplay}
-            </span>
-            <span className="text-white text-[10px] font-normal font-['Public_Sans'] mx-1">|</span>
-            <span className="text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
-              {event.platform}
-            </span>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div
-        className={`absolute flex items-center cursor-pointer schedule-event ${className || ''}`}
+        className={`absolute flex flex-col justify-center items-start cursor-pointer schedule-event ${className || ''}`}
         style={{
           ...combinedStyle,
-          borderRadius: '4px',
-          paddingLeft: '8px',
+          borderRadius: '6px',
+          paddingLeft: '8px', // Optimized padding for new scale
           paddingRight: '8px',
           overflow: 'hidden',
-          boxShadow: isHovered ? combinedStyle.boxShadow : '0 1px 4px rgba(0,0,0,0.1)',
+          boxShadow: isHovered ? combinedStyle.boxShadow : '0 2px 6px rgba(0,0,0,0.12)',
         }}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="w-full text-white text-[10px] font-semibold font-['Public_Sans'] truncate">
+        <div className="w-full text-white text-[12px] font-semibold font-['Public_Sans'] truncate">
           {event.name}
+        </div>
+        <div className="w-full flex items-center">
+          <span className="text-white text-[11px] font-normal font-['Public_Sans'] truncate">
+            {event.startTime} - {event.endTime} {event.timezone}
+          </span>
+          <span className="text-white text-[11px] font-normal font-['Public_Sans'] mx-1">|</span>
+          <span className="text-white text-[11px] font-semibold font-['Public_Sans'] truncate">
+            {event.location}
+          </span>
         </div>
       </div>
     );
   };
+
+  // Help Tooltip Component
+  const HelpTooltip = () => (
+    <div className="w-20 h-24 p-2.5 bg-black/50 rounded-[5px] inline-flex flex-col justify-center items-center gap-2.5">
+      <div className="w-16 flex flex-col justify-end items-start gap-[5px]">
+        <div className="w-24 flex flex-col justify-center items-start gap-[5px]">
+          <div className="inline-flex justify-start items-center gap-[5px]">
+            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6.5" cy="7" r="6.5" fill="#9986FF"/>
+            </svg>
+            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">Konseling</div>
+          </div>
+          <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
+            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6.5" cy="7" r="6.5" fill="#3CE69E"/>
+            </svg>
+            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">Kelas</div>
+          </div>
+        </div>
+        <div className="flex flex-col justify-start items-start gap-[5px]">
+          <div className="inline-flex justify-start items-center gap-[5px]">
+            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6.5" cy="7" r="6.5" fill="#FF886D"/>
+            </svg>
+            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">Seminar</div>
+          </div>
+          <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
+            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6.5" cy="7" r="6.5" fill="#979797"/>
+            </svg>
+            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">Lainnya</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   // Global mouse events
   useEffect(() => {
@@ -793,7 +771,7 @@ const ScheduleGrid = ({
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000); 
     return () => clearInterval(timer);
   }, []);
 
@@ -807,7 +785,7 @@ const ScheduleGrid = ({
       }}
     >
       {/* Header */}
-      <div className="flex items-center px-5 py-3" style={{ height: `${HEADER_HEIGHT}px` }}>
+      <div className="flex items-center justify-between px-5 py-3" style={{ height: `${HEADER_HEIGHT}px` }}>
         <div className="flex items-center">
           <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
             <span className="material-icons text-white text-lg">calendar_month</span>
@@ -816,12 +794,36 @@ const ScheduleGrid = ({
             Jadwal
           </h2>
         </div>
+        
+        {/* Help Icon */}
+        <div 
+          className="relative help-icon"
+          style={{ marginRight: '38px' }}
+        >
+          <div 
+            className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center cursor-help transition-colors hover:bg-gray-200"
+            onMouseEnter={() => setShowHelpTooltip(true)}
+            onMouseLeave={() => setShowHelpTooltip(false)}
+          >
+            <span className="text-gray-600 text-sm font-medium">?</span>
+          </div>
+          
+          {/* Help Tooltip */}
+          {showHelpTooltip && (
+            <div 
+              className="absolute top-8 left-0"
+              style={{ zIndex: Z_INDICES.TOOLTIP }}
+            >
+              <HelpTooltip />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Grid Container */}
       <div className="relative overflow-hidden" style={{ height: `${actualHeight - HEADER_HEIGHT}px` }}>
         
-        {/* Time Header - FIXED with proper padding */}
+        {/* Time Header */}
         <div 
           className="absolute top-0 bg-white"
           style={{ 
@@ -848,19 +850,19 @@ const ScheduleGrid = ({
                   className="flex-shrink-0 relative"
                   style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
                 >
-                  <span className="text-sm text-neutral-600 absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-1/2">
+                  {/* Time header positioning aligned with divider */}
+                  <span className="text-sm text-neutral-600 absolute top-1/2 left-0 transform -translate-y-1/2">
                     {time}
                   </span>
                 </div>
               ))}
 
-              {/* FIXED: Half hour dividers with proper positioning */}
               {halfHourDividers.map((divider, i) => (
                 <div 
                   key={`divider-30min-${i}`}
                   className="absolute pointer-events-none bg-red-400" 
                   style={{ 
-                    left: `${PADDING_OFFSET + divider.position}px`,
+                    left: `${PADDING_OFFSET + divider.position + 15}px`, // Back to original dengan fix calculation
                     top: '35%',
                     width: '1px',       
                     height: '10px',        
@@ -960,7 +962,7 @@ const ScheduleGrid = ({
                 );
               })}
 
-              {/* FIXED: Schedule events with precise positioning */}
+              {/* FIXED: Schedule events with consistent positioning */}
               {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -971,32 +973,29 @@ const ScheduleGrid = ({
                   if (eventsInSlot.length === 0) return null;
 
                   return eventsInSlot.map((event, eventIndex) => {
-                    // FIXED: Use timeToPosition (returns position without padding)
-                    const left = timeToPosition(event.startTime);
-                    const width = calculateEventWidth(event.startTime, event.endTime);
-                    
-                    // DEBUG: Log event positioning
-                    console.log(`Rendering event: ${event.name}`);
-                    console.log(`  startTime: ${event.startTime}, endTime: ${event.endTime}`);
-                    console.log(`  calculated left: ${left}px, width: ${width}px`);
-                    console.log(`  dayName: ${dayName}, dayIndex: ${dayIndex}`);
+                    const leftPosition = timeToPosition(event.startHour, event.startMinute);
+                    const width = calculateEventWidth(
+                      event.startHour, 
+                      event.startMinute, 
+                      event.endHour, 
+                      event.endMinute
+                    );
                     
                     const laneIndex = event.stackIndex || 0;
-                    const totalLanes = event.totalLanes || 1;
                     
                     let laneOffset = 0;
-                    if (totalLanes > 1) {
-                      laneOffset = laneIndex * (SCHEDULE_COMPRESSED_HEIGHT + LANE_SPACING);
+                    if (event.totalLanes > 1) {
+                      laneOffset = laneIndex * (SCHEDULE_STACKED_HEIGHT + LANE_SPACING);
                     }
                     
-                    const top = dayTop + DAY_PADDING_TOP + laneOffset;
+                    const top = dayTop + DAY_PADDING_TOP + laneOffset ;
 
                     return (
                       <ScheduleEventCard
                         key={`${event.id}-${laneIndex}`}
                         event={event}
                         style={{
-                          left: `${left}px`, // Position without padding (padding handled by container)
+                          left: `${leftPosition + 55}px`, // FIXED: Direct positioning
                           top: `${top}px`,
                           width: `${width}px`,
                           zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex
@@ -1048,7 +1047,7 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* FIXED: Current time line with precise positioning */}
+        {/* FIXED: Current time line with accurate positioning (removed +12 offset) */}
         <div 
           className="absolute pointer-events-none" 
           style={{ 
@@ -1063,7 +1062,7 @@ const ScheduleGrid = ({
             <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm" 
                  style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
             
-            <div className="absolute" style={{ left: '6px', top: '2px' }}>
+            <div className="absolute" style={{ left: '4px', top: '2px' }}>
               <div className="bg-black bg-opacity-90 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-md">
                 {getCurrentTimeString()}
               </div>
@@ -1071,7 +1070,7 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* FIXED: Tooltip positioned within viewport */}
+        {/* Tooltip */}
         {dragTimeTooltip && (
           <div
             className="absolute pointer-events-none bg-black text-white text-xs px-2 py-1 rounded shadow-lg"

@@ -39,7 +39,7 @@ const CustomDropdown = ({ name, value, onChange, options, className = "", disabl
         ref={menuButtonRef}
         disabled={disabled}
         className={clsx(
-          "w-full text-left px-2 sm:px-3 py-1.5 text-xs sm:text-sm border rounded-md",
+          "text-left px-2 sm:px-3 py-1.5 text-xs sm:text-sm border rounded-md",
           "flex items-center justify-between gap-1 sm:gap-2",
           "transition-[border-color,box-shadow] duration-150 ease-in-out",
           disabled
@@ -269,35 +269,38 @@ const SharedTable = forwardRef(
       editHook?.stopEditing()
     }
 
-    const saveEditing = (id) => {
-      if (!editHook?.validateData()) return
+const saveEditing = (id) => {
+    if (!editHook?.validateData()) return
 
-      const original = data.find((item) => item.id === id)
-      if (!original) return
+    const original = data.find((item) => item.id === id)
+    if (!original) return
 
-      const changes = editHook?.getChanges(original)
-      if (!Object.keys(changes).length) return
+    const changes = editHook?.getChanges(original)
+    if (!Object.keys(changes).length) return
 
-      if (type === "student" && changes.iqScore !== undefined) {
-        changes.iqScore = Number.parseInt(changes.iqScore) || 0
-      }
-
-      if (type === "employee") {
-        if (changes.age !== undefined) {
-          changes.age = Number.parseInt(changes.age) || 0
-        }
-        if (changes.yearsOfService !== undefined) {
-          changes.yearsOfService = Number.parseInt(changes.yearsOfService) || 0
-        }
-      }
-
-      updateItem.mutate(
-        { id, data: changes },
-        {
-          onSuccess: () => editHook?.stopEditing(),
-        },
-      )
+    if (type === "student" && changes.iqScore !== undefined) {
+      changes.iqScore = Number.parseInt(changes.iqScore) || 0
     }
+
+    if (type === "employee") {
+      if (changes.age !== undefined) {
+        changes.age = Number.parseInt(changes.age) || 0
+      }
+      if (changes.yearsOfService !== undefined) {
+        changes.yearsOfService = Number.parseInt(changes.yearsOfService) || 0
+      }
+    }
+
+    // Create flat payload structure
+    const payload = { id, ...changes }
+
+    updateItem.mutate(
+      payload,
+      {
+        onSuccess: () => editHook?.stopEditing(),
+      },
+    )
+  }
 
     const handleEditChange = (e) => {
       const { name, value } = e.target

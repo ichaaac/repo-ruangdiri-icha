@@ -568,7 +568,7 @@ const AddScheduleModal = ({
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
-    // FIXED: Build payload with proper date validation
+// FIXED: Build payload with new participants structure
     const submitData = {
       agenda: formData.agenda,
       type: formData.type,
@@ -589,29 +589,21 @@ const AddScheduleModal = ({
       console.log(`  - Timezone: ${date.timezone}`);
     });
 
-    // Participants structure for counseling
+    // FIXED: Participants structure - new format with patientIds array
     if (formData.type === "counseling") {
       if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
         submitData.participants = {
           psychologistId: formData.selectedPsychologist.id,
-          patientId: formData.selectedParticipants[0].id
+          patientIds: formData.selectedParticipants.map(participant => participant.id)
         };
+        
+        console.log('Participants payload:', submitData.participants);
       }
     }
 
-    // Handle location
+    // FIXED: Location handling - counseling uses location, others use customLocation
     if (formData.type === "counseling") {
-      const isBackendLocation = formData.location && 
-        !fixedLocationOptions.find(opt => opt.value === formData.location);
-      
-      if (isBackendLocation) {
-        submitData.location = "offline";
-        submitData.originalLocationName = formData.location;
-        console.log(`Backend location "${formData.location}" selected, sending "offline" as payload`);
-      } else {
-        submitData.location = formData.location;
-        console.log(`Fixed location "${formData.location}" selected, sending as is`);
-      }
+      submitData.location = formData.location;
     } else {
       submitData.customLocation = formData.customLocation;
     }

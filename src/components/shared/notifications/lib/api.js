@@ -175,7 +175,23 @@ const notificationsAPI = {
       console.error('❌ Delete Request Failed:', error)
       throw error
     }
+  },
+
+  async markallAsRead() {
+    try {
+      const response = await apiClient.post('/notifications/mark-all-as-read')
+      
+      if (response.data && response.data.status === 'success' && response.data.data) {
+        return response.data.data
+      }
+      
+      return response.data
+    } catch (error) {
+      console.error('❌ Mark All as Read Request Failed:', error)
+      throw error
+    }
   }
+
 }
 
 export default notificationsAPI

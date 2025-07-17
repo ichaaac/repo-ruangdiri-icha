@@ -24,7 +24,7 @@ const UserProfilePictureUpload = ({ currentProfilePicture, userRole = "student",
   const [isHovering, setIsHovering] = useState(false)
   const [imageError, setImageError] = useState(false)
 
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+  const allowedTypes = ["image/jpeg", "image/png"]
   const maxSize = 2 * 1024 * 1024 // 2MB
 
   useEffect(() => {
@@ -119,7 +119,7 @@ const UserProfilePictureUpload = ({ currentProfilePicture, userRole = "student",
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept="image/jpeg, image/png, image/gif, image/webp"
+          accept="image/jpeg, image/png"
           className="hidden"
         />
       </div>
