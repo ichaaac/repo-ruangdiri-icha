@@ -1,9 +1,10 @@
-// src/components/shared/layout/TopRightControl.jsx - FINAL FIXED VERSION
+// src/components/shared/layout/TopRightControl.jsx - FIXED: KEEP REACT QUERY, OPTIMIZE USAGE
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query"; // 1. Import useQuery
-import notificationsAPI from "@/components/shared/notifications/lib/api"; // 2. Import API
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import notificationsAPI from "@/components/shared/notifications/lib/api";
+import notificationSocket from "@/components/shared/notifications/lib/socket";
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
 
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
@@ -11,21 +12,61 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const notifRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
-  // 3. 🔥 AMBIL DATA LANGSUNG, JANGAN LEWAT HOOK
-  // Ini membuat komponen mandiri dan hanya mengambil data yang dibutuhkan.
+  // 🔥 OPTIMIZED: Fetch unread count ONCE, no refetch interval
   const { data: unreadData, isLoading: isCountLoading } = useQuery({
-    queryKey: ['notifications-unread-count'], // Kunci query yang sama untuk caching
-    queryFn: notificationsAPI.getUnreadCount,
-    staleTime: 15000, // Konsisten dengan hook lain
-    refetchInterval: 15000, // Agar data tetap fresh
-    keepPreviousData: true, // Memastikan data sebelumnya tetap ada saat loading
+    queryKey: ['notifications-unread-count'],
+    queryFn: () => {
+      console.log('📊 Fetching unread count for TopRightControl')
+      return notificationsAPI.getUnreadCount()
+    },
+    staleTime: Infinity, // 🔥 NEVER REFETCH - socket/mutations will update
+    cacheTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    keepPreviousData: true,
   });
 
-  // 4. Proses data langsung dari hasil query
+  // 🔥 SOCKET SETUP FOR REAL-TIME BADGE UPDATES
+  useEffect(() => {
+    console.log('🔗 TopRightControl: Setting up socket for badge updates')
+    notificationSocket.ensureConnection()
+
+    const handleNotificationCreated = () => {
+      console.log('🔔 TopRightControl: New notification - updating badge')
+      // Update unread count (+1)
+      queryClient.setQueryData(['notifications-unread-count'], (oldData) => {
+        const currentCount = parseInt(oldData?.count || 0, 10)
+        return { count: currentCount + 1 }
+      })
+    }
+
+    const handleNotificationRead = (data) => {
+      console.log('✅ TopRightControl: Notification read - updating badge')
+      // Update unread count from socket data
+      if (data.newUnreadCount !== undefined) {
+        queryClient.setQueryData(['notifications-unread-count'], () => ({
+          count: data.newUnreadCount
+        }))
+      }
+    }
+
+    notificationSocket.on('notification:created', handleNotificationCreated)
+    notificationSocket.on('notification:read', handleNotificationRead)
+
+    return () => {
+      console.log('🔌 TopRightControl: Cleaning up socket listeners')
+      notificationSocket.off('notification:created', handleNotificationCreated)
+      notificationSocket.off('notification:read', handleNotificationRead)
+    }
+  }, [queryClient])
+
+  // Process data
   const unreadCount = parseInt(unreadData?.count, 10) || 0;
 
-  // 5. Fungsi format sekarang menggunakan status loading-nya sendiri
+  // 🔥 SIMPLIFIED: Format count for badge display (max 99+)
   const formatUnreadCount = (count) => {
     if (isCountLoading || !count || count === 0) return null;
     if (count > 99) return "99+";
@@ -33,7 +74,6 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   };
 
   const displayCount = formatUnreadCount(unreadCount);
-  // const
 
   // Close on outside click
   useEffect(() => {
@@ -89,7 +129,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         >
           notifications
           
-          {/* Badge indicator sekarang akan bekerja dengan benar */}
+          {/* 🔥 Badge now works with optimized query + socket updates */}
           {displayCount && (
             <span className="absolute top-0 -right-1 w-6 h-[11px] bg-[#EE4266] text-white text-[8px] font-bold rounded-xl flex items-center justify-center transform-gpu">
               {displayCount}

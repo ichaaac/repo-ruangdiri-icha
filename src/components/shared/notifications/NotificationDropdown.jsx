@@ -1,24 +1,37 @@
-// src/components/shared/notifications/NotificationDropdown.jsx - Fixed with max 999 display & functional tabs
+// src/components/shared/notifications/NotificationDropdown.jsx - ENHANCED WITH CONTEXT
 
 import React, { useState } from "react"
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown"
 
 const NotificationDropdown = ({ onViewAll, onClose }) => {
-  // 🔥 NEW: Local state for dropdown tabs
+  // 🔥 LOCAL STATE FOR DROPDOWN TABS
   const [selectedTab, setSelectedTab] = useState('all')
   
+  // 🔥 USE ENHANCED HOOK (NO MORE QUERIES!)
   const { 
     notifications, 
     unreadCount,
     counselingCount,
     isLoading,
-    refetch 
-  } = useNotificationDropdown(selectedTab) // Pass selectedTab to hook
+    formatTimeAgo,
+    formatUnreadCount
+  } = useNotificationDropdown(selectedTab)
 
-  // US-AC-Notif-1-2: Max 3 items in dropdown
-  const displayNotifications = notifications.slice(0, 3)
+  // US-AC-Notif-1-2: Max 3 items in dropdown (handled in hook)
+  const displayNotifications = notifications
   
-  const getNotificationIcon = (type) => {
+  // 🔥 ENHANCED: Handle type + subType combinations for icons
+  const getNotificationIcon = (type, subType) => {
+    // 🔥 SPECIFIC COMBINATIONS based on backend data
+    if (type === 'schedule' && subType === 'general') {
+      return 'check_circle' // Green check circle for schedule notifications
+    }
+    
+    if (type === 'system' && subType === 'general') {
+      return 'settings' // Settings icon for system notifications
+    }
+    
+    // Legacy icon mapping (fallback)
     const iconMap = {
       schedule_created: "event",
       schedule_updated: "event_available", 
@@ -26,53 +39,35 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       schedule_reminder: "schedule",
       system_announcement: "campaign",
       mental_health_alert: "psychology",
-      system: "notifications", 
+      system: "settings",
+      schedule: "check_circle",
       general: "info"
     }
-    return iconMap[type] || "notifications"
+    
+    return iconMap[type] || iconMap[subType] || "notifications"
   }
 
-  const formatTimeAgo = (timestamp) => {
-    try {
-      const now = new Date()
-      const notifTime = new Date(timestamp)
-      
-      if (isNaN(notifTime.getTime())) {
-        console.error('Invalid timestamp:', timestamp)
-        return 'Baru saja'
-      }
-      
-      const diffInMinutes = Math.floor((now - notifTime) / (1000 * 60))
-      
-      if (diffInMinutes < 1) {
-        return 'Baru saja'
-      } else if (diffInMinutes < 60) {
-        return `${diffInMinutes} menit yang lalu`
-      } else if (diffInMinutes < 1440) {
-        const hours = Math.floor(diffInMinutes / 60)
-        return `${hours} jam yang lalu`
-      } else {
-        const days = Math.floor(diffInMinutes / 1440)
-        return `${days} hari yang lalu`
-      }
-    } catch (error) {
-      console.error('Error formatting time:', error, timestamp)
-      return 'Baru saja'
+  // 🔥 ENHANCED: Get notification icon color
+  const getNotificationIconColor = (type, subType) => {
+    // 🔥 SPECIFIC COMBINATIONS based on backend data
+    if (type === 'schedule' && subType === 'general') {
+      return '#9BCA61' // Green color for schedule notifications
     }
+    
+    if (type === 'system' && subType === 'general') {
+      return '#535353' // Default gray for system notifications
+    }
+    
+    // Default color fallback
+    return '#535353'
   }
 
-  // 🔥 NEW: Format unread count for dropdown (max 999)
-  const formatUnreadCount = (count) => {
-    if (count > 999) return "999+";
-    return count.toString();
-  }
-
-  // 🔥 NEW: Handle tab switching
+  // 🔥 HANDLE TAB SWITCHING
   const handleTabChange = (tab) => {
     setSelectedTab(tab)
   }
 
-  // 🔥 NEW: Get current count based on selected tab
+  // 🔥 GET CURRENT COUNT BASED ON SELECTED TAB
   const getCurrentCount = () => {
     if (selectedTab === 'counseling') {
       return counselingCount || 0
@@ -86,7 +81,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       {/* Title */}
       <div className="text-[#488abe] font-semibold text-base">Notifikasi</div>
 
-      {/* Filter Tabs with counts - 🔥 NOW FUNCTIONAL */}
+      {/* Filter Tabs with counts - 🔥 ENHANCED WITH CONTEXT DATA */}
       <div className="flex items-center gap-5 text-sm text-[#535353]">
         <button
           onClick={() => handleTabChange('all')}
@@ -124,7 +119,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
       {/* Date Separator */}
       <div className="text-xs text-[#8a8a8a]">Hari ini</div>
 
-      {/* Loading State */}
+      {/* Loading State - 🔥 ONLY INITIAL LOADING */}
       {isLoading && (
         <div className="flex justify-center py-4">
           <div className="flex items-center gap-2">
@@ -150,9 +145,9 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                 <div key={notification.id} className="flex gap-3 items-start">
                   <span 
                     className="material-icons text-[32px]"
-                    style={{ color: notification.iconColor || "#535353" }}
+                    style={{ color: getNotificationIconColor(notification.type, notification.subType) }}
                   >
-                    {getNotificationIcon(notification.type || notification.subType)}
+                    {getNotificationIcon(notification.type, notification.subType)}
                   </span>
                   <div className="flex flex-col gap-1 flex-1">
                     <p className={`text-sm font-semibold line-clamp-2 ${
@@ -174,6 +169,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                           <span className="mx-1">|</span>
                         </>
                       )}
+                      {/* 🔥 USE CONTEXT FORMAT TIME AGO WITH DAYJS */}
                       <span>{formatTimeAgo(notification.createdAt)}</span>
                     </p>
                   </div>

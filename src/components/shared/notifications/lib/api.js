@@ -1,4 +1,4 @@
-// src/components/shared/notifications/lib/api.js - FINAL CLEAN VERSION
+// src/components/shared/notifications/lib/api.js - ENHANCED FOR UNREAD COUNT RESPONSE
 
 import { apiClient } from '@/lib/api'
 
@@ -125,22 +125,77 @@ const notificationsAPI = {
     }
   },
 
+  // 🔥 ENHANCED: Mark as read with unread count response
   async markAsRead(notificationIds) {
     try {
       const requestData = {
         notificationIds: Array.isArray(notificationIds) ? notificationIds : [notificationIds]
       }
       
+      console.log('📤 Sending mark-as-read request:', requestData)
+      
       const response = await apiClient.post('/notifications/mark-as-read', requestData)
       
-      // Handle nested response
+      console.log('📥 Mark-as-read response:', response.data)
+      
+      // 🔥 EXTRACT UNREAD COUNT FROM BACKEND RESPONSE
+      let result = response.data
+      
+      // Handle nested response structure
       if (response.data && response.data.status === 'success' && response.data.data) {
-        return response.data.data
+        result = response.data.data
       }
       
-      return response.data
+      // 🔥 ENSURE WE RETURN UNREAD COUNT
+      // Backend should return: { success: true, unreadCount: number, ... }
+      const unreadCount = result?.unreadCount !== undefined 
+        ? parseInt(result.unreadCount, 10)
+        : undefined
+      
+      console.log('✅ Extracted unread count from response:', unreadCount)
+      
+      return {
+        ...result,
+        unreadCount // Ensure this is available for context
+      }
+      
     } catch (error) {
       console.error('❌ Mark as Read Request Failed:', error)
+      throw error
+    }
+  },
+
+  // 🔥 ENHANCED: Mark all as read with unread count response
+  async markallAsRead() {
+    try {
+      console.log('📤 Sending mark-all-as-read request')
+      
+      const response = await apiClient.post('/notifications/mark-all-as-read')
+      
+      console.log('📥 Mark-all-as-read response:', response.data)
+      
+      // 🔥 EXTRACT UNREAD COUNT FROM BACKEND RESPONSE
+      let result = response.data
+      
+      // Handle nested response structure
+      if (response.data && response.data.status === 'success' && response.data.data) {
+        result = response.data.data
+      }
+      
+      // 🔥 ENSURE WE RETURN UNREAD COUNT (should be 0 after mark all)
+      const unreadCount = result?.unreadCount !== undefined 
+        ? parseInt(result.unreadCount, 10)
+        : 0
+      
+      console.log('✅ Extracted unread count from mark-all response:', unreadCount)
+      
+      return {
+        ...result,
+        unreadCount // Ensure this is available for context
+      }
+      
+    } catch (error) {
+      console.error('❌ Mark All as Read Request Failed:', error)
       throw error
     }
   },
@@ -169,29 +224,13 @@ const notificationsAPI = {
       if (response.data && response.data.status === 'success' && response.data.data) {
         return response.data.data
       }
-      
+    
       return response.data
     } catch (error) {
       console.error('❌ Delete Request Failed:', error)
       throw error
     }
-  },
-
-  async markallAsRead() {
-    try {
-      const response = await apiClient.post('/notifications/mark-all-as-read')
-      
-      if (response.data && response.data.status === 'success' && response.data.data) {
-        return response.data.data
-      }
-      
-      return response.data
-    } catch (error) {
-      console.error('❌ Mark All as Read Request Failed:', error)
-      throw error
-    }
   }
-
 }
 
 export default notificationsAPI

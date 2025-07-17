@@ -1,4 +1,4 @@
-// src/components/shared/notifications/Notifications.jsx - Updated with unlimited count display
+// src/components/shared/notifications/Notifications.jsx - ENHANCED WITH CONTEXT & DAYJS
 
 import React, { useCallback, useRef, forwardRef } from "react"
 import TopRightControl from "@/components/shared/layout/TopRightControl"
@@ -67,18 +67,8 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
   </div>
 )
 
-// 🔥 NEW: Format count with no limits for main page (can show thousands)
-const formatCount = (count) => {
-  if (count >= 1000000) {
-    return `${(count / 1000000).toFixed(1)}M`
-  } else if (count >= 1000) {
-    return `${(count / 1000).toFixed(1)}K`
-  }
-  return count.toString()
-}
-
-// Tabs Component - 🔥 UPDATED: Show full counts (no limits)
-const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChange }) => (
+// Tabs Component - 🔥 ENHANCED: Uses formatCount from context
+const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChange, formatCount }) => (
   <div className="flex items-center gap-10 mb-6">
     {/* US-AC-Notif-3-2: Tab Semua */}
     <button
@@ -117,7 +107,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
 )
 
 // Individual Notification Item
-const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead }, ref) => {
+const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
     // US-AC-Notif-3-1: Mark as read when clicked
     if (!notification.isRead && !notification.readAt && !isMarkingAsRead) {
@@ -145,9 +135,9 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
         >
           <span 
             className="material-icons text-lg"
-            style={{ color: notification.iconColor || "#535353" }}
+            style={{ color: getNotificationIconColor(notification.type, notification.subType) }}
           >
-            {getNotificationIcon(notification.type)}
+            {getNotificationIcon(notification.type, notification.subType)}
           </span>
         </div>
       </div>
@@ -171,8 +161,9 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
                 <span className={`mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
               </>
             )}
+            {/* 🔥 USE CONTEXT FORMAT TIME AGO WITH DAYJS */}
             <span className="text-[#8a8a8a] font-light">
-              {formatNotificationTime(notification.createdAt)}
+              {formatTimeAgo(notification.createdAt)}
             </span>
           </div>
         </div>
@@ -202,7 +193,8 @@ const NotificationList = ({
   isFetchingNextPage, 
   onMarkAsRead, 
   onFetchNextPage, 
-  getDateLabel, 
+  getDateLabel,
+  formatTimeAgo,
   isMarkingAsRead 
 }) => {
   const observer = useRef()
@@ -240,7 +232,7 @@ const NotificationList = ({
           return (
             <div key={dateKey} className="space-y-1">
               
-              {/* Date Separator */}
+              {/* Date Separator - 🔥 ENHANCED WITH DAYJS */}
               <div className="text-xs font-normal text-[#8a8a8a] mb-1 sticky top-0 bg-white py-2 z-10">
                 {getDateLabel(dateKey)}
               </div>
@@ -257,6 +249,7 @@ const NotificationList = ({
                       notification={notification}
                       onMarkAsRead={onMarkAsRead}
                       isMarkingAsRead={isMarkingAsRead}
+                      formatTimeAgo={formatTimeAgo}
                     />
                   )
                 })}
@@ -283,8 +276,18 @@ const NotificationList = ({
   )
 }
 
-// Utility functions
-const getNotificationIcon = (type) => {
+// Utility functions - 🔥 ENHANCED: Handle type + subType combinations
+const getNotificationIcon = (type, subType) => {
+  // 🔥 SPECIFIC COMBINATIONS based on backend data
+  if (type === 'schedule' && subType === 'general') {
+    return 'check_circle' // Green check circle for schedule notifications
+  }
+  
+  if (type === 'system' && subType === 'general') {
+    return 'settings' // Settings icon for system notifications
+  }
+  
+  // Legacy icon mapping (fallback)
   const iconMap = {
     schedule_created: "event",
     schedule_updated: "event_available", 
@@ -292,30 +295,32 @@ const getNotificationIcon = (type) => {
     schedule_reminder: "schedule",
     system_announcement: "campaign",
     mental_health_alert: "psychology",
-    system: "notifications",
+    system: "settings",
+    schedule: "check_circle",
     general: "info"
   }
-  return iconMap[type] || "notifications"
+  
+  return iconMap[type] || iconMap[subType] || "notifications"
 }
 
-const formatNotificationTime = (timestamp) => {
-  const now = new Date()
-  const notifTime = new Date(timestamp)
-  const diffInMinutes = Math.floor((now - notifTime) / (1000 * 60))
-  
-  if (diffInMinutes < 60) {
-    return `${diffInMinutes} menit yang lalu`
-  } else if (diffInMinutes < 1440) {
-    const hours = Math.floor(diffInMinutes / 60)
-    return `${hours} jam yang lalu`
-  } else {
-    const days = Math.floor(diffInMinutes / 1440)
-    return `${days} hari yang lalu`
+// 🔥 ENHANCED: Get notification icon color
+const getNotificationIconColor = (type, subType) => {
+  // 🔥 SPECIFIC COMBINATIONS based on backend data
+  if (type === 'schedule' && subType === 'general') {
+    return '#9BCA61' // Green color for schedule notifications
   }
+  
+  if (type === 'system' && subType === 'general') {
+    return '#535353' // Default gray for system notifications
+  }
+  
+  // Default color fallback
+  return '#535353'
 }
 
 // Main Notifications Component
 const Notifications = ({ sidebarExpanded = false }) => {
+  // 🔥 USE ENHANCED HOOK WITH CONTEXT
   const {
     groupedNotifications,
     totalCount,
@@ -332,6 +337,8 @@ const Notifications = ({ sidebarExpanded = false }) => {
     handleMarkAllAsRead,
     fetchNextPage,
     getDateLabel,
+    formatTimeAgo,
+    formatCount,
     isMarkingAsRead,
     isMarkingAllAsRead,
   } = useNotifications()
@@ -353,6 +360,7 @@ const Notifications = ({ sidebarExpanded = false }) => {
             totalCount={totalCount}
             counselingCount={counselingCount}
             onTabChange={handleTabChange}
+            formatCount={formatCount}
           />
 
           {isLoading ? (
@@ -367,6 +375,7 @@ const Notifications = ({ sidebarExpanded = false }) => {
               onMarkAsRead={handleMarkAsRead}
               onFetchNextPage={fetchNextPage}
               getDateLabel={getDateLabel}
+              formatTimeAgo={formatTimeAgo}
               isMarkingAsRead={isMarkingAsRead}
             />
           )}
