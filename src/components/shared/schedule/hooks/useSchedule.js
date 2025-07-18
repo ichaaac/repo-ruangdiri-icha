@@ -1,4 +1,4 @@
-// src/components/shared/schedule/hooks/useSchedule.js - FIXED EDIT LOGIC VERSION
+// src/components/shared/schedule/hooks/useSchedule.js - FIXED IMMEDIATE UPDATE AFTER EDIT
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -169,12 +169,13 @@ export const useSchedule = (type = "school") => {
     }
   });
 
-  // ===== FIXED: UPDATE SCHEDULE MUTATION =====
+  // ===== FIXED: UPDATE SCHEDULE MUTATION - IMMEDIATE CACHE UPDATE =====
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ scheduleId, formData }) => {
       try {
         console.log('Updating schedule:', scheduleId, formData);
         const response = await scheduleApi.updateSchedule(scheduleId, formData);
+        console.log('Update response:', response);
         return { scheduleId, data: response.data };
       } catch (error) {
         console.error('Update schedule error:', error);
@@ -184,54 +185,128 @@ export const useSchedule = (type = "school") => {
     onMutate: async ({ scheduleId, formData }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: scheduleKeys.list(weekParams) });
+      await queryClient.cancelQueries({ queryKey: scheduleKeys.detail(scheduleId) });
       
-      // Snapshot the previous value
+      // Snapshot the previous values
       const previousSchedules = queryClient.getQueryData(scheduleKeys.list(weekParams));
+      const previousDetail = queryClient.getQueryData(scheduleKeys.detail(scheduleId));
       
-      // Optimistically update to the new value
+      // FIXED: Optimistically update main schedules list with full transformation
       if (previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), (old) => {
-          return old.map(schedule => 
-            schedule.id === scheduleId 
-              ? { 
-                  ...schedule, 
-                  agenda: formData.agenda,
-                  description: formData.description,
-                  location: formData.location || formData.customLocation,
-                  dates: formData.dates,
-                  isOptimistic: true
-                }
-              : schedule
-          );
+          return old.map(schedule => {
+            if (schedule.id === scheduleId) {
+              // Create updated schedule object with proper transformation
+              const updatedSchedule = {
+                ...schedule,
+                agenda: formData.agenda,
+                description: formData.description,
+                type: formData.type,
+                notificationOffset: formData.notificationOffset,
+                // Handle location properly based on type
+                location: formData.type === "counseling" ? formData.location : (schedule.location || null),
+                customLocation: formData.type !== "counseling" ? formData.customLocation : (schedule.customLocation || null),
+                // Update dates if provided
+                dates: formData.dates || schedule.dates,
+                // Update participants if provided
+                ...(formData.participants && {
+                  participants: [
+                    ...(formData.selectedPsychologist ? [formData.selectedPsychologist] : []),
+                    ...(formData.selectedParticipants || [])
+                  ]
+                }),
+                // Update times if dates changed
+                ...(formData.dates && formData.dates.length > 0 && {
+                  startDateTime: `${formData.dates[0].date}T${formData.dates[0].startTime}:00`,
+                  endDateTime: `${formData.dates[0].date}T${formData.dates[0].endTime}:00`,
+                }),
+                isOptimistic: true,
+                lastUpdated: new Date().toISOString()
+              };
+              
+              console.log('Optimistic update applied:', updatedSchedule);
+              return updatedSchedule;
+            }
+            return schedule;
+          });
         });
       }
       
-      return { previousSchedules };
+      // FIXED: Also update detail cache if exists
+      if (previousDetail) {
+        const updatedDetail = {
+          ...previousDetail,
+          agenda: formData.agenda,
+          description: formData.description,
+          type: formData.type,
+          notificationOffset: formData.notificationOffset,
+          location: formData.type === "counseling" ? formData.location : (previousDetail.location || null),
+          customLocation: formData.type !== "counseling" ? formData.customLocation : (previousDetail.customLocation || null),
+          dates: formData.dates || previousDetail.dates,
+          ...(formData.participants && {
+            participants: [
+              ...(formData.selectedPsychologist ? [formData.selectedPsychologist] : []),
+              ...(formData.selectedParticipants || [])
+            ]
+          }),
+          isOptimistic: true,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        queryClient.setQueryData(scheduleKeys.detail(scheduleId), updatedDetail);
+      }
+      
+      return { previousSchedules, previousDetail };
     },
     onError: (err, { scheduleId }, context) => {
       console.error('Update schedule mutation error:', err);
-      // If the mutation fails, use the context returned from onMutate to roll back
+      
+      // Rollback on error
       if (context?.previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
       }
+      if (context?.previousDetail) {
+        queryClient.setQueryData(scheduleKeys.detail(scheduleId), context.previousDetail);
+      }
+      
       toast.error(err.message);
     },
     onSuccess: (result, { scheduleId }) => {
       console.log('Schedule updated successfully:', result);
       
-      // Update the cache with real data from server
-      queryClient.setQueryData(scheduleKeys.list(weekParams), (old) => {
-        if (!old) return old;
-        return old.map(schedule => 
-          schedule.id === scheduleId 
-            ? { ...schedule, ...result.data.data, isOptimistic: false }
-            : schedule
-        );
-      });
+      // FIXED: Apply real server data immediately
+      const serverData = result.data?.data || result.data;
       
-      // Invalidate and refetch related queries
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.detail(scheduleId) });
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
+      if (serverData) {
+        // Update main schedules list with server data
+        queryClient.setQueryData(scheduleKeys.list(weekParams), (old) => {
+          if (!old) return old;
+          return old.map(schedule => 
+            schedule.id === scheduleId 
+              ? { 
+                  ...schedule, 
+                  ...serverData, 
+                  isOptimistic: false,
+                  lastUpdated: new Date().toISOString()
+                }
+              : schedule
+          );
+        });
+        
+        // Update detail cache with server data
+        queryClient.setQueryData(scheduleKeys.detail(scheduleId), {
+          ...serverData,
+          isOptimistic: false,
+          lastUpdated: new Date().toISOString()
+        });
+      }
+      
+      // FIXED: Force refresh after a short delay to ensure consistency
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
+        queryClient.invalidateQueries({ queryKey: scheduleKeys.detail(scheduleId) });
+        queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
+      }, 500);
       
       toast.success('Schedule updated successfully');
     }
@@ -318,10 +393,18 @@ export const useSchedule = (type = "school") => {
     });
   }, [schedulesQuery.data]);
 
-  // ===== SIMPLIFIED EDIT/DELETE FUNCTIONS FOR VIEW SCHEDULE =====
+  // ===== FIXED: SIMPLIFIED EDIT/DELETE FUNCTIONS WITH IMMEDIATE UPDATE =====
   const handleEditSchedule = useCallback(async (scheduleId, formData) => {
     try {
+      console.log('=== handleEditSchedule called ===');
+      console.log('Schedule ID:', scheduleId);
+      console.log('Form Data:', formData);
+      
       const result = await updateScheduleMutation.mutateAsync({ scheduleId, formData });
+      
+      console.log('=== Edit result ===');
+      console.log('Result:', result);
+      
       return result; // Return result for attachment handling
     } catch (error) {
       console.error('Error in handleEditSchedule:', error);

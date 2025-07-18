@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - FIXED FOR NEW API RESPONSE
+// src/components/shared/schedule/lib/scheduleApi.js - FIXED LOCATION MAPPING & VALIDATION
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -48,6 +48,7 @@ export const createScheduleApi = (organizationType = "school") => {
       } else if (location === "organization" || location === "seed-in") {
         return "Seed-in";
       } else if (location) {
+        // FIXED: For custom backend locations, show the actual location name
         return location;
       }
     } else {
@@ -253,6 +254,48 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
+  // FIXED: Data validation helper
+  const validateScheduleData = (data) => {
+    const errors = [];
+    
+    // Agenda validation
+    if (!data.agenda || data.agenda.trim().length === 0) {
+      errors.push('Agenda is required');
+    } else if (data.agenda.trim().length > 255) {
+      errors.push('Agenda cannot exceed 255 characters');
+    }
+    
+    // FIXED: Description validation - allow up to 255 characters
+    if (data.description && data.description.length > 255) {
+      errors.push('Description cannot exceed 255 characters');
+    }
+    
+    // Type validation
+    if (!data.type || !['counseling', 'class', 'seminar', 'others'].includes(data.type)) {
+      errors.push('Invalid schedule type');
+    }
+    
+    // Dates validation
+    if (!data.dates || !Array.isArray(data.dates) || data.dates.length === 0) {
+      errors.push('At least one date is required');
+    }
+    
+    // Counseling specific validation
+    if (data.type === 'counseling') {
+      if (!data.participants || !data.participants.psychologistId) {
+        errors.push('Psychologist is required for counseling');
+      }
+      if (!data.participants || !data.participants.patientIds || data.participants.patientIds.length === 0) {
+        errors.push('At least one patient is required for counseling');
+      }
+      if (!data.location) {
+        errors.push('Location is required for counseling');
+      }
+    }
+    
+    return errors;
+  };
+
   // Return API methods
   return {
     async getSchedules(params = {}) {
@@ -330,9 +373,15 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async createSchedule(scheduleData) {
       try {
+        // FIXED: Validate data before sending
+        const validationErrors = validateScheduleData(scheduleData);
+        if (validationErrors.length > 0) {
+          throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+        }
+
         const transformedData = {
-          agenda: scheduleData.agenda,
-          description: scheduleData.description || "",
+          agenda: scheduleData.agenda.trim(),
+          description: (scheduleData.description || "").trim(),
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
           dates: scheduleData.dates.map((dateItem) => ({
@@ -360,9 +409,15 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        // FIXED: Location handling - counseling uses location, others use customLocation
+        // FIXED: Location handling - send "offline" for custom locations, standard as-is
         if (scheduleData.type === "counseling") {
-          transformedData.location = scheduleData.location;
+          const standardLocations = ["online", "offline", "organization"];
+          if (standardLocations.includes(scheduleData.location)) {
+            transformedData.location = scheduleData.location;
+          } else {
+            // For custom backend locations, send "offline"
+            transformedData.location = "offline";
+          }
         } else {
           transformedData.customLocation = scheduleData.customLocation;
         }
@@ -374,6 +429,18 @@ export const createScheduleApi = (organizationType = "school") => {
         console.log("Creating schedule with data:", transformedData)
 
         const response = await apiClient.post("/schedules", transformedData)
+        
+        // FIXED: Return transformed response for better integration
+        if (response.data?.status === "success") {
+          return {
+            ...response,
+            data: {
+              ...response.data,
+              data: transformScheduleData([response.data.data], organizationType)[0]
+            }
+          };
+        }
+        
         return response
       } catch (error) {
         console.error("Error creating schedule:", error)
@@ -383,9 +450,15 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async updateSchedule(scheduleId, scheduleData) {
       try {
+        // FIXED: Validate data before sending
+        const validationErrors = validateScheduleData(scheduleData);
+        if (validationErrors.length > 0) {
+          throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+        }
+
         const transformedData = {
-          agenda: scheduleData.agenda,
-          description: scheduleData.description || "",
+          agenda: scheduleData.agenda.trim(),
+          description: (scheduleData.description || "").trim(),
           notificationOffset: scheduleData.notificationOffset,
           type: scheduleData.type,
           dates: scheduleData.dates?.map((dateItem) => ({
@@ -413,9 +486,15 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        // FIXED: Location handling - counseling uses location, others use customLocation
+        // FIXED: Location handling - send "offline" for custom locations, standard as-is
         if (scheduleData.type === "counseling") {
-          transformedData.location = scheduleData.location;
+          const standardLocations = ["online", "offline", "organization"];
+          if (standardLocations.includes(scheduleData.location)) {
+            transformedData.location = scheduleData.location;
+          } else {
+            // For custom backend locations, send "offline"
+            transformedData.location = "offline";
+          }
         } else {
           transformedData.customLocation = scheduleData.customLocation;
         }
@@ -423,6 +502,18 @@ export const createScheduleApi = (organizationType = "school") => {
         console.log("Updating schedule with data:", transformedData)
 
         const response = await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
+        
+        // FIXED: Return transformed response for better integration
+        if (response.data?.status === "success") {
+          return {
+            ...response,
+            data: {
+              ...response.data,
+              data: transformScheduleData([response.data.data], organizationType)[0]
+            }
+          };
+        }
+        
         return response
       } catch (error) {
         console.error("Error updating schedule:", error)

@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED DATE HANDLING
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED LOCATION HANDLING
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -75,13 +75,19 @@ const AttachmentPreviewModal = ({ attachment, isOpen, onClose }) => {
   );
 };
 
-const AddScheduleModal = ({ 
+// FIXED: Location mapping helpers - simplified
+const isStandardLocation = (locationValue) => {
+  return ["online", "offline", "organization"].includes(locationValue);
+};
+
+const AddScheduleModal = ({
   isOpen, 
   onClose, 
   onSubmit, 
   initialData = null, 
   loading = false,
-  mode = "create" // "create" or "edit"
+  mode = "create", // "create" or "edit"
+  fromViewModal = false // New prop to track if opened from ViewScheduleModal
 }) => {
   const [formData, setFormData] = useState(() => ({
     agenda: "",
@@ -113,7 +119,7 @@ const AddScheduleModal = ({
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // FIXED: Initialize form data properly with detailed logging
+  // FIXED: Initialize form data properly with enhanced location handling
   useEffect(() => {
     if (isOpen) {
       console.log('=== AddScheduleModal Initialization ===');
@@ -145,6 +151,19 @@ const AddScheduleModal = ({
           }];
         }
         
+        // FIXED: Enhanced location handling for edit mode
+        let locationValue = "";
+        if (initialData.type === "counseling") {
+          // Use original backend location for editing
+          locationValue = initialData.location || initialData._originalBackendLocation || "";
+          
+          console.log('Location handling for edit:', {
+            originalBackend: initialData.location,
+            mappedForEdit: locationValue,
+            hasPsychologist: !!initialData.selectedPsychologist
+          });
+        }
+        
         const transformedData = {
           agenda: initialData.agenda || "",
           type: initialData.type || "counseling",
@@ -156,11 +175,14 @@ const AddScheduleModal = ({
             endTime: "10:00",
             timezone: "WIB"
           }],
-          location: initialData.type === "counseling" ? (initialData.location || "") : "",
+          // FIXED: Use mapped location value for counseling
+          location: initialData.type === "counseling" ? locationValue : "",
           customLocation: initialData.type !== "counseling" ? (initialData.customLocation || initialData.location || "") : "",
           selectedPsychologist: initialData.selectedPsychologist || null,
           selectedParticipants: initialData.selectedParticipants || [],
           multipleDate: dates.length > 1 || initialData.multipleDate || false,
+          // Store original backend location for reference
+          _originalBackendLocation: initialData.location,
         };
         
         console.log('Setting form data for edit:', transformedData);
@@ -276,6 +298,7 @@ const AddScheduleModal = ({
     { label: "WIT", value: "WIT" }
   ];
 
+  // FIXED: Standard location options for dropdown
   const fixedLocationOptions = [
     { label: "Online", value: "online" },
     { label: "Offline", value: "offline" },
@@ -293,7 +316,7 @@ const AddScheduleModal = ({
     return times;
   })();
 
-  // Fetch psychologist locations
+  // FIXED: Fetch psychologist locations - only when no psychologist selected
   const { data: backendLocations = [] } = useQuery({
     queryKey: ['psychologist-locations'],
     queryFn: async () => {
@@ -307,18 +330,17 @@ const AddScheduleModal = ({
     staleTime: 5 * 60 * 1000
   });
 
-  // Get available locations logic
+  // FIXED: Location options based on psychologist selection
   const getAvailableLocations = () => {
     if (formData.selectedPsychologist) {
-      const baseOptions = [...fixedLocationOptions];
-      
-      if (formData.location && !fixedLocationOptions.find(opt => opt.value === formData.location)) {
-        baseOptions.unshift({ label: formData.location, value: formData.location });
-      }
-      
-      return baseOptions;
+      // If psychologist selected, show standard options
+      return fixedLocationOptions;
     } else {
-      return psychologistLocations.map(loc => ({ label: loc, value: loc }));
+      // If no psychologist selected, show only backend locations
+      return psychologistLocations.map(location => ({ 
+        label: location, 
+        value: location 
+      }));
     }
   };
 
@@ -326,10 +348,11 @@ const AddScheduleModal = ({
   const { data: psychologists = [], isLoading: loadingPsychologists } = useQuery({
     queryKey: ['psychologists', formData.location],
     queryFn: async () => {
-      const isBackendLocation = formData.location && 
-        !fixedLocationOptions.find(opt => opt.value === formData.location);
+      // FIXED: Only filter by backend location when location is "offline"
+      const params = {};
       
-      const params = isBackendLocation ? { location: formData.location } : {};
+      // If location is "offline", we might want to filter by backend locations
+      // But for now, we'll fetch all psychologists and let user select
       
       console.log('Fetching psychologists with params:', params);
       const response = await apiClient.get('/psychologists', { params });
@@ -380,12 +403,10 @@ const AddScheduleModal = ({
     console.log(`Changing ${field} to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    if (field === 'location') {
-      const isBackendLocation = !fixedLocationOptions.find(opt => opt.value === value);
-      if (isBackendLocation && formData.selectedPsychologist) {
-        console.log('Location changed to backend location, resetting psychologist');
-        setFormData(prev => ({ ...prev, selectedPsychologist: null }));
-      }
+    // FIXED: Clear location when psychologist changes
+    if (field === 'selectedPsychologist' && formData.type === "counseling") {
+      setFormData(prev => ({ ...prev, selectedPsychologist: value, location: "" }));
+      return;
     }
     
     if (field === 'dates') {
@@ -568,7 +589,7 @@ const AddScheduleModal = ({
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
-// FIXED: Build payload with new participants structure
+    // FIXED: Build payload with new participants structure and fixed location handling
     const submitData = {
       agenda: formData.agenda,
       type: formData.type,
@@ -601,9 +622,26 @@ const AddScheduleModal = ({
       }
     }
 
-    // FIXED: Location handling - counseling uses location, others use customLocation
+    // FIXED: Location handling - send "offline" for custom backend locations, keep standard as-is
     if (formData.type === "counseling") {
-      submitData.location = formData.location;
+      // Check if it's a standard location
+      const isStandardLocation = fixedLocationOptions.find(opt => opt.value === formData.location);
+      
+      if (isStandardLocation) {
+        // Send standard location as-is
+        submitData.location = formData.location;
+      } else {
+        // For backend custom locations, send "offline" but keep original in description or notes
+        submitData.location = "offline";
+        // Optionally store the actual location name for reference
+        submitData.actualLocationName = formData.location;
+      }
+      
+      console.log('Location mapping:', {
+        frontendValue: formData.location,
+        sentToBackend: submitData.location,
+        actualLocationName: submitData.actualLocationName
+      });
     } else {
       submitData.customLocation = formData.customLocation;
     }
@@ -758,13 +796,15 @@ const AddScheduleModal = ({
           
           {/* Header */}
           <div className="flex justify-end items-center p-6">
-            <button
-              onClick={handleCancel}
-              disabled={loading}
-              className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
-            >
-              <span className="material-icons text-[20px]">close</span>
-            </button>
+            {fromViewModal && (
+              <button
+                onClick={onClose} // FIXED: Direct close, not handleCancel
+                disabled={loading}
+                className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+              >
+                <span className="material-icons text-[20px]">close</span>
+              </button>
+            )}
           </div>
 
           <div className="p-6 space-y-6">
@@ -944,7 +984,15 @@ const AddScheduleModal = ({
                                     {formData.selectedPsychologist.fullName}
                                   </div>
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, selectedPsychologist: null })); }}
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      // FIXED: Clear location when psychologist removed
+                                      setFormData(prev => ({ 
+                                        ...prev, 
+                                        selectedPsychologist: null,
+                                        location: "" // Clear location to show backend locations
+                                      })); 
+                                    }}
                                     disabled={loading}
                                     className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
                                   >
@@ -964,7 +1012,12 @@ const AddScheduleModal = ({
                                   <button
                                     key={psychologist.id}
                                     onClick={() => {
-                                      setFormData(prev => ({ ...prev, selectedPsychologist: psychologist }));
+                                      // FIXED: Clear location when psychologist changes  
+                                      setFormData(prev => ({ 
+                                        ...prev, 
+                                        selectedPsychologist: psychologist,
+                                        location: "" // Clear location to force reselection
+                                      }));
                                       toggleDropdown('psychologist');
                                     }}
                                     className="w-full px-3 py-2 text-left hover:bg-gray-100"
@@ -1129,7 +1182,7 @@ const AddScheduleModal = ({
                   </div>
                 </div>
 
-                {/* Location for Counseling */}
+                {/* Location for Counseling - FIXED: Always show standard options */}
                 <div className="flex gap-4 items-center">
                   <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
                   <select
@@ -1147,17 +1200,17 @@ const AddScheduleModal = ({
               </div>
             )}
 
-            {/* Custom Location - for non-counseling */}
+            {/* Custom Location - for non-counseling - FIXED: Only for non-counseling */}
             {!showParticipants && (
               <div className="flex gap-4 items-center">
                 <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-                <input
-                  type="text"
+                <textarea
                   value={formData.customLocation}
                   onChange={(e) => handleInputChange('customLocation', e.target.value)}
                   placeholder="Masukkan lokasi"
                   disabled={loading}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 resize-none min-h-[42px]"
+                  rows="2"
                 />
               </div>
             )}
@@ -1172,7 +1225,16 @@ const AddScheduleModal = ({
                     contentEditable={!loading}
                     onInput={() => {
                       if (editorRef.current) {
-                        handleInputChange('description', editorRef.current.innerHTML);
+                        const content = editorRef.current.innerHTML;
+                        // FIXED: Check character limit for description (255 chars for HTML content)
+                        if (content.length <= 255) {
+                          handleInputChange('description', content);
+                        } else {
+                          // Truncate content if it exceeds limit
+                          const truncated = content.substring(0, 255);
+                          editorRef.current.innerHTML = truncated;
+                          handleInputChange('description', truncated);
+                        }
                       }
                     }}
                     className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
@@ -1294,7 +1356,7 @@ const AddScheduleModal = ({
         isOpen={!!previewAttachment}
         onClose={() => setPreviewAttachment(null)}
       />
-    </>
+  </>
   );
 };
 

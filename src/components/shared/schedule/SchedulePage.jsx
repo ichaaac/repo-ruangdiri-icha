@@ -1,4 +1,4 @@
-// src/components/shared/schedule/SchedulePage.jsx - UPDATED FOR FIXED COMPONENTS
+// src/components/shared/schedule/SchedulePage.jsx - UPDATED FOR PROPER MODAL BEHAVIOR
 
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -299,7 +299,7 @@ const SchedulePage = ({ type = "school" }) => {
         </div>
       </div>
 
-      {/* Add/Edit Schedule Modal - Only for direct create/edit */}
+      {/* FIXED: Add/Edit Schedule Modal - Standalone (fromViewModal = false) */}
       <AddScheduleModal
         isOpen={isAddModalOpen}
         onClose={handleAddModalClose}
@@ -307,6 +307,7 @@ const SchedulePage = ({ type = "school" }) => {
         initialData={modalData}
         loading={loading.submit}
         mode={modalData?.id ? "edit" : "create"}
+        fromViewModal={false}
       />
 
       {/* FIXED: View Schedule Modal - Handles edit internally */}
