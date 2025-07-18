@@ -1,4 +1,4 @@
-// src/components/shared/notifications/NotificationDropdown.jsx - TANPA CONTEXT, ICON DARI TITLE
+// src/components/shared/notifications/NotificationDropdown.jsx
 
 import React, { useState } from "react"
 import dayjs from 'dayjs'
@@ -13,7 +13,7 @@ dayjs.locale('id')
 const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRead }) => {
   const [selectedTab, setSelectedTab] = useState('all')
   
-  // 🔥 Gunakan hook useNotificationDropdown
+  // 🔥 GUNAKAN HOOK YANG SUDAH DIPERBAIKI
   const { 
     notifications, 
     unreadCount, 
@@ -22,7 +22,6 @@ const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRea
     formatTimeAgo, 
     formatUnreadCount 
   } = useNotificationDropdown(selectedTab)
-
 
   // 🔥 ICON LOGIC BASED ON TITLE INCLUDES
   const getNotificationIcon = (notification) => {
@@ -52,7 +51,7 @@ const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRea
       return 'settings'
     }
     
-    // Mental health (jika ada notifikasi khusus kesehatan mental)
+    // Mental health
     if (text.includes('mental') || text.includes('psikolog')) {
       return 'psychology'
     }
@@ -96,13 +95,12 @@ const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRea
     return '#535353'
   }
 
-
   // 🔥 HANDLE TAB CHANGE
   const handleTabChange = (tab) => {
     setSelectedTab(tab)
   }
 
-  // 🔥 GET CURRENT COUNT BASED ON TAB (Sekarang unreadCount dan counselingCount dari hook)
+  // 🔥 GET CURRENT COUNT BASED ON TAB
   const getCurrentCount = () => {
     if (selectedTab === 'counseling') {
       return counselingCount
@@ -135,7 +133,8 @@ const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRea
           }`}
         >
           <span>Semua</span>
-          {selectedTab === 'all' && unreadCount > 0 && (
+          {/* 🔥 FIXED: TAMPILKAN COUNT UNTUK TAB SEMUA */}
+          {unreadCount > 0 && (
             <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
               {formatUnreadCount(unreadCount)}
             </span>
@@ -151,7 +150,8 @@ const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRea
           }`}
         >
           <span>Konseling</span>
-          {selectedTab === 'counseling' && counselingCount > 0 && (
+          {/* 🔥 FIXED: TAMPILKAN COUNT UNTUK TAB KONSELING */}
+          {counselingCount > 0 && (
             <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
               {formatUnreadCount(counselingCount)}
             </span>
@@ -159,7 +159,7 @@ const NotificationDropdown = ({ onViewAll, onClose, onMarkAsRead, onMarkAllAsRea
         </button>
       </div>
 
-      {/* Date Separator (sementara, karena dropdown notif hanya menampilkan 3 terakhir) */}
+      {/* Date Separator */}
       <div className="text-xs text-[#8a8a8a]">Terbaru</div>
 
       {/* Loading State */}

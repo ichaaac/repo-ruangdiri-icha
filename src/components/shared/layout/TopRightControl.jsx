@@ -1,4 +1,4 @@
-// src/components/shared/layout/TopRightControl.jsx - ROMBAK TOTAL TANPA CONTEXT
+// src/components/shared/layout/TopRightControl.jsx - FIXED HOOKS
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -15,72 +15,64 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 🔥 FETCH UNREAD COUNT SEKALI DOANG
+  // 🔥 SHARED UNREAD COUNT QUERY
   const { data: unreadData, isLoading } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: async () => {
       console.log('📊 TopRightControl: Fetching unread count')
       const result = await notificationsAPI.getUnreadCount()
       console.log('📊 TopRightControl: Unread count result:', result)
-      return result
+      return result.data?.data || result.data
     },
-    staleTime: Infinity, // NEVER REFETCH
+    staleTime: Infinity,
     cacheTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
-    onSuccess: (data) => {
-      const count = parseInt(data?.count, 10) || 0
-      console.log('📊 TopRightControl: Setting local count from query:', count)
-      setLocalUnreadCount(count)
-    }
   });
 
-  // 🔥 SOCKET LISTENER - USE BACKEND UNREAD COUNT
+  // 🔥 SOCKET SETUP - FIXED: NO useCallback INSIDE useEffect
   useEffect(() => {
-    console.log('🔗 TopRightControl: Setting up socket with backend unreadCount')
+    console.log('🔗 TopRightControl: Setting up socket listeners')
+    
     notificationSocket.connect()
 
-    const handleNotificationCreated = (data) => {
-      console.log('🔔 TopRightControl: New notification via socket:', data)
+    const handleNotificationCreated = (payload) => {
+      console.log('🔔 TopRightControl: New notification via socket:', payload)
       
-      // 🔥 USE BACKEND UNREAD COUNT - NO MANUAL INCREMENT
-      if (data.unreadCount !== undefined) {
-        const newCount = parseInt(data.unreadCount, 10) || 0
-        console.log('📊 TopRightControl: Setting count from backend:', newCount)
-        setLocalUnreadCount(newCount)
-      } else {
-        // Fallback to manual increment if backend doesn't send count
-        setLocalUnreadCount(prev => {
-          const newCount = prev + 1
-          console.log('📊 TopRightControl: Fallback increment:', prev, '→', newCount)
-          return newCount
-        })
-      }
+      // 🔥 INVALIDATE QUERIES TO GET FRESH UNREAD COUNT
+      queryClient.invalidateQueries(['notifications-unread-count'])
     }
 
-    const handleNotificationRead = (data) => {
-      console.log('✅ TopRightControl: Notification read via socket:', data)
+    const handleNotificationRead = (payload) => {
+      console.log('✅ TopRightControl: Notification read via socket:', payload)
       
-      // 🔥 USE BACKEND UNREAD COUNT
-      if (data.unreadCount !== undefined) {
-        const newCount = parseInt(data.unreadCount, 10) || 0
-        console.log('📊 TopRightControl: Setting count from backend after read:', newCount)
-        setLocalUnreadCount(newCount)
-      }
+      // 🔥 INVALIDATE QUERIES TO GET FRESH UNREAD COUNT
+      queryClient.invalidateQueries(['notifications-unread-count'])
     }
 
+    const handleMarkAllRead = (payload) => {
+      console.log('✅ TopRightControl: Mark all read via socket:', payload)
+      
+      // 🔥 INVALIDATE QUERIES TO GET FRESH UNREAD COUNT
+      queryClient.invalidateQueries(['notifications-unread-count'])
+      queryClient.invalidateQueries(['notifications'])
+    }
+
+    // 🔥 REGISTER SOCKET LISTENERS
     notificationSocket.on('notification:created', handleNotificationCreated)
     notificationSocket.on('notification:read', handleNotificationRead)
+    notificationSocket.on('notification:mark-all-read', handleMarkAllRead)
 
     return () => {
       console.log('🔌 TopRightControl: Cleaning up socket listeners')
       notificationSocket.off('notification:created', handleNotificationCreated)
       notificationSocket.off('notification:read', handleNotificationRead)
+      notificationSocket.off('notification:mark-all-read', handleMarkAllRead)
     }
-  }, [])
+  }, [queryClient])
 
-  // 🔥 MARK AS READ MUTATION - SOCKET WILL HANDLE COUNT UPDATE
+  // 🔥 MARK AS READ MUTATION
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationIds) => {
       console.log('✏️ TopRightControl: Marking as read:', notificationIds)
@@ -89,15 +81,29 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     onSuccess: (response, variables) => {
       console.log('✅ TopRightControl: Mark as read response:', response)
       
-      // 🔥 DON'T UPDATE COUNT MANUALLY - SOCKET WILL HANDLE IT
-      // Socket event 'notification:read' will update count from backend
+      queryClient.setQueriesData(['notifications'], oldData => {
+        if (!oldData) return oldData
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => ({
+            ...page,
+            notifications: page.notifications.map(notif =>
+              variables.includes(notif.id)
+                ? { ...notif, isRead: true, readAt: new Date().toISOString() }
+                : notif
+            ),
+          })),
+        }
+      })
       
-      // Invalidate dropdown data
-      queryClient.invalidateQueries(['notifications-dropdown'])
+      queryClient.invalidateQueries(['notifications-unread-count'])
+    },
+    onError: (error) => {
+      console.error('❌ TopRightControl: Mark as read failed:', error)
     }
   })
 
-  // 🔥 MARK ALL AS READ MUTATION - SOCKET WILL HANDLE COUNT UPDATE
+  // 🔥 MARK ALL AS READ MUTATION
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       console.log('✏️ TopRightControl: Marking all as read')
@@ -106,13 +112,35 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     onSuccess: (response) => {
       console.log('✅ TopRightControl: Mark all as read response:', response)
       
-      // 🔥 DON'T UPDATE COUNT MANUALLY - SOCKET WILL HANDLE IT
-      // Socket event will update count from backend
+      queryClient.setQueriesData(['notifications'], oldData => {
+        if (!oldData) return oldData
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => ({
+            ...page,
+            notifications: page.notifications.map(notif => ({
+              ...notif,
+              isRead: true,
+              readAt: new Date().toISOString(),
+            })),
+          })),
+        }
+      })
       
-      // Invalidate dropdown data
-      queryClient.invalidateQueries(['notifications-dropdown'])
+      queryClient.invalidateQueries(['notifications-unread-count'])
+    },
+    onError: (error) => {
+      console.error('❌ TopRightControl: Mark all as read failed:', error)
     }
   })
+
+  // 🔥 SYNC LOCAL COUNT WITH QUERY RESULT
+  useEffect(() => {
+    if (unreadData) {
+      const count = parseInt(unreadData?.count, 10) || 0
+      setLocalUnreadCount(count)
+    }
+  }, [unreadData])
 
   // Set initial count when query loads
   useEffect(() => {
@@ -136,7 +164,8 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     localUnreadCount,
     displayCount,
     isLoading,
-    queryData: unreadData
+    queryData: unreadData,
+    socketConnected: notificationSocket.isSocketConnected()
   })
 
   // Close on outside click
@@ -194,7 +223,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         >
           notifications
           
-          {/* 🔥 FIXED BADGE - PAKSA MUNCUL */}
+          {/* 🔥 BADGE COUNT */}
           {displayCount && (
             <span 
               className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266]"
@@ -219,34 +248,9 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
               {displayCount}
             </span>
           )}
-          
-          {/* 🔥 DEBUG BADGE - FORCE SHOW IF COUNT > 0 */}
-          {!displayCount && localUnreadCount > 0 && (
-            <span 
-              className="absolute flex items-center justify-center text-white font-bold rounded-full"
-              style={{
-                position: 'absolute',
-                top: '-8px',
-                right: '-8px',
-                minWidth: '20px',
-                height: '20px',
-                fontSize: '10px',
-                lineHeight: '1',
-                zIndex: 9999,
-                textDecoration: 'none',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                fontWeight: 'bold',
-                color: 'white',
-                backgroundColor: '#FF0000',
-                border: '2px solid white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}
-            >
-              {localUnreadCount}
-            </span>
-          )}
         </button>
 
+        {/* 🔥 DROPDOWN */}
         {openNotif && (
           <NotificationDropdown
             onViewAll={handleViewAllNotifications}

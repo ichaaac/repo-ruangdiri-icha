@@ -5,8 +5,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
 import updateLocale from "dayjs/plugin/updateLocale"
-import { useWebSocket } from "@/components/shared/schedule/hooks/useWebSocket" // PATH DIUBAH SESUAI PUNYA LO
-import { notificationsAPI } from "../lib/api" // Import menggunakan NAMED IMPORT!
+import notificationSocket from "../lib/socket"
+import { notificationsAPI } from "../lib/api"
 
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
@@ -33,10 +33,11 @@ export const useNotifications = () => {
   const queryClient = useQueryClient()
   const [selectedTab, setSelectedTab] = useState("all")
 
+  // 🔥 SHARED UNREAD COUNT QUERY
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: async () => {
-      console.log('📊 Frontend: Fetching unread count from API (Initial load or manual invalidate only)')
+      console.log('📊 Main: Fetching unread count from API')
       const response = await notificationsAPI.getUnreadCount()
       return response.data?.data || response.data
     },
@@ -47,8 +48,9 @@ export const useNotifications = () => {
     refetchInterval: false,
   })
 
-  const unreadCount = unreadData?.count || 0
+  const unreadCount = parseInt(unreadData?.count, 10) || 0
 
+  // 🔥 INFINITE QUERY
   const {
     data,
     fetchNextPage,
@@ -70,34 +72,23 @@ export const useNotifications = () => {
       return response.data?.data || response.data
     },
     getNextPageParam: (lastPage, allPages) => {
-      const lastPageTotal = lastPage?.total || 0;
-      const lastPageNotificationsCount = lastPage?.notifications?.length || 0;
+      const lastPageTotal = lastPage?.total || 0
+      const lastPageNotificationsCount = lastPage?.notifications?.length || 0
 
       if (!lastPage || (lastPageTotal === 0 && lastPageNotificationsCount === 0)) {
-        return undefined;
+        return undefined
       }
 
       const totalFetched = allPages.reduce((acc, page) => {
-          const notificationsLength = page?.notifications?.length || 0;
-          return acc + notificationsLength;
-      }, 0);
+        const notificationsLength = page?.notifications?.length || 0
+        return acc + notificationsLength
+      }, 0)
 
-      const totalNotificationsFromBackend = lastPageTotal;
+      const totalNotificationsFromBackend = lastPageTotal
+      const totalPages = Math.ceil(totalNotificationsFromBackend / 10)
+      const nextPage = allPages.length + 1
 
-      const totalPages = Math.ceil(totalNotificationsFromBackend / 10);
-      const nextPage = allPages.length + 1;
-
-      console.log('📊 Pagination Check:', {
-          lastPage,
-          allPagesCount: allPages.length,
-          totalFetched,
-          totalNotificationsFromBackend,
-          totalPages,
-          nextPage,
-          shouldFetch: nextPage <= totalPages
-      });
-
-      return nextPage <= totalPages ? nextPage : undefined;
+      return nextPage <= totalPages ? nextPage : undefined
     },
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000,
@@ -117,9 +108,15 @@ export const useNotifications = () => {
   }, {})
 
   const counselingCount = notifications.filter(
-    (notif) => (notif.type === "counseling" || notif.type === "schedule") && !notif.isRead && !notif.readAt
+    (notif) => {
+      const isCounselingType = ['schedule_created', 'schedule_updated', 'schedule_deleted', 'schedule_reminder'].includes(notif.type) || 
+                             (notif.type === "counseling" || notif.type === "schedule")
+      const isUnread = !notif.isRead && !notif.readAt
+      return isCounselingType && isUnread
+    }
   ).length
 
+  // 🔥 MARK AS READ MUTATION
   const markAsReadMutation = useMutation({
     mutationFn: (notificationIds) => {
       console.log('✏️ Main: Marking as read:', notificationIds)
@@ -150,6 +147,7 @@ export const useNotifications = () => {
     },
   })
 
+  // 🔥 MARK ALL AS READ MUTATION
   const markAllAsReadMutation = useMutation({
     mutationFn: () => {
       console.log('✏️ Main: Marking all as read')
@@ -180,119 +178,109 @@ export const useNotifications = () => {
     },
   })
 
-  const { socket, isConnected: isSocketConnected, on, off } = useWebSocket() 
-
-  // 🔥 PERBAIKAN: Definisi handler dengan useCallback di luar useEffect
-  const handleNotificationCreated = useCallback((data) => {
-    console.log('🔔 Main: New notification via socket:', data)
+  // 🔥 SOCKET SETUP - FIXED: NO useCallback INSIDE useEffect
+  useEffect(() => {
+    console.log('🔗 Main: Setting up socket listeners')
     
-    if (data.unreadCount !== undefined) {
-      const newCount = parseInt(data.unreadCount, 10) || 0
-      console.log('📊 Main: Setting count from backend (socket created payload):', newCount)
-      queryClient.setQueryData(['notifications-unread-count'], { count: newCount })
-    } else {
-      console.log('📊 Main: Socket created event without unreadCount. Invalidating unread count query.')
-      queryClient.invalidateQueries(['notifications-unread-count'])
-    }
+    notificationSocket.connect()
 
-    queryClient.setQueriesData(['notifications', selectedTab], (oldData) => {
-        if (!oldData) return oldData;
+    const handleNotificationCreated = (payload) => {
+      console.log('🔔 Main: New notification via socket:', payload)
+      
+      // 🔥 UPDATE UNREAD COUNT FROM BACKEND
+      if (payload.data?.unreadCount !== undefined) {
+        const newCount = parseInt(payload.data.unreadCount, 10) || 0
+        console.log('📊 Main: Setting count from backend (socket created):', newCount)
+        queryClient.setQueryData(['notifications-unread-count'], { count: newCount })
+      } else {
+        console.log('📊 Main: Socket created event without unreadCount. Invalidating.')
+        queryClient.invalidateQueries(['notifications-unread-count'])
+      }
 
-        const isCounselingNotification = data.type === 'counseling' || data.type === 'schedule';
-        const isSystemNotification = data.type === 'system';
+      queryClient.setQueriesData(['notifications', selectedTab], (oldData) => {
+        if (!oldData) return oldData
+
+        const isCounselingNotification = payload.data?.type === 'counseling' || payload.data?.type === 'schedule'
+        const isSystemNotification = payload.data?.type === 'system'
 
         const shouldAdd = (selectedTab === 'all') ||
                           (selectedTab === 'counseling' && isCounselingNotification) ||
-                          (selectedTab === 'system' && isSystemNotification);
+                          (selectedTab === 'system' && isSystemNotification)
 
         if (!shouldAdd) {
-            console.log('Skipping adding notification to current tab:', selectedTab);
-            return oldData;
+          console.log('Skipping adding notification to current tab:', selectedTab)
+          return oldData
         }
 
         const newNotification = {
-            id: data.id || `temp-${Date.now()}`,
-            title: data.title,
-            message: data.message,
-            createdAt: data.createdAt || new Date().toISOString(),
-            isRead: false,
-            type: data.type,
-            subType: data.subType,
-            recipientId: data.recipientId,
-            readAt: null,
-        };
+          id: payload.data?.id || `temp-${Date.now()}`,
+          title: payload.data?.title || '',
+          message: payload.data?.message || '',
+          createdAt: payload.data?.createdAt || new Date().toISOString(),
+          isRead: false,
+          type: payload.data?.type || 'system',
+          subType: payload.data?.subType,
+          recipientId: payload.data?.recipientId,
+          readAt: null,
+        }
         
         const updatedPages = oldData.pages.map((page, index) => {
-            if (index === 0) {
-                return {
-                    ...page,
-                    notifications: [newNotification, ...page.notifications].slice(0, page.notifications.length + 1),
-                    total: (page.total || 0) + 1,
-                };
+          if (index === 0) {
+            return {
+              ...page,
+              notifications: [newNotification, ...page.notifications].slice(0, page.notifications.length + 1),
+              total: (page.total || 0) + 1,
             }
-            return page;
-        });
-        return { ...oldData, pages: updatedPages };
-    });
+          }
+          return page
+        })
+        return { ...oldData, pages: updatedPages }
+      })
 
-    if (selectedTab !== 'all') {
-        queryClient.invalidateQueries(['notifications', 'all']);
-    }
-    if (selectedTab !== 'system' && (data.type === 'system')) {
-        queryClient.invalidateQueries(['notifications', 'system']);
-    }
-  }, [queryClient, selectedTab]); // Dependencies for useCallback
-
-  // 🔥 PERBAIKAN: Definisi handler dengan useCallback di luar useEffect
-  const handleNotificationRead = useCallback((data) => {
-    console.log('✅ Main: Notification read via socket:', data)
-
-    if (data.newUnreadCount !== undefined) {
-      const newCount = parseInt(data.newUnreadCount, 10) || 0
-      console.log('📊 Main: Setting count from backend (socket read payload):', newCount)
-      queryClient.setQueryData(['notifications-unread-count'], { count: newCount })
-    } else {
-      console.log('📊 Main: Socket read event without newUnreadCount. Invalidating unread count query.')
-      queryClient.invalidateQueries(['notifications-unread-count'])
-    }
-
-    queryClient.setQueriesData(['notifications'], oldData => {
-      if (!oldData) return oldData
-      return {
-        ...oldData,
-        pages: oldData.pages.map(page => ({
-          ...page,
-          notifications: page.notifications.map(notif =>
-            data.notificationIds?.includes(notif.id)
-              ? { ...notif, isRead: true, readAt: new Date().toISOString() }
-              : notif
-          ),
-        })),
+      if (selectedTab !== 'all') {
+        queryClient.invalidateQueries(['notifications', 'all'])
       }
-    })
-  }, [queryClient]); // Dependencies for useCallback
-
-
-  useEffect(() => {
-    if (!socket || !isSocketConnected) { 
-      console.log('🔗 Waiting for WebSocket connection to be established for notification listeners.') 
-      return 
     }
 
-    on('notification:created', handleNotificationCreated)
-    on('notification:new', handleNotificationCreated)
-    on('notification:read', handleNotificationRead)
-    on('read', handleNotificationRead)
+    const handleNotificationRead = (payload) => {
+      console.log('✅ Main: Notification read via socket:', payload)
+
+      // 🔥 UPDATE UNREAD COUNT FROM BACKEND
+      if (payload.data?.unreadCount !== undefined) {
+        const newCount = parseInt(payload.data.unreadCount, 10) || 0
+        console.log('📊 Main: Setting count from backend (socket read):', newCount)
+        queryClient.setQueryData(['notifications-unread-count'], { count: newCount })
+      } else {
+        console.log('📊 Main: Socket read event without unreadCount. Invalidating.')
+        queryClient.invalidateQueries(['notifications-unread-count'])
+      }
+
+      queryClient.setQueriesData(['notifications'], oldData => {
+        if (!oldData) return oldData
+        return {
+          ...oldData,
+          pages: oldData.pages.map(page => ({
+            ...page,
+            notifications: page.notifications.map(notif =>
+              payload.data?.notificationIds?.includes(notif.id)
+                ? { ...notif, isRead: true, readAt: new Date().toISOString() }
+                : notif
+            ),
+          })),
+        }
+      })
+    }
+
+    // 🔥 REGISTER SOCKET LISTENERS
+    notificationSocket.on('notification:created', handleNotificationCreated)
+    notificationSocket.on('notification:read', handleNotificationRead)
 
     return () => {
-      off('notification:created', handleNotificationCreated)
-      off('notification:new', handleNotificationCreated)
-      off('notification:read', handleNotificationRead)
-      off('read', handleNotificationRead)
-      console.log('🔌 Main: Cleaning up WebSocket listeners.')
+      console.log('🔌 Main: Cleaning up socket listeners')
+      notificationSocket.off('notification:created', handleNotificationCreated)
+      notificationSocket.off('notification:read', handleNotificationRead)
     }
-  }, [socket, isSocketConnected, on, off, handleNotificationCreated, handleNotificationRead]); // Dependencies yang benar untuk useEffect socket
-
+  }, [queryClient, selectedTab])
 
   const handleTabChange = useCallback((tab) => {
     setSelectedTab(tab)
@@ -330,6 +318,15 @@ export const useNotifications = () => {
     }
     return count.toString()
   }, [])
+
+  console.log('🎯 Main Notifications state:', {
+    selectedTab,
+    totalCount,
+    unreadCount,
+    counselingCount,
+    isLoading,
+    socketConnected: notificationSocket.isSocketConnected()
+  })
 
   return {
     groupedNotifications,

@@ -94,7 +94,7 @@ export const useWebSocket = () => {
             reconnectTimeoutRef.current = null;
         }
 
-        socketInstance.emit("ping", "Hello from frontend")
+        // socketInstance.emit("ping", "Hello from frontend")
 
         listenersMap.current.forEach((cbSet, event) => {
           cbSet.forEach(cb => {

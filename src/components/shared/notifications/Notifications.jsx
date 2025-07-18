@@ -51,7 +51,7 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
     <div className="flex items-center justify-between mb-8">
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
-      {/* US-AC-Notif-3-1: Mark All as Read */}
+      {/* Mark All as Read */}
       {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
@@ -66,10 +66,10 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
   </div>
 )
 
-// Tabs Component - 🔥 ENHANCED: Uses formatCount from context
+// Tabs Component
 const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChange, formatCount }) => (
   <div className="flex items-center gap-10 mb-6">
-    {/* US-AC-Notif-3-2: Tab Semua */}
+    {/* Tab Semua */}
     <button
       onClick={() => onTabChange("all")}
       className={`flex items-center gap-1 ${
@@ -79,14 +79,15 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
       } transition-colors`}
     >
       <span>Semua</span>
-      {selectedTab === "all" && totalCount > 0 && (
+      {/* 🔥 FIXED: TAMPILKAN COUNT UNTUK TAB SEMUA */}
+      {totalCount > 0 && (
         <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
           {formatCount(totalCount)}
         </div>
       )}
     </button>
 
-    {/* US-AC-Notif-3-2: Tab Konseling */}
+    {/* Tab Konseling */}
     <button
       onClick={() => onTabChange("counseling")}
       className={`flex items-center gap-1 ${
@@ -96,7 +97,8 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
       } transition-colors`}
     >
       <span>Konseling</span>
-      {selectedTab === "counseling" && counselingCount > 0 && (
+      {/* 🔥 FIXED: TAMPILKAN COUNT UNTUK TAB KONSELING */}
+      {counselingCount > 0 && (
         <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
           {formatCount(counselingCount)}
         </div>
@@ -108,7 +110,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
 // Individual Notification Item
 const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
-    // US-AC-Notif-3-1: Mark as read when clicked
+    // Mark as read when clicked
     if (!notification.isRead && !notification.readAt && !isMarkingAsRead) {
       onMarkAsRead(notification.id)
     }
@@ -122,7 +124,7 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
       onClick={handleClick}
       className={`h-auto min-h-[45px] px-4 py-3 rounded-md flex items-start gap-4 transition-all duration-200 ${
         isRead 
-          ? "bg-[#f2f2f2] cursor-default opacity-70" // US-AC-Notif-3-1: Abu-abu untuk yang sudah dibaca
+          ? "bg-[#f2f2f2] cursor-default opacity-70" 
           : "bg-white border border-gray-100 cursor-pointer hover:bg-gray-50 hover:shadow-sm"
       } ${isMarkingAsRead ? "opacity-50" : ""}`}
     >
@@ -160,7 +162,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
                 <span className={`mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
               </>
             )}
-            {/* 🔥 USE CONTEXT FORMAT TIME AGO WITH DAYJS */}
             <span className="text-[#8a8a8a] font-light">
               {formatTimeAgo(notification.createdAt)}
             </span>
@@ -190,15 +191,15 @@ const NotificationList = ({
   groupedNotifications, 
   hasNextPage, 
   isFetchingNextPage, 
-  onMarkAsRead, // 🔥 PASTIKAN INI DITERIMA SEBAGAI PROP
+  onMarkAsRead, 
   onFetchNextPage, 
   getDateLabel,
   formatTimeAgo,
-  isMarkingAsRead // 🔥 PASTIKAN INI DITERIMA SEBAGAI PROP
+  isMarkingAsRead 
 }) => {
   const observer = useRef()
   
-  // US-AC-Notif-3-4: Infinite scroll
+  // Infinite scroll
   const lastElementRef = useCallback((node) => {
     if (isFetchingNextPage) return
     if (observer.current) observer.current.disconnect()
@@ -223,7 +224,7 @@ const NotificationList = ({
 
   return (
     <div className="space-y-6">
-      {/* US-AC-Notif-3-3: Vertical scroll */}
+      {/* Vertical scroll */}
       <div className="max-h-[70vh] overflow-y-auto space-y-6 pr-2">
         {Object.entries(groupedNotifications).map(([dateKey, notifications], groupIndex) => {
           const isLastGroup = groupIndex === Object.keys(groupedNotifications).length - 1
@@ -231,7 +232,7 @@ const NotificationList = ({
           return (
             <div key={dateKey} className="space-y-1">
               
-              {/* Date Separator - 🔥 ENHANCED WITH DAYJS */}
+              {/* Date Separator */}
               <div className="text-xs font-normal text-[#8a8a8a] mb-1 sticky top-0 bg-white py-2 z-10">
                 {getDateLabel(dateKey)}
               </div>
@@ -246,8 +247,8 @@ const NotificationList = ({
                       key={notification.id}
                       ref={isLastItem ? lastElementRef : null}
                       notification={notification}
-                      onMarkAsRead={onMarkAsRead} // 🔥 PENTING: TERUSKAN PROP INI!
-                      isMarkingAsRead={isMarkingAsRead} // 🔥 PENTING: TERUSKAN PROP INI!
+                      onMarkAsRead={onMarkAsRead}
+                      isMarkingAsRead={isMarkingAsRead}
                       formatTimeAgo={formatTimeAgo}
                     />
                   )
@@ -275,7 +276,7 @@ const NotificationList = ({
   )
 }
 
-// Utility functions - 🔥 ICON LOGIC BASED ON TITLE INCLUDES
+// Utility functions - ICON LOGIC BASED ON TITLE INCLUDES
 const getNotificationIcon = (notification) => {
   const title = notification.title?.toLowerCase() || ''
   const message = notification.message?.toLowerCase() || ''
@@ -317,7 +318,7 @@ const getNotificationIcon = (notification) => {
   return 'notifications'
 }
 
-// 🔥 ICON COLOR BASED ON TITLE
+// ICON COLOR BASED ON TITLE
 const getNotificationIconColor = (notification) => {
   const title = notification.title?.toLowerCase() || ''
   const message = notification.message?.toLowerCase() || ''
@@ -349,7 +350,7 @@ const getNotificationIconColor = (notification) => {
 
 // Main Notifications Component
 const Notifications = ({ sidebarExpanded = false }) => {
-  // 🔥 USE ENHANCED HOOK WITH CONTEXT
+  // 🔥 USE ENHANCED HOOK
   const {
     groupedNotifications,
     totalCount,
@@ -372,9 +373,16 @@ const Notifications = ({ sidebarExpanded = false }) => {
     isMarkingAllAsRead,
   } = useNotifications()
 
+  console.log('🎯 Main Notifications state:', {
+    selectedTab,
+    totalCount,
+    unreadCount,
+    counselingCount,
+    isLoading
+  })
+
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
-
       <div className="px-4 sm:px-6 lg:px-6 pt-[100px] pb-8">
         <div className="max-w-4xl">
           
@@ -401,11 +409,11 @@ const Notifications = ({ sidebarExpanded = false }) => {
               groupedNotifications={groupedNotifications}
               hasNextPage={hasNextPage}
               isFetchingNextPage={isFetchingNextPage}
-              onMarkAsRead={handleMarkAsRead} // 🔥 PENTING: TERUSKAN PROP INI DARI HOOK!
+              onMarkAsRead={handleMarkAsRead}
               onFetchNextPage={fetchNextPage}
               getDateLabel={getDateLabel}
               formatTimeAgo={formatTimeAgo}
-              isMarkingAsRead={isMarkingAsRead} // 🔥 PENTING: TERUSKAN PROP INI DARI HOOK!
+              isMarkingAsRead={isMarkingAsRead}
             />
           )}
 
