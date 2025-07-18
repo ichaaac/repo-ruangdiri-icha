@@ -148,7 +148,7 @@ const ScheduleGrid = ({
     return 6;
   }, [timeSlots.length]);
 
-  // FIXED: Simplified time positioning
+// FIXED: Simplified time positioning
   const timeToPosition = useCallback((hour, minute) => {
     const hourIndex = getHourDisplayIndex(hour);
     const basePosition = hourIndex * HOUR_WIDTH;
@@ -157,6 +157,32 @@ const ScheduleGrid = ({
     
     return totalPosition;
   }, [getHourDisplayIndex]);
+
+  // FIXED: Check if current date is in selected week
+  const isCurrentDateInSelectedWeek = useMemo(() => {
+    // If no selectedDates or empty array, don't show current time
+    if (!selectedDates || selectedDates.length === 0) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    console.log('=== Current Time Indicator Check ===');
+    console.log('Today:', today.toDateString());
+    console.log('Selected dates:', selectedDates.map(d => d.toDateString()));
+    
+    const isInSelected = selectedDates.some(selectedDate => {
+      const normalizedSelectedDate = new Date(selectedDate);
+      normalizedSelectedDate.setHours(0, 0, 0, 0);
+      const isMatch = normalizedSelectedDate.getTime() === today.getTime();
+      console.log(`Comparing ${normalizedSelectedDate.toDateString()} with ${today.toDateString()}: ${isMatch}`);
+      return isMatch;
+    });
+    
+    console.log('Is current date in selected week:', isInSelected);
+    console.log('=====================================');
+    
+    return isInSelected;
+  }, [selectedDates]);
 
   // FIXED: Optimized event width calculation for better positioning
   const calculateEventWidth = useCallback((startHour, startMinute, endHour, endMinute) => {

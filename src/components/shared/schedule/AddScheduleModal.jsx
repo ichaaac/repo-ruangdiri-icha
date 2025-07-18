@@ -119,6 +119,36 @@ const AddScheduleModal = ({
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // FIXED: Helper function to parse error messages with datetime  
+  const parseErrorMessage = (message) => {
+    if (!message) return 'An error occurred';
+    
+    // Parse ISO datetime patterns in error messages
+    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/g;
+    
+    let parsedMessage = message.replace(isoDatePattern, (match) => {
+      try {
+        const date = new Date(match);
+        // Format to readable Indonesian format
+        const dateStr = date.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: '2-digit', 
+          year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return `${dateStr} ${timeStr}`;
+      } catch (e) {
+        return match; // Return original if parsing fails
+      }
+    });
+    
+    return parsedMessage;
+  };
+
   // FIXED: Initialize form data properly with enhanced location handling
   useEffect(() => {
     if (isOpen) {
@@ -714,6 +744,10 @@ const AddScheduleModal = ({
       
     } catch (error) {
       console.error('Error submitting schedule:', error);
+      
+      // FIXED: Parse error message for better user experience
+      const parsedMessage = parseErrorMessage(error.message);
+      toast.error(parsedMessage);
     }
   };
 
@@ -798,9 +832,16 @@ const AddScheduleModal = ({
           <div className="flex justify-end items-center p-6">
             {fromViewModal && (
               <button
-                onClick={onClose} // FIXED: Direct close, not handleCancel
+                onClick={() => {
+                  // FIXED: Close all modals when X is clicked from ViewSchedule
+                  if (window.closeAllModals) {
+                    window.closeAllModals();
+                  } else {
+                    onClose();
+                  }
+                }}
                 disabled={loading}
-                className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+                className="text-[#EE4266] hover:text-[#d63854] transition-colors disabled:opacity-50"
               >
                 <span className="material-icons text-[20px]">close</span>
               </button>
@@ -1356,7 +1397,7 @@ const AddScheduleModal = ({
         isOpen={!!previewAttachment}
         onClose={() => setPreviewAttachment(null)}
       />
-  </>
+    </>
   );
 };
 

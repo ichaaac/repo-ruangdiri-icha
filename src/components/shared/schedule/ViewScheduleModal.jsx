@@ -20,7 +20,7 @@ const ViewScheduleModal = ({
   
   const scheduleApi = createScheduleApi(organizationType);
 
-  // FIXED: Fetch detailed schedule data using the API
+  // FIXED: Fetch detailed schedule data - optimized for speed, no loading bar
   const { data: detailedScheduleData, isLoading: isLoadingDetail } = useQuery({
     queryKey: ['schedule-detail', initialScheduleData?.id],
     queryFn: async () => {
@@ -37,8 +37,14 @@ const ViewScheduleModal = ({
       return response.data?.data || null;
     },
     enabled: !!initialScheduleData?.id && isOpen,
-    staleTime: 5 * 60 * 1000,
-    retry: 2,
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache
+    retry: 1, // Only retry once
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    // FIXED: Fast fetch configuration
+    networkMode: 'always',
+    useErrorBoundary: false,
   });
 
   // FIXED: Update local state when detailed data is available
@@ -51,6 +57,22 @@ const ViewScheduleModal = ({
       setScheduleData(initialScheduleData);
     }
   }, [detailedScheduleData, initialScheduleData]);
+
+  // FIXED: Setup close all modals function
+  useEffect(() => {
+    if (isOpen) {
+      window.closeAllModals = () => {
+        // FIXED: Immediate close without showing ViewSchedule
+        onClose();
+      };
+    }
+    
+    return () => {
+      if (window.closeAllModals) {
+        delete window.closeAllModals;
+      }
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen || !scheduleData) return null;
 
@@ -356,7 +378,8 @@ const ViewScheduleModal = ({
           setScheduleData(updatedScheduleData);
         }
         
-        setShowEditModal(false);
+        // FIXED: Close all modals without delay (no ViewSchedule flash)
+        onClose();
       }
     } catch (error) {
       console.error('Error updating schedule:', error);
@@ -460,8 +483,8 @@ const ViewScheduleModal = ({
             <div className="flex justify-end items-center p-6">
               <button
                 onClick={onClose}
-                disabled={loading || isLoadingDetail}
-                className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+                disabled={loading}
+                className="text-[#EE4266] hover:text-[#d63854] transition-colors disabled:opacity-50"
               >
                 <span className="material-icons text-[20px]">close</span>
               </button>
@@ -668,7 +691,7 @@ const ViewScheduleModal = ({
                 <div className="mt-6 flex gap-3 justify-end">
                   <button
                     onClick={handleDelete}
-                    disabled={loading || isLoadingDetail}
+                    disabled={loading}
                     className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                     title="Hapus jadwal"
                   >
@@ -676,10 +699,10 @@ const ViewScheduleModal = ({
                   </button>
                   <button
                     onClick={handleEdit}
-                    disabled={loading || isLoadingDetail}
+                    disabled={loading}
                     className="px-6 py-2 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
                   >
-                    {loading || isLoadingDetail ? "Loading..." : "Edit"}
+                    {loading ? "Loading..." : "Edit"}
                   </button>
                 </div>
               </div>

@@ -169,7 +169,7 @@ export const useSchedule = (type = "school") => {
     }
   });
 
-  // ===== FIXED: UPDATE SCHEDULE MUTATION - IMMEDIATE CACHE UPDATE =====
+  // ===== FIXED: UPDATE SCHEDULE MUTATION - BETTER ERROR HANDLING =====
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ scheduleId, formData }) => {
       try {
@@ -179,7 +179,13 @@ export const useSchedule = (type = "school") => {
         return { scheduleId, data: response.data };
       } catch (error) {
         console.error('Update schedule error:', error);
-        throw new Error(error.response?.data?.message || 'Failed to update schedule');
+        console.error('Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          statusText: error.response?.statusText
+        });
+        throw new Error(error.response?.data?.message || error.message || 'Failed to update schedule');
       }
     },
     onMutate: async ({ scheduleId, formData }) => {
@@ -260,6 +266,7 @@ export const useSchedule = (type = "school") => {
     },
     onError: (err, { scheduleId }, context) => {
       console.error('Update schedule mutation error:', err);
+      console.error('Error context:', context);
       
       // Rollback on error
       if (context?.previousSchedules) {
@@ -269,7 +276,13 @@ export const useSchedule = (type = "school") => {
         queryClient.setQueryData(scheduleKeys.detail(scheduleId), context.previousDetail);
       }
       
-      toast.error(err.message);
+      // FIXED: Better error toast
+      const errorMessage = err.message || 'Failed to update schedule';
+      console.error('Displaying error toast:', errorMessage);
+      toast.error(errorMessage, {
+        description: 'Please try again or contact support if the problem persists.',
+        duration: 5000,
+      });
     },
     onSuccess: (result, { scheduleId }) => {
       console.log('Schedule updated successfully:', result);

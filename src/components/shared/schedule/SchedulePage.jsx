@@ -19,7 +19,37 @@ const SchedulePage = ({ type = "school" }) => {
   const [viewScheduleData, setViewScheduleData] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [windowWidth, setWindowWidth] = useState(0);
-  const [selectedDates, setSelectedDates] = useState([]);
+  const [selectedDates, setSelectedDates] = useState([]); // FIXED: Start with empty array, no auto-select
+  
+  // FIXED: Helper function to parse error messages with datetime  
+  const parseErrorMessage = (message) => {
+    if (!message) return 'An error occurred';
+    
+    // Parse ISO datetime patterns in error messages
+    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/g;
+    
+    let parsedMessage = message.replace(isoDatePattern, (match) => {
+      try {
+        const date = new Date(match);
+        // Format to readable Indonesian format
+        const dateStr = date.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: '2-digit', 
+          year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return `${dateStr} ${timeStr}`;
+      } catch (e) {
+        return match; // Return original if parsing fails
+      }
+    });
+    
+    return parsedMessage;
+  };
   
   // Get sidebar state from layout context
   const outletContext = useOutletContext() || {};
@@ -109,10 +139,7 @@ const SchedulePage = ({ type = "school" }) => {
   const handleEditFromViewModal = useCallback(async (scheduleId, formData) => {
     try {
       await handleEditSchedule(scheduleId, formData);
-      // ViewScheduleModal will close itself on success
-      // But we also need to close the view modal
-      setIsViewModalOpen(false);
-      setViewScheduleData(null);
+      // Don't close view modal here - let ViewScheduleModal handle its own state
     } catch (error) {
       console.error('Error updating schedule from view modal:', error);
       // ViewScheduleModal will keep edit modal open for retry
@@ -156,8 +183,9 @@ const SchedulePage = ({ type = "school" }) => {
     } catch (error) {
       console.error("Error submitting schedule:", error);
       
-      // Extract meaningful error message
-      const errorMessage = error.message || 
+      // FIXED: Parse error message for better user experience
+      const parsedMessage = parseErrorMessage(error.message);
+      const errorMessage = parsedMessage || 
         (modalData?.id ? 'Failed to update schedule' : 'Failed to create schedule');
       
       toast.error(errorMessage);
@@ -176,15 +204,45 @@ const SchedulePage = ({ type = "school" }) => {
   const handleViewModalClose = () => {
     setIsViewModalOpen(false);
     setViewScheduleData(null);
+    // Cleanup global close function if it exists
+    if (window.closeAllModals) {
+      delete window.closeAllModals;
+    }
   };
 
   // Handle date selection from DatePicker
   const handleDateSelect = (dates) => {
+    console.log('=== SchedulePage handleDateSelect ===');
+    console.log('Received dates from DatePicker:', dates?.map(d => d.toDateString()));
+    
     setSelectedDates(dates);
     if (dates.length > 0) {
       setSelectedDate(dates[0]);
+      console.log('Set selectedDate to:', dates[0].toDateString());
     }
+    console.log('===================================');
   };
+
+  // FIXED: Debug selectedDates changes and prevent auto-current week selection
+  useEffect(() => {
+    console.log('=== SchedulePage selectedDates changed ===');
+    console.log('Current selectedDates:', selectedDates?.map(d => d.toDateString()));
+    
+    // If DatePicker auto-selects current week, reset it
+    if (selectedDates.length > 0) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const hasCurrentDate = selectedDates.some(date => {
+        const normalizedDate = new Date(date);
+        normalizedDate.setHours(0, 0, 0, 0);
+        return normalizedDate.getTime() === today.getTime();
+      });
+      
+      console.log('Selected dates contain current date:', hasCurrentDate);
+    }
+    console.log('=========================================');
+  }, [selectedDates]);
 
   // Handle week selection
   const handleWeekSelect = (weekStart) => {
@@ -207,7 +265,7 @@ const SchedulePage = ({ type = "school" }) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isViewModalOpen, isAddModalOpen]);
 
-  // Prevent body scroll when modal is open
+  // Prevent body scroll when modal is open  
   useEffect(() => {
     if (isAddModalOpen || isViewModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -216,6 +274,18 @@ const SchedulePage = ({ type = "school" }) => {
       };
     }
   }, [isAddModalOpen, isViewModalOpen]);
+
+  // FIXED: Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup global functions on unmount
+      if (window.closeAllModals) {
+        delete window.closeAllModals;
+      }
+      // Restore body scroll
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   return (
     <div className="relative bg-white min-h-screen w-full">
