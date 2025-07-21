@@ -88,15 +88,46 @@ export const createScheduleApi = (organizationType = "school") => {
     }
   };
 
-  // Transform schedule data from API response
+  // FIXED: Transform schedule data with proper error handling
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
-      const startDateTimeLocal = new Date(schedule.startDateTime);
-      const endDateTimeLocal = new Date(schedule.endDateTime);
+      // FIXED: Validate and safely convert UTC times to local
+      let startDateTimeLocal, endDateTimeLocal;
+      
+      try {
+        // Handle various datetime formats from backend
+        const startDateTime = schedule.startDateTime;
+        const endDateTime = schedule.endDateTime;
+        
+        // Check if datetime values are valid
+        if (!startDateTime || !endDateTime) {
+          console.error('Missing datetime values in schedule:', schedule);
+          // Use current time as fallback
+          startDateTimeLocal = new Date();
+          endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000); // +1 hour
+        } else {
+          startDateTimeLocal = new Date(startDateTime);
+          endDateTimeLocal = new Date(endDateTime);
+          
+          // Validate that the dates are actually valid
+          if (isNaN(startDateTimeLocal.getTime()) || isNaN(endDateTimeLocal.getTime())) {
+            console.error('Invalid datetime format in schedule:', { startDateTime, endDateTime, schedule });
+            // Use current time as fallback
+            startDateTimeLocal = new Date();
+            endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000); // +1 hour
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing datetime in schedule:', error, schedule);
+        // Use current time as fallback
+        startDateTimeLocal = new Date();
+        endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000); // +1 hour
+      }
       
       const baseTransform = {
         ...schedule,
         displayName: schedule.agenda,
+        // FIXED: Safe ISO conversion with fallback
         startDateTime: startDateTimeLocal.toISOString(),
         endDateTime: endDateTimeLocal.toISOString(),
         startTime: startDateTimeLocal.toLocaleTimeString('en-GB', { 
@@ -398,14 +429,30 @@ export const createScheduleApi = (organizationType = "school") => {
 
         const response = await apiClient.post("/schedules", transformedData)
         
+        // FIXED: Handle response transformation with better error handling
         if (response.data?.status === "success") {
-          return {
-            ...response,
-            data: {
-              ...response.data,
-              data: transformScheduleData([response.data.data], organizationType)[0]
-            }
-          };
+          try {
+            // Attempt to transform the response data
+            const transformedResponse = transformScheduleData([response.data.data], organizationType)[0];
+            return {
+              ...response,
+              data: {
+                ...response.data,
+                data: transformedResponse
+              }
+            };
+          } catch (transformError) {
+            console.error("Error transforming create response, using raw data:", transformError);
+            // FIXED: Return raw response if transformation fails
+            // The schedule was created successfully, just return without transformation
+            return {
+              ...response,
+              data: {
+                ...response.data,
+                data: response.data.data // Use raw data from backend
+              }
+            };
+          }
         }
         
         return response
@@ -464,14 +511,30 @@ export const createScheduleApi = (organizationType = "school") => {
 
         const response = await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
         
+        // FIXED: Handle response transformation with better error handling
         if (response.data?.status === "success") {
-          return {
-            ...response,
-            data: {
-              ...response.data,
-              data: transformScheduleData([response.data.data], organizationType)[0]
-            }
-          };
+          try {
+            // Attempt to transform the response data
+            const transformedResponse = transformScheduleData([response.data.data], organizationType)[0];
+            return {
+              ...response,
+              data: {
+                ...response.data,
+                data: transformedResponse
+              }
+            };
+          } catch (transformError) {
+            console.error("Error transforming update response, using raw data:", transformError);
+            // FIXED: Return raw response if transformation fails
+            // The schedule was updated successfully, just return without transformation
+            return {
+              ...response,
+              data: {
+                ...response.data,
+                data: response.data.data // Use raw data from backend
+              }
+            };
+          }
         }
         
         return response
@@ -491,20 +554,32 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Get schedule detail by ID
+    // Get schedule detail by ID with proper error handling
     async getScheduleById(scheduleId) {
       try {
         const response = await apiClient.get(`/schedules/${scheduleId}`)
 
         if (response.data?.status === "success") {
-          const transformedData = transformScheduleData([response.data.data], organizationType)[0];
-          
-          return {
-            ...response,
-            data: {
-              ...response.data,
-              data: transformedData,
-            },
+          try {
+            // Attempt to transform the response data
+            const transformedData = transformScheduleData([response.data.data], organizationType)[0];
+            return {
+              ...response,
+              data: {
+                ...response.data,
+                data: transformedData,
+              },
+            }
+          } catch (transformError) {
+            console.error("Error transforming schedule detail, using raw data:", transformError);
+            // FIXED: Return raw response if transformation fails
+            return {
+              ...response,
+              data: {
+                ...response.data,
+                data: response.data.data // Use raw data from backend
+              }
+            };
           }
         }
         return response

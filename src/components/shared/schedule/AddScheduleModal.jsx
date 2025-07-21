@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED TOAST HANDLING
+// src/components/shared/schedule/AddScheduleModal.jsx 
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -557,9 +557,36 @@ const AddScheduleModal = ({
   };
 
   const validateForm = () => {
+    // Agenda validation
     if (!formData.agenda.trim()) {
       toast.error("Agenda wajib diisi");
       return false;
+    }
+    
+    // Date and time validation
+    for (let i = 0; i < formData.dates.length; i++) {
+      const dateInfo = formData.dates[i];
+      
+      // Check if start time equals end time
+      if (dateInfo.startTime === dateInfo.endTime) {
+        toast.error(`Waktu mulai dan selesai tidak boleh sama pada tanggal ${dateInfo.date}`);
+        return false;
+      }
+      
+      // Check if start time is after end time
+      const startMinutes = convertTimeToMinutes(dateInfo.startTime);
+      const endMinutes = convertTimeToMinutes(dateInfo.endTime);
+      
+      if (startMinutes >= endMinutes) {
+        toast.error(`Waktu mulai harus lebih awal dari waktu selesai pada tanggal ${dateInfo.date}`);
+        return false;
+      }
+      
+      // Minimum duration check (15 minutes)
+      if (endMinutes - startMinutes < 15) {
+        toast.error(`Durasi minimal 15 menit pada tanggal ${dateInfo.date}`);
+        return false;
+      }
     }
     
     if (formData.type === "counseling") {
@@ -575,19 +602,32 @@ const AddScheduleModal = ({
         toast.error("Maksimal dua klien untuk konseling");
         return false;
       }
+      if (!formData.location.trim()) {
+        toast.error("Lokasi wajib dipilih untuk konseling");
+        return false;
+      }
     }
     
     return true;
   };
 
-  // FIXED: Enhanced submit handler with better error handling
+  // Helper function to convert time string to minutes
+  const convertTimeToMinutes = (timeString) => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // FIXED: Enhanced submit handler with better validation and error handling
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    // FIXED: Validate form first and stop if validation fails
+    if (!validateForm()) {
+      return; // Don't proceed if validation fails
+    }
     
     const submitData = {
-      agenda: formData.agenda,
+      agenda: formData.agenda.trim(),
       type: formData.type,
-      description: formData.description,
+      description: formData.description.trim(),
       notificationOffset: formData.notificationOffset,
       dates: formData.dates
     };
@@ -646,7 +686,6 @@ const AddScheduleModal = ({
           }
           
         } catch (error) {
-          // FIXED: Don't show error toast here, let the parent handle it
           console.error("Attachment upload error:", error);
         } finally {
           setUploadingAttachments(false);
@@ -654,12 +693,20 @@ const AddScheduleModal = ({
       }
       
     } catch (error) {
-      // FIXED: Enhanced error parsing and handling - don't throw to prevent double toast
-      const parsedMessage = parseErrorMessage(error?.response?.data?.message || error.message);
+      console.error("Schedule submission error:", error);
+      
+      // FIXED: Enhanced error parsing and proper error display
+      const errorMessage = error?.response?.data?.message || error.message || 'Failed to save schedule';
+      const parsedMessage = parseErrorMessage(errorMessage);
+      
+      // Show user-friendly error message
       toast.error(parsedMessage, {
         description: "Please check your input and try again.",
         duration: 5000,
       });
+      
+      // FIXED: Don't throw error here to prevent modal from closing on error
+      return; // Stop execution but keep modal open
     }
   };
 
@@ -1163,13 +1210,13 @@ const AddScheduleModal = ({
               </div>
             )}
 
-            {/* FIXED: Description & Attachments with placeholder */}
+            {/* FIXED: Description & Attachments with proper placeholder logic */}
             <div className="flex gap-4 items-start">
               <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
               <div className="flex-1">
                 <div className="border border-gray-300 rounded-md min-h-[100px] p-3 relative">
-                  {/* FIXED: Added placeholder for description */}
-                  {!formData.description && (
+                  {/* FIXED: Proper placeholder logic - check both formData.description and actual content */}
+                  {(!formData.description || formData.description.trim() === '' || formData.description === '<br>') && (
                     <div className="absolute top-3 left-3 text-gray-500 pointer-events-none">
                       Masukkan deskripsi
                     </div>
@@ -1180,12 +1227,31 @@ const AddScheduleModal = ({
                     onInput={() => {
                       if (editorRef.current) {
                         const content = editorRef.current.innerHTML;
-                        if (content.length <= 255) {
-                          handleInputChange('description', content);
+                        // FIXED: Handle empty content states
+                        const cleanContent = content === '<br>' || content === '<div><br></div>' ? '' : content;
+                        
+                        if (cleanContent.length <= 255) {
+                          handleInputChange('description', cleanContent);
                         } else {
-                          const truncated = content.substring(0, 255);
+                          const truncated = cleanContent.substring(0, 255);
                           editorRef.current.innerHTML = truncated;
                           handleInputChange('description', truncated);
+                        }
+                      }
+                    }}
+                    onFocus={() => {
+                      // FIXED: Remove placeholder behavior on focus
+                      if (editorRef.current && (editorRef.current.innerHTML === '' || editorRef.current.innerHTML === '<br>')) {
+                        editorRef.current.innerHTML = '';
+                      }
+                    }}
+                    onBlur={() => {
+                      // FIXED: Clean up empty content on blur
+                      if (editorRef.current) {
+                        const content = editorRef.current.innerHTML;
+                        if (content === '<br>' || content === '<div><br></div>' || content.trim() === '') {
+                          editorRef.current.innerHTML = '';
+                          handleInputChange('description', '');
                         }
                       }
                     }}
@@ -1279,7 +1345,7 @@ const AddScheduleModal = ({
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={loading || !formData.agenda || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0))}
+                      disabled={loading || !formData.agenda.trim() || (showParticipants && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0 || !formData.location.trim()))}
                       className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
                     >
                       {loading ? 'Menyimpan...' : (mode === "edit" ? 'Update' : 'Tambah')}

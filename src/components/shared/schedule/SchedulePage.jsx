@@ -197,7 +197,7 @@ const SchedulePage = ({ type = "school" }) => {
         result = await createSchedule(formData);
       }
       
-      // FIXED: Close modal only on success
+      // FIXED: Only close modal on successful completion
       setIsAddModalOpen(false);
       setModalData(null);
       setSelectedTimeSlot(null);
@@ -207,11 +207,10 @@ const SchedulePage = ({ type = "school" }) => {
     } catch (error) {
       console.error("Error submitting schedule:", error);
       
-      // FIXED: Parse error message and show user-friendly error
+      // FIXED: Parse error message and re-throw to prevent modal closure
       const parsedMessage = parseErrorMessage(error?.response?.data?.message || error.message);
       
-      // FIXED: Don't show toast here - let the mutation in useSchedule handle success/error toasts
-      // Just re-throw to prevent modal from closing
+      // Re-throw the parsed error to prevent modal from closing and let AddScheduleModal handle the toast
       throw new Error(parsedMessage);
     }
   }, [modalData, createSchedule, handleEditSchedule, parseErrorMessage]);
