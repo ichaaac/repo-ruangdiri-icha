@@ -3,9 +3,13 @@
 import React, { useState, useMemo } from "react";
 import dayjs from "dayjs";
 import isToday from "dayjs/plugin/isToday";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown";
 
 dayjs.extend(isToday);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const NotificationDropdown = ({ onViewAll, onClose }) => {
   const [selectedTab, setSelectedTab] = useState('all');
@@ -19,15 +23,30 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     formatUnreadCount 
   } = useNotificationDropdown(selectedTab);
 
-  // 櫨 ENHANCED: Memoize notification grouping to avoid re-calculation on every render
+  // 🔥 ENHANCED: Memoize notification grouping dengan timezone handling yang benar
   const { todayNotifications, previousNotifications } = useMemo(() => {
     const today = [];
     const previous = [];
+    const nowLocal = dayjs().tz('Asia/Jakarta');
+    
     notifications.forEach(notif => {
-      if (dayjs(notif.createdAt).isToday()) {
-        today.push(notif);
-      } else {
-        previous.push(notif);
+      try {
+        // Parse sebagai UTC dan convert ke timezone lokal
+        const notifTime = dayjs.utc(notif.createdAt).tz('Asia/Jakarta');
+        
+        if (notifTime.isSame(nowLocal, 'day')) {
+          today.push(notif);
+        } else {
+          previous.push(notif);
+        }
+      } catch (error) {
+        console.error('❌ Error parsing notification time:', notif.id, error);
+        // Fallback ke parsing biasa
+        if (dayjs(notif.createdAt).isToday()) {
+          today.push(notif);
+        } else {
+          previous.push(notif);
+        }
       }
     });
     return { todayNotifications: today, previousNotifications: previous };
@@ -50,31 +69,46 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     if (subType === 'counseling') return '#9986ff';
     return '#535353';
   };
+
+  // 🔥 CHECK IF NOTIFICATION IS READ
+  const isNotificationRead = (notification) => {
+    return notification.status === 'read' || notification.isRead || notification.readAt;
+  };
   
-  const NotificationItem = ({ notification }) => (
-    <div 
-      key={notification.id} 
-      className={`flex gap-3 items-start p-3 rounded-lg transition-all ${
-        notification.isRead ? "bg-gray-50 opacity-70" : "bg-white"
-      }`}
-    >
-      <span 
-        className="material-icons text-[28px] mt-1"
-        style={{ color: getNotificationIconColor(notification) }}
+  const NotificationItem = ({ notification }) => {
+    const isRead = isNotificationRead(notification);
+    
+    return (
+      <div 
+        key={notification.id} 
+        className={`flex gap-3 items-start p-3 rounded-lg transition-all ${
+          isRead ? "bg-gray-100 opacity-60" : "bg-white"
+        }`}
       >
-        {getNotificationIcon(notification)}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold line-clamp-2 ${notification.isRead ? "text-gray-500" : "text-[#535353]"}`}>
-          {notification.title}
-        </p>
-        <span className="text-xs text-[#8a8a8a]">{formatTimeAgo(notification.createdAt)}</span>
+        {/* 🔥 UPDATED: Icon tanpa background rounded, size 37px */}
+        <span 
+          className="material-icons flex-shrink-0"
+          style={{ 
+            color: getNotificationIconColor(notification),
+            fontSize: '37px'
+          }}
+        >
+          {getNotificationIcon(notification)}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-semibold line-clamp-2 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>
+            {notification.title}
+          </p>
+          <span className={`text-xs ${isRead ? "text-gray-400" : "text-[#8a8a8a]"}`}>
+            {formatTimeAgo(notification.createdAt)}
+          </span>
+        </div>
+        {!isRead && (
+          <div className="w-2 h-2 bg-[#488BBE] rounded-full mt-2 self-start flex-shrink-0"></div>
+        )}
       </div>
-      {!notification.isRead && (
-        <div className="w-2 h-2 bg-[#488BBE] rounded-full mt-2 self-start flex-shrink-0"></div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="absolute right-0 mt-2 w-[395px] max-h-[400px] overflow-hidden bg-white shadow-lg rounded-b-xl z-50 border border-gray-200 flex flex-col">
@@ -106,7 +140,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             )}
           </button>
         </div>
-        {/* 櫨 REMOVED: "Terbaru" header is now dynamic */}
       </div>
 
       {/* CONTENT SECTION (VIEW ONLY) */}
@@ -120,7 +153,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           <div className="px-5">
             {notifications.length > 0 ? (
               <div className="space-y-3">
-                {/* 櫨 ENHANCED: Render "Hari Ini" section */}
+                {/* 🔥 ENHANCED: Render "Hari Ini" section */}
                 {todayNotifications.length > 0 && (
                   <div>
                     <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
@@ -134,7 +167,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                   </div>
                 )}
                 
-                {/* 櫨 ENHANCED: Render "Sebelumnya" section */}
+                {/* 🔥 ENHANCED: Render "Sebelumnya" section */}
                 {previousNotifications.length > 0 && (
                   <div>
                     <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">

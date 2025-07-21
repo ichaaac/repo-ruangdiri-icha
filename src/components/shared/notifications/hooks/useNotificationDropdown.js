@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
 import updateLocale from "dayjs/plugin/updateLocale"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
 import "dayjs/locale/id"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
@@ -12,6 +14,8 @@ import { getRelativeTime } from "../../schedule/utils/timezoneHandler"
 
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
+dayjs.extend(utc)
+dayjs.extend(timezone)
 dayjs.locale("id")
 
 dayjs.updateLocale("id", {
@@ -61,7 +65,8 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
   const unreadCount = unreadData?.count || 0
 
   const counselingCount = notifications.filter(
-    (notif) => notif.type === 'schedule' && notif.subType === 'counseling' && !notif.isRead && !notif.readAt
+    (notif) => notif.type === 'schedule' && notif.subType === 'counseling' && 
+    !(notif.status === 'read' || notif.isRead || notif.readAt)
   ).length
 
   useEffect(() => {
@@ -89,14 +94,32 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
     }
   }, [queryClient])
 
+  // 🔥 FIXED: Improved time formatting with proper timezone handling
   const formatTimeAgo = (timestamp) => {
     if (!timestamp) return "";
+    
     try {
-      const notificationTime = dayjs(timestamp);
-      const now = dayjs();
+      // Parse timestamp as UTC and convert to local timezone (WIB)
+      const notificationTime = dayjs.utc(timestamp).tz('Asia/Jakarta');
+      const now = dayjs().tz('Asia/Jakarta');
+      
+      // Debug log untuk melihat parsing
+      console.log('🕐 Time Debug:', {
+        original: timestamp,
+        parsed: notificationTime.format('YYYY-MM-DD HH:mm:ss'),
+        now: now.format('YYYY-MM-DD HH:mm:ss'),
+        timezone: 'Asia/Jakarta'
+      });
       
       const diffSeconds = now.diff(notificationTime, 'second');
-      if (diffSeconds < 10) return "Baru saja"; // Lebih spesifik untuk "baru saja"
+      
+      // Jika waktu notifikasi di masa depan (karena sync issue), anggap sebagai "baru saja"
+      if (diffSeconds < 0) {
+        console.log('⚠️ Future timestamp detected, treating as "baru saja"');
+        return "Baru saja";
+      }
+      
+      if (diffSeconds < 10) return "Baru saja";
       if (diffSeconds < 60) return `${diffSeconds} detik lalu`;
 
       const diffMinutes = now.diff(notificationTime, 'minute');
@@ -105,9 +128,11 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
       const diffHours = now.diff(notificationTime, 'hour');
       if (diffHours < 24) return `${diffHours} jam lalu`;
 
-      // Jika lebih dari sehari, tampilkan tanggal
+      // Jika lebih dari sehari, tampilkan tanggal dalam format Indonesia
       return notificationTime.format('DD MMM YYYY');
-    } catch {
+    } catch (error) {
+      console.error('❌ Error parsing timestamp:', timestamp, error);
+      // Fallback dengan dayjs biasa
       return dayjs(timestamp).fromNow();
     }
   }

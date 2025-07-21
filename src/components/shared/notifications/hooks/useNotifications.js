@@ -5,6 +5,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
 import updateLocale from "dayjs/plugin/updateLocale"
+import utc from "dayjs/plugin/utc"
+import timezone from "dayjs/plugin/timezone"
 import "dayjs/locale/id"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
@@ -12,6 +14,8 @@ import { getRelativeTime, formatDateIndonesian } from "../../schedule/utils/time
 
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
+dayjs.extend(utc)
+dayjs.extend(timezone)
 dayjs.locale("id")
 
 dayjs.updateLocale("id", {
@@ -95,17 +99,32 @@ export const useNotifications = () => {
   const notifications = data?.pages.flatMap(page => page.notifications) || []
   const totalCount = data?.pages[0]?.total || 0
 
+  // 🔥 FIXED: Updated grouping dengan timezone handling yang benar
   const groupedNotifications = notifications.reduce((acc, notification) => {
-    const dateKey = dayjs(notification.createdAt).format("YYYY-MM-DD")
-    if (!acc[dateKey]) {
-      acc[dateKey] = []
+    try {
+      // Parse waktu sebagai UTC dan convert ke timezone lokal
+      const notificationTime = dayjs.utc(notification.createdAt).tz('Asia/Jakarta');
+      const dateKey = notificationTime.format("YYYY-MM-DD");
+      
+      if (!acc[dateKey]) {
+        acc[dateKey] = []
+      }
+      acc[dateKey].push(notification)
+    } catch (error) {
+      console.error('❌ Error grouping notification:', notification.id, error);
+      // Fallback ke parsing biasa
+      const dateKey = dayjs(notification.createdAt).format("YYYY-MM-DD");
+      if (!acc[dateKey]) {
+        acc[dateKey] = []
+      }
+      acc[dateKey].push(notification)
     }
-    acc[dateKey].push(notification)
     return acc
   }, {})
 
   const counselingCount = notifications.filter(
-    (notif) => notif.type === 'schedule' && notif.subType === 'counseling' && !notif.isRead && !notif.readAt
+    (notif) => notif.type === 'schedule' && notif.subType === 'counseling' && 
+    !(notif.status === 'read' || notif.isRead || notif.readAt)
   ).length
 
   const markAsReadMutation = useMutation({
@@ -162,29 +181,53 @@ export const useNotifications = () => {
     markAllAsReadMutation.mutate()
   }, [markAllAsReadMutation])
 
+  // 🔥 FIXED: Improved date label dengan timezone handling
   const getDateLabel = useCallback((dateString) => {
-    const date = dayjs(dateString)
-    const today = dayjs()
-    const yesterday = dayjs().subtract(1, 'day')
-
-    if (date.isSame(today, 'day')) return 'Hari Ini'
-    if (date.isSame(yesterday, 'day')) return 'Kemarin'
-    
     try {
-      return formatDateIndonesian(dateString) || date.format('DD MMMM YYYY')
-    } catch {
-      return date.format('DD MMMM YYYY')
+      // Parse dateString sebagai date lokal (karena sudah diformat sebagai YYYY-MM-DD)
+      const date = dayjs(dateString);
+      const today = dayjs().tz('Asia/Jakarta');
+      const yesterday = dayjs().tz('Asia/Jakarta').subtract(1, 'day');
+
+      if (date.isSame(today, 'day')) return 'Hari Ini'
+      if (date.isSame(yesterday, 'day')) return 'Kemarin'
+      
+      try {
+        return formatDateIndonesian(dateString) || date.format('DD MMMM YYYY')
+      } catch {
+        return date.format('DD MMMM YYYY')
+      }
+    } catch (error) {
+      console.error('❌ Error formatting date label:', dateString, error);
+      return dayjs(dateString).format('DD MMMM YYYY')
     }
   }, [])
 
- const formatTimeAgo = useCallback((timestamp) => {
+  // 🔥 FIXED: Improved time formatting dengan timezone handling
+  const formatTimeAgo = useCallback((timestamp) => {
     if (!timestamp) return "";
 
     try {
-      const notificationTime = dayjs(timestamp);
-      const now = dayjs();
+      // Parse timestamp sebagai UTC dan convert ke timezone lokal (WIB)
+      const notificationTime = dayjs.utc(timestamp).tz('Asia/Jakarta');
+      const now = dayjs().tz('Asia/Jakarta');
+      
+      // Debug log
+      console.log('🕐 Main Time Debug:', {
+        original: timestamp,
+        parsed: notificationTime.format('YYYY-MM-DD HH:mm:ss'),
+        now: now.format('YYYY-MM-DD HH:mm:ss'),
+        timezone: 'Asia/Jakarta'
+      });
       
       const diffSeconds = now.diff(notificationTime, 'second');
+      
+      // Jika waktu notifikasi di masa depan (karena sync issue), anggap sebagai "baru saja"
+      if (diffSeconds < 0) {
+        console.log('⚠️ Future timestamp detected, treating as "baru saja"');
+        return "Baru saja";
+      }
+      
       if (diffSeconds < 60) return "Baru saja";
 
       const diffMinutes = now.diff(notificationTime, 'minute');
@@ -194,13 +237,14 @@ export const useNotifications = () => {
       if (diffHours < 24) return `${diffHours} jam lalu`;
 
       // Untuk notifikasi yang lebih lama, gunakan fungsi getDateLabel
-      return getDateLabel(timestamp);
+      return getDateLabel(notificationTime.format('YYYY-MM-DD'));
 
-    } catch {
+    } catch (error) {
+      console.error('❌ Error formatting time ago:', timestamp, error);
       // Fallback jika terjadi error parsing
       return dayjs(timestamp).fromNow();
     }
-  }, [getDateLabel]); // Tambahkan getDateLabel sebagai dependensi
+  }, [getDateLabel]);
 
   const formatCount = useCallback((count) => {
     return count > 99 ? '99+' : count.toString()

@@ -107,16 +107,91 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
   </div>
 )
 
+// 🔥 ENHANCED UTILITY FUNCTIONS - ICON LOGIC BASED ON TYPE
+const getNotificationIcon = (notification) => {
+  const { type, subType } = notification
+  
+  // Schedule notifications
+  if (type === 'schedule') {
+    // Check for specific schedule actions
+    if (notification.title?.toLowerCase().includes('buat') || notification.title?.toLowerCase().includes('created')) {
+      return 'event'
+    }
+    if (notification.title?.toLowerCase().includes('ubah') || notification.title?.toLowerCase().includes('updated')) {
+      return 'event_available'
+    }
+    if (notification.title?.toLowerCase().includes('hapus') || notification.title?.toLowerCase().includes('deleted')) {
+      return 'event_busy'
+    }
+    if (notification.title?.toLowerCase().includes('reminder') || notification.title?.toLowerCase().includes('pengingat')) {
+      return 'schedule'
+    }
+    // Default schedule icon - check_circle as requested
+    return 'check_circle'
+  }
+  
+  // System notifications
+  if (type === 'system') {
+    return 'settings'
+  }
+  
+  // Report notifications
+  if (type === 'report') {
+    return 'assessment'
+  }
+  
+  // Counseling subtype
+  if (subType === 'counseling') {
+    return 'psychology'
+  }
+  
+  // Default fallback
+  return 'notifications'
+}
+
+// 🔥 ENHANCED ICON COLOR BASED ON TYPE
+const getNotificationIconColor = (notification) => {
+  const { type, subType } = notification
+  
+  // Schedule - Green (as requested for jadwal)
+  if (type === 'schedule') {
+    return '#9BCA61'
+  }
+  
+  // System - Gray
+  if (type === 'system') {
+    return '#535353'
+  }
+  
+  // Report - Blue
+  if (type === 'report') {
+    return '#488BBE'
+  }
+  
+  // Counseling subtype - Purple
+  if (subType === 'counseling') {
+    return '#9986ff'
+  }
+  
+  // Default
+  return '#535353'
+}
+
+// 🔥 CHECK IF NOTIFICATION IS READ
+const isNotificationRead = (notification) => {
+  return notification.status === 'read' || notification.isRead || notification.readAt;
+}
+
 // Individual Notification Item
 const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
     // Mark as read when clicked
-    if (!notification.isRead && !notification.readAt && !isMarkingAsRead) {
+    if (!isNotificationRead(notification) && !isMarkingAsRead) {
       onMarkAsRead(notification.id)
     }
   }
 
-  const isRead = notification.isRead || notification.readAt
+  const isRead = isNotificationRead(notification)
 
   return (
     <div
@@ -128,19 +203,17 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
           : "bg-white border border-gray-100 cursor-pointer hover:bg-gray-50 hover:shadow-sm"
       } ${isMarkingAsRead ? "opacity-50" : ""}`}
     >
-      {/* Icon */}
-      <div className="flex-shrink-0 w-9 h-9 flex items-center justify-center">
-        <div 
-          className="w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: "#d9d9d9" }}
+      {/* 🔥 UPDATED: Icon tanpa background rounded, size 35x35 */}
+      <div className="flex-shrink-0 flex items-center justify-center">
+        <span 
+          className="material-icons"
+          style={{ 
+            color: getNotificationIconColor(notification),
+            fontSize: '35px'
+          }}
         >
-          <span 
-            className="material-icons text-lg"
-            style={{ color: getNotificationIconColor(notification) }}
-          >
-            {getNotificationIcon(notification)}
-          </span>
-        </div>
+          {getNotificationIcon(notification)}
+        </span>
       </div>
 
       {/* Content */}
@@ -276,76 +349,6 @@ const NotificationList = ({
       </div>
     </div>
   )
-}
-
-// 🔥 ENHANCED UTILITY FUNCTIONS - ICON LOGIC BASED ON TYPE
-const getNotificationIcon = (notification) => {
-  const { type, subType } = notification
-  
-  // Schedule notifications
-  if (type === 'schedule') {
-    // Check for specific schedule actions
-    if (notification.title?.toLowerCase().includes('buat') || notification.title?.toLowerCase().includes('created')) {
-      return 'event'
-    }
-    if (notification.title?.toLowerCase().includes('ubah') || notification.title?.toLowerCase().includes('updated')) {
-      return 'event_available'
-    }
-    if (notification.title?.toLowerCase().includes('hapus') || notification.title?.toLowerCase().includes('deleted')) {
-      return 'event_busy'
-    }
-    if (notification.title?.toLowerCase().includes('reminder') || notification.title?.toLowerCase().includes('pengingat')) {
-      return 'schedule'
-    }
-    // Default schedule icon - check_circle as requested
-    return 'check_circle'
-  }
-  
-  // System notifications
-  if (type === 'system') {
-    return 'settings'
-  }
-  
-  // Report notifications
-  if (type === 'report') {
-    return 'assessment'
-  }
-  
-  // Counseling subtype
-  if (subType === 'counseling') {
-    return 'psychology'
-  }
-  
-  // Default fallback
-  return 'notifications'
-}
-
-// 🔥 ENHANCED ICON COLOR BASED ON TYPE
-const getNotificationIconColor = (notification) => {
-  const { type, subType } = notification
-  
-  // Schedule - Green (as requested for jadwal)
-  if (type === 'schedule') {
-    return '#9BCA61'
-  }
-  
-  // System - Gray
-  if (type === 'system') {
-    return '#535353'
-  }
-  
-  // Report - Blue
-  if (type === 'report') {
-    return '#488BBE'
-  }
-  
-  // Counseling subtype - Purple
-  if (subType === 'counseling') {
-    return '#9986ff'
-  }
-  
-  // Default
-  return '#535353'
 }
 
 // Main Notifications Component
