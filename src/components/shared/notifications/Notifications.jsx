@@ -48,7 +48,7 @@ const LoadingSpinner = ({ text = "Loading..." }) => (
 // Header Component
 const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
   <div className="mb-8">
-    <div className="flex items-center justify-between mb-8">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
       {/* Mark All as Read */}
@@ -56,7 +56,7 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
         <button
           onClick={onMarkAllAsRead}
           disabled={isMarkingAllAsRead}
-          className="text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 self-start sm:self-auto"
         >
           {isMarkingAllAsRead && <span className="material-icons animate-spin text-sm">sync</span>}
           {isMarkingAllAsRead ? "Menandai..." : "Tandai Semua Dibaca"}
@@ -68,11 +68,11 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
 
 // Tabs Component
 const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChange, formatCount }) => (
-  <div className="flex items-center gap-10 mb-6">
+  <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
     {/* Tab Semua */}
     <button
       onClick={() => onTabChange("all")}
-      className={`flex items-center gap-1 ${
+      className={`flex items-center gap-1 whitespace-nowrap ${
         selectedTab === "all" 
           ? "font-bold text-[#535353]" 
           : "font-normal text-[#8a8a8a] hover:text-[#535353]"
@@ -90,7 +90,7 @@ const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChang
     {/* Tab Konseling */}
     <button
       onClick={() => onTabChange("counseling")}
-      className={`flex items-center gap-1 ${
+      className={`flex items-center gap-1 whitespace-nowrap ${
         selectedTab === "counseling" 
           ? "font-bold text-[#535353]" 
           : "font-normal text-[#8a8a8a] hover:text-[#535353]"
@@ -152,14 +152,16 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
             {notification.title}
           </p>
           
-          <div className="flex items-center gap-1 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 text-xs">
             {notification.message && (
               <>
-                <div className="w-2 h-2 bg-[#9986ff] rounded-full flex-shrink-0"></div>
-                <span className={`font-medium ${isRead ? "text-gray-400" : "text-[#535353]"}`}>
-                  {notification.message}
-                </span>
-                <span className={`mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-[#9986ff] rounded-full flex-shrink-0"></div>
+                  <span className={`font-medium ${isRead ? "text-gray-400" : "text-[#535353]"}`}>
+                    {notification.message}
+                  </span>
+                </div>
+                <span className={`hidden sm:inline mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
               </>
             )}
             <span className="text-[#8a8a8a] font-light">
@@ -276,72 +278,70 @@ const NotificationList = ({
   )
 }
 
-// Utility functions - ICON LOGIC BASED ON TITLE INCLUDES
+// 🔥 ENHANCED UTILITY FUNCTIONS - ICON LOGIC BASED ON TYPE
 const getNotificationIcon = (notification) => {
-  const title = notification.title?.toLowerCase() || ''
-  const message = notification.message?.toLowerCase() || ''
-  const text = `${title} ${message}`
+  const { type, subType } = notification
   
-  // Schedule/Counseling related
-  if (text.includes('jadwal') || text.includes('schedule') || text.includes('konseling') || text.includes('appointment')) {
-    if (text.includes('membuat') || text.includes('baru') || text.includes('created')) {
+  // Schedule notifications
+  if (type === 'schedule') {
+    // Check for specific schedule actions
+    if (notification.title?.toLowerCase().includes('buat') || notification.title?.toLowerCase().includes('created')) {
       return 'event'
     }
-    if (text.includes('mengubah') || text.includes('ubah') || text.includes('updated')) {
+    if (notification.title?.toLowerCase().includes('ubah') || notification.title?.toLowerCase().includes('updated')) {
       return 'event_available'
     }
-    if (text.includes('menghapus') || text.includes('hapus') || text.includes('deleted')) {
+    if (notification.title?.toLowerCase().includes('hapus') || notification.title?.toLowerCase().includes('deleted')) {
       return 'event_busy'
     }
-    if (text.includes('reminder') || text.includes('pengingat')) {
+    if (notification.title?.toLowerCase().includes('reminder') || notification.title?.toLowerCase().includes('pengingat')) {
       return 'schedule'
     }
-    return 'check_circle' // Default schedule icon
+    // Default schedule icon - check_circle as requested
+    return 'check_circle'
   }
   
   // System notifications
-  if (text.includes('system') || text.includes('sistem')) {
+  if (type === 'system') {
     return 'settings'
   }
   
-  // Mental health
-  if (text.includes('mental') || text.includes('psikolog')) {
-    return 'psychology'
+  // Report notifications
+  if (type === 'report') {
+    return 'assessment'
   }
   
-  // Announcements
-  if (text.includes('pengumuman') || text.includes('announcement')) {
-    return 'campaign'
+  // Counseling subtype
+  if (subType === 'counseling') {
+    return 'psychology'
   }
   
   // Default fallback
   return 'notifications'
 }
 
-// ICON COLOR BASED ON TITLE
+// 🔥 ENHANCED ICON COLOR BASED ON TYPE
 const getNotificationIconColor = (notification) => {
-  const title = notification.title?.toLowerCase() || ''
-  const message = notification.message?.toLowerCase() || ''
-  const text = `${title} ${message}`
+  const { type, subType } = notification
   
-  // Schedule/Counseling - Green
-  if (text.includes('jadwal') || text.includes('schedule') || text.includes('konseling') || text.includes('appointment')) {
+  // Schedule - Green (as requested for jadwal)
+  if (type === 'schedule') {
     return '#9BCA61'
   }
   
   // System - Gray
-  if (text.includes('system') || text.includes('sistem')) {
+  if (type === 'system') {
     return '#535353'
   }
   
-  // Mental health - Purple
-  if (text.includes('mental') || text.includes('psikolog')) {
-    return '#9986ff'
+  // Report - Blue
+  if (type === 'report') {
+    return '#488BBE'
   }
   
-  // Announcements - Blue
-  if (text.includes('pengumuman') || text.includes('announcement')) {
-    return '#488BBE'
+  // Counseling subtype - Purple
+  if (subType === 'counseling') {
+    return '#9986ff'
   }
   
   // Default
@@ -383,8 +383,9 @@ const Notifications = ({ sidebarExpanded = false }) => {
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
-      <div className="px-4 sm:px-6 lg:px-6 pt-[100px] pb-8">
-        <div className="max-w-4xl">
+      {/* 🔥 RESPONSIVE CONTAINER - BUKAN UBAH DESIGN, CUMA RESPONSIVE */}
+      <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
+        <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
           
           <NotificationHeader 
             unreadCount={unreadCount}

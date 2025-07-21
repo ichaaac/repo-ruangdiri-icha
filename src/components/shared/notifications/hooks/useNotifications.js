@@ -5,13 +5,17 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import dayjs from "dayjs"
 import relativeTime from "dayjs/plugin/relativeTime"
 import updateLocale from "dayjs/plugin/updateLocale"
+import "dayjs/locale/id"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
+import { getRelativeTime, formatDateIndonesian } from "../../schedule/utils/timezoneHandler"
 
+// Configure dayjs
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
+dayjs.locale("id")
 
-dayjs.updateLocale("en", {
+dayjs.updateLocale("id", {
   relativeTime: {
     future: "dalam %s",
     past: "%s lalu",
@@ -48,6 +52,12 @@ export const useNotifications = () => {
     refetchInterval: false,
   })
 
+  // 🔥 INVALIDATE NOTIFICATIONS ON PROFILE UPDATE
+  // Call this from your profile update component:
+  // queryClient.invalidateQueries(['notifications'])
+  // queryClient.invalidateQueries(['notifications-dropdown'])
+  // queryClient.invalidateQueries(['notifications-unread-count'])
+
   const unreadCount = parseInt(unreadData?.count, 10) || 0
 
   // 🔥 INFINITE QUERY
@@ -62,14 +72,29 @@ export const useNotifications = () => {
     refetch,
   } = useInfiniteQuery({
     queryKey: ['notifications', selectedTab],
+    // 🔥 FIXED QUERY FUNCTION
     queryFn: async ({ pageParam = 1 }) => {
       const filters = {
         page: pageParam,
         limit: 10,
-        type: selectedTab === 'counseling' ? 'counseling' : undefined,
+        type: selectedTab,
+      };
+      const response = await notificationsAPI.getNotifications(filters);
+
+      // This logic correctly handles all response shapes from the API
+      // 1. Handles nested data: response.data.data
+      // 2. Handles semi-nested data: response.data
+      // 3. Handles flat data (for 'all' tab): response
+      const pageData = response?.data?.data || response?.data || response;
+
+      // Ensure the final returned value has the expected structure to prevent crashes
+      if (pageData && Array.isArray(pageData.notifications)) {
+        return pageData;
       }
-      const response = await notificationsAPI.getNotifications(filters)
-      return response.data?.data || response.data
+      
+      // Fallback for unexpected API structures to prevent crashes
+      console.warn("Unexpected API response structure in useNotifications:", response);
+      return { notifications: [], total: 0 };
     },
     getNextPageParam: (lastPage, allPages) => {
       const lastPageTotal = lastPage?.total || 0
@@ -93,6 +118,7 @@ export const useNotifications = () => {
     initialPageParam: 1,
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   })
 
   const notifications = data?.pages.flatMap(page => page.notifications) || []
@@ -107,10 +133,10 @@ export const useNotifications = () => {
     return acc
   }, {})
 
+  // 🔥 ENHANCED COUNSELING COUNT - USE TYPE & SUBTYPE
   const counselingCount = notifications.filter(
     (notif) => {
-      const isCounselingType = ['schedule_created', 'schedule_updated', 'schedule_deleted', 'schedule_reminder'].includes(notif.type) || 
-                             (notif.type === "counseling" || notif.type === "schedule")
+      const isCounselingType = notif.type === 'schedule' && notif.subType === 'counseling'
       const isUnread = !notif.isRead && !notif.readAt
       return isCounselingType && isUnread
     }
@@ -200,12 +226,11 @@ export const useNotifications = () => {
       queryClient.setQueriesData(['notifications', selectedTab], (oldData) => {
         if (!oldData) return oldData
 
-        const isCounselingNotification = payload.data?.type === 'counseling' || payload.data?.type === 'schedule'
+        const isCounselingNotification = payload.data?.type === 'schedule' && payload.data?.subType === 'counseling'
         const isSystemNotification = payload.data?.type === 'system'
 
         const shouldAdd = (selectedTab === 'all') ||
-                          (selectedTab === 'counseling' && isCounselingNotification) ||
-                          (selectedTab === 'system' && isSystemNotification)
+                          (selectedTab === 'counseling' && isCounselingNotification)
 
         if (!shouldAdd) {
           console.log('Skipping adding notification to current tab:', selectedTab)
@@ -294,6 +319,7 @@ export const useNotifications = () => {
     markAllAsReadMutation.mutate()
   }, [markAllAsReadMutation])
 
+  // 🔥 ENHANCED DATE LABEL WITH TIMEZONE HANDLER
   const getDateLabel = useCallback((dateString) => {
     const date = dayjs(dateString)
     const today = dayjs()
@@ -305,11 +331,25 @@ export const useNotifications = () => {
     if (date.isSame(yesterday, 'day')) {
       return 'Kemarin'
     }
-    return date.format('DD MMMM YYYY')
+    
+    // Use timezone handler for Indonesian format
+    try {
+      const formatted = formatDateIndonesian(dateString)
+      return formatted || date.format('DD MMMM YYYY')
+    } catch {
+      return date.format('DD MMMM YYYY')
+    }
   }, [])
 
+  // 🔥 ENHANCED TIME FORMAT WITH TIMEZONE HANDLER
   const formatTimeAgo = useCallback((timestamp) => {
-    return dayjs(timestamp).fromNow()
+    // Try to use timezone handler first, fallback to dayjs
+    try {
+      const result = getRelativeTime(timestamp)
+      return result || dayjs(timestamp).fromNow()
+    } catch {
+      return dayjs(timestamp).fromNow()
+    }
   }, [])
 
   const formatCount = useCallback((count) => {

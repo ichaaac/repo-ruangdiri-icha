@@ -1,4 +1,4 @@
-// src/components/shared/layout/TopRightControl.jsx - FIXED HOOKS
+// src/components/shared/layout/TopRightControl.jsx - ENHANCED REALTIME
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -10,13 +10,14 @@ import NotificationDropdown from "@/components/shared/notifications/Notification
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const [openNotif, setOpenNotif] = useState(false);
   const [localUnreadCount, setLocalUnreadCount] = useState(0);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const notifRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 🔥 SHARED UNREAD COUNT QUERY
-  const { data: unreadData, isLoading } = useQuery({
+  // 🔥 SHARED UNREAD COUNT QUERY WITH AGGRESSIVE REFETCHING
+  const { data: unreadData, isLoading, refetch } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: async () => {
       console.log('📊 TopRightControl: Fetching unread count')
@@ -24,63 +25,136 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       console.log('📊 TopRightControl: Unread count result:', result)
       return result.data?.data || result.data
     },
-    staleTime: Infinity,
-    cacheTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    staleTime: 10 * 1000, // 10 seconds
+    cacheTime: 60 * 1000, // 1 minute
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchInterval: 30 * 1000, // Refetch every 30 seconds as fallback
   });
 
-  // 🔥 SOCKET SETUP - FIXED: NO useCallback INSIDE useEffect
+  // 🔥 ENHANCED SOCKET SETUP WITH FORCED UPDATES
   useEffect(() => {
-    console.log('🔗 TopRightControl: Setting up socket listeners')
+    console.log('🔗 TopRightControl: Setting up enhanced socket listeners')
     
+    // Force connect socket
     notificationSocket.connect()
+      .then(() => {
+        console.log('✅ TopRightControl: Socket connected successfully')
+        setIsSocketConnected(true)
+      })
+      .catch(err => {
+        console.error('❌ TopRightControl: Socket connection failed:', err)
+        setIsSocketConnected(false)
+      })
 
     const handleNotificationCreated = (payload) => {
       console.log('🔔 TopRightControl: New notification via socket:', payload)
       
-      // 🔥 INVALIDATE QUERIES TO GET FRESH UNREAD COUNT
-      queryClient.invalidateQueries(['notifications-unread-count'])
+      // 🔥 FORCE IMMEDIATE UNREAD COUNT UPDATE
+      if (payload.data?.unreadCount !== undefined) {
+        const newCount = parseInt(payload.data.unreadCount, 10) || 0
+        console.log('📊 TopRightControl: Setting count from backend (socket created):', newCount)
+        queryClient.setQueryData(['notifications-unread-count'], { count: newCount })
+        setLocalUnreadCount(newCount)
+      } else {
+        console.log('📊 TopRightControl: Socket created event without unreadCount. Force refetching.')
+        refetch() // Force refetch if no count in payload
+      }
+
+      // 🔥 INVALIDATE ALL NOTIFICATION QUERIES
+      queryClient.invalidateQueries(['notifications'])
+      queryClient.invalidateQueries(['notifications-dropdown'])
     }
 
     const handleNotificationRead = (payload) => {
       console.log('✅ TopRightControl: Notification read via socket:', payload)
       
-      // 🔥 INVALIDATE QUERIES TO GET FRESH UNREAD COUNT
-      queryClient.invalidateQueries(['notifications-unread-count'])
+      // 🔥 FORCE IMMEDIATE UNREAD COUNT UPDATE
+      if (payload.data?.unreadCount !== undefined) {
+        const newCount = parseInt(payload.data.unreadCount, 10) || 0
+        console.log('📊 TopRightControl: Setting count from backend (socket read):', newCount)
+        queryClient.setQueryData(['notifications-unread-count'], { count: newCount })
+        setLocalUnreadCount(newCount)
+      } else {
+        console.log('📊 TopRightControl: Socket read event without unreadCount. Force refetching.')
+        refetch() // Force refetch if no count in payload
+      }
+
+      // 🔥 INVALIDATE ALL NOTIFICATION QUERIES
+      queryClient.invalidateQueries(['notifications'])
+      queryClient.invalidateQueries(['notifications-dropdown'])
     }
 
     const handleMarkAllRead = (payload) => {
       console.log('✅ TopRightControl: Mark all read via socket:', payload)
       
-      // 🔥 INVALIDATE QUERIES TO GET FRESH UNREAD COUNT
-      queryClient.invalidateQueries(['notifications-unread-count'])
+      // 🔥 FORCE UNREAD COUNT TO 0
+      queryClient.setQueryData(['notifications-unread-count'], { count: 0 })
+      setLocalUnreadCount(0)
+      
+      // 🔥 INVALIDATE ALL NOTIFICATION QUERIES
       queryClient.invalidateQueries(['notifications'])
+      queryClient.invalidateQueries(['notifications-dropdown'])
     }
 
-    // 🔥 REGISTER SOCKET LISTENERS
+    // 🔥 SOCKET CONNECTION STATUS MONITORING
+    const handleConnect = () => {
+      console.log('🔗 TopRightControl: Socket connected')
+      setIsSocketConnected(true)
+      // Force refetch on reconnection
+      refetch()
+    }
+
+    const handleDisconnect = () => {
+      console.log('❌ TopRightControl: Socket disconnected')
+      setIsSocketConnected(false)
+    }
+
+    // 🔥 REGISTER ALL SOCKET LISTENERS
     notificationSocket.on('notification:created', handleNotificationCreated)
     notificationSocket.on('notification:read', handleNotificationRead)
     notificationSocket.on('notification:mark-all-read', handleMarkAllRead)
+    
+    // Monitor socket connection status
+    if (notificationSocket.socket) {
+      notificationSocket.socket.on('connect', handleConnect)
+      notificationSocket.socket.on('disconnect', handleDisconnect)
+    }
+
+    // Check initial socket status
+    setIsSocketConnected(notificationSocket.isSocketConnected())
 
     return () => {
       console.log('🔌 TopRightControl: Cleaning up socket listeners')
       notificationSocket.off('notification:created', handleNotificationCreated)
       notificationSocket.off('notification:read', handleNotificationRead)
       notificationSocket.off('notification:mark-all-read', handleMarkAllRead)
+      
+      if (notificationSocket.socket) {
+        notificationSocket.socket.off('connect', handleConnect)
+        notificationSocket.socket.off('disconnect', handleDisconnect)
+      }
     }
-  }, [queryClient])
+  }, [queryClient, refetch])
 
-  // 🔥 MARK AS READ MUTATION
+  // 🔥 MARK AS READ MUTATION WITH OPTIMISTIC UPDATES
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationIds) => {
       console.log('✏️ TopRightControl: Marking as read:', notificationIds)
       return await notificationsAPI.markAsRead(notificationIds)
     },
+    onMutate: async (notificationIds) => {
+      // 🔥 OPTIMISTIC UPDATE: Decrease count immediately
+      const currentCount = localUnreadCount
+      const newCount = Math.max(0, currentCount - notificationIds.length)
+      setLocalUnreadCount(newCount)
+      console.log('🔄 TopRightControl: Optimistic count update:', currentCount, '->', newCount)
+    },
     onSuccess: (response, variables) => {
       console.log('✅ TopRightControl: Mark as read response:', response)
       
+      // 🔥 UPDATE NOTIFICATIONS LIST
       queryClient.setQueriesData(['notifications'], oldData => {
         if (!oldData) return oldData
         return {
@@ -96,22 +170,44 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         }
       })
       
+      // 🔥 UPDATE DROPDOWN NOTIFICATIONS
+      queryClient.setQueriesData(['notifications-dropdown'], oldData => {
+        if (!oldData) return oldData
+        return {
+          ...oldData,
+          notifications: oldData.notifications.map(notif =>
+            variables.includes(notif.id)
+              ? { ...notif, isRead: true, readAt: new Date().toISOString() }
+              : notif
+          ),
+        }
+      })
+      
+      // 🔥 FORCE REFETCH UNREAD COUNT
       queryClient.invalidateQueries(['notifications-unread-count'])
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       console.error('❌ TopRightControl: Mark as read failed:', error)
+      // 🔥 REVERT OPTIMISTIC UPDATE ON ERROR
+      refetch()
     }
   })
 
-  // 🔥 MARK ALL AS READ MUTATION
+  // 🔥 MARK ALL AS READ MUTATION WITH OPTIMISTIC UPDATES
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       console.log('✏️ TopRightControl: Marking all as read')
       return await notificationsAPI.markallAsRead()
     },
+    onMutate: async () => {
+      // 🔥 OPTIMISTIC UPDATE: Set count to 0 immediately
+      setLocalUnreadCount(0)
+      console.log('🔄 TopRightControl: Optimistic mark all read')
+    },
     onSuccess: (response) => {
       console.log('✅ TopRightControl: Mark all as read response:', response)
       
+      // 🔥 UPDATE ALL NOTIFICATIONS TO READ
       queryClient.setQueriesData(['notifications'], oldData => {
         if (!oldData) return oldData
         return {
@@ -127,27 +223,34 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         }
       })
       
-      queryClient.invalidateQueries(['notifications-unread-count'])
+      queryClient.setQueriesData(['notifications-dropdown'], oldData => {
+        if (!oldData) return oldData
+        return {
+          ...oldData,
+          notifications: oldData.notifications.map(notif => ({
+            ...notif,
+            isRead: true,
+            readAt: new Date().toISOString(),
+          })),
+        }
+      })
+      
+      // 🔥 SET UNREAD COUNT TO 0
+      queryClient.setQueryData(['notifications-unread-count'], { count: 0 })
     },
     onError: (error) => {
       console.error('❌ TopRightControl: Mark all as read failed:', error)
+      // 🔥 REVERT OPTIMISTIC UPDATE ON ERROR
+      refetch()
     }
   })
 
   // 🔥 SYNC LOCAL COUNT WITH QUERY RESULT
   useEffect(() => {
-    if (unreadData) {
-      const count = parseInt(unreadData?.count, 10) || 0
-      setLocalUnreadCount(count)
-    }
-  }, [unreadData])
-
-  // Set initial count when query loads
-  useEffect(() => {
     if (unreadData && !isLoading) {
       const count = parseInt(unreadData?.count, 10) || 0
-      console.log('📊 TopRightControl: Setting initial local count:', count)
       setLocalUnreadCount(count)
+      console.log('📊 TopRightControl: Syncing local count with query:', count)
     }
   }, [unreadData, isLoading])
 
@@ -160,12 +263,13 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
 
   const displayCount = formatBadgeCount(localUnreadCount)
 
-  console.log('🎯 TopRightControl RENDER:', {
+  console.log('🎯 TopRightControl ENHANCED RENDER:', {
     localUnreadCount,
     displayCount,
     isLoading,
+    isSocketConnected,
     queryData: unreadData,
-    socketConnected: notificationSocket.isSocketConnected()
+    socketStatus: notificationSocket.getConnectionStatus()
   })
 
   // Close on outside click
@@ -218,15 +322,36 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         <button
           aria-label="Notifications"
           onClick={() => setOpenNotif(!openNotif)}
-          className="material-icons text-zinc-500 text-xl sm:text-2xl hover:text-[#488BBE] transition-colors relative inline-flex items-center justify-center"
-          style={{ position: 'relative' }}
+          className={`material-icons text-xl sm:text-2xl transition-colors relative inline-flex items-center justify-center ${
+            isSocketConnected 
+              ? "text-zinc-500 hover:text-[#488BBE]" 
+              : "text-red-400 hover:text-red-500"
+          }`}
+          title={isSocketConnected ? "Notifications" : "Notification service offline"}
         >
           notifications
           
-          {/* 🔥 BADGE COUNT */}
+          {/* 🔥 CONNECTION STATUS INDICATOR */}
+          {!isSocketConnected && (
+            <span 
+              className="absolute flex items-center justify-center text-white font-bold rounded-full bg-red-500"
+              style={{
+                position: 'absolute',
+                top: '-4px',
+                left: '-4px',
+                width: '8px',
+                height: '8px',
+                fontSize: '1px',
+                zIndex: 10000,
+              }}
+              title="Offline"
+            />
+          )}
+          
+          {/* 🔥 ENHANCED BADGE COUNT */}
           {displayCount && (
             <span 
-              className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266]"
+              className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266] animate-pulse"
               style={{
                 position: 'absolute',
                 top: '-8px',
@@ -250,7 +375,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
           )}
         </button>
 
-        {/* 🔥 DROPDOWN */}
+        {/* 🔥 ENHANCED DROPDOWN */}
         {openNotif && (
           <NotificationDropdown
             onViewAll={handleViewAllNotifications}

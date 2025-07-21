@@ -1,4 +1,4 @@
-// src/components/shared/notifications/lib/api.js - SIMPLE, NO STORE INTEGRATION
+// src/components/shared/notifications/lib/api.js - ENHANCED VERSION
 
 import { apiClient } from '@/lib/api'
 
@@ -7,6 +7,7 @@ export const notificationsAPI = {
    * Get notifications - Handle backend enum validation
    * Backend only accepts: 'schedule' | 'system' | 'report'
    * For 'all', fetch both system and schedule notifications
+   * For 'counseling', fetch schedule with counseling subtype
    */
   async getNotifications(params = {}) {
     // Special handling for 'all' type
@@ -50,6 +51,15 @@ export const notificationsAPI = {
       }
     }
     
+    // For counseling, fetch schedule type with counseling subtype
+    if (params.type === 'counseling') {
+      return this._getNotificationsByType({
+        ...params,
+        type: 'schedule',
+        subType: 'counseling'
+      })
+    }
+    
     // For specific types, use the helper method
     return this._getNotificationsByType(params)
   },
@@ -65,15 +75,20 @@ export const notificationsAPI = {
     }
     
     // Map frontend types to valid backend enum values ONLY
-    if (params.type === 'counseling' || params.type === 'schedule') {
+    if (params.type === 'schedule') {
       requestData.type = 'schedule'
     } else if (params.type === 'system') {
       requestData.type = 'system'
     } else if (params.type === 'report') {
       requestData.type = 'report'
-    } else {
-      // CRITICAL: Never send 'all' - default to system
+    } else if (!params.type) {
+      // If no type specified, default to system to avoid validation error
       requestData.type = 'system'
+    }
+    
+    // Add subtype if specified
+    if (params.subType) {
+      requestData.subType = params.subType
     }
     
     // Add optional parameters only if they exist
