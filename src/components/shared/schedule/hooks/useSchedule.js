@@ -1,4 +1,4 @@
-// src/components/shared/schedule/hooks/useSchedule.js - FIXED IMMEDIATE UPDATE AFTER EDIT
+// src/components/shared/schedule/hooks/useSchedule.js - FIXED DELETE & TOAST HANDLING
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -43,7 +43,7 @@ export const useSchedule = (type = "school") => {
 
   const weekParams = useMemo(() => getWeekParams(selectedWeek), [selectedWeek, getWeekParams]);
 
-  // ===== SCHEDULES QUERY =====
+  // SCHEDULES QUERY
   const schedulesQuery = useQuery({
     queryKey: scheduleKeys.list(weekParams),
     queryFn: async () => {
@@ -72,7 +72,7 @@ export const useSchedule = (type = "school") => {
     refetchInterval: false,
   });
 
-  // ===== COUNSELING QUEUE QUERY =====
+  // COUNSELING QUEUE QUERY
   const counselingQueueQuery = useQuery({
     queryKey: scheduleKeys.counselingQueue,
     queryFn: async () => {
@@ -96,7 +96,7 @@ export const useSchedule = (type = "school") => {
     retry: 2,
   });
 
-  // ===== NOTIFICATIONS QUERY =====
+  // NOTIFICATIONS QUERY
   const notificationsQuery = useQuery({
     queryKey: scheduleKeys.notifications,
     queryFn: async () => {
@@ -116,11 +116,10 @@ export const useSchedule = (type = "school") => {
     retry: 1,
   });
 
-  // ===== CREATE SCHEDULE MUTATION =====
+  // FIXED: CREATE SCHEDULE MUTATION - Optimized toast handling
   const createScheduleMutation = useMutation({
     mutationFn: async (formData) => {
       try {
-        console.log('Creating schedule with payload:', formData);
         const response = await scheduleApi.createSchedule(formData);
         return response.data;
       } catch (error) {
@@ -160,68 +159,57 @@ export const useSchedule = (type = "school") => {
       if (context?.previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
       }
-      toast.error(err.message);
+      // FIXED: Don't show error toast here - let AddScheduleModal handle it
     },
     onSuccess: (data) => {
-      console.log('Schedule created successfully:', data);
       queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
       queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
+      
+      // FIXED: Show success toast only here
+      const scheduleCount = Array.isArray(data?.data) ? data.data.length : 1;
+      const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
+      toast.success(`${scheduleText} created successfully`);
     }
   });
 
-  // ===== FIXED: UPDATE SCHEDULE MUTATION - BETTER ERROR HANDLING =====
+  // FIXED: UPDATE SCHEDULE MUTATION - Better error handling & optimistic updates
   const updateScheduleMutation = useMutation({
     mutationFn: async ({ scheduleId, formData }) => {
       try {
-        console.log('Updating schedule:', scheduleId, formData);
         const response = await scheduleApi.updateSchedule(scheduleId, formData);
-        console.log('Update response:', response);
         return { scheduleId, data: response.data };
       } catch (error) {
         console.error('Update schedule error:', error);
-        console.error('Error details:', {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-          statusText: error.response?.statusText
-        });
         throw new Error(error.response?.data?.message || error.message || 'Failed to update schedule');
       }
     },
     onMutate: async ({ scheduleId, formData }) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: scheduleKeys.list(weekParams) });
       await queryClient.cancelQueries({ queryKey: scheduleKeys.detail(scheduleId) });
       
-      // Snapshot the previous values
       const previousSchedules = queryClient.getQueryData(scheduleKeys.list(weekParams));
       const previousDetail = queryClient.getQueryData(scheduleKeys.detail(scheduleId));
       
-      // FIXED: Optimistically update main schedules list with full transformation
+      // Optimistically update main schedules list
       if (previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), (old) => {
           return old.map(schedule => {
             if (schedule.id === scheduleId) {
-              // Create updated schedule object with proper transformation
               const updatedSchedule = {
                 ...schedule,
                 agenda: formData.agenda,
                 description: formData.description,
                 type: formData.type,
                 notificationOffset: formData.notificationOffset,
-                // Handle location properly based on type
                 location: formData.type === "counseling" ? formData.location : (schedule.location || null),
                 customLocation: formData.type !== "counseling" ? formData.customLocation : (schedule.customLocation || null),
-                // Update dates if provided
                 dates: formData.dates || schedule.dates,
-                // Update participants if provided
                 ...(formData.participants && {
                   participants: [
                     ...(formData.selectedPsychologist ? [formData.selectedPsychologist] : []),
                     ...(formData.selectedParticipants || [])
                   ]
                 }),
-                // Update times if dates changed
                 ...(formData.dates && formData.dates.length > 0 && {
                   startDateTime: `${formData.dates[0].date}T${formData.dates[0].startTime}:00`,
                   endDateTime: `${formData.dates[0].date}T${formData.dates[0].endTime}:00`,
@@ -230,7 +218,6 @@ export const useSchedule = (type = "school") => {
                 lastUpdated: new Date().toISOString()
               };
               
-              console.log('Optimistic update applied:', updatedSchedule);
               return updatedSchedule;
             }
             return schedule;
@@ -238,7 +225,7 @@ export const useSchedule = (type = "school") => {
         });
       }
       
-      // FIXED: Also update detail cache if exists
+      // Also update detail cache if exists
       if (previousDetail) {
         const updatedDetail = {
           ...previousDetail,
@@ -266,7 +253,6 @@ export const useSchedule = (type = "school") => {
     },
     onError: (err, { scheduleId }, context) => {
       console.error('Update schedule mutation error:', err);
-      console.error('Error context:', context);
       
       // Rollback on error
       if (context?.previousSchedules) {
@@ -276,18 +262,10 @@ export const useSchedule = (type = "school") => {
         queryClient.setQueryData(scheduleKeys.detail(scheduleId), context.previousDetail);
       }
       
-      // FIXED: Better error toast
-      const errorMessage = err.message || 'Failed to update schedule';
-      console.error('Displaying error toast:', errorMessage);
-      toast.error(errorMessage, {
-        description: 'Please try again or contact support if the problem persists.',
-        duration: 5000,
-      });
+      // FIXED: Don't show error toast here - let ViewScheduleModal/AddScheduleModal handle it
     },
     onSuccess: (result, { scheduleId }) => {
-      console.log('Schedule updated successfully:', result);
-      
-      // FIXED: Apply real server data immediately
+      // Apply real server data immediately
       const serverData = result.data?.data || result.data;
       
       if (serverData) {
@@ -314,54 +292,68 @@ export const useSchedule = (type = "school") => {
         });
       }
       
-      // FIXED: Force refresh after a short delay to ensure consistency
+      // Force refresh after a short delay to ensure consistency
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
         queryClient.invalidateQueries({ queryKey: scheduleKeys.detail(scheduleId) });
         queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
       }, 500);
       
+      // FIXED: Show success toast only here
       toast.success('Schedule updated successfully');
     }
   });
 
-  // ===== DELETE SCHEDULE MUTATION =====
+  // FIXED: DELETE SCHEDULE MUTATION - Better optimistic updates and error handling
   const deleteScheduleMutation = useMutation({
     mutationFn: async (scheduleId) => {
       try {
         await scheduleApi.deleteSchedule(scheduleId);
         return scheduleId;
       } catch (error) {
+        console.error('Delete schedule error:', error);
         throw new Error(error.response?.data?.message || 'Failed to delete schedule');
       }
     },
     onMutate: async (scheduleId) => {
+      // FIXED: Proper optimistic delete with immediate UI update
       await queryClient.cancelQueries({ queryKey: scheduleKeys.list(weekParams) });
+      
       const previousSchedules = queryClient.getQueryData(scheduleKeys.list(weekParams));
 
       if (previousSchedules) {
-        queryClient.setQueryData(
-          scheduleKeys.list(weekParams),
-          previousSchedules.filter(schedule => schedule.id !== scheduleId)
-        );
+        // FIXED: Immediately remove from UI
+        const filteredSchedules = previousSchedules.filter(schedule => schedule.id !== scheduleId);
+        queryClient.setQueryData(scheduleKeys.list(weekParams), filteredSchedules);
       }
 
       return { previousSchedules };
     },
     onError: (err, scheduleId, context) => {
+      console.error('Delete schedule mutation error:', err);
+      
+      // FIXED: Rollback to previous state on error
       if (context?.previousSchedules) {
         queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
       }
-      toast.error(err.message);
+      
+      // FIXED: Show proper error message
+      toast.error(err.message || 'Failed to delete schedule');
     },
     onSuccess: (scheduleId) => {
+      // FIXED: Clean up cache and show success message
       queryClient.removeQueries({ queryKey: scheduleKeys.detail(scheduleId) });
+      
+      // FIXED: Force invalidation to ensure consistency
       queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
+      
+      // FIXED: Show success toast
       toast.success('Schedule deleted successfully');
     }
   });
 
-  // ===== HANDLERS =====
+  // HANDLERS
   const handleWeekSelect = useCallback((weekStart) => {
     setSelectedWeek(weekStart);
   }, []);
@@ -381,7 +373,7 @@ export const useSchedule = (type = "school") => {
     ]);
   }, [queryClient]);
 
-  // ===== HELPER FUNCTIONS =====
+  // HELPER FUNCTIONS
   const getSchedulesForDate = useCallback((date) => {
     const schedules = schedulesQuery.data || [];
     return schedules.filter(schedule => {
@@ -406,18 +398,10 @@ export const useSchedule = (type = "school") => {
     });
   }, [schedulesQuery.data]);
 
-  // ===== FIXED: SIMPLIFIED EDIT/DELETE FUNCTIONS WITH IMMEDIATE UPDATE =====
+  // FIXED: SIMPLIFIED EDIT/DELETE FUNCTIONS
   const handleEditSchedule = useCallback(async (scheduleId, formData) => {
     try {
-      console.log('=== handleEditSchedule called ===');
-      console.log('Schedule ID:', scheduleId);
-      console.log('Form Data:', formData);
-      
       const result = await updateScheduleMutation.mutateAsync({ scheduleId, formData });
-      
-      console.log('=== Edit result ===');
-      console.log('Result:', result);
-      
       return result; // Return result for attachment handling
     } catch (error) {
       console.error('Error in handleEditSchedule:', error);
@@ -434,7 +418,7 @@ export const useSchedule = (type = "school") => {
     }
   }, [deleteScheduleMutation]);
 
-  // ===== COMPUTED VALUES =====
+  // COMPUTED VALUES
   const loading = {
     schedules: schedulesQuery.isLoading,
     queue: counselingQueueQuery.isLoading,
@@ -456,7 +440,7 @@ export const useSchedule = (type = "school") => {
   const isLoading = Object.values(loading).some(Boolean);
   const hasError = Object.values(error).some(val => val !== null);
 
-  // ===== RETURN =====
+  // RETURN
   return {
     // State
     selectedDate,
@@ -481,7 +465,7 @@ export const useSchedule = (type = "school") => {
     deleteSchedule: deleteScheduleMutation.mutateAsync,
     refreshData,
     
-    // FIXED: Simplified handlers for ViewSchedule
+    // Simplified handlers for ViewSchedule
     handleEditSchedule,
     handleDeleteSchedule,
     

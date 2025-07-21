@@ -1,4 +1,4 @@
-// src/components/shared/schedule/SchedulePage.jsx - UPDATED FOR PROPER MODAL BEHAVIOR
+// src/components/shared/schedule/SchedulePage.jsx - FIXED TOAST HANDLING
 
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -19,19 +19,22 @@ const SchedulePage = ({ type = "school" }) => {
   const [viewScheduleData, setViewScheduleData] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [windowWidth, setWindowWidth] = useState(0);
-  const [selectedDates, setSelectedDates] = useState([]); // FIXED: Start with empty array, no auto-select
+  const [selectedDates, setSelectedDates] = useState([]);
   
-  // FIXED: Helper function to parse error messages with datetime  
+  // FIXED: Enhanced error message parser
   const parseErrorMessage = (message) => {
     if (!message) return 'An error occurred';
     
-    // Parse ISO datetime patterns in error messages
-    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/g;
+    // Parse ISO datetime patterns and other common backend formats
+    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/g;
+    const dateTimePattern = /(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/g;
     
-    let parsedMessage = message.replace(isoDatePattern, (match) => {
+    let parsedMessage = message;
+    
+    // Replace ISO datetime patterns
+    parsedMessage = parsedMessage.replace(isoDatePattern, (match) => {
       try {
         const date = new Date(match);
-        // Format to readable Indonesian format
         const dateStr = date.toLocaleDateString('id-ID', {
           day: '2-digit',
           month: '2-digit', 
@@ -44,7 +47,27 @@ const SchedulePage = ({ type = "school" }) => {
         });
         return `${dateStr} ${timeStr}`;
       } catch (e) {
-        return match; // Return original if parsing fails
+        return match;
+      }
+    });
+    
+    // Replace simple datetime patterns
+    parsedMessage = parsedMessage.replace(dateTimePattern, (match) => {
+      try {
+        const date = new Date(match);
+        const dateStr = date.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: '2-digit', 
+          year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return `${dateStr} ${timeStr}`;
+      } catch (e) {
+        return match;
       }
     });
     
@@ -55,7 +78,7 @@ const SchedulePage = ({ type = "school" }) => {
   const outletContext = useOutletContext() || {};
   const { sidebarExpanded = false } = outletContext;
 
-  // UPDATED: Use fixed schedule hook
+  // Use schedule hook
   const {
     selectedDate,
     selectedWeek,
@@ -67,8 +90,8 @@ const SchedulePage = ({ type = "school" }) => {
     setSelectedDate,
     setSelectedWeek,
     createSchedule,
-    handleEditSchedule,    // FIXED: Use simplified handler
-    handleDeleteSchedule,  // FIXED: Use simplified handler
+    handleEditSchedule,
+    handleDeleteSchedule,
     refreshData,
     getSchedulesForDate,
     getScheduleAtTime,
@@ -135,7 +158,7 @@ const SchedulePage = ({ type = "school" }) => {
     setIsViewModalOpen(true);
   }, []);
 
-  // FIXED: Edit handler for ViewScheduleModal (now handles edit internally)
+  // Edit handler for ViewScheduleModal
   const handleEditFromViewModal = useCallback(async (scheduleId, formData) => {
     try {
       await handleEditSchedule(scheduleId, formData);
@@ -147,7 +170,7 @@ const SchedulePage = ({ type = "school" }) => {
     }
   }, [handleEditSchedule]);
 
-  // FIXED: Delete handler for ViewScheduleModal
+  // Delete handler for ViewScheduleModal
   const handleDeleteFromViewModal = useCallback(async (scheduleData) => {
     try {
       await handleDeleteSchedule(scheduleData);
@@ -157,10 +180,11 @@ const SchedulePage = ({ type = "school" }) => {
     } catch (error) {
       console.error('Error deleting schedule from view modal:', error);
       // ViewScheduleModal will handle error display
+      throw error;
     }
   }, [handleDeleteSchedule]);
 
-  // Handle create/edit modal form submission
+  // FIXED: Handle create/edit modal form submission with better error handling
   const handleModalSubmit = useCallback(async (formData) => {
     try {
       let result;
@@ -173,7 +197,7 @@ const SchedulePage = ({ type = "school" }) => {
         result = await createSchedule(formData);
       }
       
-      // Close modal on success
+      // FIXED: Close modal only on success
       setIsAddModalOpen(false);
       setModalData(null);
       setSelectedTimeSlot(null);
@@ -183,17 +207,14 @@ const SchedulePage = ({ type = "school" }) => {
     } catch (error) {
       console.error("Error submitting schedule:", error);
       
-      // FIXED: Parse error message for better user experience
-      const parsedMessage = parseErrorMessage(error.message);
-      const errorMessage = parsedMessage || 
-        (modalData?.id ? 'Failed to update schedule' : 'Failed to create schedule');
+      // FIXED: Parse error message and show user-friendly error
+      const parsedMessage = parseErrorMessage(error?.response?.data?.message || error.message);
       
-      toast.error(errorMessage);
-      
-      // Re-throw to prevent modal from closing
-      throw error;
+      // FIXED: Don't show toast here - let the mutation in useSchedule handle success/error toasts
+      // Just re-throw to prevent modal from closing
+      throw new Error(parsedMessage);
     }
-  }, [modalData, createSchedule, handleEditSchedule]);
+  }, [modalData, createSchedule, handleEditSchedule, parseErrorMessage]);
 
   const handleAddModalClose = () => {
     setIsAddModalOpen(false);
@@ -212,37 +233,11 @@ const SchedulePage = ({ type = "school" }) => {
 
   // Handle date selection from DatePicker
   const handleDateSelect = (dates) => {
-    console.log('=== SchedulePage handleDateSelect ===');
-    console.log('Received dates from DatePicker:', dates?.map(d => d.toDateString()));
-    
     setSelectedDates(dates);
     if (dates.length > 0) {
       setSelectedDate(dates[0]);
-      console.log('Set selectedDate to:', dates[0].toDateString());
     }
-    console.log('===================================');
   };
-
-  // FIXED: Debug selectedDates changes and prevent auto-current week selection
-  useEffect(() => {
-    console.log('=== SchedulePage selectedDates changed ===');
-    console.log('Current selectedDates:', selectedDates?.map(d => d.toDateString()));
-    
-    // If DatePicker auto-selects current week, reset it
-    if (selectedDates.length > 0) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const hasCurrentDate = selectedDates.some(date => {
-        const normalizedDate = new Date(date);
-        normalizedDate.setHours(0, 0, 0, 0);
-        return normalizedDate.getTime() === today.getTime();
-      });
-      
-      console.log('Selected dates contain current date:', hasCurrentDate);
-    }
-    console.log('=========================================');
-  }, [selectedDates]);
 
   // Handle week selection
   const handleWeekSelect = (weekStart) => {
@@ -275,7 +270,7 @@ const SchedulePage = ({ type = "school" }) => {
     }
   }, [isAddModalOpen, isViewModalOpen]);
 
-  // FIXED: Cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       // Cleanup global functions on unmount
@@ -369,7 +364,7 @@ const SchedulePage = ({ type = "school" }) => {
         </div>
       </div>
 
-      {/* FIXED: Add/Edit Schedule Modal - Standalone (fromViewModal = false) */}
+      {/* Add/Edit Schedule Modal - Standalone */}
       <AddScheduleModal
         isOpen={isAddModalOpen}
         onClose={handleAddModalClose}
@@ -380,12 +375,12 @@ const SchedulePage = ({ type = "school" }) => {
         fromViewModal={false}
       />
 
-      {/* FIXED: View Schedule Modal - Handles edit internally */}
+      {/* View Schedule Modal - Handles edit internally */}
       <ViewScheduleModal
         isOpen={isViewModalOpen}
         onClose={handleViewModalClose}
-        onEdit={handleEditFromViewModal}    // FIXED: Updated handler
-        onDelete={handleDeleteFromViewModal} // FIXED: Updated handler  
+        onEdit={handleEditFromViewModal}
+        onDelete={handleDeleteFromViewModal} 
         scheduleData={viewScheduleData}
         loading={loading.submit}
       />

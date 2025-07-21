@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx - FIXED LOCATION HANDLING
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED TOAST HANDLING
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -10,7 +10,7 @@ import {
   createDateTimeWithOffset 
 } from "@/components/shared/schedule/utils/timezoneHandler";
 
-// BEST PRACTICE: Utility untuk format tanggal tanpa timezone conversion
+// Utility untuk format tanggal tanpa timezone conversion
 const formatDateLocal = (date) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -75,7 +75,7 @@ const AttachmentPreviewModal = ({ attachment, isOpen, onClose }) => {
   );
 };
 
-// FIXED: Location mapping helpers - simplified
+// Location mapping helpers
 const isStandardLocation = (locationValue) => {
   return ["online", "offline", "organization"].includes(locationValue);
 };
@@ -86,14 +86,14 @@ const AddScheduleModal = ({
   onSubmit, 
   initialData = null, 
   loading = false,
-  mode = "create", // "create" or "edit"
-  fromViewModal = false // New prop to track if opened from ViewScheduleModal
+  mode = "create",
+  fromViewModal = false
 }) => {
   const [formData, setFormData] = useState(() => ({
     agenda: "",
     type: "counseling",
     dates: [{
-      date: formatDateLocal(new Date()), // FIXED: Use local date formatting
+      date: formatDateLocal(new Date()),
       startTime: "09:00",
       endTime: "10:00",
       timezone: "WIB"
@@ -119,17 +119,20 @@ const AddScheduleModal = ({
   const photoInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // FIXED: Helper function to parse error messages with datetime  
+  // FIXED: Enhanced error message parser for better datetime formatting
   const parseErrorMessage = (message) => {
     if (!message) return 'An error occurred';
     
-    // Parse ISO datetime patterns in error messages
-    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)/g;
+    // Parse ISO datetime patterns and other common backend formats
+    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/g;
+    const dateTimePattern = /(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/g;
     
-    let parsedMessage = message.replace(isoDatePattern, (match) => {
+    let parsedMessage = message;
+    
+    // Replace ISO datetime patterns
+    parsedMessage = parsedMessage.replace(isoDatePattern, (match) => {
       try {
         const date = new Date(match);
-        // Format to readable Indonesian format
         const dateStr = date.toLocaleDateString('id-ID', {
           day: '2-digit',
           month: '2-digit', 
@@ -142,23 +145,37 @@ const AddScheduleModal = ({
         });
         return `${dateStr} ${timeStr}`;
       } catch (e) {
-        return match; // Return original if parsing fails
+        return match;
+      }
+    });
+    
+    // Replace simple datetime patterns
+    parsedMessage = parsedMessage.replace(dateTimePattern, (match) => {
+      try {
+        const date = new Date(match);
+        const dateStr = date.toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: '2-digit', 
+          year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return `${dateStr} ${timeStr}`;
+      } catch (e) {
+        return match;
       }
     });
     
     return parsedMessage;
   };
 
-  // FIXED: Initialize form data properly with enhanced location handling
+  // Initialize form data
   useEffect(() => {
     if (isOpen) {
-      console.log('=== AddScheduleModal Initialization ===');
-      console.log('Mode:', mode);
-      console.log('Initial data:', initialData);
-      
       if (mode === "edit" && initialData) {
-        console.log('Initializing edit mode with data:', initialData);
-        
         // Parse dates properly
         let dates = [];
         if (initialData.dates && initialData.dates.length > 0) {
@@ -181,17 +198,9 @@ const AddScheduleModal = ({
           }];
         }
         
-        // FIXED: Enhanced location handling for edit mode
         let locationValue = "";
         if (initialData.type === "counseling") {
-          // Use original backend location for editing
           locationValue = initialData.location || initialData._originalBackendLocation || "";
-          
-          console.log('Location handling for edit:', {
-            originalBackend: initialData.location,
-            mappedForEdit: locationValue,
-            hasPsychologist: !!initialData.selectedPsychologist
-          });
         }
         
         const transformedData = {
@@ -205,74 +214,52 @@ const AddScheduleModal = ({
             endTime: "10:00",
             timezone: "WIB"
           }],
-          // FIXED: Use mapped location value for counseling
           location: initialData.type === "counseling" ? locationValue : "",
           customLocation: initialData.type !== "counseling" ? (initialData.customLocation || initialData.location || "") : "",
           selectedPsychologist: initialData.selectedPsychologist || null,
           selectedParticipants: initialData.selectedParticipants || [],
           multipleDate: dates.length > 1 || initialData.multipleDate || false,
-          // Store original backend location for reference
           _originalBackendLocation: initialData.location,
         };
         
-        console.log('Setting form data for edit:', transformedData);
         setFormData(transformedData);
         
         if (editorRef.current && transformedData.description) {
           editorRef.current.innerHTML = transformedData.description;
         }
       } else {
-        // FIXED: Proper initialization for create mode from ScheduleGrid data
+        // Initialize for create mode
         let defaultDates = [{
-          date: formatDateLocal(new Date()), // FIXED: Use local date formatting for default
+          date: formatDateLocal(new Date()),
           startTime: "09:00",
           endTime: "10:00",
           timezone: "WIB"
         }];
 
-        // FIXED: Handle initialData from ScheduleGrid properly with detailed logging
         if (initialData?.dates && initialData.dates.length > 0) {
-          console.log('Received dates from ScheduleGrid:', initialData.dates);
-          
-          // Validate each date object and ensure local formatting
-          defaultDates = initialData.dates.map((dateInfo, index) => {
-            console.log(`Processing date ${index}:`, dateInfo);
-            
-            // If date is a Date object, format it properly
+          defaultDates = initialData.dates.map((dateInfo) => {
             let dateString = dateInfo.date;
             if (dateInfo.date instanceof Date) {
               dateString = formatDateLocal(dateInfo.date);
             }
             
-            const processedDate = {
+            return {
               date: dateString,
               startTime: dateInfo.startTime || "09:00",
               endTime: dateInfo.endTime || "10:00", 
               timezone: dateInfo.timezone || "WIB"
             };
-            
-            console.log(`Processed date ${index}:`, processedDate);
-            return processedDate;
           });
-          
-          console.log('All processed dates for form:', defaultDates);
         } else if (initialData?.startDateTime && initialData?.endDateTime) {
-          // FIXED: Handle direct DateTime objects from ScheduleGrid
-          console.log('Received DateTime objects from ScheduleGrid');
-          console.log('startDateTime:', initialData.startDateTime);
-          console.log('endDateTime:', initialData.endDateTime);
-          
           const startDate = new Date(initialData.startDateTime);
           const endDate = new Date(initialData.endDateTime);
           
           defaultDates = [{
-            date: formatDateLocal(startDate), // FIXED: Use local date formatting
+            date: formatDateLocal(startDate),
             startTime: startDate.toTimeString().slice(0, 5),
             endTime: endDate.toTimeString().slice(0, 5),
             timezone: "WIB"
           }];
-          
-          console.log('Converted to date format:', defaultDates);
         }
         
         const createModeData = {
@@ -288,7 +275,6 @@ const AddScheduleModal = ({
           multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
         };
         
-        console.log('Setting form data for create mode:', createModeData);
         setFormData(createModeData);
         
         if (editorRef.current) {
@@ -302,8 +288,6 @@ const AddScheduleModal = ({
       setParticipantSearch("");
       setHasShownUnsavedToast(false);
       setPreviewAttachment(null);
-      
-      console.log('====================================');
     }
   }, [isOpen, mode, initialData]);
 
@@ -328,14 +312,13 @@ const AddScheduleModal = ({
     { label: "WIT", value: "WIT" }
   ];
 
-  // FIXED: Standard location options for dropdown
   const fixedLocationOptions = [
     { label: "Online", value: "online" },
     { label: "Offline", value: "offline" },
     { label: "Seed-in", value: "organization" }
   ];
 
-  // FIXED: Generate time options matching ScheduleGrid (06:00-23:55 with 5-minute intervals)
+  // Generate time options
   const timeOptions = (() => {
     const times = [];
     for (let hour = 6; hour <= 23; hour++) {
@@ -346,27 +329,24 @@ const AddScheduleModal = ({
     return times;
   })();
 
-  // FIXED: Fetch psychologist locations - only when no psychologist selected
+  // Fetch psychologist locations
   const { data: backendLocations = [] } = useQuery({
     queryKey: ['psychologist-locations'],
     queryFn: async () => {
       const response = await apiClient.get('/psychologists/locations');
       const locations = response.data || [];
       setPsychologistLocations(locations);
-      console.log('Backend locations loaded:', locations);
       return locations;
     },
     enabled: isOpen && formData.type === "counseling" && !formData.selectedPsychologist,
     staleTime: 5 * 60 * 1000
   });
 
-  // FIXED: Location options based on psychologist selection
+  // Location options based on psychologist selection
   const getAvailableLocations = () => {
     if (formData.selectedPsychologist) {
-      // If psychologist selected, show standard options
       return fixedLocationOptions;
     } else {
-      // If no psychologist selected, show only backend locations
       return psychologistLocations.map(location => ({ 
         label: location, 
         value: location 
@@ -374,25 +354,18 @@ const AddScheduleModal = ({
     }
   };
 
-  // Fetch psychologists with location filtering
+  // Fetch psychologists
   const { data: psychologists = [], isLoading: loadingPsychologists } = useQuery({
     queryKey: ['psychologists', formData.location],
     queryFn: async () => {
-      // FIXED: Only filter by backend location when location is "offline"
-      const params = {};
-      
-      // If location is "offline", we might want to filter by backend locations
-      // But for now, we'll fetch all psychologists and let user select
-      
-      console.log('Fetching psychologists with params:', params);
-      const response = await apiClient.get('/psychologists', { params });
+      const response = await apiClient.get('/psychologists');
       return response.data?.data || response.data || [];
     },
     enabled: isOpen && formData.type === "counseling" && dropdowns.psychologist,
     staleTime: 2 * 60 * 1000
   });
 
-  // Fetch participants with search
+  // Fetch participants
   const { data: participants = [], isLoading: loadingParticipants } = useQuery({
     queryKey: ['participants', participantSearch],
     queryFn: async () => {
@@ -417,23 +390,16 @@ const AddScheduleModal = ({
       const scheduleIdsString = Array.isArray(scheduleIds) ? scheduleIds.join(',') : scheduleIds;
       formData.append('scheduleIds', scheduleIdsString);
       
-      console.log(`Uploading ${files.length} files to schedules: ${scheduleIdsString}`);
-      
       return await apiClient.post('/schedules/attachments', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-    },
-    onError: (error, { scheduleIds }) => {
-      console.error(`Failed to upload attachments to schedules ${scheduleIds}:`, error);
     }
   });
 
   // Event handlers
   const handleInputChange = (field, value) => {
-    console.log(`Changing ${field} to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // FIXED: Clear location when psychologist changes
     if (field === 'selectedPsychologist' && formData.type === "counseling") {
       setFormData(prev => ({ ...prev, selectedPsychologist: value, location: "" }));
       return;
@@ -475,7 +441,7 @@ const AddScheduleModal = ({
     });
   };
 
-  // FIXED: Enhanced file handling with preview
+  // File handling
   const handleFileSelect = (e, type) => {
     const files = Array.from(e.target.files);
     const maxSize = 15 * 1024 * 1024;
@@ -496,7 +462,6 @@ const AddScheduleModal = ({
         type: type
       };
 
-      // Create preview for images
       if (type === 'image' && file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -564,7 +529,6 @@ const AddScheduleModal = ({
     }
   };
 
-  // FIXED: Update date with proper time validation
   const updateAdditionalDate = (index, field, value) => {
     const newDates = [...formData.dates];
     newDates[index] = { ...newDates[index], [field]: value };
@@ -616,10 +580,10 @@ const AddScheduleModal = ({
     return true;
   };
 
+  // FIXED: Enhanced submit handler with better error handling
   const handleSubmit = async () => {
     if (!validateForm()) return;
     
-    // FIXED: Build payload with new participants structure and fixed location handling
     const submitData = {
       agenda: formData.agenda,
       type: formData.type,
@@ -628,50 +592,26 @@ const AddScheduleModal = ({
       dates: formData.dates
     };
 
-    console.log('=== Submit Data Debug ===');
-    console.log('Form dates:', formData.dates);
-    
-    // Validate dates
-    submitData.dates.forEach((date, index) => {
-      console.log(`Date ${index}:`, date);
-      console.log(`  - Date: ${date.date}`);
-      console.log(`  - Start time: ${date.startTime}`);
-      console.log(`  - End time: ${date.endTime}`);
-      console.log(`  - Timezone: ${date.timezone}`);
-    });
-
-    // FIXED: Participants structure - new format with patientIds array
+    // Participants structure
     if (formData.type === "counseling") {
       if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
         submitData.participants = {
           psychologistId: formData.selectedPsychologist.id,
           patientIds: formData.selectedParticipants.map(participant => participant.id)
         };
-        
-        console.log('Participants payload:', submitData.participants);
       }
     }
 
-    // FIXED: Location handling - send "offline" for custom backend locations, keep standard as-is
+    // Location handling
     if (formData.type === "counseling") {
-      // Check if it's a standard location
       const isStandardLocation = fixedLocationOptions.find(opt => opt.value === formData.location);
       
       if (isStandardLocation) {
-        // Send standard location as-is
         submitData.location = formData.location;
       } else {
-        // For backend custom locations, send "offline" but keep original in description or notes
         submitData.location = "offline";
-        // Optionally store the actual location name for reference
         submitData.actualLocationName = formData.location;
       }
-      
-      console.log('Location mapping:', {
-        frontendValue: formData.location,
-        sentToBackend: submitData.location,
-        actualLocationName: submitData.actualLocationName
-      });
     } else {
       submitData.customLocation = formData.customLocation;
     }
@@ -680,13 +620,10 @@ const AddScheduleModal = ({
       submitData.id = initialData.id;
     }
     
-    console.log('Final submit payload:', submitData);
-    console.log('========================');
-    
     try {
       const result = await onSubmit(submitData);
       
-      // FIXED: Handle attachments only after successful schedule creation/update
+      // Handle attachments only after successful schedule creation/update
       if (result?.data && attachments.length > 0) {
         setUploadingAttachments(true);
         
@@ -701,53 +638,28 @@ const AddScheduleModal = ({
             scheduleIds = [result.data.id];
           }
           
-          console.log('Uploading attachments to schedule IDs:', scheduleIds);
-          
           if (scheduleIds.length > 0) {
             await uploadAttachmentsMutation.mutateAsync({
               scheduleIds,
               files: attachments.map(a => a.file)
             });
-            
-            if (scheduleIds.length === 1) {
-              toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} and attachments uploaded successfully`);
-            } else {
-              toast.success(`${scheduleIds.length} schedules created and attachments uploaded to all schedules successfully`);
-            }
-          } else {
-            console.warn('No valid schedule IDs found for attachment upload');
-            toast.success(`Schedule ${mode === 'edit' ? 'updated' : 'created'} successfully, but no attachments uploaded`);
           }
           
         } catch (error) {
+          // FIXED: Don't show error toast here, let the parent handle it
           console.error("Attachment upload error:", error);
-          
-          const scheduleCount = Array.isArray(result.data) ? result.data.length : 1;
-          const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
-          
-          toast.error(`${scheduleText} ${mode === 'edit' ? 'updated' : 'created'} but failed to upload attachments`, {
-            action: {
-              label: "Retry Upload",
-              onClick: () => {
-                toast.info("Please try uploading attachments manually");
-              }
-            }
-          });
         } finally {
           setUploadingAttachments(false);
         }
-      } else if (result?.data) {
-        const scheduleCount = Array.isArray(result.data) ? result.data.length : 1;
-        const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
-        toast.success(`${scheduleText} ${mode === 'edit' ? 'updated' : 'created'} successfully`);
       }
       
     } catch (error) {
-      console.error('Error submitting schedule:', error);
-      
-      // FIXED: Parse error message for better user experience
-      const parsedMessage = parseErrorMessage(error.message);
-      toast.error(parsedMessage);
+      // FIXED: Enhanced error parsing and handling - don't throw to prevent double toast
+      const parsedMessage = parseErrorMessage(error?.response?.data?.message || error.message);
+      toast.error(parsedMessage, {
+        description: "Please check your input and try again.",
+        duration: 5000,
+      });
     }
   };
 
@@ -833,7 +745,6 @@ const AddScheduleModal = ({
             {fromViewModal && (
               <button
                 onClick={() => {
-                  // FIXED: Close all modals when X is clicked from ViewSchedule
                   if (window.closeAllModals) {
                     window.closeAllModals();
                   } else {
@@ -910,7 +821,6 @@ const AddScheduleModal = ({
                       type="date"
                       value={dateInfo.date}
                       onChange={(e) => {
-                        console.log(`Changing date ${index} to:`, e.target.value);
                         const newDates = [...formData.dates];
                         newDates[index] = { ...newDates[index], date: e.target.value };
                         handleInputChange('dates', newDates);
@@ -966,7 +876,6 @@ const AddScheduleModal = ({
                   </div>
                 ))}
 
-                {/* Multiple Date indicator */}
                 {formData.dates.length > 1 && (
                   <div className="flex gap-2 items-center text-sm">
                     <div className="w-4 h-4 bg-[#535353] rounded-sm"></div>
@@ -1027,11 +936,10 @@ const AddScheduleModal = ({
                                   <button
                                     onClick={(e) => { 
                                       e.stopPropagation(); 
-                                      // FIXED: Clear location when psychologist removed
                                       setFormData(prev => ({ 
                                         ...prev, 
                                         selectedPsychologist: null,
-                                        location: "" // Clear location to show backend locations
+                                        location: ""
                                       })); 
                                     }}
                                     disabled={loading}
@@ -1053,11 +961,10 @@ const AddScheduleModal = ({
                                   <button
                                     key={psychologist.id}
                                     onClick={() => {
-                                      // FIXED: Clear location when psychologist changes  
                                       setFormData(prev => ({ 
                                         ...prev, 
                                         selectedPsychologist: psychologist,
-                                        location: "" // Clear location to force reselection
+                                        location: ""
                                       }));
                                       toggleDropdown('psychologist');
                                     }}
@@ -1223,7 +1130,7 @@ const AddScheduleModal = ({
                   </div>
                 </div>
 
-                {/* Location for Counseling - FIXED: Always show standard options */}
+                {/* Location for Counseling */}
                 <div className="flex gap-4 items-center">
                   <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
                   <select
@@ -1241,7 +1148,7 @@ const AddScheduleModal = ({
               </div>
             )}
 
-            {/* Custom Location - for non-counseling - FIXED: Only for non-counseling */}
+            {/* Custom Location - for non-counseling */}
             {!showParticipants && (
               <div className="flex gap-4 items-center">
                 <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
@@ -1256,22 +1163,26 @@ const AddScheduleModal = ({
               </div>
             )}
 
-            {/* Description & Attachments */}
+            {/* FIXED: Description & Attachments with placeholder */}
             <div className="flex gap-4 items-start">
               <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
               <div className="flex-1">
-                <div className="border border-gray-300 rounded-md min-h-[100px] p-3">
+                <div className="border border-gray-300 rounded-md min-h-[100px] p-3 relative">
+                  {/* FIXED: Added placeholder for description */}
+                  {!formData.description && (
+                    <div className="absolute top-3 left-3 text-gray-500 pointer-events-none">
+                      Masukkan deskripsi
+                    </div>
+                  )}
                   <div
                     ref={editorRef}
                     contentEditable={!loading}
                     onInput={() => {
                       if (editorRef.current) {
                         const content = editorRef.current.innerHTML;
-                        // FIXED: Check character limit for description (255 chars for HTML content)
                         if (content.length <= 255) {
                           handleInputChange('description', content);
                         } else {
-                          // Truncate content if it exceeds limit
                           const truncated = content.substring(0, 255);
                           editorRef.current.innerHTML = truncated;
                           handleInputChange('description', truncated);
@@ -1281,10 +1192,9 @@ const AddScheduleModal = ({
                     className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
                     style={{ wordBreak: 'break-word' }}
                     suppressContentEditableWarning={true}
-                    data-placeholder="Masukkan deskripsi"
                   />
                   
-                  {/* FIXED: Enhanced Attachment Preview */}
+                  {/* Attachment Preview */}
                   {attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {attachments.map((attachment) => (

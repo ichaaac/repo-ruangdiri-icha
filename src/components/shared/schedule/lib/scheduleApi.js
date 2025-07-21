@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - FIXED LOCATION MAPPING & VALIDATION
+// src/components/shared/schedule/lib/scheduleApi.js - CLEANED UP & OPTIMIZED
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -36,9 +36,8 @@ export const createScheduleApi = (organizationType = "school") => {
     return 'WIB';
   }
 
-  // FIXED: Location display logic - handle customLocation for non-counseling
+  // Location display logic
   const getLocationDisplay = (schedule) => {
-    // For counseling: use location field
     if (schedule.type === "counseling") {
       const location = schedule.location;
       if (location === "online") {
@@ -48,11 +47,9 @@ export const createScheduleApi = (organizationType = "school") => {
       } else if (location === "organization" || location === "seed-in") {
         return "Seed-in";
       } else if (location) {
-        // FIXED: For custom backend locations, show the actual location name
         return location;
       }
     } else {
-      // For non-counseling: use customLocation field
       const customLocation = schedule.customLocation;
       if (customLocation) {
         return customLocation;
@@ -87,25 +84,21 @@ export const createScheduleApi = (organizationType = "school") => {
         })
       };
     } catch (error) {
-      console.error('Error formatting counseling datetime:', error);
       return { date: 'TBD', time: 'TBD' };
     }
   };
 
-  // FIXED: Transform schedule data from new API response format
+  // Transform schedule data from API response
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
-      // Convert UTC times to local for display
       const startDateTimeLocal = new Date(schedule.startDateTime);
       const endDateTimeLocal = new Date(schedule.endDateTime);
       
       const baseTransform = {
         ...schedule,
         displayName: schedule.agenda,
-        // Convert dates to local times for processing
         startDateTime: startDateTimeLocal.toISOString(),
         endDateTime: endDateTimeLocal.toISOString(),
-        // Add local time strings for display
         startTime: startDateTimeLocal.toLocaleTimeString('en-GB', { 
           hour: '2-digit', 
           minute: '2-digit' 
@@ -114,9 +107,7 @@ export const createScheduleApi = (organizationType = "school") => {
           hour: '2-digit', 
           minute: '2-digit' 
         }),
-        // Enhanced location display
         locationDisplay: getLocationDisplay(schedule),
-        // Parse participants from usersSchedules
         participants: schedule.usersSchedules?.map((us) => ({
           ...us.user,
           role: us.user.role,
@@ -135,15 +126,12 @@ export const createScheduleApi = (organizationType = "school") => {
                 position: us.user.profile?.position,
               }),
         })) || [],
-        // Enhanced timezone display with fallbacks
         timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
-        // Include attachment count and zoom info
         attachmentCount: schedule.attachments?.length || 0,
         attachments: schedule.attachments || [],
         hasZoomMeeting: !!(schedule.zoomJoinUrl || schedule.zoomStartUrl),
         zoomJoinUrl: schedule.zoomJoinUrl || null,
         zoomStartUrl: schedule.zoomStartUrl || null,
-        // Add date breakdown for easier processing
         dates: [{
           date: startDateTimeLocal.toISOString().split('T')[0],
           startTime: startDateTimeLocal.toLocaleTimeString('en-GB', { 
@@ -179,7 +167,7 @@ export const createScheduleApi = (organizationType = "school") => {
     })
   }
 
-  // Transform counseling queue data - FIXED for new API structure
+  // Transform counseling queue data
   const transformCounselingData = (counselings, orgType) => {
     return counselings.map((counseling) => {
       const users = counseling.users || []
@@ -254,33 +242,28 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
-  // FIXED: Data validation helper
+  // Data validation helper
   const validateScheduleData = (data) => {
     const errors = [];
     
-    // Agenda validation
     if (!data.agenda || data.agenda.trim().length === 0) {
       errors.push('Agenda is required');
     } else if (data.agenda.trim().length > 255) {
       errors.push('Agenda cannot exceed 255 characters');
     }
     
-    // FIXED: Description validation - allow up to 255 characters
     if (data.description && data.description.length > 255) {
       errors.push('Description cannot exceed 255 characters');
     }
     
-    // Type validation
     if (!data.type || !['counseling', 'class', 'seminar', 'others'].includes(data.type)) {
       errors.push('Invalid schedule type');
     }
     
-    // Dates validation
     if (!data.dates || !Array.isArray(data.dates) || data.dates.length === 0) {
       errors.push('At least one date is required');
     }
     
-    // Counseling specific validation
     if (data.type === 'counseling') {
       if (!data.participants || !data.participants.psychologistId) {
         errors.push('Psychologist is required for counseling');
@@ -306,17 +289,12 @@ export const createScheduleApi = (organizationType = "school") => {
           timezone: params.timezone || "WIB",
         }
 
-        console.log("Fetching schedules with params:", formattedParams)
-
         const response = await apiClient.get("/schedules", {
           params: formattedParams,
         })
 
-        console.log("Raw API response:", response.data);
-
         if (response.data?.status === "success") {
           const transformedData = transformScheduleData(response.data.data, organizationType);
-          console.log("Transformed schedules:", transformedData);
           
           return {
             ...response,
@@ -335,16 +313,12 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async checkScheduleExists(params) {
       try {
-        console.log("Checking schedule availability:", params)
-
         const response = await apiClient.post("/schedules/check-exists", {
           date: params.date,
           startTime: params.startTime,
           endTime: params.endTime,
           timezone: params.timezone || "WIB",
         })
-
-        console.log("Check exists response:", response.data)
 
         if (response.data?.status === "success") {
           return {
@@ -373,7 +347,6 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async createSchedule(scheduleData) {
       try {
-        // FIXED: Validate data before sending
         const validationErrors = validateScheduleData(scheduleData);
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
@@ -392,16 +365,14 @@ export const createScheduleApi = (organizationType = "school") => {
           })),
         }
 
-        // FIXED: Handle new participants structure with patientIds array
+        // Handle new participants structure
         if (scheduleData.type === "counseling" && scheduleData.participants) {
           if (scheduleData.participants.psychologistId && scheduleData.participants.patientIds) {
-            // New format: { psychologistId, patientIds: [...] }
             transformedData.participants = {
               psychologistId: scheduleData.participants.psychologistId,
               patientIds: scheduleData.participants.patientIds
             };
           } else if (scheduleData.selectedPsychologist && scheduleData.selectedParticipants) {
-            // Legacy format conversion
             transformedData.participants = {
               psychologistId: scheduleData.selectedPsychologist.id,
               patientIds: scheduleData.selectedParticipants.map(p => p.id)
@@ -409,13 +380,12 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        // FIXED: Location handling - send "offline" for custom locations, standard as-is
+        // Location handling
         if (scheduleData.type === "counseling") {
           const standardLocations = ["online", "offline", "organization"];
           if (standardLocations.includes(scheduleData.location)) {
             transformedData.location = scheduleData.location;
           } else {
-            // For custom backend locations, send "offline"
             transformedData.location = "offline";
           }
         } else {
@@ -425,12 +395,9 @@ export const createScheduleApi = (organizationType = "school") => {
         if (scheduleData.id) {
           transformedData.id = scheduleData.id;
         }
-        
-        console.log("Creating schedule with data:", transformedData)
 
         const response = await apiClient.post("/schedules", transformedData)
         
-        // FIXED: Return transformed response for better integration
         if (response.data?.status === "success") {
           return {
             ...response,
@@ -450,7 +417,6 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async updateSchedule(scheduleId, scheduleData) {
       try {
-        // FIXED: Validate data before sending
         const validationErrors = validateScheduleData(scheduleData);
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
@@ -469,16 +435,14 @@ export const createScheduleApi = (organizationType = "school") => {
           })),
         }
 
-        // FIXED: Handle new participants structure with patientIds array
+        // Handle new participants structure
         if (scheduleData.type === "counseling" && scheduleData.participants) {
           if (scheduleData.participants.psychologistId && scheduleData.participants.patientIds) {
-            // New format: { psychologistId, patientIds: [...] }
             transformedData.participants = {
               psychologistId: scheduleData.participants.psychologistId,
               patientIds: scheduleData.participants.patientIds
             };
           } else if (scheduleData.selectedPsychologist && scheduleData.selectedParticipants) {
-            // Legacy format conversion
             transformedData.participants = {
               psychologistId: scheduleData.selectedPsychologist.id,
               patientIds: scheduleData.selectedParticipants.map(p => p.id)
@@ -486,24 +450,20 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        // FIXED: Location handling - send "offline" for custom locations, standard as-is
+        // Location handling
         if (scheduleData.type === "counseling") {
           const standardLocations = ["online", "offline", "organization"];
           if (standardLocations.includes(scheduleData.location)) {
             transformedData.location = scheduleData.location;
           } else {
-            // For custom backend locations, send "offline"
             transformedData.location = "offline";
           }
         } else {
           transformedData.customLocation = scheduleData.customLocation;
         }
 
-        console.log("Updating schedule with data:", transformedData)
-
         const response = await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
         
-        // FIXED: Return transformed response for better integration
         if (response.data?.status === "success") {
           return {
             ...response,
@@ -531,18 +491,13 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // FIXED: Get schedule detail by ID with proper transformation
+    // Get schedule detail by ID
     async getScheduleById(scheduleId) {
       try {
-        console.log("Fetching schedule detail for ID:", scheduleId);
-        
         const response = await apiClient.get(`/schedules/${scheduleId}`)
-
-        console.log("Raw schedule detail response:", response.data);
 
         if (response.data?.status === "success") {
           const transformedData = transformScheduleData([response.data.data], organizationType)[0];
-          console.log("Transformed schedule detail:", transformedData);
           
           return {
             ...response,
@@ -575,15 +530,9 @@ export const createScheduleApi = (organizationType = "school") => {
           formData.append('files', file);
         });
 
-        console.log(`Uploading ${files.length} attachments to schedule ${scheduleId}`);
-
         const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            console.log(`Upload progress: ${percentCompleted}%`);
           }
         });
 
@@ -618,8 +567,6 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async getCounselingQueue(params = {}) {
       try {
-        console.log("Fetching counseling queue...")
-
         const response = await apiClient.get("/counselings/schedules", { params })
 
         if (response.data?.status === "success") {
