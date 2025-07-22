@@ -114,7 +114,7 @@ const Layout = ({
       {/* FIXED: Responsive Sidebar with dashboard metrics */}
       <Sidebar 
         expanded={expanded} 
-        setExpanded={setExpanded} 
+      setExpanded={setExpanded} 
         onHoverChange={setSidebarHovered}
         organizationType={organizationType}
         menuItems={menuItems}

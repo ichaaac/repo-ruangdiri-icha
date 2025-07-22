@@ -10,7 +10,6 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const queryClient = useQueryClient();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
   // Update preview when currentProfilePicture changes
   useEffect(() => {

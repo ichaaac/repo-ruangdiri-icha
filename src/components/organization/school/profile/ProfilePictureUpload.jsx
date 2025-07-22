@@ -9,11 +9,6 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const queryClient = useQueryClient();
-  
-  // Fix the API_URL definition by providing a fallback
-  // const API_URL = import.meta.env.VITE_API_URL || "";
-
-  // Update preview when currentProfilePicture changes
   useEffect(() => {
     setPreviewImage(currentProfilePicture);
   }, [currentProfilePicture]);

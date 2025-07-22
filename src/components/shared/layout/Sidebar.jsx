@@ -313,7 +313,7 @@ const Sidebar = ({
             <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
           </div>
 
-          {/* Navigation Menu */}
+          {/* Navigatnotion Menu */}
           <div className={`flex flex-col gap-y-1`}>
             {finalMenuItems.map((item, index) => (
               <div key={index}>

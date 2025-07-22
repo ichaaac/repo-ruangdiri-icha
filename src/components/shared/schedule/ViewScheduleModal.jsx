@@ -197,12 +197,10 @@ const ViewScheduleModal = ({
   const getAttachmentUrl = (attachment) => {
     if (!attachment.fileUrl) return null;
     
-    // Check if it's already a full URL
     if (attachment.fileUrl.startsWith('http://') || attachment.fileUrl.startsWith('https://')) {
       return attachment.fileUrl;
     }
     
-    // Use VITE_UPLOAD_URL for file URLs
     const uploadUrl = import.meta.env.VITE_UPLOAD_URL || import.meta.env.VITE_API_URL || '';
     return `${uploadUrl}${attachment.fileUrl}`;
   };
