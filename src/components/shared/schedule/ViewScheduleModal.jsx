@@ -307,14 +307,19 @@ const ViewScheduleModal = ({
     return isImage ? 'Preview' : 'Download';
   };
 
-  // Enhanced edit handling
+  // FIXED: Enhanced edit handling with proper state management
   const handleEdit = () => {
     if (loading || isLoadingDetail) return;
+    console.log('=== ViewScheduleModal handleEdit ===');
+    console.log('Opening edit modal for schedule:', scheduleData.id);
     setShowEditModal(true);
   };
 
   const handleEditSubmit = async (formData) => {
     try {
+      console.log('=== ViewScheduleModal handleEditSubmit ===');
+      console.log('Submitting edit for schedule:', scheduleData.id);
+      
       if (onEdit) {
         const result = await onEdit(scheduleData.id, formData);
         
@@ -342,7 +347,9 @@ const ViewScheduleModal = ({
           setScheduleData(updatedScheduleData);
         }
         
-        // Close all modals immediately
+        // FIXED: Close all modals immediately and clear edit state
+        console.log('Edit successful, closing all modals');
+        setShowEditModal(false);
         onClose();
       }
     } catch (error) {
@@ -351,9 +358,12 @@ const ViewScheduleModal = ({
     }
   };
 
+  // FIXED: Enhanced delete handler with proper state cleanup
   const handleDelete = () => {
     if (onDelete && !loading && !isLoadingDetail) {
       if (window.confirm("Apakah Anda yakin ingin menghapus jadwal ini?")) {
+        console.log('=== ViewScheduleModal handleDelete ===');
+        console.log('Deleting schedule:', scheduleData.id);
         onDelete(scheduleData);
       }
     }
@@ -361,8 +371,16 @@ const ViewScheduleModal = ({
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
+      console.log('=== ViewScheduleModal overlay clicked ===');
       onClose();
     }
+  };
+
+  // FIXED: Handle edit modal close with proper state cleanup
+  const handleEditModalClose = () => {
+    console.log('=== ViewScheduleModal edit modal closing ===');
+    setShowEditModal(false);
+    // Don't close the view modal, just the edit modal
   };
 
   // Prepare edit data with proper location handling
@@ -663,11 +681,11 @@ const ViewScheduleModal = ({
       </div>
       )}
 
-      {/* Edit Modal - Replace ViewSchedule instead of overlay */}
+      {/* FIXED: Edit Modal - Replace ViewSchedule instead of overlay with proper close handler */}
       {showEditModal && (
         <AddScheduleModal
           isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
+          onClose={handleEditModalClose}
           onSubmit={handleEditSubmit}
           initialData={prepareEditData()}
           loading={loading}

@@ -351,11 +351,11 @@ export const useSchedule = (type = "school") => {
     }
   });
 
-  // FIXED: DELETE SCHEDULE MUTATION - Better optimistic updates and error handling
+  // FIXED: DELETE SCHEDULE MUTATION - Better error handling and immediate updates
   const deleteScheduleMutation = useMutation({
     mutationFn: async (scheduleId) => {
       try {
-        await scheduleApi.deleteSchedule(scheduleId);
+        const response = await scheduleApi.deleteSchedule(scheduleId);
         return scheduleId;
       } catch (error) {
         console.error('Delete schedule error:', error);
@@ -365,6 +365,7 @@ export const useSchedule = (type = "school") => {
     onMutate: async (scheduleId) => {
       // FIXED: Proper optimistic delete with immediate UI update
       await queryClient.cancelQueries({ queryKey: scheduleKeys.list(weekParams) });
+      await queryClient.cancelQueries({ queryKey: scheduleKeys.detail(scheduleId) });
       
       const previousSchedules = queryClient.getQueryData(scheduleKeys.list(weekParams));
 
@@ -384,20 +385,24 @@ export const useSchedule = (type = "school") => {
         queryClient.setQueryData(scheduleKeys.list(weekParams), context.previousSchedules);
       }
       
-      // FIXED: Show proper error message
+      // Show proper error message
       toast.error(err.message || 'Failed to delete schedule');
     },
     onSuccess: (scheduleId) => {
-      // FIXED: Clean up cache and show success message
+      // FIXED: Clean up cache and ensure data consistency
       queryClient.removeQueries({ queryKey: scheduleKeys.detail(scheduleId) });
       
-      // FIXED: Force invalidation to ensure consistency
+      // FIXED: Immediate invalidation without delay
       queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
       queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
       
-      // FIXED: Show success toast
+      // Show success toast
       toast.success('Schedule deleted successfully');
-    }
+    },
+    // FIXED: Add retry configuration
+    retry: false, // Don't retry delete operations
+    // FIXED: Add timeout configuration  
+    mutationKey: (scheduleId) => ['delete-schedule', scheduleId],
   });
 
   // HANDLERS

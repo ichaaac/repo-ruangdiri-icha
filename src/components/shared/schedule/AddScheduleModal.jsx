@@ -1,4 +1,4 @@
-// src/components/shared/schedule/AddScheduleModal.jsx 
+// src/components/shared/schedule/AddScheduleModal.jsx - FIXED TOAST HANDLING
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -123,7 +123,7 @@ const AddScheduleModal = ({
   const parseErrorMessage = (message) => {
     if (!message) return 'An error occurred';
     
-    // Parse ISO datetime patterns and other common backend formats
+    // Parse ISO datetime \terns and other common backend formats
     const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/g;
     const dateTimePattern = /(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/g;
     
@@ -172,7 +172,7 @@ const AddScheduleModal = ({
     return parsedMessage;
   };
 
-  // Initialize form data
+  // FIXED: Initialize form data with cleaner logging
   useEffect(() => {
     if (isOpen) {
       if (mode === "edit" && initialData) {
@@ -282,14 +282,14 @@ const AddScheduleModal = ({
         }
       }
       
-      // Reset other state
+      // Reset other state completely
       setAttachments([]);
       setDropdowns({});
       setParticipantSearch("");
       setHasShownUnsavedToast(false);
       setPreviewAttachment(null);
     }
-  }, [isOpen, mode, initialData]);
+  }, [isOpen, mode, initialData, fromViewModal]);
 
   // Event types
   const eventTypes = [

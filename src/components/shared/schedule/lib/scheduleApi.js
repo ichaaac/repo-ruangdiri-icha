@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - CLEANED UP & OPTIMIZED
+// src/components/shared/schedule/lib/scheduleApi.js - UPDATED WITH SELECTIVE UPDATE SUPPORT
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -273,7 +273,7 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
-  // Data validation helper
+  // Data validation helper for create
   const validateScheduleData = (data) => {
     const errors = [];
     
@@ -305,6 +305,49 @@ export const createScheduleApi = (organizationType = "school") => {
       if (!data.location) {
         errors.push('Location is required for counseling');
       }
+    }
+    
+    return errors;
+  };
+
+  // FIXED: Data validation helper for update - only validate changed fields
+  const validateScheduleUpdateData = (data) => {
+    const errors = [];
+    
+    // Only validate fields that are being updated
+    if (data.hasOwnProperty('agenda')) {
+      if (!data.agenda || data.agenda.trim().length === 0) {
+        errors.push('Agenda cannot be empty');
+      } else if (data.agenda.trim().length > 255) {
+        errors.push('Agenda cannot exceed 255 characters');
+      }
+    }
+    
+    if (data.hasOwnProperty('description') && data.description && data.description.length > 255) {
+      errors.push('Description cannot exceed 255 characters');
+    }
+    
+    if (data.hasOwnProperty('type') && (!data.type || !['counseling', 'class', 'seminar', 'others'].includes(data.type))) {
+      errors.push('Invalid schedule type');
+    }
+    
+    if (data.hasOwnProperty('dates') && (!data.dates || !Array.isArray(data.dates) || data.dates.length === 0)) {
+      errors.push('At least one date is required');
+    }
+    
+    // If participants are being updated, validate them
+    if (data.hasOwnProperty('participants')) {
+      if (!data.participants || !data.participants.psychologistId) {
+        errors.push('Psychologist is required for counseling');
+      }
+      if (!data.participants || !data.participants.patientIds || data.participants.patientIds.length === 0) {
+        errors.push('At least one patient is required for counseling');
+      }
+    }
+    
+    // If location is being updated for counseling, validate it
+    if (data.hasOwnProperty('location') && !data.location) {
+      errors.push('Location is required for counseling');
     }
     
     return errors;
@@ -462,28 +505,50 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
+    // FIXED: Updated updateSchedule to support selective updates
     async updateSchedule(scheduleId, scheduleData) {
       try {
-        const validationErrors = validateScheduleData(scheduleData);
+        console.log('=== updateSchedule API call ===');
+        console.log('Schedule ID:', scheduleId);
+        console.log('Update data received:', scheduleData);
+
+        // FIXED: Use selective validation for update
+        const validationErrors = validateScheduleUpdateData(scheduleData);
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
         }
 
-        const transformedData = {
-          agenda: scheduleData.agenda.trim(),
-          description: (scheduleData.description || "").trim(),
-          notificationOffset: scheduleData.notificationOffset,
-          type: scheduleData.type,
-          dates: scheduleData.dates?.map((dateItem) => ({
+        // FIXED: Build payload with only provided fields (selective update)
+        const transformedData = {};
+
+        // Only include fields that are actually being updated
+        if (scheduleData.hasOwnProperty('agenda')) {
+          transformedData.agenda = scheduleData.agenda.trim();
+        }
+
+        if (scheduleData.hasOwnProperty('description')) {
+          transformedData.description = (scheduleData.description || "").trim();
+        }
+
+        if (scheduleData.hasOwnProperty('notificationOffset')) {
+          transformedData.notificationOffset = scheduleData.notificationOffset;
+        }
+
+        if (scheduleData.hasOwnProperty('type')) {
+          transformedData.type = scheduleData.type;
+        }
+
+        if (scheduleData.hasOwnProperty('dates')) {
+          transformedData.dates = scheduleData.dates.map((dateItem) => ({
             date: dateItem.date,
             startTime: dateItem.startTime,
             endTime: dateItem.endTime,
             timezone: dateItem.timezone || "WIB",
-          })),
+          }));
         }
 
-        // Handle new participants structure
-        if (scheduleData.type === "counseling" && scheduleData.participants) {
+        // Handle participants update (only if provided)
+        if (scheduleData.hasOwnProperty('participants')) {
           if (scheduleData.participants.psychologistId && scheduleData.participants.patientIds) {
             transformedData.participants = {
               psychologistId: scheduleData.participants.psychologistId,
@@ -497,20 +562,26 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        // Location handling
-        if (scheduleData.type === "counseling") {
+        // Handle location update (only if provided)
+        if (scheduleData.hasOwnProperty('location')) {
           const standardLocations = ["online", "offline", "organization"];
           if (standardLocations.includes(scheduleData.location)) {
             transformedData.location = scheduleData.location;
           } else {
             transformedData.location = "offline";
           }
-        } else {
+        }
+
+        if (scheduleData.hasOwnProperty('customLocation')) {
           transformedData.customLocation = scheduleData.customLocation;
         }
 
+        console.log('Final payload sent to backend:', transformedData);
+
         const response = await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
         
+        console.log('Backend response:', response.data);
+
         // FIXED: Handle response transformation with better error handling
         if (response.data?.status === "success") {
           try {

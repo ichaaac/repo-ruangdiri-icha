@@ -97,6 +97,20 @@ const SchedulePage = ({ type = "school" }) => {
     getScheduleAtTime,
   } = useSchedule(type);
 
+  // FIXED: Clear all modal states when any modal closes
+  const clearAllModalStates = useCallback(() => {
+    setIsAddModalOpen(false);
+    setIsViewModalOpen(false);
+    setModalData(null);
+    setViewScheduleData(null);
+    setSelectedTimeSlot(null);
+    
+    // FIXED: Also cleanup global close function
+    if (window.closeAllModals) {
+      delete window.closeAllModals;
+    }
+  }, []);
+
   // Track window width for responsive calculations
   useEffect(() => {
     const updateWidth = () => setWindowWidth(window.innerWidth);
@@ -134,8 +148,12 @@ const SchedulePage = ({ type = "school" }) => {
   const leftColumnWidth = getLeftColumnWidth();
   const rightColumnWidth = getRightColumnWidth();
 
-  // Handle time slot selection for creating new schedule
+  // FIXED: Handle time slot selection for creating new schedule - clear states first
   const handleTimeSlotSelect = useCallback(async (timeSlot) => {
+    // FIXED: Clear all modal states first to ensure clean state
+    clearAllModalStates();
+    
+    // Then set the new data for create mode
     setSelectedTimeSlot(timeSlot);
     setModalData({
       startDateTime: timeSlot.startDateTime,
@@ -150,13 +168,22 @@ const SchedulePage = ({ type = "school" }) => {
       draggedDays: timeSlot.draggedDays || 1
     });
     setIsAddModalOpen(true);
-  }, []);
+  }, [clearAllModalStates]);
 
-  // Handle schedule click to view details
+  // FIXED: Handle schedule click to view details - clear states first
   const handleScheduleClick = useCallback((scheduleData) => {
+    // FIXED: Clear all modal states first to ensure clean state
+    clearAllModalStates();
+    
+    // Then set the new data for view mode
+    console.log('=== handleScheduleClick ===');
+    console.log('Schedule clicked:', scheduleData);
+    
     setViewScheduleData(scheduleData);
     setIsViewModalOpen(true);
-  }, []);
+    
+    console.log('View modal should open with data:', scheduleData);
+  }, [clearAllModalStates]);
 
   // Edit handler for ViewScheduleModal
   const handleEditFromViewModal = useCallback(async (scheduleId, formData) => {
@@ -170,19 +197,18 @@ const SchedulePage = ({ type = "school" }) => {
     }
   }, [handleEditSchedule]);
 
-  // Delete handler for ViewScheduleModal
+  // FIXED: Delete handler for ViewScheduleModal - clear states after delete
   const handleDeleteFromViewModal = useCallback(async (scheduleData) => {
     try {
       await handleDeleteSchedule(scheduleData);
-      // Close view modal after successful delete
-      setIsViewModalOpen(false);
-      setViewScheduleData(null);
+      // FIXED: Clear all modal states after successful delete
+      clearAllModalStates();
     } catch (error) {
       console.error('Error deleting schedule from view modal:', error);
       // ViewScheduleModal will handle error display
       throw error;
     }
-  }, [handleDeleteSchedule]);
+  }, [handleDeleteSchedule, clearAllModalStates]);
 
   // FIXED: Handle create/edit modal form submission with better error handling
   const handleModalSubmit = useCallback(async (formData) => {
@@ -197,10 +223,8 @@ const SchedulePage = ({ type = "school" }) => {
         result = await createSchedule(formData);
       }
       
-      // FIXED: Only close modal on successful completion
-      setIsAddModalOpen(false);
-      setModalData(null);
-      setSelectedTimeSlot(null);
+      // FIXED: Clear all modal states on successful completion
+      clearAllModalStates();
       
       return result;
       
@@ -213,22 +237,16 @@ const SchedulePage = ({ type = "school" }) => {
       // Re-throw the parsed error to prevent modal from closing and let AddScheduleModal handle the toast
       throw new Error(parsedMessage);
     }
-  }, [modalData, createSchedule, handleEditSchedule, parseErrorMessage]);
+  }, [modalData, createSchedule, handleEditSchedule, parseErrorMessage, clearAllModalStates]);
 
-  const handleAddModalClose = () => {
-    setIsAddModalOpen(false);
-    setModalData(null);
-    setSelectedTimeSlot(null);
-  };
+  // FIXED: Enhanced modal close handlers with state clearing
+  const handleAddModalClose = useCallback(() => {
+    clearAllModalStates();
+  }, [clearAllModalStates]);
 
-  const handleViewModalClose = () => {
-    setIsViewModalOpen(false);
-    setViewScheduleData(null);
-    // Cleanup global close function if it exists
-    if (window.closeAllModals) {
-      delete window.closeAllModals;
-    }
-  };
+  const handleViewModalClose = useCallback(() => {
+    clearAllModalStates();
+  }, [clearAllModalStates]);
 
   // Handle date selection from DatePicker
   const handleDateSelect = (dates) => {
@@ -243,21 +261,19 @@ const SchedulePage = ({ type = "school" }) => {
     setSelectedWeek(weekStart);
   };
 
-  // Handle escape key for modals
+  // FIXED: Handle escape key for modals with proper state clearing
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
-        if (isViewModalOpen) {
-          handleViewModalClose();
-        } else if (isAddModalOpen) {
-          handleAddModalClose();
+        if (isViewModalOpen || isAddModalOpen) {
+          clearAllModalStates();
         }
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isViewModalOpen, isAddModalOpen]);
+  }, [isViewModalOpen, isAddModalOpen, clearAllModalStates]);
 
   // Prevent body scroll when modal is open  
   useEffect(() => {
@@ -269,7 +285,7 @@ const SchedulePage = ({ type = "school" }) => {
     }
   }, [isAddModalOpen, isViewModalOpen]);
 
-  // Cleanup on unmount
+  // FIXED: Enhanced cleanup on unmount
   useEffect(() => {
     return () => {
       // Cleanup global functions on unmount
@@ -278,8 +294,10 @@ const SchedulePage = ({ type = "school" }) => {
       }
       // Restore body scroll
       document.body.style.overflow = 'unset';
+      // Clear all modal states
+      clearAllModalStates();
     };
-  }, []);
+  }, [clearAllModalStates]);
 
   return (
     <div className="relative bg-white min-h-screen w-full">
