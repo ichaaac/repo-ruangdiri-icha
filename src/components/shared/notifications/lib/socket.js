@@ -12,6 +12,7 @@ class NotificationSocket {
     this.reconnectTimeout = null;
     this.heartbeatInterval = null;
     this.connectionPromise = null;
+    this.autoReconnect = true;
   }
 
   connect() {
@@ -36,7 +37,7 @@ class NotificationSocket {
       const apiUrl = import.meta.env.VITE_API_URL;
       let wsBaseUrl = import.meta.env.VITE_WS_URL;
 
-      // Fallback URL logic
+      // 🔥 ENHANCED: Better URL fallback logic
       if (!wsBaseUrl && apiUrl) {
         try {
           const url = new URL(apiUrl);
@@ -52,16 +53,17 @@ class NotificationSocket {
       const finalWsUrl = `${wsBaseUrl}/notifications`;
 
       console.log('🚀 Connecting notification socket to:', finalWsUrl);
-      console.log('🔑 Token length:', token?.length, 'chars');
+      console.log('🔑 Using token:', token?.substring(0, 20) + '...');
 
       // Cleanup existing socket
       if (this.socket) {
         console.log('🔌 Disconnecting existing socket before reconnecting');
+        this.socket.removeAllListeners();
         this.socket.disconnect();
         this.socket = null;
       }
 
-      // Create new socket connection
+      // 🔥 ENHANCED: Create new socket connection with better config
       this.socket = io(finalWsUrl, {
         auth: {
           token: token,
@@ -76,6 +78,9 @@ class NotificationSocket {
         forceNew: true,
         upgrade: true,
         rememberUpgrade: false,
+        // 🔥 ADDED: Extra options for stability
+        pingTimeout: 60000,
+        pingInterval: 25000,
       });
 
       // 🔥 CONNECTION SUCCESS
@@ -91,48 +96,71 @@ class NotificationSocket {
           this.reconnectTimeout = null;
         }
         
-        // Send initial ping
+        // 🔥 ENHANCED: Better initial handshake
         this.socket.emit('ping', { 
           message: 'Hello from frontend', 
           tokenSent: true,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          clientId: this.socket.id
         });
         
         // Start heartbeat
         this.startHeartbeat();
         
+        // 🔥 ADDED: Re-register all existing listeners
+        this.reregisterListeners();
+        
         resolve(this.socket);
       });
 
-      // 🔥 CONNECTION ERROR
+      // 🔥 ENHANCED: Better error handling
       this.socket.on('connect_error', (error) => {
-        console.error('🚨 Socket connection error:', error.message);
+        console.error('🚨 Socket connection error:', {
+          message: error.message,
+          description: error.description,
+          type: error.type,
+          data: error.data
+        });
+        
+        this.isConnected = false;
         this.connectionPromise = null;
         
-        if (error.message.includes('Authentication') || error.message.includes('token')) {
-          console.error('🔐 Token authentication failed - checking token validity');
+        if (error.message.includes('Authentication') || 
+            error.message.includes('token') || 
+            error.message.includes('unauthorized')) {
+          console.error('🔐 Token authentication failed');
+          this.autoReconnect = false; // Stop auto-reconnect on auth failure
           reject(new Error('Authentication failed'));
         } else {
           this.reconnectAttempts++;
+          console.log(`🔄 Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+          
           if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            this.autoReconnect = false;
             reject(error);
           }
         }
       });
 
-      // 🔥 DISCONNECTION
-      this.socket.on('disconnect', (reason) => {
-        console.log('❌ Socket disconnected:', reason);
+      // 🔥 ENHANCED: Better disconnection handling
+      this.socket.on('disconnect', (reason, details) => {
+        console.log('❌ Socket disconnected:', { reason, details });
         this.isConnected = false;
         this.connectionPromise = null;
         this.stopHeartbeat();
         
-        if (reason === 'io server disconnect') {
-          console.log('🚨 Server disconnected - will attempt reconnection');
-          this.scheduleReconnection();
-        } else if (reason === 'transport close' || reason === 'transport error') {
-          console.log('🔄 Transport issue - will attempt reconnection');
-          this.scheduleReconnection();
+        // 🔥 ENHANCED: Better auto-reconnect logic
+        if (this.autoReconnect) {
+          if (reason === 'io server disconnect') {
+            console.log('🚨 Server disconnected - will attempt reconnection');
+            this.scheduleReconnection();
+          } else if (reason === 'transport close' || reason === 'transport error') {
+            console.log('🔄 Transport issue - will attempt reconnection');
+            this.scheduleReconnection();
+          } else if (reason === 'ping timeout') {
+            console.log('🏓 Ping timeout - will attempt reconnection');
+            this.scheduleReconnection();
+          }
         }
       });
 
@@ -142,10 +170,12 @@ class NotificationSocket {
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.connectionPromise = null;
+        this.autoReconnect = true; // Re-enable auto-reconnect
         this.startHeartbeat();
+        this.reregisterListeners();
       });
 
-      // 🔥 NOTIFICATION EVENTS
+      // 🔥 ENHANCED: Notification events with better logging
       this.socket.on('pong', (data) => {
         console.log('🏓 Received pong from server:', data);
       });
@@ -165,28 +195,60 @@ class NotificationSocket {
         this.emit('notification:mark-all-read', payload);
       });
 
-      // 🔥 DEBUG ALL EVENTS
+      // 🔥 ENHANCED: Authentication events
+      this.socket.on('auth:success', (data) => {
+        console.log('🔐 Authentication successful:', data);
+      });
+
+      this.socket.on('auth:error', (error) => {
+        console.error('🔐 Authentication error:', error);
+        this.autoReconnect = false;
+        reject(new Error('Authentication failed'));
+      });
+
+      // 🔥 DEBUG ALL EVENTS with filtering
       this.socket.onAny((event, ...args) => {
-        console.log('🔍 Socket received event:', event, args);
+        if (!event.includes('ping') && !event.includes('pong')) {
+          console.log('🔍 Socket received event:', event, args);
+        }
+        
         if (event.includes('auth') || event.includes('error')) {
           console.error('🔐 Auth/Error event:', event, args);
         }
       });
 
-      // Set timeout for connection
-      setTimeout(() => {
+      // 🔥 ENHANCED: Connection timeout with retry
+      const connectionTimeout = setTimeout(() => {
         if (!this.isConnected) {
-          console.error('🕐 Socket connection timeout');
+          console.error('🕐 Socket connection timeout - will retry');
           this.connectionPromise = null;
-          reject(new Error('Connection timeout'));
+          
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            this.scheduleReconnection();
+          } else {
+            reject(new Error('Connection timeout'));
+          }
         }
       }, 30000); // 30 second timeout
+
+      // Clear timeout when connected
+      this.socket.on('connect', () => {
+        clearTimeout(connectionTimeout);
+      });
     });
 
     return this.connectionPromise;
   }
 
-  // 🔥 HEARTBEAT TO KEEP CONNECTION ALIVE
+  // 🔥 ENHANCED: Re-register listeners after reconnection
+  reregisterListeners() {
+    console.log('📡 Re-registering listeners after reconnection');
+    // Emit a custom event to notify components to re-setup their listeners
+    this.emit('socket:reconnected', { socketId: this.socket?.id });
+  }
+
+  // 🔥 ENHANCED: Heartbeat with better error handling
   startHeartbeat() {
     this.stopHeartbeat(); // Clear any existing heartbeat
     
@@ -194,12 +256,15 @@ class NotificationSocket {
       if (this.socket && this.socket.connected) {
         this.socket.emit('ping', { 
           timestamp: new Date().toISOString(),
-          heartbeat: true 
+          heartbeat: true,
+          socketId: this.socket.id
         });
       } else {
-        console.warn('💔 Heartbeat: Socket not connected, attempting reconnection');
+        console.warn('💔 Heartbeat: Socket not connected');
         this.stopHeartbeat();
-        this.scheduleReconnection();
+        if (this.autoReconnect) {
+          this.scheduleReconnection();
+        }
       }
     }, 30000); // Send heartbeat every 30 seconds
   }
@@ -211,24 +276,28 @@ class NotificationSocket {
     }
   }
 
-  // 🔥 SCHEDULE RECONNECTION
+  // 🔥 ENHANCED: Better reconnection scheduling
   scheduleReconnection() {
-    if (this.reconnectTimeout) return; // Already scheduled
+    if (this.reconnectTimeout || !this.autoReconnect) return; // Already scheduled or disabled
     
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Exponential backoff, max 30s
     console.log(`🔄 Scheduling reconnection in ${delay}ms (attempt ${this.reconnectAttempts + 1})`);
     
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectTimeout = null;
-      this.connect().catch(err => {
-        console.error('🚨 Reconnection failed:', err);
-      });
+      if (this.autoReconnect) {
+        this.connect().catch(err => {
+          console.error('🚨 Scheduled reconnection failed:', err);
+        });
+      }
     }, delay);
   }
 
+  // 🔥 ENHANCED: Better disconnect with cleanup
   disconnect() {
     console.log('🔌 Disconnecting notification socket');
     
+    this.autoReconnect = false; // Disable auto-reconnect
     this.stopHeartbeat();
     
     if (this.reconnectTimeout) {
@@ -237,6 +306,7 @@ class NotificationSocket {
     }
     
     if (this.socket) {
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
     }
@@ -244,41 +314,56 @@ class NotificationSocket {
     this.isConnected = false;
     this.listeners.clear();
     this.connectionPromise = null;
+    this.reconnectAttempts = 0;
   }
 
-  // 🔥 EVENT LISTENER MANAGEMENT
+  // 🔥 ENHANCED: Event listener management with better tracking
   on(event, callback) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event).add(callback);
-    console.log(`📡 Added listener for event: ${event}`);
+    console.log(`📡 Added listener for event: ${event} (total: ${this.listeners.get(event).size})`);
   }
 
   off(event, callback) {
     if (this.listeners.has(event)) {
       this.listeners.get(event).delete(callback);
-      console.log(`📡 Removed listener for event: ${event}`);
+      console.log(`📡 Removed listener for event: ${event} (remaining: ${this.listeners.get(event).size})`);
+      
+      // Clean up empty sets
+      if (this.listeners.get(event).size === 0) {
+        this.listeners.delete(event);
+      }
     }
   }
 
   emit(event, data) {
     if (this.listeners.has(event)) {
       const callbacks = this.listeners.get(event);
-      console.log(`📡 Emitting ${event} to ${callbacks.size} listeners`);
+      console.log(`📡 Emitting ${event} to ${callbacks.size} listeners:`, data);
       callbacks.forEach(callback => {
         try {
           callback(data);
         } catch (error) {
-          console.error('❌ Error in notification listener:', error);
+          console.error(`❌ Error in ${event} listener:`, error);
         }
       });
+    } else {
+      console.log(`📡 No listeners for event: ${event}`);
     }
   }
 
   // 🔥 STATUS CHECKS
   isSocketConnected() {
-    return this.isConnected && this.socket && this.socket.connected;
+    const connected = this.isConnected && this.socket && this.socket.connected;
+    console.log('🔍 Socket status check:', {
+      isConnected: this.isConnected,
+      socketExists: !!this.socket,
+      socketConnected: this.socket?.connected || false,
+      finalStatus: connected
+    });
+    return connected;
   }
 
   getConnectionStatus() {
@@ -287,18 +372,23 @@ class NotificationSocket {
       socketConnected: this.socket?.connected || false,
       socketId: this.socket?.id || null,
       reconnectAttempts: this.reconnectAttempts,
+      autoReconnect: this.autoReconnect,
       hasListeners: this.listeners.size > 0,
-      listenerCount: Array.from(this.listeners.values()).reduce((total, set) => total + set.size, 0)
+      listenerCount: Array.from(this.listeners.values()).reduce((total, set) => total + set.size, 0),
+      listenerEvents: Array.from(this.listeners.keys())
     };
   }
 
-  // 🔥 FORCE RECONNECTION
+  // 🔥 ENHANCED: Force reconnection with full cleanup
   forceReconnect() {
     console.log('🔄 Forcing socket reconnection...');
+    this.autoReconnect = true; // Re-enable auto-reconnect
+    this.reconnectAttempts = 0; // Reset attempts
     this.disconnect();
     return this.connect();
   }
 
+  // 🔥 ENHANCED: Debug function
   debugConnection() {
     const token = localStorage.getItem('token');
     const status = this.getConnectionStatus();
@@ -306,6 +396,8 @@ class NotificationSocket {
     console.log('🔍 Socket Debug Info:', {
       ...status,
       token: token ? `${token.substring(0, 20)}...` : 'missing',
+      wsUrl: import.meta.env.VITE_WS_URL,
+      apiUrl: import.meta.env.VITE_API_URL,
     });
     
     if (this.socket?.handshake) {
@@ -315,13 +407,18 @@ class NotificationSocket {
         query: this.socket.handshake.query, 
       });
     }
+
+    // Test connection
+    if (this.isSocketConnected()) {
+      this.socket.emit('ping', { test: 'debug', timestamp: new Date().toISOString() });
+    }
   }
 }
 
 // 🔥 CREATE SINGLETON INSTANCE
 const notificationSocket = new NotificationSocket();
 
-// 🔥 AUTO-CONNECT ON MODULE LOAD IF TOKEN EXISTS
+// 🔥 ENHANCED: Auto-connect logic
 if (typeof window !== 'undefined') {
   const token = localStorage.getItem('token');
   if (token) {
@@ -331,18 +428,27 @@ if (typeof window !== 'undefined') {
     });
   }
   
-  // 🔥 RECONNECT ON STORAGE CHANGE (NEW TOKEN)
+  // 🔥 ENHANCED: Token change detection
   window.addEventListener('storage', (e) => {
-    if (e.key === 'token' && e.newValue && !notificationSocket.isSocketConnected()) {
-      console.log('🔑 New token detected, connecting socket...');
-      notificationSocket.connect().catch(err => {
-        console.error('🚨 Token-based connection failed:', err);
-      });
+    if (e.key === 'token') {
+      if (e.newValue && !notificationSocket.isSocketConnected()) {
+        console.log('🔑 New token detected, connecting socket...');
+        notificationSocket.autoReconnect = true;
+        notificationSocket.connect().catch(err => {
+          console.error('🚨 Token-based connection failed:', err);
+        });
+      } else if (!e.newValue && notificationSocket.isSocketConnected()) {
+        console.log('🔑 Token removed, disconnecting socket...');
+        notificationSocket.disconnect();
+      }
     }
   });
   
   // 🔥 GLOBAL SOCKET ACCESS FOR DEBUGGING
   window.notificationSocket = notificationSocket;
+  
+  // 🔥 ADDED: Debug helper
+  window.debugSocket = () => notificationSocket.debugConnection();
 }
 
 export default notificationSocket;

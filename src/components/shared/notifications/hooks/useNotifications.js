@@ -42,7 +42,7 @@ export const useNotifications = () => {
 
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
-    queryFn: notificationsAPI.getUnreadCount, // Simplified
+    queryFn: notificationsAPI.getUnreadCount,
     staleTime: Infinity,
     cacheTime: Infinity,
     refetchOnWindowFocus: false,
@@ -51,6 +51,13 @@ export const useNotifications = () => {
   })
 
   const unreadCount = unreadData?.count || 0
+
+  // 🔥 DEBUG: Log unread count
+  console.log('🔢 useNotifications unreadCount:', {
+    unreadCount,
+    unreadData,
+    selectedTab
+  });
 
   const {
     data,
@@ -69,8 +76,12 @@ export const useNotifications = () => {
         limit: 10,
         type: selectedTab,
       };
-      // Simplified: Just call the consistent API
-      return notificationsAPI.getNotifications(filters);
+      
+      console.log('🔍 Fetching notifications with filters:', filters);
+      const result = await notificationsAPI.getNotifications(filters);
+      console.log('📊 Fetched notifications result:', result);
+      
+      return result;
     },
     getNextPageParam: (lastPage, allPages) => {
       const lastPageTotal = lastPage?.total || 0
@@ -122,16 +133,40 @@ export const useNotifications = () => {
     return acc
   }, {})
 
+  // 🔥 FIXED: Calculate unread counts from loaded notifications
+  // Note: unreadCount dari API mungkin berbeda dengan yang kita hitung dari loaded notifications
+  // karena loaded notifications ter-paginate sementara unreadCount dari API adalah total global
+  
+  const loadedUnreadCount = notifications.filter(
+    (notif) => !(notif.status === 'read' || notif.isRead || notif.readAt)
+  ).length;
+
   const counselingCount = notifications.filter(
-    (notif) => notif.type === 'schedule' && notif.subType === 'counseling' && 
+    (notif) => notif.type === 'schedule' && 
     !(notif.status === 'read' || notif.isRead || notif.readAt)
   ).length
+
+  console.log('📈 Notification counts EXPLAINED:', {
+    totalCount,           // Total from API (all notifications available)
+    unreadCount,          // Global unread count from API endpoint
+    loadedUnreadCount,    // Unread count dari notifications yang sudah di-load
+    counselingCount,      // Unread schedule notifications dari yang sudah di-load
+    totalNotificationsLoaded: notifications.length,
+    selectedTab,
+    breakdown: {
+      system: notifications.filter(n => n.type === 'system').length,
+      schedule: notifications.filter(n => n.type === 'schedule').length,
+      report: notifications.filter(n => n.type === 'report').length,
+    },
+    explanation: 'totalCount shows ALL available notifications, unreadCount shows global unread count'
+  });
 
   const markAsReadMutation = useMutation({
     mutationFn: (notificationIds) => notificationsAPI.markAsRead(notificationIds),
     onSuccess: (response, notificationIds) => {
       console.log('✅ Main: Mark as read success:', response)
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-dropdown'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
     onError: (error) => console.error('❌ Main: Mark as read failed:', error),
@@ -142,6 +177,7 @@ export const useNotifications = () => {
     onSuccess: (response) => {
       console.log('✅ Main: Mark all as read success:', response)
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-dropdown'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
     onError: (error) => console.error('❌ Main: Mark all as read failed:', error),
@@ -159,25 +195,31 @@ export const useNotifications = () => {
 
     const createdHandler = () => handleRealtimeUpdate('notification:created');
     const readHandler = () => handleRealtimeUpdate('notification:read');
+    const markAllReadHandler = () => handleRealtimeUpdate('notification:mark-all-read');
     
     notificationSocket.on('notification:created', createdHandler)
     notificationSocket.on('notification:read', readHandler)
+    notificationSocket.on('notification:mark-all-read', markAllReadHandler)
 
     return () => {
       notificationSocket.off('notification:created', createdHandler)
       notificationSocket.off('notification:read', readHandler)
+      notificationSocket.off('notification:mark-all-read', markAllReadHandler)
     }
   }, [queryClient, selectedTab])
 
   const handleTabChange = useCallback((tab) => {
+    console.log('🔄 Tab changed to:', tab);
     setSelectedTab(tab)
   }, [])
 
   const handleMarkAsRead = useCallback((notificationId) => {
+    console.log('📖 Marking as read:', notificationId);
     markAsReadMutation.mutate([notificationId])
   }, [markAsReadMutation])
 
   const handleMarkAllAsRead = useCallback(() => {
+    console.log('📖 Marking all as read');
     markAllAsReadMutation.mutate()
   }, [markAllAsReadMutation])
 
@@ -211,14 +253,6 @@ export const useNotifications = () => {
       // Parse timestamp sebagai UTC dan convert ke timezone lokal (WIB)
       const notificationTime = dayjs.utc(timestamp).tz('Asia/Jakarta');
       const now = dayjs().tz('Asia/Jakarta');
-      
-      // Debug log
-      console.log('🕐 Main Time Debug:', {
-        original: timestamp,
-        parsed: notificationTime.format('YYYY-MM-DD HH:mm:ss'),
-        now: now.format('YYYY-MM-DD HH:mm:ss'),
-        timezone: 'Asia/Jakarta'
-      });
       
       const diffSeconds = now.diff(notificationTime, 'second');
       

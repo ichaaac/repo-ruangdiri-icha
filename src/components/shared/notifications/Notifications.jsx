@@ -45,13 +45,13 @@ const LoadingSpinner = ({ text = "Loading..." }) => (
   </div>
 )
 
-// Header Component
+// 🔥 FIXED: Header Component dengan props yang benar
 const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
   <div className="mb-8">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
-      {/* Mark All as Read */}
+      {/* 🔥 FIXED: Mark All as Read - hanya tampil jika ada unread */}
       {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
@@ -66,46 +66,60 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
   </div>
 )
 
-// Tabs Component
-const NotificationTabs = ({ selectedTab, totalCount, counselingCount, onTabChange, formatCount }) => (
-  <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
-    {/* Tab Semua */}
-    <button
-      onClick={() => onTabChange("all")}
-      className={`flex items-center gap-1 whitespace-nowrap ${
-        selectedTab === "all" 
-          ? "font-bold text-[#535353]" 
-          : "font-normal text-[#8a8a8a] hover:text-[#535353]"
-      } transition-colors`}
-    >
-      <span>Semua</span>
-      {/* 🔥 FIXED: TAMPILKAN COUNT UNTUK TAB SEMUA */}
-      {totalCount > 0 && (
-        <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-          {formatCount(totalCount)}
-        </div>
-      )}
-    </button>
+// 🔥 FIXED: Tabs Component dengan logika yang diperbaiki
+const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCount, onTabChange, formatCount }) => {
+  // 🔥 EXPLAINED: Bedakan antara total notifications vs unread notifications
+  const getTabCount = (tabType) => {
+    if (tabType === 'all') {
+      // Untuk tab "Semua", tampilkan unread count dari semua tipe notifikasi
+      return unreadCount;
+    } else if (tabType === 'counseling') {
+      // Untuk tab "Konseling", tampilkan unread count dari schedule notifications saja
+      return counselingCount;
+    }
+    return 0;
+  };
 
-    {/* Tab Konseling */}
-    <button
-      onClick={() => onTabChange("counseling")}
-      className={`flex items-center gap-1 whitespace-nowrap ${
-        selectedTab === "counseling" 
-          ? "font-bold text-[#535353]" 
-          : "font-normal text-[#8a8a8a] hover:text-[#535353]"
-      } transition-colors`}
-    >
-      <span>Konseling</span>
-      {/* 🔥 FIXED: TAMPILKAN COUNT UNTUK TAB KONSELING */}
-      {counselingCount > 0 && (
-        <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-          {formatCount(counselingCount)}
-        </div>
-      )}
-    </button>
-  </div>
-)
+  return (
+    <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
+      {/* Tab Semua */}
+      <button
+        onClick={() => onTabChange("all")}
+        className={`flex items-center gap-1 whitespace-nowrap ${
+          selectedTab === "all" 
+            ? "font-bold text-[#535353]" 
+            : "font-normal text-[#8a8a8a] hover:text-[#535353]"
+        } transition-colors`}
+      >
+        <span>Semua</span>
+        {/* 🔥 FIXED: Tampilkan unread count untuk tab Semua */}
+        {getTabCount('all') > 0 && (
+          <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
+            {formatCount(getTabCount('all'))}
+          </div>
+        )}
+      </button>
+
+      {/* Tab Konseling */}
+      <button
+        onClick={() => onTabChange("counseling")}
+        className={`flex items-center gap-1 whitespace-nowrap ${
+          selectedTab === "counseling" 
+            ? "font-bold text-[#535353]" 
+            : "font-normal text-[#8a8a8a] hover:text-[#535353]"
+        } transition-colors`}
+      >
+        <span>Konseling</span>
+        {/* 🔥 FIXED: Tampilkan unread count untuk tab Konseling */}
+        {getTabCount('counseling') > 0 && (
+          <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
+            {formatCount(getTabCount('counseling'))}
+          </div>
+        )}
+      </button>
+    </div>
+  )
+}
 
 // 🔥 ENHANCED UTILITY FUNCTIONS - ICON LOGIC BASED ON TYPE
 const getNotificationIcon = (notification) => {
@@ -376,12 +390,19 @@ const Notifications = ({ sidebarExpanded = false }) => {
     isMarkingAllAsRead,
   } = useNotifications()
 
-  console.log('🎯 Main Notifications state:', {
+  // 🔥 EXPLAINED: Debug info untuk memahami perbedaan counts
+  console.log('🎯 Notifications.jsx - COUNTS EXPLANATION:', {
     selectedTab,
-    totalCount,
-    unreadCount,
-    counselingCount,
-    isLoading
+    totalCount,      // Total semua notifications yang di-load (bisa 20+)
+    unreadCount,     // Unread notifications dari API (bisa 0)
+    counselingCount, // Unread schedule notifications saja
+    loadedNotifications: Object.values(groupedNotifications).flat().length,
+    explanation: {
+      totalCount: 'Total notifications loaded from API (termasuk yang sudah read)',
+      unreadCount: 'Notifications yang belum dibaca (dari API endpoint unread-count)',
+      counselingCount: 'Schedule notifications yang belum dibaca',
+      loadedNotifications: 'Jumlah notifications yang ter-render di UI'
+    }
   })
 
   return (
@@ -390,15 +411,18 @@ const Notifications = ({ sidebarExpanded = false }) => {
       <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
         <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
           
+          {/* 🔥 FIXED: Pass correct props to NotificationHeader */}
           <NotificationHeader 
             unreadCount={unreadCount}
             onMarkAllAsRead={handleMarkAllAsRead}
             isMarkingAllAsRead={isMarkingAllAsRead}
           />
 
+          {/* 🔥 FIXED: Pass correct props to NotificationTabs */}
           <NotificationTabs
             selectedTab={selectedTab}
             totalCount={totalCount}
+            unreadCount={unreadCount}
             counselingCount={counselingCount}
             onTabChange={handleTabChange}
             formatCount={formatCount}

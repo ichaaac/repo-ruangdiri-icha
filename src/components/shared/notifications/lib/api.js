@@ -8,19 +8,22 @@ export const notificationsAPI = {
    * ALWAYS returns a consistent object: { notifications: [], total: 0 }
    */
   async getNotifications(params = {}) {
-    // Handling for 'all' tab
+    // 🔥 FIXED: Handling for 'all' tab - pastikan mengambil SEMUA notifikasi
     if (params.type === 'all') {
       try {
-        const [systemResponse, scheduleResponse] = await Promise.all([
+        const [systemResponse, scheduleResponse, reportResponse] = await Promise.all([
           this._getNotificationsByType({ ...params, type: 'system' }),
-          this._getNotificationsByType({ ...params, type: 'schedule' })
+          this._getNotificationsByType({ ...params, type: 'schedule' }),
+          this._getNotificationsByType({ ...params, type: 'report' })
         ]);
 
         const allNotifications = [
           ...(systemResponse.notifications || []),
-          ...(scheduleResponse.notifications || [])
+          ...(scheduleResponse.notifications || []),
+          ...(reportResponse.notifications || [])
         ];
         
+        // Sort by createdAt descending (newest first)
         allNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         const limit = parseInt(params.limit || 10, 10);
@@ -38,12 +41,12 @@ export const notificationsAPI = {
       }
     }
     
-    // Handling for 'counseling' tab
+    // 🔥 FIXED: Handling for 'counseling' tab - ambil semua type schedule
     if (params.type === 'counseling') {
       return this._getNotificationsByType({
         ...params,
-        type: 'schedule',
-        subType: 'counseling'
+        type: 'schedule'
+        // Tidak perlu subType: 'counseling' karena semua schedule masuk konseling
       });
     }
     
@@ -68,9 +71,10 @@ export const notificationsAPI = {
       requestData.type = 'report';
     }
 
-    if (params.subType) {
-      requestData.subType = params.subType;
-    }
+    // 🔥 REMOVED: subType filter untuk counseling karena semua schedule masuk konseling
+    // if (params.subType) {
+    //   requestData.subType = params.subType;
+    // }
     
     const searchParams = new URLSearchParams();
     Object.entries(requestData).forEach(([key, value]) => {
@@ -100,8 +104,14 @@ export const notificationsAPI = {
   async getUnreadCount() {
     try {
       const response = await apiClient.get('/notifications/unread-count');
-      // Pastikan ada data, jika tidak, anggap saja 0
       const count = response?.data?.data?.count || 0;
+      
+      // 🔥 DEBUG: Log untuk tracking unread count
+      console.log('🔢 API getUnreadCount response:', {
+        count,
+        rawResponse: response?.data
+      });
+      
       return { count };
     } catch (error) {
       console.error('❌ Unread Count Request Failed:', error);
@@ -119,6 +129,8 @@ export const notificationsAPI = {
         notificationIds: Array.isArray(notificationIds) ? notificationIds : [notificationIds]
       };
       const response = await apiClient.post('/notifications/mark-as-read', requestData);
+      
+      console.log('✅ markAsRead success:', response?.data);
       return response?.data?.data || response?.data;
     } catch (error) {
       console.error('❌ Mark as Read Request Failed:', error);
@@ -132,6 +144,8 @@ export const notificationsAPI = {
   async markallAsRead() {
     try {
       const response = await apiClient.post('/notifications/mark-all-as-read');
+      
+      console.log('✅ markAllAsRead success:', response?.data);
       return response?.data?.data || response?.data;
     } catch (error) {
       console.error('❌ Mark All as Read Request Failed:', error);
