@@ -617,14 +617,17 @@ const AddScheduleModal = ({
     return hours * 60 + minutes;
   };
 
-  // FIXED: Enhanced submit handler with better validation and error handling
-  const handleSubmit = async () => {
-    // FIXED: Validate form first and stop if validation fails
-    if (!validateForm()) {
-      return; // Don't proceed if validation fails
-    }
-    
-    const submitData = {
+ const handleSubmit = async () => {
+  // Validasi form
+  if (!validateForm()) {
+    return;
+  }
+  
+  let submitData = {};
+
+  // UNTUK CREATE MODE - kirim semua field
+  if (mode === "create") {
+    submitData = {
       agenda: formData.agenda.trim(),
       type: formData.type,
       description: formData.description.trim(),
@@ -632,7 +635,7 @@ const AddScheduleModal = ({
       dates: formData.dates
     };
 
-    // Participants structure
+    // Participants untuk create
     if (formData.type === "counseling") {
       if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
         submitData.participants = {
@@ -642,10 +645,9 @@ const AddScheduleModal = ({
       }
     }
 
-    // Location handling
+    // Location untuk create
     if (formData.type === "counseling") {
       const isStandardLocation = fixedLocationOptions.find(opt => opt.value === formData.location);
-      
       if (isStandardLocation) {
         submitData.location = formData.location;
       } else {
@@ -655,60 +657,134 @@ const AddScheduleModal = ({
     } else {
       submitData.customLocation = formData.customLocation;
     }
-
-    if (mode === "edit" && initialData?.id) {
-      submitData.id = initialData.id;
+  } 
+  // UNTUK EDIT MODE - kirim hanya field yang berubah
+  else if (mode === "edit" && initialData) {
+    // Cek agenda berubah
+    if (formData.agenda.trim() !== (initialData.agenda || "").trim()) {
+      submitData.agenda = formData.agenda.trim();
     }
-    
-    try {
-      const result = await onSubmit(submitData);
+
+    // Cek type berubah
+    if (formData.type !== (initialData.type || "counseling")) {
+      submitData.type = formData.type;
+    }
+
+    // Cek description berubah
+    if (formData.description.trim() !== (initialData.description || "").trim()) {
+      submitData.description = formData.description.trim();
+    }
+
+    // Cek notification berubah
+    if (formData.notificationOffset !== (initialData.notificationOffset || 60)) {
+      submitData.notificationOffset = formData.notificationOffset;
+    }
+
+    // Cek dates berubah
+    const currentDatesStr = JSON.stringify(formData.dates);
+    const initialDatesStr = JSON.stringify(initialData.dates || []);
+    if (currentDatesStr !== initialDatesStr) {
+      submitData.dates = formData.dates;
+    }
+
+    // Cek participants berubah (hanya untuk counseling)
+    if (formData.type === "counseling") {
+      const currentPsychId = formData.selectedPsychologist?.id;
+      const initialPsychId = initialData.selectedPsychologist?.id;
       
-      // Handle attachments only after successful schedule creation/update
-      if (result?.data && attachments.length > 0) {
-        setUploadingAttachments(true);
-        
-        try {
-          let scheduleIds = [];
-          
-          if (Array.isArray(result.data)) {
-            scheduleIds = result.data.map(schedule => schedule.id);
-          } else if (result.data.ids && Array.isArray(result.data.ids)) {
-            scheduleIds = result.data.ids;
-          } else if (result.data.id) {
-            scheduleIds = [result.data.id];
-          }
-          
-          if (scheduleIds.length > 0) {
-            await uploadAttachmentsMutation.mutateAsync({
-              scheduleIds,
-              files: attachments.map(a => a.file)
-            });
-          }
-          
-        } catch (error) {
-          console.error("Attachment upload error:", error);
-        } finally {
-          setUploadingAttachments(false);
+      const currentPatientIds = formData.selectedParticipants.map(p => p.id).sort();
+      const initialPatientIds = (initialData.selectedParticipants || []).map(p => p.id).sort();
+      
+      const psychChanged = currentPsychId !== initialPsychId;
+      const patientsChanged = JSON.stringify(currentPatientIds) !== JSON.stringify(initialPatientIds);
+      
+      // HANYA kirim participants jika ada perubahan
+      if (psychChanged || patientsChanged) {
+        if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
+          submitData.participants = {
+            psychologistId: formData.selectedPsychologist.id,
+            patientIds: formData.selectedParticipants.map(participant => participant.id)
+          };
         }
       }
-      
-    } catch (error) {
-      console.error("Schedule submission error:", error);
-      
-      // FIXED: Enhanced error parsing and proper error display
-      const errorMessage = error?.response?.data?.message || error.message || 'Failed to save schedule';
-      const parsedMessage = parseErrorMessage(errorMessage);
-      
-      // Show user-friendly error message
-      toast.error(parsedMessage, {
-        description: "Please check your input and try again.",
-        duration: 5000,
-      });
-      
-      // FIXED: Don't throw error here to prevent modal from closing on error
-      return; // Stop execution but keep modal open
     }
-  };
+
+    // Cek location berubah
+    if (formData.type === "counseling") {
+      const currentLoc = formData.location;
+      const initialLoc = initialData.location || initialData._originalBackendLocation || "";
+      
+      if (currentLoc !== initialLoc) {
+        const isStandardLocation = fixedLocationOptions.find(opt => opt.value === currentLoc);
+        if (isStandardLocation) {
+          submitData.location = currentLoc;
+        } else {
+          submitData.location = "offline";
+          submitData.actualLocationName = currentLoc;
+        }
+      }
+    } else {
+      // Custom location untuk non-counseling
+      if (formData.customLocation !== (initialData.customLocation || "")) {
+        submitData.customLocation = formData.customLocation;
+      }
+    }
+
+    // Log apa saja yang berubah (untuk debugging)
+    console.log('Fields yang berubah:', Object.keys(submitData));
+  }
+
+  // Tambahkan ID untuk edit
+  if (mode === "edit" && initialData?.id) {
+    submitData.id = initialData.id;
+  }
+  
+  try {
+    const result = await onSubmit(submitData);
+    
+    // Handle attachments setelah sukses
+    if (result?.data && attachments.length > 0) {
+      setUploadingAttachments(true);
+      
+      try {
+        let scheduleIds = [];
+        
+        if (Array.isArray(result.data)) {
+          scheduleIds = result.data.map(schedule => schedule.id);
+        } else if (result.data.ids && Array.isArray(result.data.ids)) {
+          scheduleIds = result.data.ids;
+        } else if (result.data.id) {
+          scheduleIds = [result.data.id];
+        }
+        
+        if (scheduleIds.length > 0) {
+          await uploadAttachmentsMutation.mutateAsync({
+            scheduleIds,
+            files: attachments.map(a => a.file)
+          });
+        }
+        
+      } catch (error) {
+        console.error("Attachment upload error:", error);
+      } finally {
+        setUploadingAttachments(false);
+      }
+    }
+    
+  } catch (error) {
+    console.error("Schedule submission error:", error);
+    
+    const errorMessage = error?.response?.data?.message || error.message || 'Failed to save schedule';
+    const parsedMessage = parseErrorMessage(errorMessage);
+    
+    toast.error(parsedMessage, {
+      description: "Please check your input and try again.",
+      duration: 5000,
+    });
+    
+    return;
+  }
+};
 
   const hasUnsavedChanges = () => {
     if (mode !== 'edit' || !initialData) {
