@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - UPDATED WITH SELECTIVE UPDATE SUPPORT
+// src/components/shared/schedule/lib/scheduleApi.js - FIXED ATTACHMENT UPLOADS
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -679,31 +679,154 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Upload attachments to existing schedule
+    // FIXED: Upload attachments with improved error handling and multiple endpoint support
     async uploadAttachments(scheduleId, files) {
       try {
-        const formData = new FormData();
+        console.log('=== uploadAttachments API call ===');
+        console.log('Schedule ID:', scheduleId);
+        console.log('Files:', files);
         
-        const maxSize = 15 * 1024 * 1024; // 15MB
-        for (const file of files) {
-          if (file.size > maxSize) {
-            throw new Error(`File ${file.name} exceeds 15MB limit`);
-          }
+        // Validate inputs
+        if (!scheduleId) {
+          throw new Error('Schedule ID is required for attachment upload');
         }
         
-        files.forEach(file => {
+        if (!files || files.length === 0) {
+          throw new Error('No files provided for upload');
+        }
+        
+        const formData = new FormData();
+        
+        // Validate file sizes and types
+        const maxSize = 15 * 1024 * 1024; // 15MB per file
+        const allowedTypes = [
+          'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain'
+        ];
+        
+        for (const file of files) {
+          // Validate file size
+          if (file.size > maxSize) {
+            throw new Error(`File ${file.name} exceeds 15MB limit (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+          }
+          
+          // Validate file type
+          if (!allowedTypes.includes(file.type)) {
+            throw new Error(`File type ${file.type} is not allowed for ${file.name}`);
+          }
+          
+          console.log(`Adding file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB, ${file.type})`);
           formData.append('files', file);
-        });
+        }
 
+        // Log FormData contents for debugging
+        console.log('FormData entries:');
+        for (let [key, value] of formData.entries()) {
+          console.log(key, value instanceof File ? `File: ${value.name}` : value);
+        }
+
+        // FIXED: Use the correct endpoint and headers
         const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
+          },
+          timeout: 60000, // 60 second timeout for large files
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`Upload progress: ${percentCompleted}%`);
           }
         });
 
-        return response;
+        console.log('Upload response:', response);
+        
+        if (response.data?.status === 'success') {
+          console.log('Attachments uploaded successfully');
+          return {
+            success: true,
+            data: response.data.data,
+            message: `Successfully uploaded ${files.length} file(s)`
+          };
+        } else {
+          throw new Error(response.data?.message || 'Upload failed - unknown error');
+        }
+        
       } catch (error) {
         console.error("Error uploading attachments:", error);
+        
+        // Enhanced error handling
+        if (error.response) {
+          console.error("Upload error response:", error.response.data);
+          const errorMessage = error.response.data?.message || 
+                             error.response.data?.error || 
+                             `HTTP ${error.response.status}: Upload failed`;
+          throw new Error(errorMessage);
+        } else if (error.request) {
+          console.error("Upload error request:", error.request);
+          throw new Error("Network error: Could not upload files to server");
+        } else {
+          console.error("Upload error message:", error.message);
+          throw new Error(error.message || "Unknown error occurred during upload");
+        }
+      }
+    },
+
+    // FIXED: Alternative bulk upload method for multiple schedules
+    async uploadAttachmentsToMultipleSchedules(scheduleIds, files) {
+      try {
+        console.log('=== uploadAttachmentsToMultipleSchedules ===');
+        console.log('Schedule IDs:', scheduleIds);
+        console.log('Files:', files);
+        
+        // Upload to each schedule individually for better reliability
+        const uploadResults = [];
+        
+        for (const scheduleId of scheduleIds) {
+          try {
+            const result = await this.uploadAttachments(scheduleId, files);
+            uploadResults.push({
+              scheduleId,
+              success: true,
+              data: result.data
+            });
+          } catch (error) {
+            console.error(`Failed to upload to schedule ${scheduleId}:`, error);
+            uploadResults.push({
+              scheduleId,
+              success: false,
+              error: error.message
+            });
+          }
+        }
+        
+        const successful = uploadResults.filter(r => r.success);
+        const failed = uploadResults.filter(r => !r.success);
+        
+        if (failed.length === 0) {
+          console.log(`Successfully uploaded to all ${successful.length} schedules`);
+          return {
+            success: true,
+            results: uploadResults,
+            message: `Successfully uploaded to all ${successful.length} schedule(s)`
+          };
+        } else if (successful.length > 0) {
+          console.warn(`Partial success: ${successful.length} succeeded, ${failed.length} failed`);
+          return {
+            success: false,
+            results: uploadResults,
+            message: `Uploaded to ${successful.length} schedule(s), failed for ${failed.length} schedule(s)`
+          };
+        } else {
+          console.error('All uploads failed');
+          throw new Error(`Failed to upload to all ${failed.length} schedule(s)`);
+        }
+        
+      } catch (error) {
+        console.error("Error in bulk upload:", error);
         throw error;
       }
     },
@@ -810,7 +933,15 @@ export const getScheduleConfig = (organizationType) => {
     enableScheduleDelete: true,
     timeSlotDuration: 5, // 5 minutes intervals
     maxAttachmentSize: 15 * 1024 * 1024, // 15MB
-    allowedFileTypes: ['image/*', '.pdf', '.doc', '.docx', '.txt', '.xlsx', '.xls'],
+    allowedFileTypes: [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain'
+    ],
     enableScheduleStacking: true,
     maxStackedSchedules: 10,
     stackedScheduleHeight: 28,

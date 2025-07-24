@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED CURRENT TIME & VIEWPORT
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED: Disable past time slots instead of preventing
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -381,6 +381,16 @@ const ScheduleGrid = ({
     return heights;
   }, [processedSchedules, days]);
 
+  // FIXED: Add function to check if a time slot is in the past
+  const isTimeSlotInPast = useCallback((dayIndex, hour, minute) => {
+    const now = new Date();
+    const targetDate = getDateFromDayIndex(dayIndex);
+    const targetDateTime = new Date(targetDate);
+    targetDateTime.setHours(hour, minute, 0, 0);
+    
+    return targetDateTime < now;
+  }, []);
+
   const getTimeFromPosition = useCallback((clientX, clientY) => {
     if (!viewportRef.current) return null;
     
@@ -416,15 +426,19 @@ const ScheduleGrid = ({
     const finalMinute = Math.min(snappedMinute, 59);
     const pixelX = hourIndex * HOUR_WIDTH + (finalMinute / 60) * HOUR_WIDTH;
     
+    // FIXED: Check if this time slot is in the past
+    const isPast = isTimeSlotInPast(dayIndex, actualHour, finalMinute);
+    
     return {
       hour: actualHour,
       minute: finalMinute,
       hourIndex: hourIndex,
       dayIndex: dayIndex,
       exactMinute: exactMinute,
-      pixelX: pixelX
+      pixelX: pixelX,
+      isPast: isPast // FIXED: Add isPast flag
     };
-  }, [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour]);
+  }, [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour, isTimeSlotInPast]);
 
   const getDateFromDayIndex = useCallback((dayIndex) => {
     const baseDate = weekStartDate ? new Date(weekStartDate) : new Date();
@@ -438,7 +452,7 @@ const ScheduleGrid = ({
     return targetDate;
   }, [weekStartDate]);
 
-  // Mouse handlers
+  // FIXED: Mouse handlers - prevent dragging on past time slots
   const handleMouseDown = useCallback((e) => {
     if (e.target.closest('.schedule-event') || e.target.closest('.help-icon')) return;
     
@@ -447,6 +461,11 @@ const ScheduleGrid = ({
     
     const timeInfo = getTimeFromPosition(e.clientX, e.clientY);
     if (!timeInfo) return;
+    
+    // FIXED: Don't allow dragging on past time slots
+    if (timeInfo.isPast) {
+      return; // Simply don't start dragging for past time slots
+    }
     
     setDragStartPos(timeInfo);
     setSelectedArea({
@@ -478,6 +497,11 @@ const ScheduleGrid = ({
     
     const timeInfo = getTimeFromPosition(e.clientX, e.clientY);
     if (!timeInfo) return;
+    
+    // FIXED: Don't allow dragging to past time slots
+    if (timeInfo.isPast) {
+      return; // Don't update selection if trying to drag to a past time slot
+    }
     
     let constrainedDayIndex = timeInfo.dayIndex;
     
@@ -525,6 +549,19 @@ const ScheduleGrid = ({
 
   const handleMouseUp = useCallback(() => {
     if (!isDragging || !selectedArea || !dragStartPos) return;
+    
+    // FIXED: Check if the start time is in the past and show appropriate message
+    const startDate = getDateFromDayIndex(selectedArea.startDay);
+    const startDateTime = new Date(startDate);
+    startDateTime.setHours(selectedArea.startHour, selectedArea.startMinute, 0, 0);
+    
+    const now = new Date();
+    if (startDateTime < now) {
+      // FIXED: Show informative message instead of preventing
+      toast.info("Jadwal yang dipilih sudah terlewat", {
+        description: "Anda tetap dapat membuat jadwal ini jika diperlukan."
+      });
+    }
     
     const isClick = selectedArea.startDay === selectedArea.endDay && 
                    selectedArea.startHour === selectedArea.endHour && 
@@ -982,6 +1019,45 @@ const ScheduleGrid = ({
                     }}
                   />
                 );
+              })}
+
+              {/* FIXED: Visual indicators for past time slots */}
+              {selectedDates.length > 0 && days.map((day, dayIndex) => {
+                const isDaySelected = selectedDates.some(date => {
+                  const selectedDateObj = new Date(date);
+                  const selectedDayIndex = (selectedDateObj.getDay() + 6) % 7;
+                  return selectedDayIndex === dayIndex;
+                });
+                
+                if (!isDaySelected) return null;
+                
+                const dayTop = getDayRowTop(dayIndex);
+                const dayHeight = dayRowHeights[day.full];
+                
+                return timeSlots.slice(0, -1).map((timeSlot, hourIndex) => {
+                  const hour = getActualHour(hourIndex);
+                  const isPast = isTimeSlotInPast(dayIndex, hour, 0);
+                  
+                  if (!isPast) return null;
+                  
+                  const left = hourIndex * HOUR_WIDTH;
+                  
+                  return (
+                    <div
+                      key={`past-indicator-${dayIndex}-${hourIndex}`}
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: `${left + 55}px`,
+                        top: `${dayTop}px`,
+                        width: `${HOUR_WIDTH}px`,
+                        height: `${dayHeight}px`,
+                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                        zIndex: Z_INDICES.BACKGROUND + 1,
+                        borderRight: '1px solid rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                  );
+                });
               })}
 
               {/* Schedule events */}

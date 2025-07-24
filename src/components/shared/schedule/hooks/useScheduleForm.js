@@ -1,4 +1,4 @@
-// src/components/shared/schedule/hooks/useScheduleForm.js - Shared Form Logic
+// src/components/shared/schedule/hooks/useScheduleForm.js - FIXED: Remove duration validation & fix attachments
 
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -11,16 +11,6 @@ const formatDateLocal = (date) => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-// Past date validation
-const isPastDate = (dateString, timeString) => {
-  if (!dateString || !timeString) return false;
-  
-  const now = new Date();
-  const selectedDateTime = new Date(`${dateString}T${timeString}:00`);
-  
-  return selectedDateTime < now;
 };
 
 export const useScheduleForm = (mode = "create", initialData = null, isOpen = false) => {
@@ -297,63 +287,78 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     staleTime: 30 * 1000
   });
 
-  // FIXED: Upload attachments mutation with better error handling
+  // FIXED: Upload attachments mutation with proper endpoint and error handling
   const uploadAttachmentsMutation = useMutation({
     mutationFn: async ({ scheduleIds, files }) => {
       console.log('=== Uploading attachments ===');
       console.log('Schedule IDs:', scheduleIds);
       console.log('Files to upload:', files);
       
-      const formData = new FormData();
+      // FIXED: Handle single schedule ID or multiple schedule IDs
+      const idArray = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
       
-      // Add files to form data
-      files.forEach((file, index) => {
-        console.log(`Adding file ${index}:`, file.name, file.size);
-        formData.append('files', file);
-      });
-      
-      // Add schedule IDs
-      const scheduleIdsString = Array.isArray(scheduleIds) ? scheduleIds.join(',') : scheduleIds;
-      formData.append('scheduleIds', scheduleIdsString);
-      
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-      
-      try {
-        const response = await apiClient.post('/schedules/attachments', formData, {
-          headers: { 
-            'Content-Type': 'multipart/form-data' 
-          },
-          timeout: 30000 // 30 second timeout
+      // FIXED: Upload to each schedule individually for better reliability
+      const uploadPromises = idArray.map(async (scheduleId) => {
+        const formData = new FormData();
+        
+        // Add files to form data
+        files.forEach((file) => {
+          console.log(`Adding file to schedule ${scheduleId}:`, file.name, file.size);
+          formData.append('files', file);
         });
         
-        console.log('Upload response:', response);
-        return response.data;
-      } catch (error) {
-        console.error('Upload error:', error);
-        if (error.response) {
-          console.error('Upload error response:', error.response.data);
-          throw new Error(error.response.data?.message || `HTTP ${error.response.status}: Upload failed`);
-        } else if (error.request) {
-          console.error('Upload error request:', error.request);
-          throw new Error("Network error: Could not upload files");
-        } else {
-          throw new Error(error.message || "Unknown upload error");
+        console.log(`Uploading to schedule ${scheduleId}`);
+        
+        try {
+          // FIXED: Use the correct endpoint for individual schedule
+          const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
+            headers: { 
+              'Content-Type': 'multipart/form-data' 
+            },
+            timeout: 60000 // 60 second timeout for file uploads
+          });
+          
+          console.log(`Upload response for schedule ${scheduleId}:`, response);
+          return { scheduleId, success: true, data: response.data };
+        } catch (error) {
+          console.error(`Upload error for schedule ${scheduleId}:`, error);
+          return { 
+            scheduleId, 
+            success: false, 
+            error: error.response?.data?.message || error.message 
+          };
         }
+      });
+      
+      const results = await Promise.allSettled(uploadPromises);
+      
+      // Check if all uploads were successful
+      const successful = results.filter(result => 
+        result.status === 'fulfilled' && result.value.success
+      );
+      
+      const failed = results.filter(result => 
+        result.status === 'rejected' || !result.value?.success
+      );
+      
+      if (failed.length > 0) {
+        console.error('Some uploads failed:', failed);
+        throw new Error(`Failed to upload attachments to ${failed.length} schedule(s)`);
       }
+      
+      console.log(`Successfully uploaded attachments to ${successful.length} schedule(s)`);
+      return { successful: successful.length, results };
     }
   });
 
-  // Form validation - REMOVED past date validation & 15 min duration
+  // FIXED: Form validation - Completely remove duration requirements
   const validateForm = () => {
     if (!formData.agenda.trim()) {
       toast.error("Agenda wajib diisi");
       return false;
     }
     
-    // Date and time validation
+    // Date and time validation - REMOVED all duration checks
     for (let i = 0; i < formData.dates.length; i++) {
       const dateInfo = formData.dates[i];
       
@@ -372,7 +377,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         return false;
       }
       
-      // REMOVED: Minimum duration check - allow any duration
+      // REMOVED: All minimum duration checks - allow any duration even 5 minutes
     }
     
     if (formData.type === "counseling") {
@@ -459,16 +464,57 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     }
   };
 
-  // File handling
+  // FIXED: File handling with better validation and preview
   const handleFileSelect = (e, type) => {
     const files = Array.from(e.target.files);
-    const maxSize = 15 * 1024 * 1024;
-    let totalSize = attachments.reduce((sum, att) => sum + att.size, 0);
+    const maxSize = 15 * 1024 * 1024; // 15MB
+    const maxTotalSize = 50 * 1024 * 1024; // 50MB total
+    
+    let currentTotalSize = attachments.reduce((sum, att) => sum + att.size, 0);
     const validFiles = [];
     
+    // Check file types
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedDocTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain'
+    ];
+    
     files.forEach(file => {
-      if (totalSize + file.size > maxSize) {
-        toast.error(`Total file size exceeds 15MB limit`);
+      // Validate file size
+      if (file.size > maxSize) {
+        toast.error(`File ${file.name} terlalu besar. Maksimal 15MB per file.`);
+        return;
+      }
+      
+      // Validate total size
+      if (currentTotalSize + file.size > maxTotalSize) {
+        toast.error(`Total ukuran file melebihi batas 50MB`);
+        return;
+      }
+      
+      // Validate file type
+      if (type === 'image' && !allowedImageTypes.includes(file.type)) {
+        toast.error(`File ${file.name} bukan format gambar yang didukung`);
+        return;
+      }
+      
+      if (type === 'document' && !allowedDocTypes.includes(file.type)) {
+        toast.error(`File ${file.name} bukan format dokumen yang didukung`);
+        return;
+      }
+      
+      // Check for duplicates
+      const isDuplicate = attachments.some(att => 
+        att.name === file.name && att.size === file.size
+      );
+      
+      if (isDuplicate) {
+        toast.error(`File ${file.name} sudah dipilih`);
         return;
       }
       
@@ -477,9 +523,11 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         id: Date.now() + Math.random(),
         name: file.name,
         size: file.size,
-        type: type
+        type: type,
+        fileType: file.type
       };
 
+      // Generate preview for images
       if (type === 'image' && file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -492,15 +540,21 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       }
 
       validFiles.push(attachment);
-      totalSize += file.size;
+      currentTotalSize += file.size;
     });
     
-    setAttachments(prev => [...prev, ...validFiles]);
+    if (validFiles.length > 0) {
+      setAttachments(prev => [...prev, ...validFiles]);
+      toast.success(`${validFiles.length} file berhasil dipilih`);
+    }
+    
+    // Clear input
     e.target.value = '';
   };
 
   const removeAttachment = (attachmentId) => {
     setAttachments(prev => prev.filter(att => att.id !== attachmentId));
+    toast.success("File dihapus dari daftar lampiran");
   };
 
   // Participant handlers
@@ -549,10 +603,12 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     const newDates = [...formData.dates];
     newDates[index] = { ...newDates[index], [field]: value };
     
+    // FIXED: Don't auto-adjust times, allow any duration
     if (field === 'startTime') {
       const startTimeIndex = timeOptions.indexOf(value);
       const endTimeIndex = timeOptions.indexOf(newDates[index].endTime);
       
+      // Only adjust if end time is before or equal to start time
       if (startTimeIndex >= endTimeIndex) {
         const newEndTimeIndex = Math.min(startTimeIndex + 1, timeOptions.length - 1);
         newDates[index].endTime = timeOptions[newEndTimeIndex];
@@ -563,6 +619,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       const startTimeIndex = timeOptions.indexOf(newDates[index].startTime);
       const endTimeIndex = timeOptions.indexOf(value);
       
+      // Only adjust if end time is before or equal to start time
       if (endTimeIndex <= startTimeIndex) {
         const newStartTimeIndex = Math.max(endTimeIndex - 1, 0);
         newDates[index].startTime = timeOptions[newStartTimeIndex];
