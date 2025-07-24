@@ -1,9 +1,9 @@
-// src/components/shared/schedule/ViewScheduleModal.jsx - CLEANED UP & OPTIMIZED
+// src/components/shared/schedule/ViewScheduleModal.jsx - SIMPLIFIED VIEW MODAL
 
 import React, { useState, useEffect } from "react";
 import { useQuery } from '@tanstack/react-query';
+import { toast } from "sonner";
 import { createScheduleApi } from './lib/scheduleApi';
-import AddScheduleModal from "./AddScheduleModal";
 
 const ViewScheduleModal = ({
   isOpen,
@@ -15,12 +15,11 @@ const ViewScheduleModal = ({
   organizationType = "school"
 }) => {
   const [downloadingAttachment, setDownloadingAttachment] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [scheduleData, setScheduleData] = useState(initialScheduleData);
   
   const scheduleApi = createScheduleApi(organizationType);
 
-  // Fetch detailed schedule data - optimized for speed
+  // Fetch detailed schedule data
   const { data: detailedScheduleData, isLoading: isLoadingDetail } = useQuery({
     queryKey: ['schedule-detail', initialScheduleData?.id],
     queryFn: async () => {
@@ -81,7 +80,6 @@ const ViewScheduleModal = ({
 
   // Better date handling for multiple dates
   const getDatesFromSchedule = () => {
-    // Priority 1: Use dates array if available
     if (scheduleData.dates && scheduleData.dates.length > 0) {
       return scheduleData.dates.map(dateInfo => ({
         ...dateInfo,
@@ -89,7 +87,6 @@ const ViewScheduleModal = ({
       }));
     }
     
-    // Priority 2: Parse from startDateTime/endDateTime
     if (scheduleData.startDateTime) {
       const startDate = new Date(scheduleData.startDateTime);
       const endDate = new Date(scheduleData.endDateTime);
@@ -131,13 +128,11 @@ const ViewScheduleModal = ({
   // Get psychologist from API structure
   const getPsychologist = () => {
     if (scheduleData.type === "counseling") {
-      // From transformed participants data
       if (scheduleData.participants) {
         const psychologist = scheduleData.participants.find((p) => p.role === "psychologist");
         if (psychologist) return psychologist;
       }
       
-      // From raw API data (usersSchedules)
       if (scheduleData.usersSchedules) {
         const psychSchedule = scheduleData.usersSchedules.find(us => us.user.role === "psychologist");
         if (psychSchedule?.user) return psychSchedule.user;
@@ -150,13 +145,11 @@ const ViewScheduleModal = ({
   // Get clients from API structure
   const getClients = () => {
     if (scheduleData.type === "counseling") {
-      // From transformed participants data
       if (scheduleData.participants) {
         const clients = scheduleData.participants.filter((p) => p.role !== "psychologist");
         if (clients.length > 0) return clients;
       }
       
-      // From raw API data (usersSchedules)
       if (scheduleData.usersSchedules) {
         const clients = scheduleData.usersSchedules
           .filter(us => us.user.role !== "psychologist")
@@ -193,7 +186,7 @@ const ViewScheduleModal = ({
     return "Lokasi tidak ditentukan";
   };
 
-  // Enhanced attachment handlers with proper URL handling
+  // Enhanced attachment handlers
   const getAttachmentUrl = (attachment) => {
     if (!attachment.fileUrl) return null;
     
@@ -243,7 +236,6 @@ const ViewScheduleModal = ({
         return;
       }
       
-      // Fallback to API download
       const response = await fetch(`/api/schedules/${scheduleData.id}/attachments/${attachment.id}/download`, {
         method: 'GET',
         headers: {
@@ -305,393 +297,295 @@ const ViewScheduleModal = ({
     return isImage ? 'Preview' : 'Download';
   };
 
-  // FIXED: Enhanced edit handling with proper state management
+  // Handle edit
   const handleEdit = () => {
     if (loading || isLoadingDetail) return;
-    console.log('=== ViewScheduleModal handleEdit ===');
-    console.log('Opening edit modal for schedule:', scheduleData.id);
-    setShowEditModal(true);
+    onEdit && onEdit(scheduleData);
   };
 
-  const handleEditSubmit = async (formData) => {
-    try {
-      console.log('=== ViewScheduleModal handleEditSubmit ===');
-      console.log('Submitting edit for schedule:', scheduleData.id);
-      
-      if (onEdit) {
-        const result = await onEdit(scheduleData.id, formData);
-        
-        if (result?.data?.data) {
-          setScheduleData(result.data.data);
-        } else {
-          const updatedScheduleData = {
-            ...scheduleData,
-            agenda: formData.agenda,
-            type: formData.type,
-            description: formData.description,
-            notificationOffset: formData.notificationOffset,
-            dates: formData.dates,
-            location: formData.type === "counseling" ? formData.location : scheduleData.location,
-            customLocation: formData.type !== "counseling" ? formData.customLocation : scheduleData.customLocation,
-            multipleDate: formData.dates?.length > 1,
-            ...(formData.participants && {
-              participants: [
-                ...(formData.selectedPsychologist ? [formData.selectedPsychologist] : []),
-                ...(formData.selectedParticipants || [])
-              ]
-            })
-          };
-          
-          setScheduleData(updatedScheduleData);
-        }
-        
-        // FIXED: Close all modals immediately and clear edit state
-        console.log('Edit successful, closing all modals');
-        setShowEditModal(false);
-        onClose();
-      }
-    } catch (error) {
-      console.error('Error updating schedule:', error);
-      throw error;
-    }
-  };
-
-  // FIXED: Enhanced delete handler with proper state cleanup
+  // Handle delete with sonner confirmation
   const handleDelete = () => {
     if (onDelete && !loading && !isLoadingDetail) {
-      if (window.confirm("Apakah Anda yakin ingin menghapus jadwal ini?")) {
-        console.log('=== ViewScheduleModal handleDelete ===');
-        console.log('Deleting schedule:', scheduleData.id);
-        onDelete(scheduleData);
-      }
+      // FIXED: Use sonner toast for confirmation instead of window.confirm
+      toast("Apakah Anda yakin ingin menghapus jadwal ini?", {
+        description: "Tindakan ini tidak dapat dibatalkan. Jadwal akan dihapus secara permanen.",
+        action: {
+          label: "Ya, Hapus",
+          onClick: () => {
+            onDelete(scheduleData);
+          },
+          className: "!bg-red-600 hover:!bg-red-700 !text-white !border-red-600 hover:!border-red-700 !ml-auto"
+        },
+        cancel: {
+          label: "Batal",
+          onClick: () => {
+            // Do nothing, just close the toast
+          },
+          className: "!bg-transparent hover:!bg-gray-100 !text-gray-700 !border !border-gray-300 hover:!border-gray-400"
+        },
+        duration: 10000,
+        className: "!bg-white !border !border-gray-200 !shadow-lg",
+        position: "top-center"
+      });
     }
   };
 
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) {
-      console.log('=== ViewScheduleModal overlay clicked ===');
       onClose();
     }
-  };
-
-  // FIXED: Handle edit modal close with proper state cleanup
-  const handleEditModalClose = () => {
-    console.log('=== ViewScheduleModal edit modal closing ===');
-    setShowEditModal(false);
-    // Don't close the view modal, just the edit modal
-  };
-
-  // Prepare edit data with proper location handling
-  const prepareEditData = () => {
-    const psychologist = getPsychologist();
-    const clients = getClients();
-    
-    // Prepare participants in new format for editing
-    let participants = null;
-    if (scheduleData.type === "counseling" && psychologist && clients.length > 0) {
-      participants = {
-        psychologistId: psychologist.id,
-        patientIds: clients.map(client => client.id)
-      };
-    }
-    
-    // Use original backend location for editing
-    let editLocationValue = "";
-    if (scheduleData.type === "counseling") {
-      editLocationValue = scheduleData.location || "";
-    }
-    
-    return {
-      id: scheduleData.id,
-      agenda: scheduleData.agenda || "",
-      type: scheduleData.type || "counseling",
-      description: scheduleData.description || "",
-      notificationOffset: scheduleData.notificationOffset || 60,
-      dates: dates.length > 0 ? dates : [{
-        date: new Date().toISOString().split('T')[0],
-        startTime: "09:00",
-        endTime: "10:00",
-        timezone: "WIB"
-      }],
-      selectedPsychologist: psychologist,
-      selectedParticipants: clients,
-      participants: participants,
-      location: editLocationValue,
-      customLocation: scheduleData.type !== "counseling" ? (scheduleData.customLocation || "") : "",
-      multipleDate: dates.length > 1,
-      originalData: scheduleData,
-      _originalBackendLocation: scheduleData.location
-    };
   };
 
   const showParticipants = scheduleData.type === "counseling";
 
   return (
-    <>
-      {/* Only show ViewSchedule if edit modal is not open */}
-      {!showEditModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
-          onClick={handleOverlayClick}
-        >
-          <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-            
-            {/* Header */}
-            <div className="flex justify-end items-center p-6">
-              <button
-                onClick={onClose}
-                disabled={loading}
-                className="text-[#EE4266] hover:text-[#d63854] transition-colors disabled:opacity-50"
-              >
-                <span className="material-icons text-[20px]">close</span>
-              </button>
-            </div>
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+        
+        {/* Header */}
+        <div className="flex justify-end items-center p-6">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="text-[#EE4266] hover:text-[#d63854] transition-colors disabled:opacity-50"
+          >
+            <span className="material-icons text-[20px]">close</span>
+          </button>
+        </div>
 
-            <div className="p-6 space-y-6">
-            
-            {/* Agenda & Type */}
-            <div className="flex gap-4 items-center">
-              <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
-              <div className="flex-1">
-                <div className="text-lg font-semibold text-gray-900">
-                  {scheduleData.agenda || "No Title"}
-                </div>
-              </div>
-              <div className="flex items-center px-3 py-1 rounded-md">
-                <span style={{ color: selectedEventType.textColor }} className="font-medium">
-                  {selectedEventType.label}
+        <div className="p-6 space-y-6">
+        
+        {/* Agenda & Type */}
+        <div className="flex gap-4 items-center">
+          <span className="material-icons text-[#488BBA] text-[25px]">list_alt</span>
+          <div className="flex-1">
+            <div className="text-lg font-semibold text-gray-900">
+              {scheduleData.agenda || "No Title"}
+            </div>
+          </div>
+          <div className="flex items-center px-3 py-1 rounded-md">
+            <span style={{ color: selectedEventType.textColor }} className="font-medium">
+              {selectedEventType.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Date & Time */}
+        <div className="flex gap-4 items-start">
+          <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
+          <div className="flex-1 space-y-2">
+            {dates.map((dateInfo, index) => (
+              <div key={index} className="flex gap-3 items-center text-gray-700">
+                <span className="font-medium">
+                  {formatDate(dateInfo.date)}
+                </span>
+                <span className="text-gray-500">•</span>
+                <span>
+                  {dateInfo.startTime} - {dateInfo.endTime} {dateInfo.timezone || "WIB"}
                 </span>
               </div>
-            </div>
+            ))}
 
-            {/* Date & Time */}
+            {dates.length > 1 && (
+              <div className="flex gap-2 items-center text-sm text-gray-600">
+                <div className="w-3 h-3 bg-[#535353] rounded-sm"></div>
+                <span>Multiple Date</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notification */}
+        <div className="flex gap-4 items-center">
+          <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
+          <div className="text-gray-700">
+            Notifikasi: <span className="font-medium">{getNotificationText(scheduleData.notificationOffset)}</span>
+          </div>
+        </div>
+
+        {/* Participants (Only for Counseling) */}
+        {showParticipants && (
+          <div className="space-y-4">
             <div className="flex gap-4 items-start">
-              <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
-              <div className="flex-1 space-y-2">
-                {dates.map((dateInfo, index) => (
-                  <div key={index} className="flex gap-3 items-center text-gray-700">
-                    <span className="font-medium">
-                      {formatDate(dateInfo.date)}
-                    </span>
-                    <span className="text-gray-500">•</span>
-                    <span>
-                      {dateInfo.startTime} - {dateInfo.endTime} {dateInfo.timezone || "WIB"}
-                    </span>
-                  </div>
-                ))}
+              <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
+              <div className="flex-1 space-y-3">
+                
+                {/* Psychologist */}
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Psikolog:</div>
+                  {getPsychologist() ? (
+                    <div className="text-gray-900 font-medium">
+                      {getPsychologist().fullName || getPsychologist().email}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic">Tidak ada psikolog</div>
+                  )}
+                </div>
 
-                {dates.length > 1 && (
-                  <div className="flex gap-2 items-center text-sm text-gray-600">
-                    <div className="w-3 h-3 bg-[#535353] rounded-sm"></div>
-                    <span>Multiple Date</span>
+                {/* Client 1 */}
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">Klien 1:</div>
+                  {getClients()[0] ? (
+                    <div className="text-gray-900 font-medium">
+                      {getClients()[0].fullName || getClients()[0].email}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic">Tidak ada klien 1</div>
+                  )}
+                </div>
+
+                {/* Client 2 (Optional) */}
+                {getClients()[1] && (
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">Klien 2:</div>
+                    <div className="text-gray-900 font-medium">
+                      {getClients()[1].fullName || getClients()[1].email}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Notification */}
+            {/* Location for Counseling with Zoom integration */}
             <div className="flex gap-4 items-center">
-              <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
-              <div className="text-gray-700">
-                Notifikasi: <span className="font-medium">{getNotificationText(scheduleData.notificationOffset)}</span>
-              </div>
-            </div>
-
-            {/* Participants (Only for Counseling) */}
-            {showParticipants && (
-              <div className="space-y-4">
-                <div className="flex gap-4 items-start">
-                  <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
-                  <div className="flex-1 space-y-3">
-                    
-                    {/* Psychologist */}
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">Psikolog:</div>
-                      {getPsychologist() ? (
-                        <div className="text-gray-900 font-medium">
-                          {getPsychologist().fullName || getPsychologist().email}
-                        </div>
-                      ) : (
-                        <div className="text-gray-500 italic">Tidak ada psikolog</div>
-                      )}
-                    </div>
-
-                    {/* Client 1 */}
-                    <div>
-                      <div className="text-sm text-gray-600 mb-1">Klien 1:</div>
-                      {getClients()[0] ? (
-                        <div className="text-gray-900 font-medium">
-                          {getClients()[0].fullName || getClients()[0].email}
-                        </div>
-                      ) : (
-                        <div className="text-gray-500 italic">Tidak ada klien 1</div>
-                      )}
-                    </div>
-
-                    {/* Client 2 (Optional) */}
-                    {getClients()[1] && (
-                      <div>
-                        <div className="text-sm text-gray-600 mb-1">Klien 2:</div>
-                        <div className="text-gray-900 font-medium">
-                          {getClients()[1].fullName || getClients()[1].email}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Location for Counseling with Zoom integration */}
-                <div className="flex gap-4 items-center">
-                  <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-                  <div className="flex-1 flex items-center gap-3">
-                    <div className="text-gray-700">
-                      Lokasi: <span className="font-medium">{getLocationText()}</span>
-                    </div>
-                    
-                    {/* Show Zoom buttons only for online counseling sessions */}
-                    {scheduleData.type === "counseling" && scheduleData.location === "online" && (
-                      <div className="flex gap-2">
-                        {scheduleData.zoomJoinUrl && (
-                          <button
-                            onClick={() => window.open(scheduleData.zoomJoinUrl, '_blank')}
-                            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
-                            title="Join Zoom Meeting"
-                          >
-                            <span className="material-icons text-sm">videocam</span>
-                            Join Meeting
-                          </button>
-                        )}
-                        {scheduleData.zoomStartUrl && (
-                          <button
-                            onClick={() => window.open(scheduleData.zoomStartUrl, '_blank')}
-                            className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors flex items-center gap-1"
-                            title="Start Zoom Meeting"
-                          >
-                            <span className="material-icons text-sm">play_arrow</span>
-                            Start Meeting
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Custom Location - for non-counseling */}
-            {!showParticipants && (
-              <div className="flex gap-4 items-center">
-                <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+              <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+              <div className="flex-1 flex items-center gap-3">
                 <div className="text-gray-700">
                   Lokasi: <span className="font-medium">{getLocationText()}</span>
                 </div>
-              </div>
-            )}
-
-            {/* Description & Attachments */}
-            <div className="flex gap-4 items-start">
-              <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
-              <div className="flex-1">
                 
-                {/* Description */}
-                <div className="mb-4">
-                  <div className="text-sm text-gray-600 mb-2">Deskripsi:</div>
-                  {scheduleData.description ? (
-                    <div
-                      className="text-gray-700 leading-relaxed"
-                      style={{ wordBreak: 'break-word' }}
-                      dangerouslySetInnerHTML={{
-                        __html: scheduleData.description,
-                      }}
-                    />
-                  ) : (
-                    <div className="text-gray-500 italic">Tidak ada deskripsi</div>
-                  )}
-                </div>
-                  
-                {/* Enhanced Attachments with proper URLs */}
-                {scheduleData.attachments && scheduleData.attachments.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">File Lampiran:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {scheduleData.attachments.map((attachment, index) => {
-                        const attachmentUrl = getAttachmentUrl(attachment);
-                        return (
-                          <button
-                            key={attachment.id || index}
-                            onClick={() => handleAttachmentClick(attachment)}
-                            disabled={downloadingAttachment === attachment.id || !attachmentUrl}
-                            className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors disabled:opacity-50 group"
-                            title={`${getFileTypeLabel(attachment)}: ${attachment.originalName || `File ${index + 1}`}`}
-                          >
-                            {downloadingAttachment === attachment.id ? (
-                              <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
-                            ) : (
-                              <span className="material-icons text-[18px] text-gray-600 group-hover:text-[#488BBA]">
-                                {getFileIcon(attachment)}
-                              </span>
-                            )}
-                            <span className="text-sm text-gray-700 max-w-[150px] truncate group-hover:text-gray-900">
-                              {attachment.originalName || `File ${index + 1}`}
-                            </span>
-                            <span className="text-xs text-gray-500 group-hover:text-gray-700">
-                              ({getFileTypeLabel(attachment)})
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                {/* Show Zoom buttons only for online counseling sessions */}
+                {scheduleData.type === "counseling" && scheduleData.location === "online" && (
+                  <div className="flex gap-2">
+                    {scheduleData.zoomJoinUrl && (
+                      <button
+                        onClick={() => window.open(scheduleData.zoomJoinUrl, '_blank')}
+                        className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors flex items-center gap-1"
+                        title="Join Zoom Meeting"
+                      >
+                        <span className="material-icons text-sm">videocam</span>
+                        Join Meeting
+                      </button>
+                    )}
+                    {scheduleData.zoomStartUrl && (
+                      <button
+                        onClick={() => window.open(scheduleData.zoomStartUrl, '_blank')}
+                        className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors flex items-center gap-1"
+                        title="Start Zoom Meeting"
+                      >
+                        <span className="material-icons text-sm">play_arrow</span>
+                        Start Meeting
+                      </button>
+                    )}
                   </div>
                 )}
-
-                {/* Action Buttons */}
-                <div className="mt-6 flex gap-3 justify-end">
-                  <button
-                    onClick={handleDelete}
-                    disabled={loading}
-                    className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                    title="Hapus jadwal"
-                  >
-                    <span className="material-icons text-[20px]">delete</span>
-                  </button>
-                  <button
-                    onClick={handleEdit}
-                    disabled={loading}
-                    className="px-6 py-2 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
-                  >
-                    {loading ? "Loading..." : "Edit"}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Loading Overlay */}
-          {(loading || isLoadingDetail) && (
-            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
-                <span className="text-[#488BBA] font-medium">Loading...</span>
-              </div>
+        {/* Custom Location - for non-counseling */}
+        {!showParticipants && (
+          <div className="flex gap-4 items-center">
+            <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
+            <div className="text-gray-700">
+              Lokasi: <span className="font-medium">{getLocationText()}</span>
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Description & Attachments */}
+        <div className="flex gap-4 items-start">
+          <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
+          <div className="flex-1">
+            
+            {/* Description */}
+            <div className="mb-4">
+              <div className="text-sm text-gray-600 mb-2">Deskripsi:</div>
+              {scheduleData.description ? (
+                <div
+                  className="text-gray-700 leading-relaxed"
+                  style={{ wordBreak: 'break-word' }}
+                  dangerouslySetInnerHTML={{
+                    __html: scheduleData.description,
+                  }}
+                />
+              ) : (
+                <div className="text-gray-500 italic">Tidak ada deskripsi</div>
+              )}
+            </div>
+              
+            {/* Enhanced Attachments with proper URLs */}
+            {scheduleData.attachments && scheduleData.attachments.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-gray-600">File Lampiran:</div>
+                <div className="flex flex-wrap gap-2">
+                  {scheduleData.attachments.map((attachment, index) => {
+                    const attachmentUrl = getAttachmentUrl(attachment);
+                    return (
+                      <button
+                        key={attachment.id || index}
+                        onClick={() => handleAttachmentClick(attachment)}
+                        disabled={downloadingAttachment === attachment.id || !attachmentUrl}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors disabled:opacity-50 group"
+                        title={`${getFileTypeLabel(attachment)}: ${attachment.originalName || `File ${index + 1}`}`}
+                      >
+                        {downloadingAttachment === attachment.id ? (
+                          <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin"></div>
+                        ) : (
+                          <span className="material-icons text-[18px] text-gray-600 group-hover:text-[#488BBA]">
+                            {getFileIcon(attachment)}
+                          </span>
+                        )}
+                        <span className="text-sm text-gray-700 max-w-[150px] truncate group-hover:text-gray-900">
+                          {attachment.originalName || `File ${index + 1}`}
+                        </span>
+                        <span className="text-xs text-gray-500 group-hover:text-gray-700">
+                          ({getFileTypeLabel(attachment)})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="mt-6 flex gap-3 justify-end">
+              <button
+                onClick={handleDelete}
+                disabled={loading}
+                className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                title="Hapus jadwal"
+              >
+                <span className="material-icons text-[20px]">delete</span>
+              </button>
+              <button
+                onClick={handleEdit}
+                disabled={loading}
+                className="px-6 py-2 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
+              >
+                {loading ? "Loading..." : "Edit"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-      )}
 
-      {/* FIXED: Edit Modal - Replace ViewSchedule instead of overlay with proper close handler */}
-      {showEditModal && (
-        <AddScheduleModal
-          isOpen={showEditModal}
-          onClose={handleEditModalClose}
-          onSubmit={handleEditSubmit}
-          initialData={prepareEditData()}
-          loading={loading}
-          mode="edit"
-          fromViewModal={true}
-        />
+      {/* Loading Overlay */}
+      {(loading || isLoadingDetail) && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
+            <span className="text-[#488BBA] font-medium">Loading...</span>
+          </div>
+        </div>
       )}
-    </>
+    </div>
+  </div>
   );
 };
 

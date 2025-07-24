@@ -1,4 +1,4 @@
-// src/components/shared/schedule/SchedulePage.jsx - FIXED TOAST HANDLING
+// src/components/shared/schedule/SchedulePage.jsx - SIMPLIFIED WITH SEPARATED MODALS
 
 import { useState, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
@@ -7,78 +7,25 @@ import ScheduleGrid from "./ScheduleGrid";
 import CounselingQueue from "./CounselingQueue";
 import DatePicker from "./DatePicker";
 import NotificationPanel from "./NotificationsPanel";
-import AddScheduleModal from "./AddScheduleModal";
+import CreateScheduleModal from "./CreateScheduleModal";
+import EditScheduleModal from "./EditScheduleModal";
 import ViewScheduleModal from "./ViewScheduleModal";
 import { useSchedule } from "./hooks/useSchedule";
 import TopRightControl from "../layout/TopRightControl";
 
 const SchedulePage = ({ type = "school" }) => {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [modalData, setModalData] = useState(null);
+  const [createModalData, setCreateModalData] = useState(null);
+  const [editModalData, setEditModalData] = useState(null);
   const [viewScheduleData, setViewScheduleData] = useState(null);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
   const [windowWidth, setWindowWidth] = useState(0);
   const [selectedDates, setSelectedDates] = useState([]);
   
-  // FIXED: Enhanced error message parser
-  const parseErrorMessage = (message) => {
-    if (!message) return 'An error occurred';
-    
-    // Parse ISO datetime patterns and other common backend formats
-    const isoDatePattern = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z?)/g;
-    const dateTimePattern = /(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/g;
-    
-    let parsedMessage = message;
-    
-    // Replace ISO datetime patterns
-    parsedMessage = parsedMessage.replace(isoDatePattern, (match) => {
-      try {
-        const date = new Date(match);
-        const dateStr = date.toLocaleDateString('id-ID', {
-          day: '2-digit',
-          month: '2-digit', 
-          year: 'numeric'
-        });
-        const timeStr = date.toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-        return `${dateStr} ${timeStr}`;
-      } catch (e) {
-        return match;
-      }
-    });
-    
-    // Replace simple datetime patterns
-    parsedMessage = parsedMessage.replace(dateTimePattern, (match) => {
-      try {
-        const date = new Date(match);
-        const dateStr = date.toLocaleDateString('id-ID', {
-          day: '2-digit',
-          month: '2-digit', 
-          year: 'numeric'
-        });
-        const timeStr = date.toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-        return `${dateStr} ${timeStr}`;
-      } catch (e) {
-        return match;
-      }
-    });
-    
-    return parsedMessage;
-  };
-  
-  // Get sidebar state from layout context
   const outletContext = useOutletContext() || {};
   const { sidebarExpanded = false } = outletContext;
 
-  // Use schedule hook
   const {
     selectedDate,
     selectedWeek,
@@ -97,15 +44,15 @@ const SchedulePage = ({ type = "school" }) => {
     getScheduleAtTime,
   } = useSchedule(type);
 
-  // FIXED: Clear all modal states when any modal closes
+  // Clear all modal states
   const clearAllModalStates = useCallback(() => {
-    setIsAddModalOpen(false);
+    setIsCreateModalOpen(false);
+    setIsEditModalOpen(false);
     setIsViewModalOpen(false);
-    setModalData(null);
+    setCreateModalData(null);
+    setEditModalData(null);
     setViewScheduleData(null);
-    setSelectedTimeSlot(null);
     
-    // FIXED: Also cleanup global close function
     if (window.closeAllModals) {
       delete window.closeAllModals;
     }
@@ -127,7 +74,6 @@ const SchedulePage = ({ type = "school" }) => {
   
   const isDesktop = availableWidth >= 1100;
 
-  // Component dimensions
   const getLeftColumnWidth = () => {
     if (isDesktop) {
       const rightColumnSpace = 335;
@@ -148,14 +94,11 @@ const SchedulePage = ({ type = "school" }) => {
   const leftColumnWidth = getLeftColumnWidth();
   const rightColumnWidth = getRightColumnWidth();
 
-  // FIXED: Handle time slot selection for creating new schedule - clear states first
+  // Handle time slot selection for creating new schedule
   const handleTimeSlotSelect = useCallback(async (timeSlot) => {
-    // FIXED: Clear all modal states first to ensure clean state
     clearAllModalStates();
     
-    // Then set the new data for create mode
-    setSelectedTimeSlot(timeSlot);
-    setModalData({
+    setCreateModalData({
       startDateTime: timeSlot.startDateTime,
       endDateTime: timeSlot.endDateTime,
       day: timeSlot.day,
@@ -167,82 +110,137 @@ const SchedulePage = ({ type = "school" }) => {
       }],
       draggedDays: timeSlot.draggedDays || 1
     });
-    setIsAddModalOpen(true);
+    setIsCreateModalOpen(true);
   }, [clearAllModalStates]);
 
-  // FIXED: Handle schedule click to view details - clear states first
+  // Handle schedule click to view details
   const handleScheduleClick = useCallback((scheduleData) => {
-    // FIXED: Clear all modal states first to ensure clean state
     clearAllModalStates();
-    
-    // Then set the new data for view mode
-    console.log('=== handleScheduleClick ===');
-    console.log('Schedule clicked:', scheduleData);
-    
     setViewScheduleData(scheduleData);
     setIsViewModalOpen(true);
-    
-    console.log('View modal should open with data:', scheduleData);
   }, [clearAllModalStates]);
 
   // Edit handler for ViewScheduleModal
-  const handleEditFromViewModal = useCallback(async (scheduleId, formData) => {
-    try {
-      await handleEditSchedule(scheduleId, formData);
-      // Don't close view modal here - let ViewScheduleModal handle its own state
-    } catch (error) {
-      console.error('Error updating schedule from view modal:', error);
-      // ViewScheduleModal will keep edit modal open for retry
-      throw error; // Re-throw so ViewScheduleModal can handle it
+  const handleEditFromViewModal = useCallback((scheduleData) => {
+    setIsViewModalOpen(false);
+    
+    // Prepare edit data with better participants handling
+    let psychologist = null;
+    let clients = [];
+    
+    if (scheduleData.type === "counseling") {
+      if (scheduleData.participants) {
+        psychologist = scheduleData.participants.find(p => p.role === "psychologist");
+        clients = scheduleData.participants.filter(p => p.role !== "psychologist");
+      } else if (scheduleData.usersSchedules) {
+        const psychSchedule = scheduleData.usersSchedules.find(us => us.user.role === "psychologist");
+        if (psychSchedule?.user) psychologist = psychSchedule.user;
+        
+        clients = scheduleData.usersSchedules
+          .filter(us => us.user.role !== "psychologist")
+          .map(us => us.user);
+      }
     }
-  }, [handleEditSchedule]);
+    
+    let participants = null;
+    if (scheduleData.type === "counseling" && psychologist && clients.length > 0) {
+      participants = {
+        psychologistId: psychologist.id,
+        patientIds: clients.map(client => client.id)
+      };
+    }
+    
+    // Better dates handling
+    let dates = [];
+    if (scheduleData.dates && scheduleData.dates.length > 0) {
+      dates = scheduleData.dates.map(dateInfo => ({
+        ...dateInfo,
+        timezone: dateInfo.timezone || "WIB"
+      }));
+    } else if (scheduleData.startDateTime) {
+      const startDate = new Date(scheduleData.startDateTime);
+      const endDate = new Date(scheduleData.endDateTime);
+      
+      dates = [{
+        date: startDate.toISOString().split("T")[0],
+        startTime: startDate.toLocaleTimeString("en-GB", {
+          hour: "2-digit", minute: "2-digit"
+        }),
+        endTime: endDate.toLocaleTimeString("en-GB", {
+          hour: "2-digit", minute: "2-digit"
+        }),
+        timezone: "WIB"
+      }];
+    }
+    
+    const editData = {
+      id: scheduleData.id,
+      agenda: scheduleData.agenda || "",
+      type: scheduleData.type || "counseling",
+      description: scheduleData.description || "",
+      notificationOffset: scheduleData.notificationOffset || 60,
+      dates: dates.length > 0 ? dates : [{
+        date: new Date().toISOString().split('T')[0],
+        startTime: "09:00",
+        endTime: "10:00",
+        timezone: "WIB"
+      }],
+      selectedPsychologist: psychologist,
+      selectedParticipants: clients,
+      participants: participants,
+      location: scheduleData.location || "",
+      customLocation: scheduleData.customLocation || "",
+      multipleDate: dates.length > 1,
+      originalData: scheduleData,
+      _originalBackendLocation: scheduleData.location
+    };
+    
+    setEditModalData(editData);
+    setIsEditModalOpen(true);
+  }, []);
 
-  // FIXED: Delete handler for ViewScheduleModal - clear states after delete
+  // Delete handler for ViewScheduleModal
   const handleDeleteFromViewModal = useCallback(async (scheduleData) => {
     try {
       await handleDeleteSchedule(scheduleData);
-      // FIXED: Clear all modal states after successful delete
       clearAllModalStates();
     } catch (error) {
-      console.error('Error deleting schedule from view modal:', error);
-      // ViewScheduleModal will handle error display
       throw error;
     }
   }, [handleDeleteSchedule, clearAllModalStates]);
 
-  // FIXED: Handle create/edit modal form submission with better error handling
-  const handleModalSubmit = useCallback(async (formData) => {
+  // Handle create modal form submission
+  const handleCreateSubmit = useCallback(async (formData) => {
     try {
-      let result;
-      
-      if (modalData?.id) {
-        // Update existing schedule (for direct edit, not from view modal)
-        result = await handleEditSchedule(modalData.id, formData);
-      } else {
-        // Create new schedule
-        result = await createSchedule(formData);
-      }
-      
-      // FIXED: Clear all modal states on successful completion
+      const result = await createSchedule(formData);
       clearAllModalStates();
-      
       return result;
-      
     } catch (error) {
-      console.error("Error submitting schedule:", error);
-      
-      // FIXED: Parse error message and re-throw to prevent modal closure
-      const parsedMessage = parseErrorMessage(error?.response?.data?.message || error.message);
-      
-      // Re-throw the parsed error to prevent modal from closing and let AddScheduleModal handle the toast
-      throw new Error(parsedMessage);
+      throw error;
     }
-  }, [modalData, createSchedule, handleEditSchedule, parseErrorMessage, clearAllModalStates]);
+  }, [createSchedule, clearAllModalStates]);
 
-  // FIXED: Enhanced modal close handlers with state clearing
-  const handleAddModalClose = useCallback(() => {
-    clearAllModalStates();
-  }, [clearAllModalStates]);
+  // Handle edit modal form submission
+  const handleEditSubmit = useCallback(async (formData) => {
+    try {
+      const result = await handleEditSchedule(editModalData.id, formData);
+      clearAllModalStates();
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }, [handleEditSchedule, editModalData, clearAllModalStates]);
+
+  // Modal close handlers
+  const handleCreateModalClose = useCallback(() => {
+    setIsCreateModalOpen(false);
+    setCreateModalData(null);
+  }, []);
+
+  const handleEditModalClose = useCallback(() => {
+    setIsEditModalOpen(false);
+    setEditModalData(null);
+  }, []);
 
   const handleViewModalClose = useCallback(() => {
     clearAllModalStates();
@@ -261,11 +259,11 @@ const SchedulePage = ({ type = "school" }) => {
     setSelectedWeek(weekStart);
   };
 
-  // FIXED: Handle escape key for modals with proper state clearing
+  // Handle escape key for modals
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
-        if (isViewModalOpen || isAddModalOpen) {
+        if (isViewModalOpen || isCreateModalOpen || isEditModalOpen) {
           clearAllModalStates();
         }
       }
@@ -273,28 +271,25 @@ const SchedulePage = ({ type = "school" }) => {
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isViewModalOpen, isAddModalOpen, clearAllModalStates]);
+  }, [isViewModalOpen, isCreateModalOpen, isEditModalOpen, clearAllModalStates]);
 
   // Prevent body scroll when modal is open  
   useEffect(() => {
-    if (isAddModalOpen || isViewModalOpen) {
+    if (isCreateModalOpen || isEditModalOpen || isViewModalOpen) {
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = 'unset';
       };
     }
-  }, [isAddModalOpen, isViewModalOpen]);
+  }, [isCreateModalOpen, isEditModalOpen, isViewModalOpen]);
 
-  // FIXED: Enhanced cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Cleanup global functions on unmount
       if (window.closeAllModals) {
         delete window.closeAllModals;
       }
-      // Restore body scroll
       document.body.style.overflow = 'unset';
-      // Clear all modal states
       clearAllModalStates();
     };
   }, [clearAllModalStates]);
@@ -381,18 +376,25 @@ const SchedulePage = ({ type = "school" }) => {
         </div>
       </div>
 
-      {/* Add/Edit Schedule Modal - Standalone */}
-      <AddScheduleModal
-        isOpen={isAddModalOpen}
-        onClose={handleAddModalClose}
-        onSubmit={handleModalSubmit}
-        initialData={modalData}
+      {/* Create Schedule Modal */}
+      <CreateScheduleModal
+        isOpen={isCreateModalOpen}
+        onClose={handleCreateModalClose}
+        onSubmit={handleCreateSubmit}
+        initialData={createModalData}
         loading={loading.submit}
-        mode={modalData?.id ? "edit" : "create"}
-        fromViewModal={false}
       />
 
-      {/* View Schedule Modal - Handles edit internally */}
+      {/* Edit Schedule Modal */}
+      <EditScheduleModal
+        isOpen={isEditModalOpen}
+        onClose={handleEditModalClose}
+        onSubmit={handleEditSubmit}
+        initialData={editModalData}
+        loading={loading.submit}
+      />
+
+      {/* View Schedule Modal */}
       <ViewScheduleModal
         isOpen={isViewModalOpen}
         onClose={handleViewModalClose}

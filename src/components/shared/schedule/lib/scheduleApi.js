@@ -615,13 +615,32 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    async deleteSchedule(scheduleId) {
+   async deleteSchedule(scheduleId) {
       try {
-        const response = await apiClient.delete(`/schedules/${scheduleId}`)
-        return response
+        console.log('Deleting schedule with ID:', scheduleId);
+        const response = await apiClient.delete(`/schedules/${scheduleId}`);
+        console.log('Delete response:', response);
+        
+        // Return success response
+        return {
+          success: true,
+          scheduleId: scheduleId,
+          data: response.data
+        };
       } catch (error) {
-        console.error("Error deleting schedule:", error)
-        throw error
+        console.error("Error deleting schedule:", error);
+        
+        // Enhanced error handling
+        if (error.response) {
+          console.error("Delete error response:", error.response.data);
+          throw new Error(error.response.data?.message || `HTTP ${error.response.status}: Failed to delete schedule`);
+        } else if (error.request) {
+          console.error("Delete error request:", error.request);
+          throw new Error("Network error: Could not reach server");
+        } else {
+          console.error("Delete error message:", error.message);
+          throw new Error(error.message || "Unknown error occurred while deleting schedule");
+        }
       }
     },
 

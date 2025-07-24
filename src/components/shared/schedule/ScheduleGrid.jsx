@@ -1,8 +1,7 @@
-// src/components/shared/schedule/ScheduleGrid.jsx - OPTIMIZED POSITIONING & SCALING
+// src/components/shared/schedule/ScheduleGrid.jsx - FIXED CURRENT TIME & VIEWPORT
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
-// Utility untuk format tanggal tanpa timezone conversion
 const formatDateLocal = (date) => {
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -32,12 +31,12 @@ const ScheduleGrid = ({
   
   const viewportRef = useRef(null);
 
-  // CONSTANTS - OPTIMIZED SCALING
+  // CONSTANTS
   const baseWidth = 808;
   const baseHeight = 254;
   const actualWidth = Math.max(baseWidth, containerWidth);
   const actualHeight = baseHeight;
-  const HOUR_WIDTH = 120; // Optimized scale
+  const HOUR_WIDTH = 120;
   const MIN_DAY_ROW_HEIGHT = 60;
   
   const SCHEDULE_BASE_HEIGHT = 44;
@@ -52,8 +51,7 @@ const ScheduleGrid = ({
   const DAY_COLUMN_WIDTH = 70;
   const HEADER_HEIGHT = 66;
   const MAX_DRAG_DAYS = 2;
-
-  const PADDING_OFFSET = 38; // Optimized for accurate positioning
+  const PADDING_OFFSET = 38;
 
   const Z_INDICES = {
     BACKGROUND: 0,
@@ -92,7 +90,6 @@ const ScheduleGrid = ({
   const halfHourDividers = useMemo(() => {
     const dividers = [];  
     for (let i = 0; i < timeSlots.length - 1; i++) {
-      // Fix: Position divider tepat di tengah jam tanpa offset tambahan
       const position = (i * HOUR_WIDTH) + (HOUR_WIDTH / 2);
       dividers.push({ position, hourIndex: i, timeSlot: timeSlots[i] });
     }
@@ -148,7 +145,6 @@ const ScheduleGrid = ({
     return 6;
   }, [timeSlots.length]);
 
-// FIXED: Simplified time positioning
   const timeToPosition = useCallback((hour, minute) => {
     const hourIndex = getHourDisplayIndex(hour);
     const basePosition = hourIndex * HOUR_WIDTH;
@@ -158,43 +154,50 @@ const ScheduleGrid = ({
     return totalPosition;
   }, [getHourDisplayIndex]);
 
-  // FIXED: Check if current date is in selected week
+  // FIXED: Check if current date is in selected week - no logs
   const isCurrentDateInSelectedWeek = useMemo(() => {
-    // If no selectedDates or empty array, don't show current time
     if (!selectedDates || selectedDates.length === 0) return false;
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    console.log('=== Current Time Indicator Check ===');
-    console.log('Today:', today.toDateString());
-    console.log('Selected dates:', selectedDates.map(d => d.toDateString()));
-    
-    const isInSelected = selectedDates.some(selectedDate => {
+    return selectedDates.some(selectedDate => {
       const normalizedSelectedDate = new Date(selectedDate);
       normalizedSelectedDate.setHours(0, 0, 0, 0);
-      const isMatch = normalizedSelectedDate.getTime() === today.getTime();
-      console.log(`Comparing ${normalizedSelectedDate.toDateString()} with ${today.toDateString()}: ${isMatch}`);
-      return isMatch;
+      return normalizedSelectedDate.getTime() === today.getTime();
     });
-    
-    console.log('Is current date in selected week:', isInSelected);
-    console.log('=====================================');
-    
-    return isInSelected;
   }, [selectedDates]);
 
-  // FIXED: Optimized event width calculation for better positioning
+  // FIXED: Auto-scroll to current day when current date is selected
+  useEffect(() => {
+    if (isCurrentDateInSelectedWeek && viewportRef.current && selectedDates.length > 0) {
+      const today = new Date();
+      const currentDayIndex = (today.getDay() + 6) % 7; // Monday = 0
+      
+      // Calculate the top position for the current day
+      let dayTop = 0;
+      for (let i = 0; i < currentDayIndex; i++) {
+        const dayName = days[i]?.full;
+        dayTop += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT;
+      }
+      
+      // Scroll to show current day in view
+      const scrollContainer = viewportRef.current;
+      const containerHeight = scrollContainer.clientHeight;
+      const targetScrollTop = Math.max(0, dayTop - containerHeight / 3);
+      
+      scrollContainer.scrollTop = targetScrollTop;
+    }
+  }, [isCurrentDateInSelectedWeek, selectedDates]);
+
   const calculateEventWidth = useCallback((startHour, startMinute, endHour, endMinute) => {
     const startPos = timeToPosition(startHour, startMinute);
     const endPos = timeToPosition(endHour, endMinute);
-    // Minimum width optimized for readability
-    const width = Math.max(endPos - startPos, HOUR_WIDTH * 0.4); // 40% of hour width minimum
+    const width = Math.max(endPos - startPos, HOUR_WIDTH * 0.4);
     
     return width;
   }, [timeToPosition]);
 
-  // Current time helpers
   const getCurrentTimePosition = useCallback(() => {
     const now = currentTime;
     const hour = now.getHours();
@@ -209,7 +212,7 @@ const ScheduleGrid = ({
     return `${hours}:${minutes}`;
   }, [currentTime]);
 
-  // Schedule processing with proper vertical stacking
+  // FIXED: Schedule processing - don't show schedules if no selected dates
   const processedSchedules = useMemo(() => {
     const processed = {};
     const dayEvents = {};
@@ -219,6 +222,11 @@ const ScheduleGrid = ({
       dayEvents[day.full] = [];
     });
 
+    // FIXED: Return empty if no dates selected
+    if (!selectedDates || selectedDates.length === 0) {
+      return processed;
+    }
+
     schedules.forEach(schedule => {
       const startDateTimeWIB = parseUTCToLocal(schedule.startDateTime);
       const endDateTimeWIB = parseUTCToLocal(schedule.endDateTime);
@@ -227,15 +235,13 @@ const ScheduleGrid = ({
       const dayName = days[dayIndex]?.full;
       
       if (dayName) {
-        // Filter by selected dates if any
-        if (selectedDates.length > 0) {
-          const isDateSelected = selectedDates.some(date => {
-            const selectedDateObj = new Date(date);
-            return selectedDateObj.toDateString() === startDateTimeWIB.toDateString();
-          });
-          if (!isDateSelected) {
-            return;
-          }
+        const isDateSelected = selectedDates.some(date => {
+          const selectedDateObj = new Date(date);
+          return selectedDateObj.toDateString() === startDateTimeWIB.toDateString();
+        });
+        
+        if (!isDateSelected) {
+          return;
         }
         
         const displaySchedule = {
@@ -271,29 +277,25 @@ const ScheduleGrid = ({
       }
     });
 
-    // Vertical stacking logic - group overlapping events by day
+    // Vertical stacking logic
     Object.keys(dayEvents).forEach(dayName => {
       const events = dayEvents[dayName];
       
-      // Sort by start time first, then by creation time
       events.sort((a, b) => {
         const timeDiff = a.startDateTime - b.startDateTime;
         if (timeDiff !== 0) return timeDiff;
         return new Date(a.createdAt) - new Date(b.createdAt);
       });
 
-      // Group overlapping events for vertical stacking
       const lanes = [];
       
       events.forEach((event) => {
-        // Find the first lane where this event doesn't overlap
         let laneIndex = 0;
         let placed = false;
         
         for (let i = 0; i < lanes.length; i++) {
           const lastEventInLane = lanes[i][lanes[i].length - 1];
           
-          // Check if current event starts after the last event in this lane ends
           if (event.startMinutes >= lastEventInLane.endMinutes) {
             lanes[i].push(event);
             laneIndex = i;
@@ -302,23 +304,19 @@ const ScheduleGrid = ({
           }
         }
         
-        // If no suitable lane found, create a new one
         if (!placed) {
           lanes.push([event]);
           laneIndex = lanes.length - 1;
         }
         
-        // Assign stack properties
         event.stackIndex = laneIndex;
         event.isStacked = lanes.length > 1;
       });
 
-      // Update totalLanes for all events in this day
       events.forEach(event => {
         event.totalLanes = lanes.length;
       });
 
-      // Group events by hour for processing (keeping original structure)
       const timeSlotGroups = {};
       events.forEach((event) => {
         const timeSlot = `${event.startHour.toString().padStart(2, '0')}:00`;
@@ -347,7 +345,6 @@ const ScheduleGrid = ({
       let maxStacks = 1;
       let hasEvents = false;
       
-      // Find maximum number of stacked events for this day
       Object.values(processedSchedules[day.full] || {}).forEach(eventsInSlot => {
         if (eventsInSlot.length > 0) {
           hasEvents = true;
@@ -363,7 +360,6 @@ const ScheduleGrid = ({
         const visibleStacks = Math.min(maxStacks, MAX_VISIBLE_STACKS);
         let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM;
         
-        // Calculate height based on stacking
         for (let i = 0; i < visibleStacks; i++) {
           if (maxStacks === 1) {
             totalHeight += SCHEDULE_BASE_HEIGHT;
@@ -648,7 +644,6 @@ const ScheduleGrid = ({
     setScrollTop(e.target.scrollTop);
   }, []);
 
-  // FIXED: Selection box - simple without optimizations
   const selectionBox = useMemo(() => {
     if (!selectedArea || !isDragging) return null;
     
@@ -681,7 +676,6 @@ const ScheduleGrid = ({
     );
   }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights]);
 
-  // FIXED: Schedule Event Card Component - SIMPLE hover without any animation
   const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -700,13 +694,11 @@ const ScheduleGrid = ({
       return null;
     }
 
-    // Simple static hover - NO ANIMATIONS
     const combinedStyle = {
       ...style,
       height: `${height}px`,
       backgroundColor: event.color,
       zIndex: isHovered ? style.zIndex + 50 : style.zIndex,
-      // NO transitions, NO animations - just static states
       boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.1)',
     };
 
@@ -741,7 +733,6 @@ const ScheduleGrid = ({
     );
   };
 
-  // Help Tooltip Component
   const HelpTooltip = () => (
     <div className="w-20 h-24 p-2.5 bg-black/50 rounded-[5px] inline-flex flex-col justify-center items-center gap-2.5">
       <div className="w-16 flex flex-col justify-end items-start gap-[5px]">
@@ -777,7 +768,6 @@ const ScheduleGrid = ({
     </div>
   );
 
-  // Global mouse events
   useEffect(() => {
     const handleGlobalMouseMove = (e) => {
       handleMouseMove(e);
@@ -822,7 +812,6 @@ const ScheduleGrid = ({
           </h2>
         </div>
         
-        {/* Help Icon */}
         <div 
           className="relative help-icon"
           style={{ marginRight: '38px' }}
@@ -835,7 +824,6 @@ const ScheduleGrid = ({
             <span className="text-gray-600 text-sm font-medium">?</span>
           </div>
           
-          {/* Help Tooltip */}
           {showHelpTooltip && (
             <div 
               className="absolute top-8 left-0"
@@ -877,7 +865,6 @@ const ScheduleGrid = ({
                   className="flex-shrink-0 relative"
                   style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
                 >
-                  {/* Time header positioning aligned with divider */}
                   <span className="text-sm text-neutral-600 absolute top-1/2 left-0 transform -translate-y-1/2">
                     {time}
                   </span>
@@ -889,7 +876,7 @@ const ScheduleGrid = ({
                   key={`divider-30min-${i}`}
                   className="absolute pointer-events-none bg-red-400" 
                   style={{ 
-                    left: `${PADDING_OFFSET + divider.position + 15}px`, // Back to original dengan fix calculation
+                    left: `${PADDING_OFFSET + divider.position + 15}px`,
                     top: '35%',
                     width: '1px',       
                     height: '10px',        
@@ -901,7 +888,7 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* FIXED: Sticky Day Column - completely fixed positioning */}
+        {/* Day Column */}
         <div 
           className="absolute top-0 bg-white"
           style={{ 
@@ -911,10 +898,8 @@ const ScheduleGrid = ({
             zIndex: Z_INDICES.DAY_HEADERS
           }}
         >
-          {/* Fixed time header space */}
           <div style={{ height: `${TIME_HEADER_HEIGHT}px` }} />
           
-          {/* Day labels container - FIXED structure */}
           <div 
             className="absolute overflow-hidden"
             style={{ 
@@ -946,7 +931,7 @@ const ScheduleGrid = ({
           </div>
         </div>
 
-        {/* Scrollable Content Area - simplified */}
+        {/* Scrollable Content Area */}
         <div 
           className="absolute" 
           style={{ 
@@ -971,7 +956,6 @@ const ScheduleGrid = ({
                 paddingLeft: `${PADDING_OFFSET}px`,
               }}
             >
-              {/* Direct drag area */}
               <div
                 className="absolute inset-0"
                 style={{ 
@@ -1000,7 +984,7 @@ const ScheduleGrid = ({
                 );
               })}
 
-              {/* FIXED: Schedule events - simple and stable */}
+              {/* Schedule events */}
               {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
                 const dayIndex = days.findIndex(d => d.full === dayName);
                 if (dayIndex === -1) return null;
@@ -1033,7 +1017,7 @@ const ScheduleGrid = ({
                         key={`${event.id}-${laneIndex}`}
                         event={event}
                         style={{
-                          left: `${leftPosition + 55}px`, // Keep manual calculation
+                          left: `${leftPosition + 55}px`,
                           top: `${top}px`,
                           width: `${width}px`,
                           zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
@@ -1079,34 +1063,52 @@ const ScheduleGrid = ({
                 return null;
               })}
 
-              {/* Selection box */}
+              {/* No week selected message */}
+              {selectedDates.length === 0 && (
+                <div
+                  className="absolute pointer-events-none flex items-center justify-center"
+                  style={{
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: Z_INDICES.BACKGROUND + 1
+                  }}
+                >
+                  <div className="text-gray-400 text-sm font-medium bg-gray-50 px-4 py-2 rounded-md">
+                    Pilih minggu di kalender untuk melihat jadwal
+                  </div>
+                </div>
+              )}
+
               {selectionBox}
             </div>
           </div>
         </div>
 
-        {/* FIXED: Current time line with accurate positioning - consistent with dividers */}
-        <div 
-          className="absolute pointer-events-none" 
-          style={{ 
-            left: `${DAY_COLUMN_WIDTH + PADDING_OFFSET + getCurrentTimePosition() + 15 - scrollLeft}px`, // +15 untuk konsisten dengan dividers
-            top: `${TIME_HEADER_HEIGHT}px`,
-            height: `${totalGridHeight}px`,
-            zIndex: Z_INDICES.CURRENT_TIME,
-            width: '2px'
-          }}
-        >
-          <div className="relative w-full h-full bg-red-500 shadow-sm">
-            <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm" 
-                 style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
-            
-            <div className="absolute" style={{ left: '4px', top: '2px' }}>
-              <div className="bg-black bg-opacity-90 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-md">
-                {getCurrentTimeString()}
+        {/* FIXED: Current time line - only show if current date is in selected week */}
+        {isCurrentDateInSelectedWeek && (
+          <div 
+            className="absolute pointer-events-none" 
+            style={{ 
+              left: `${DAY_COLUMN_WIDTH + PADDING_OFFSET + getCurrentTimePosition() + 15 - scrollLeft}px`,
+              top: `${TIME_HEADER_HEIGHT}px`,
+              height: `${totalGridHeight}px`,
+              zIndex: Z_INDICES.CURRENT_TIME,
+              width: '2px'
+            }}
+          >
+            <div className="relative w-full h-full bg-red-500 shadow-sm">
+              <div className="absolute w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm" 
+                   style={{ top: '-5px', left: '50%', transform: 'translateX(-50%)' }} />
+              
+              <div className="absolute" style={{ left: '4px', top: '2px' }}>
+                <div className="bg-black bg-opacity-90 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-md">
+                  {getCurrentTimeString()}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Tooltip */}
         {dragTimeTooltip && (
