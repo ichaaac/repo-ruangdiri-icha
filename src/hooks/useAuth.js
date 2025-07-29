@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js - FIXED AUTO REFETCH ISSUE
+// src/hooks/useAuth.js - Updated with Complete Onboarding Logic
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -18,40 +18,43 @@ export const useAuth = () => {
     queryKey: ["currentUser"],
     queryFn: async () => {
       const token = localStorage.getItem("token")
-
       if (!token) return null
 
       try {
         const response = await getMe()
-
         if (response?.status === "success") {
           const userData = response.data
 
+          // Store organization type if exists (for admin users)
           const orgType = userData?.organization?.type
           if (orgType) {
             localStorage.setItem("organizationType", orgType)
             queryClient.setQueryData([`${orgType}-profile`], userData)
           }
 
+          // Store user role if exists (for regular users)
+          const userRole = userData?.role
+          if (userRole) {
+            localStorage.setItem("userRole", userRole)
+          }
+
           return userData
         }
-
         return null
       } catch (e) {
         console.error("Error fetching user data:", e)
         if (e.response?.status === 401) {
           localStorage.removeItem("token")
           localStorage.removeItem("organizationType")
+          localStorage.removeItem("userRole")
         }
         return null
       }
     },
     retry: false,
     refetchOnWindowFocus: false,
-    // FIXED: Ubah refetchOnMount jadi false untuk mencegah auto-refetch saat di onboarding
     refetchOnMount: false,
-    // FIXED: Perbesar staleTime untuk mencegah refetch yang tidak perlu
-    staleTime: 10 * 60 * 1000, // 10 minutes - lebih lama untuk stability
+    staleTime: 10 * 60 * 1000, // 10 minutes
     cacheTime: 15 * 60 * 1000, // 15 minutes
   })
 
@@ -64,16 +67,23 @@ export const useAuth = () => {
           throw new Error(loginResponse?.message || "Login failed")
         }
 
-        const { accessToken, organizationType } = loginResponse.data
+        const { accessToken, organizationType, userRole } = loginResponse.data
 
         if (!accessToken) {
           throw new Error("Access token tidak ditemukan dalam respons")
         }
 
         localStorage.setItem("token", accessToken)
-        localStorage.setItem("organizationType", organizationType)
+        
+        // Store organization type or user role
+        if (organizationType) {
+          localStorage.setItem("organizationType", organizationType)
+        }
+        if (userRole) {
+          localStorage.setItem("userRole", userRole)
+        }
 
-        return { accessToken, organizationType }
+        return { accessToken, organizationType, userRole }
       } catch (error) {
         console.error("Login error:", error)
         throw error
@@ -87,28 +97,17 @@ export const useAuth = () => {
 
         if (userResponse?.status === "success") {
           const userData = userResponse.data
-
           queryClient.setQueryData(["currentUser"], userData)
 
-          // FIXED: Correct logic for isOnboarded
-          console.log("User isOnboarded status:", userData.isOnboarded)
+          console.log("User data:", userData)
 
+          // Redirect based on onboarding status and role/org type
           if (userData.isOnboarded === false) {
             // User needs onboarding
-            console.log("User needs onboarding, redirecting to onboarding...")
-            navigate("/onboarding")
+            redirectToOnboarding(userData)
           } else {
-            // User completed onboarding, redirect to dashboard
-            console.log("User completed onboarding, redirecting to dashboard...")
-            const orgType = userData.organization?.type
-
-            if (orgType === "school") {
-              navigate("/organization/school/dashboard")
-            } else if (orgType === "company") {
-              navigate("/organization/company/dashboard")
-            } else {
-              navigate("/")
-            }
+            // User completed onboarding
+            redirectToDashboard(userData)
           }
         } else {
           queryClient.invalidateQueries({ queryKey: ["currentUser"] })
@@ -124,8 +123,42 @@ export const useAuth = () => {
       console.error("Login failed:", error)
       localStorage.removeItem("token")
       localStorage.removeItem("organizationType")
+      localStorage.removeItem("userRole")
     },
   })
+
+  // Helper function to redirect to appropriate onboarding
+  const redirectToOnboarding = (userData) => {
+    const userRole = userData.role
+    const orgType = userData.organization?.type
+
+    console.log("Redirecting to onboarding...", { userRole, orgType })
+
+    // All roles now use the unified onboarding system
+    navigate("/onboarding")
+  }
+
+  // Helper function to redirect to appropriate dashboard
+  const redirectToDashboard = (userData) => {
+    const userRole = userData.role
+    const orgType = userData.organization?.type
+
+    console.log("Redirecting to dashboard...", { userRole, orgType })
+
+    if (userRole === "student") {
+      navigate("/user/student/booking")        // booking session
+    } else if (userRole === "employee") {
+      navigate("/user/employee/booking")       // booking session  
+    } else if (userRole === "psychologist") {
+      navigate("/user/psychologist/chat")      // chat page
+    } else if (orgType === "school") {
+      navigate("/organization/school/dashboard")
+    } else if (orgType === "company") {
+      navigate("/organization/company/dashboard")
+    } else {
+      navigate("/")
+    }
+  }
 
   const forgotPassword = useMutation({
     mutationFn: async (email) => {
@@ -172,10 +205,15 @@ export const useAuth = () => {
       localStorage.removeItem("token")
       localStorage.removeItem("user")
       localStorage.removeItem("organizationType")
+      localStorage.removeItem("userRole")
       queryClient.clear()
       navigate("/login")
     },
   })
+
+  // ===================================================
+  // HELPER FUNCTIONS
+  // ===================================================
 
   const isAuthenticated = () => {
     const token = localStorage.getItem("token")
@@ -190,8 +228,49 @@ export const useAuth = () => {
     return userOrgType || storedType || null
   }
 
+  const getUserRole = () => {
+    const userRole = user?.role
+    const storedRole = localStorage.getItem("userRole")
+    return userRole || storedRole || null
+  }
+
   const needsOnboarding = () => {
     return user?.isOnboarded === false
+  }
+
+  const isOrganizationAdmin = () => {
+    const orgType = getOrganizationType()
+    const userRole = getUserRole()
+    return !userRole && orgType && (orgType === "school" || orgType === "company")
+  }
+
+  const isRegularUser = () => {
+    const userRole = getUserRole()
+    return userRole && ["student", "employee", "psychologist"].includes(userRole)
+  }
+
+  const getUserTypeLabel = () => {
+    const userRole = getUserRole()
+    const orgType = getOrganizationType()
+
+    if (userRole === "student") return "Siswa"
+    if (userRole === "employee") return "Pegawai"
+    if (userRole === "psychologist") return "Psikolog"
+    if (orgType === "school") return "Admin Sekolah"
+    if (orgType === "company") return "Admin Perusahaan"
+    return "User"
+  }
+
+  const getDefaultRoute = () => {
+    const userRole = getUserRole()
+    const orgType = getOrganizationType()
+
+    if (userRole === "student") return "/user/student/booking"
+    if (userRole === "employee") return "/user/employee/booking"
+    if (userRole === "psychologist") return "/user/psychologist/chat"
+    if (orgType === "school") return "/organization/school/dashboard"
+    if (orgType === "company") return "/organization/company/dashboard"
+    return "/"
   }
 
   return {
@@ -205,7 +284,12 @@ export const useAuth = () => {
     logout,
     isAuthenticated,
     getOrganizationType,
+    getUserRole,
     needsOnboarding,
+    isOrganizationAdmin,
+    isRegularUser,
+    getUserTypeLabel,
+    getDefaultRoute,
     refetchUser: refetch,
   }
 }

@@ -1,4 +1,4 @@
-// src/pages/shared/auth/Login.jsx - CORRECTED WITH useAuth
+// src/pages/shared/auth/Login.jsx - Updated with Onboarding Logic
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../../hooks/useAuth";
@@ -23,7 +23,39 @@ const Login = () => {
 	const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
 	// Use the useAuth hook
-	const { login } = useAuth();
+	const { login, isAuthenticated, needsOnboarding, user } = useAuth();
+
+	// Redirect if already authenticated
+	useEffect(() => {
+		if (isAuthenticated() && user) {
+			console.log("User already authenticated, checking onboarding status...");
+			
+			if (needsOnboarding()) {
+				console.log("User needs onboarding, redirecting to onboarding...");
+				// Will be handled by ProtectedRoute, but we can also redirect here
+				window.location.replace('/onboarding');
+			} else {
+				console.log("User completed onboarding, redirecting to dashboard...");
+				// Redirect to appropriate dashboard based on role
+				const userRole = user.role;
+				const orgType = user.organization?.type;
+				
+				if (userRole === "student") {
+					window.location.replace("/user/student/booking");
+				} else if (userRole === "employee") {
+					window.location.replace("/user/employee/booking");
+				} else if (userRole === "psychologist") {
+					window.location.replace("/user/psychologist/chat");
+				} else if (orgType === "school") {
+					window.location.replace("/organization/school/dashboard");
+				} else if (orgType === "company") {
+					window.location.replace("/organization/company/dashboard");
+				} else {
+					window.location.replace("/");
+				}
+			}
+		}
+	}, [isAuthenticated, needsOnboarding, user]);
 
 	useEffect(() => {
 		const navEntries = performance.getEntriesByType("navigation");
@@ -256,6 +288,8 @@ const Login = () => {
 		}
 
 		try {
+			console.log("Attempting login...");
+			
 			// Use the login mutation from useAuth - redirect akan dihandle otomatis
 			await login.mutateAsync({ 
 				email: email.toLowerCase().trim(), 
@@ -266,7 +300,11 @@ const Login = () => {
 			// Clear temporary session data after successful login
 			sessionStorage.removeItem("tempEmail");
 			
-			// Redirect will be handled automatically by useAuth based on isOnboarded status
+			console.log("Login successful - redirect will be handled by useAuth");
+			
+			// Redirect will be handled automatically by useAuth based on:
+			// 1. isOnboarded status (false = /onboarding, true = dashboard)
+			// 2. User role (student/employee = booking, psychologist = chat, org = dashboard)
 			
 		} catch (error) {
 			console.error("Login error:", error);
@@ -276,13 +314,21 @@ const Login = () => {
 				setErrorMessage("Email atau password tidak sesuai");
 				setEmailError(true);
 				setPasswordError(true);
+			} else if (error.response?.status === 403) {
+				setErrorMessage("Akun Anda belum diaktivasi atau diblokir");
+			} else if (error.response?.status === 429) {
+				setErrorMessage("Terlalu banyak percobaan login. Coba lagi nanti");
 			} else if (error.response?.data?.message) {
 				setErrorMessage(error.response.data.message);
+			} else if (error.message) {
+				setErrorMessage(error.message);
 			} else {
-				setErrorMessage("Terjadi kesalahan saat login");
+				setErrorMessage("Terjadi kesalahan saat login. Silakan coba lagi");
 			}
 		}
 	};
+
+	
 
 	return (
 		<div className="flex flex-col md:flex-row w-full min-h-screen overflow-hidden">
