@@ -1,4 +1,4 @@
-// src/components/shared/onboarding/OnboardingForm.jsx - FIXED VERSION
+// src/components/shared/onboarding/OnboardingForm.jsx - FIXED REDIRECT ISSUE
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useForm, Controller } from "react-hook-form"
@@ -8,7 +8,9 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
 import clsx from "clsx"
-import onboardingApi from "./lib/onboardingapi"
+
+// ✅ FIXED: Import the updated onboarding API
+import onboardingApi from "./lib/onboardingApi"
 
 // Components & utilities
 import TextareaAutosize from "react-textarea-autosize"
@@ -110,7 +112,7 @@ const onboardingSchema = z.object({
 
 // --- MAIN COMPONENT ---
 const OnboardingForm = () => {
-  const { user, getUserRole, getOrganizationType } = useAuth()
+  const { user, getUserRole, getOrganizationType, refetchUser } = useAuth() // ✅ ADDED: refetchUser
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [phoneValidationError, setPhoneValidationError] = useState("")
@@ -164,7 +166,34 @@ const OnboardingForm = () => {
     setProfilePicturePreview(previewUrl)
   }
 
-  // ✅ FIXED: Simplified onboarding logic using onboardingApi
+  // ✅ FIXED: Enhanced redirect logic with proper cache invalidation
+  const redirectToDashboard = () => {
+    let redirectPath = "/"
+    
+    if (userRole === 'student') {
+      redirectPath = "/user/student/booking"
+    } else if (userRole === 'employee') {
+      redirectPath = "/user/employee/booking"
+    } else if (userRole === 'psychologist') {
+      redirectPath = "/user/psychologist/chat"
+    } else if (orgType === "school") {
+      redirectPath = "/organization/school/dashboard"
+    } else if (orgType === "company") {
+      redirectPath = "/organization/company/dashboard"
+    }
+    
+    console.log(`Redirecting to: ${redirectPath}`)
+    
+    // ✅ FIXED: Force navigation with replace and reload
+    navigate(redirectPath, { replace: true })
+    
+    // ✅ ADDED: Force page reload to ensure fresh state
+    setTimeout(() => {
+      window.location.href = redirectPath
+    }, 500)
+  }
+
+  // ✅ FIXED: Enhanced onboarding completion with better cache handling
   const completeOnboarding = async (formData = {}) => {
     setIsSubmitting(true)
 
@@ -199,37 +228,41 @@ const OnboardingForm = () => {
       console.log("Completing onboarding with data:", onboardingData)
       
       // ✅ FIXED: Use appropriate API method based on user type
+      let response
       if (isOrganization) {
-        await onboardingApi.completeOrganizationOnboarding(onboardingData)
+        response = await onboardingApi.completeOrganizationOnboarding(onboardingData)
       } else {
-        await onboardingApi.completeUserOnboarding(onboardingData)
+        response = await onboardingApi.completeUserOnboarding(onboardingData)
       }
 
+      console.log("Onboarding API response:", response)
       toast.success("Profil berhasil disimpan!")
 
-      // Clear cache and redirect
+      // ✅ FIXED: Enhanced cache clearing and user refetch
+      console.log("Clearing cache and refetching user data...")
+      
+      // Clear all queries
       queryClient.clear()
+      
+      // Invalidate specific queries
       await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-
-      // Redirect to appropriate dashboard
-      setTimeout(() => {
-        let redirectPath = "/"
-        
-        if (userRole === 'student') {
-          redirectPath = "/user/student/booking"
-        } else if (userRole === 'employee') {
-          redirectPath = "/user/employee/booking"
-        } else if (userRole === 'psychologist') {
-          redirectPath = "/user/psychologist/chat"
-        } else if (orgType === "school") {
-          redirectPath = "/organization/school/dashboard"
-        } else if (orgType === "company") {
-          redirectPath = "/organization/company/dashboard"
+      await queryClient.invalidateQueries({ queryKey: ["user"] })
+      await queryClient.invalidateQueries({ queryKey: ["auth"] })
+      
+      // ✅ ADDED: Refetch user data if available
+      if (refetchUser) {
+        try {
+          await refetchUser()
+          console.log("User data refetched successfully")
+        } catch (error) {
+          console.error("Failed to refetch user:", error)
         }
-        
-        console.log(`Onboarding completed! Redirecting to: ${redirectPath}`)
-        navigate(redirectPath, { replace: true })
-      }, 1000)
+      }
+
+      // ✅ FIXED: Delayed redirect with proper timing
+      setTimeout(() => {
+        redirectToDashboard()
+      }, 1500) // Increased delay to ensure cache is updated
 
     } catch (error) {
       console.error("Onboarding failed:", error)
@@ -255,7 +288,7 @@ const OnboardingForm = () => {
     await completeOnboarding(data)
   }
 
-  // ✅ FIXED: Simplified skip logic using onboardingApi
+  // ✅ FIXED: Enhanced skip logic with better cache handling
   const handleSkip = async () => {
     console.log("Skipping onboarding...")
     setIsSkipping(true)
@@ -280,37 +313,41 @@ const OnboardingForm = () => {
       console.log("Skipping onboarding...")
       
       // ✅ FIXED: Use appropriate skip API method
+      let response
       if (isOrganization) {
-        await onboardingApi.skipOrganizationOnboarding()
+        response = await onboardingApi.skipOrganizationOnboarding()
       } else {
-        await onboardingApi.skipUserOnboarding()
+        response = await onboardingApi.skipUserOnboarding()
       }
       
+      console.log("Skip onboarding API response:", response)
       toast.success("Onboarding dilewati!")
 
-      // Clear cache and redirect
+      // ✅ FIXED: Enhanced cache clearing and user refetch
+      console.log("Clearing cache and refetching user data...")
+      
+      // Clear all queries
       queryClient.clear()
+      
+      // Invalidate specific queries
       await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-
-      // Redirect to appropriate dashboard
-      setTimeout(() => {
-        let redirectPath = "/"
-
-        if (userRole === 'student') {
-          redirectPath = "/user/student/booking"
-        } else if (userRole === 'employee') {
-          redirectPath = "/user/employee/booking"
-        } else if (userRole === 'psychologist') {
-          redirectPath = "/user/psychologist/chat"
-        } else if (orgType === "school") {
-          redirectPath = "/organization/school/dashboard"
-        } else if (orgType === "company") {
-          redirectPath = "/organization/company/dashboard"
+      await queryClient.invalidateQueries({ queryKey: ["user"] })
+      await queryClient.invalidateQueries({ queryKey: ["auth"] })
+      
+      // ✅ ADDED: Refetch user data if available
+      if (refetchUser) {
+        try {
+          await refetchUser()
+          console.log("User data refetched successfully")
+        } catch (error) {
+          console.error("Failed to refetch user:", error)
         }
-        
-        console.log(`Onboarding skipped! Redirecting to: ${redirectPath}`)
-        navigate(redirectPath, { replace: true })
-      }, 1000)
+      }
+
+      // ✅ FIXED: Delayed redirect with proper timing
+      setTimeout(() => {
+        redirectToDashboard()
+      }, 1500) // Increased delay to ensure cache is updated
 
     } catch (error) {
       console.error("Skip onboarding failed:", error)

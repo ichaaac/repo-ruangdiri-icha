@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/SharedDashboard.jsx - Updated with fixed hooks and proper integration
+// src/components/shared/dashboard/SharedDashboard.jsx - FIXED data flow and prevent multiple fetches
 
 import { useState, useEffect, useMemo } from "react"
 import DashboardHome from "./DashboardHome"
@@ -22,7 +22,7 @@ const SharedDashboard = ({
   const { user } = useAuth?.() || { user: {} }
   const currentDate = getCurrentDateInfo()
 
-  // Get dashboard data with proper error handling - now uses fixed hooks
+  // FIXED: Get dashboard data with proper error handling
   const {
     metrics,
     options,
@@ -30,10 +30,10 @@ const SharedDashboard = ({
     isError: dashboardError,
     error: dashboardErrorDetails,
     refetch: refetchDashboard,
-    currentFilters,
+    currentDate: dashboardCurrentDate,
   } = useDashboard(type)
 
-  // Get tab data only when not on home tab
+  // FIXED: Only fetch tab data when not on home tab
   const shouldFetchTabData = selectedDashboardTab !== "home"
   const {
     data: tabDataQuery,
@@ -47,11 +47,11 @@ const SharedDashboard = ({
     selectedDashboardTab,
     {
       enabled: shouldFetchTabData,
-      limit: 10 // Set to 10 as requested
+      limit: 10
     }
   )
 
-  // Process tab data for the list view
+  // FIXED: Process tab data with better structure handling
   const tabData = useMemo(() => {
     if (!shouldFetchTabData || !tabDataQuery?.pages) {
       return {
@@ -69,10 +69,10 @@ const SharedDashboard = ({
       
       // Handle both direct arrays and nested structure
       if (type === "student") {
-        const studentsArray = pageData.students || pageData || []
+        const studentsArray = Array.isArray(pageData.students) ? pageData.students : []
         acc.students = [...acc.students, ...studentsArray]
       } else {
-        const employeesArray = pageData.employees || pageData || []
+        const employeesArray = Array.isArray(pageData.employees) ? pageData.employees : []
         acc.employees = [...acc.employees, ...employeesArray]
       }
       
@@ -83,29 +83,22 @@ const SharedDashboard = ({
     const metadata = lastPage?.metadata || { totalData: 0, hasNextPage: false }
 
     // Return structured data that DashboardTable can handle
-    const result = {
-      data: allData, // Keep the full structure
+    return {
+      data: allData, // Keep the full structure for DashboardTable
       metadata: {
         ...metadata,
-        totalData: type === "student" ? allData.students.length : allData.employees.length,
+        // Don't override totalData - let MetricCard use monthly stats
+        totalData: metadata.totalData || 0,
       },
       hasNextPage,
       fetchNextPage,
       isFetchingNextPage,
     }
-
-    console.log("=== SHARED DASHBOARD TAB DATA DEBUG ===")
-    console.log("Type:", type)
-    console.log("Raw tabDataQuery pages:", tabDataQuery.pages)
-    console.log("Processed allData:", allData)
-    console.log("Final result:", result)
-
-    return result
   }, [tabDataQuery, shouldFetchTabData, type, hasNextPage, fetchNextPage, isFetchingNextPage])
 
-  // Handle card clicks - switch to tab view
+  // FIXED: Handle card clicks with data validation from monthly stats
   const handleCardClick = (tabType) => {
-    // Check if there's data for this tab
+    // Check if there's data for this tab from monthly stats (not tabData)
     const hasData = getTabDataCount(tabType) > 0
     
     if (hasData) {
@@ -124,7 +117,7 @@ const SharedDashboard = ({
     // Individual components now handle their own modals
   }
 
-  // Get count for specific tab type from the unified metrics
+  // FIXED: Get count for specific tab type from monthly stats ONLY
   const getTabDataCount = (tabType) => {
     switch (tabType) {
       case "at_risk":
@@ -207,7 +200,7 @@ const SharedDashboard = ({
           activeCard={selectedDashboardTab}
           tabData={tabData}
           config={enhancedConfig}
-          metrics={metrics}
+          metrics={metrics} // FIXED: Pass metrics for MetricCard counts
           user={user}
           onClose={() => handleReturnHome()}
           onCardClick={handleCardClick}

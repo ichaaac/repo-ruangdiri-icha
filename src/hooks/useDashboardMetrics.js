@@ -1,4 +1,4 @@
-// src/hooks/useDashboardMetrics.js (REFACTORED for efficiency - FINAL VERSION)
+// src/hooks/useDashboardMetrics.js (FIXED - No more multiple fetches)
 
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
@@ -39,13 +39,14 @@ const handleEmptyDataResponse = (type) => {
 };
 
 /**
- * [MODIFIED] Hook for fetching ALL dashboard summary data from a SINGLE endpoint.
+ * Hook for fetching ALL dashboard summary data from monthly stats endpoint.
+ * This data is used for MetricCards only.
  */
 export const useDashboardMetrics = (type = "student") => {
   const currentDate = getCurrentDateInfo()
 
   return useQuery({
-    queryKey: ["dashboardMainMetrics", type, currentDate.yearMonth],
+    queryKey: ["dashboardMainMetrics", type, currentDate.year, currentDate.month],
     queryFn: async () => {
       const endpoint = type === "student" ? "/students/metrics/monthly-stats" : "/employees/metrics/monthly-stats"
       try {
@@ -62,29 +63,52 @@ export const useDashboardMetrics = (type = "student") => {
       }
     },
     refetchOnWindowFocus: false,
-    retry: false,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     placeholderData: { data: handleEmptyDataResponse("monthly").data }
   })
 }
 
 /**
  * Hook for fetching yearly stats for bar chart.
+ * FIXED: Stable dependencies to prevent multiple fetches.
  */
 export const useYearlyStats = (type = "student", filters = {}) => {
   const currentDate = getCurrentDateInfo()
+  
+  // FIXED: Create stable filter values with defaults
+  const stableFilters = useMemo(() => {
+    const baseFilters = {
+      year: currentDate.year,
+      ...filters
+    }
+    
+    if (type === "student") {
+      return {
+        ...baseFilters,
+        classroom: filters.classroom || "X",
+        grade: filters.grade || "A"
+      }
+    } else {
+      return {
+        ...baseFilters,
+        department: filters.department || "Finance"
+      }
+    }
+  }, [type, filters.year, filters.classroom, filters.grade, filters.department, currentDate.year])
 
   return useQuery({
-    queryKey: ["yearlyStats", type, filters, currentDate.year],
+    queryKey: ["yearlyStats", type, stableFilters],
     queryFn: async () => {
       const params = new URLSearchParams()
-      params.append("year", filters.year || currentDate.year)
+      params.append("year", stableFilters.year)
       const endpointPath = type === "student" ? "/students/metrics/yearly-stats" : "/employees/metrics/yearly-stats"
 
       if (type === "student") {
-        params.append("classroom", filters.classroom || "X")
-        params.append("grade", filters.grade || "A")
+        params.append("classroom", stableFilters.classroom)
+        params.append("grade", stableFilters.grade)
       } else {
-        params.append("department", filters.department || "Finance")
+        params.append("department", stableFilters.department)
       }
 
       try {
@@ -101,19 +125,23 @@ export const useYearlyStats = (type = "student", filters = {}) => {
       }
     },
     refetchOnWindowFocus: false,
-    retry: false,
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    // FIXED: Only refetch when filters actually change
+    enabled: true,
   })
 }
 
 /**
  * Hook for fetching dashboard tab data (infinite scroll).
+ * This is ONLY used for table/list data, NOT for MetricCard counts.
  */
 export const useDashboardTabData = (type = "student", tabType = "at_risk", params = {}) => {
   const currentDate = getCurrentDateInfo()
   const { enabled = true, limit = 10 } = params
 
   return useInfiniteQuery({
-    queryKey: ["dashboardTabData", type, tabType, currentDate.yearMonth, limit],
+    queryKey: ["dashboardTabData", type, tabType, currentDate.year, currentDate.month, limit],
     queryFn: async ({ pageParam = 1 }) => {
       const queryParams = new URLSearchParams()
       queryParams.append("year", currentDate.year)
@@ -126,6 +154,8 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       } else if (tabType === "not_screened") {
         queryParams.append("screeningStatus", "not_screened")
       } else if (tabType === "not_counseled") {
+        // Not counseled specifically for at_risk people
+        queryParams.append("screeningStatus", "at_risk")
         queryParams.append("counselingStatus", "0")
       }
 
@@ -153,14 +183,14 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
     },
     enabled: enabled,
     refetchOnWindowFocus: false,
-    retry: 2,
+    retry: 1,
+    staleTime: 2 * 60 * 1000, // 2 minutes
     keepPreviousData: true,
   })
 }
 
 /**
  * Hook for fetching academic info (classrooms, grades).
- * THIS MUST EXIST IN THE FILE.
  */
 export const useAcademicInfo = () => {
   return useQuery({
@@ -169,7 +199,8 @@ export const useAcademicInfo = () => {
       const res = await apiClient.get("/students/academic-info")
       return res.data
     },
-    retry: false,
+    retry: 1,
+    staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     placeholderData: {
       data: {
         classrooms: ["X", "XI", "XII"],
@@ -181,7 +212,6 @@ export const useAcademicInfo = () => {
 
 /**
  * Hook for fetching employee roles (departments, positions).
- * THIS MUST EXIST IN THE FILE.
  */
 export const useEmployeeRoles = () => {
   return useQuery({
@@ -190,7 +220,8 @@ export const useEmployeeRoles = () => {
       const res = await apiClient.get("/employees/roles")
       return res.data
     },
-    retry: false,
+    retry: 1,
+    staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     placeholderData: {
       data: {
         departments: ["Finance", "Engineering", "Marketing", "HR", "Operations"],
@@ -201,13 +232,15 @@ export const useEmployeeRoles = () => {
 }
 
 /**
- * [REFACTORED] Main dashboard hook - SIMPLIFIED AND EFFICIENT.
+ * FIXED: Main dashboard hook - Stable dependencies and proper data flow.
  */
 export const useDashboard = (type = "student") => {
   const currentDate = getCurrentDateInfo()
 
   const mainMetricsQuery = useDashboardMetrics(type)
-  const yearlyQuery = useYearlyStats(type, {})
+  
+  // FIXED: Don't automatically fetch yearly data with default filters
+  // Let components request it with specific filters when needed
   const optionsQuery = type === "student" ? useAcademicInfo() : useEmployeeRoles()
 
   const processedMetrics = useMemo(() => {
@@ -215,11 +248,17 @@ export const useDashboard = (type = "student") => {
     
     // Ensure all nested properties exist to prevent downstream errors
     const safeData = {
-      summary: data.summary || { atRisk: {}, notScreened: {}, notCounseled: {} },
-      status: data.status || { screening: {}, counseling: {} },
+      summary: {
+        atRisk: { count: 0, total: 0, ...(data.summary?.atRisk || {}) },
+        notScreened: { count: 0, total: 0, ...(data.summary?.notScreened || {}) },
+        notCounseled: { count: 0, total: 0, ...(data.summary?.notCounseled || {}) },
+      },
+      status: {
+        screening: { completed: 0, notCompleted: 0, ...(data.status?.screening || {}) },
+        counseling: { completed: 0, notCompleted: 0, ...(data.status?.counseling || {}) },
+      },
       mentalHealth: {
-        ...(data.mentalHealth || {}),
-        overall: data.mentalHealth?.overall || { atRisk: 0, monitored: 0, stable: 0 },
+        overall: { atRisk: 0, monitored: 0, stable: 0, ...(data.mentalHealth?.overall || {}) },
         byMonth: data.mentalHealth?.byMonth || { firstHalf: [], secondHalf: [] }
       }
     };
@@ -228,7 +267,7 @@ export const useDashboard = (type = "student") => {
 
   }, [mainMetricsQuery.data]);
 
-  const allQueries = [mainMetricsQuery, yearlyQuery, optionsQuery];
+  const allQueries = [mainMetricsQuery, optionsQuery];
 
   return {
     metrics: processedMetrics,

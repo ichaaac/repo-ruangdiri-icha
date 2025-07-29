@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardTabList.jsx
+// src/components/shared/dashboard/DashboardTabList.jsx - FIXED MetricCard data source
 
 import { useState } from "react"
 import DashboardTable from "./DashboardTable"
@@ -84,7 +84,7 @@ const DashboardTabList = ({
     <div className="w-full min-h-screen overflow-x-hidden relative">
 
       <div className="px-4 sm:px-6 lg:px-8 xl:px-20 mt-6 sm:mt-8 pt-[72px]">
-      <div className="w-full lg:w-auto">
+        <div className="w-full lg:w-auto">
           <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
             Halo, {user?.fullName || authUser?.fullName || "User"}
           </h1>
@@ -96,6 +96,10 @@ const DashboardTabList = ({
           {allMetrics.map((metric) => {
             const isActive = metric.cardId === activeCard
             const isCountZero = metric.count === 0
+            
+            // FIXED: Always use count from monthly stats (metrics), never from tabData
+            // This ensures MetricCard shows consistent data regardless of active state
+            const displayCount = metric.count
             
             // Logika untuk mengaktifkan tombol "Kirim Laporan"
             const isReportEnabled = isActive && !isCountZero
@@ -117,7 +121,7 @@ const DashboardTabList = ({
                 <div className="relative z-10 w-full">
                   <MetricCard
                     title={metric.title}
-                    count={isActive ? (tabData?.metadata?.totalData || 0) : metric.count}
+                    count={displayCount} // FIXED: Always use monthly stats count
                     total={metric.total}
                     icon={metric.icon}
                     isActive={isActive}
@@ -171,13 +175,13 @@ const DashboardTabList = ({
 
       {/* Email Notification Modal */}
       <EmailNotificationModal
-      isOpen={showEmailModal}
-      onClose={() => setShowEmailModal(false)} 
-      reportName={reportName}
-      entityName={config.entityName}
-      userEmail={user?.email || authUser?.email || "a******@gmail.com"}
-    />
-  </div>
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)} 
+        reportName={reportName}
+        entityName={config.entityName}
+        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
+      />
+    </div>
   )
 }
 
