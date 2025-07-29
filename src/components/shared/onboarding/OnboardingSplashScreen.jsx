@@ -137,26 +137,26 @@ function OnboardingSplashScreen() {
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
             variants={itemVariants}
           >
-            <motion.button
-              className="flex items-center justify-center
-                         bg-primary-v1 text-white border border-primary-v1
-                         rounded-lg shadow-lg focus:outline-none focus:ring-4 focus:ring-primary-v1/30
-                         w-[150px] md:w-[189px] h-[40px] md:h-[42px] text-base md:text-lg lg:text-xl font-semibold
-                         hover:bg-[#3A7699] disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                fontFamily: "Public Sans",
-                fontWeight: "600",
-                lineHeight: "normal",
-                boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.07)",
-                borderRadius: "5px"
-              }}
-              variants={buttonVariants}
-              whileHover="hover"
-              whileTap="tap"
-              onClick={handleStartOnboarding}
-            >
-              Mulai Sekarang
-            </motion.button>
+<motion.button
+  className="flex items-center justify-center
+             bg-[#488BBA] text-white border border-[#488BBA] // <-- GANTI DI SINI
+             rounded-lg shadow-lg focus:outline-none focus:ring-4 focus:ring-[#488BBA]/30 // <-- Sesuaikan juga focus ring-nya
+             w-[150px] md:w-[189px] h-[40px] md:h-[42px] text-base md:text-lg lg:text-xl font-semibold
+             hover:bg-[#3A7699] disabled:opacity-50 disabled:cursor-not-allowed" // <-- Hover-nya udah bener, pertahanin
+  style={{
+    fontFamily: "Public Sans",
+    fontWeight: "600",
+    lineHeight: "normal",
+    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.07)",
+    borderRadius: "5px"
+  }}
+  variants={buttonVariants}
+  whileHover="hover"
+  whileTap="tap"
+  onClick={handleStartOnboarding}
+>
+  Mulai Sekarang
+</motion.button>
           </motion.div>
         </motion.section>
       </div>
