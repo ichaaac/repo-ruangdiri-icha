@@ -45,13 +45,13 @@ const LoadingSpinner = ({ text = "Loading..." }) => (
   </div>
 )
 
-// 🔥 FIXED: Header Component dengan props yang benar
+// 🔥 UPDATED: Header Component
 const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
   <div className="mb-8">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
-      {/* 🔥 FIXED: Mark All as Read - hanya tampil jika ada unread */}
+      {/* Mark All as Read - only show if there are unread notifications */}
       {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
@@ -66,20 +66,8 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
   </div>
 )
 
-// 🔥 FIXED: Tabs Component dengan logika yang diperbaiki
-const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCount, onTabChange, formatCount }) => {
-  // 🔥 EXPLAINED: Bedakan antara total notifications vs unread notifications
-  const getTabCount = (tabType) => {
-    if (tabType === 'all') {
-      // Untuk tab "Semua", tampilkan unread count dari semua tipe notifikasi
-      return unreadCount;
-    } else if (tabType === 'counseling') {
-      // Untuk tab "Konseling", tampilkan unread count dari schedule notifications saja
-      return counselingCount;
-    }
-    return 0;
-  };
-
+// 🔥 UPDATED: Tabs Component dengan unread count yang benar
+const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChange, formatCount }) => {
   return (
     <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
       {/* Tab Semua */}
@@ -92,10 +80,10 @@ const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCoun
         } transition-colors`}
       >
         <span>Semua</span>
-        {/* 🔥 FIXED: Tampilkan unread count untuk tab Semua */}
-        {getTabCount('all') > 0 && (
+        {/* 🔥 UPDATED: Show generalCount (unreadCount) for "Semua" tab */}
+        {unreadCount > 0 && (
           <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-            {formatCount(getTabCount('all'))}
+            {formatCount(unreadCount)}
           </div>
         )}
       </button>
@@ -110,10 +98,10 @@ const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCoun
         } transition-colors`}
       >
         <span>Konseling</span>
-        {/* 🔥 FIXED: Tampilkan unread count untuk tab Konseling */}
-        {getTabCount('counseling') > 0 && (
+        {/* 🔥 UPDATED: Show counselingCount for "Konseling" tab */}
+        {counselingCount > 0 && (
           <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-            {formatCount(getTabCount('counseling'))}
+            {formatCount(counselingCount)}
           </div>
         )}
       </button>
@@ -125,9 +113,7 @@ const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCoun
 const getNotificationIcon = (notification) => {
   const { type, subType } = notification
   
-  // Schedule notifications
   if (type === 'schedule') {
-    // Check for specific schedule actions
     if (notification.title?.toLowerCase().includes('buat') || notification.title?.toLowerCase().includes('created')) {
       return 'event'
     }
@@ -140,26 +126,21 @@ const getNotificationIcon = (notification) => {
     if (notification.title?.toLowerCase().includes('reminder') || notification.title?.toLowerCase().includes('pengingat')) {
       return 'schedule'
     }
-    // Default schedule icon - check_circle as requested
     return 'check_circle'
   }
   
-  // System notifications
   if (type === 'system') {
     return 'settings'
   }
   
-  // Report notifications
   if (type === 'report') {
     return 'assessment'
   }
   
-  // Counseling subtype
   if (subType === 'counseling') {
     return 'psychology'
   }
   
-  // Default fallback
   return 'notifications'
 }
 
@@ -167,27 +148,22 @@ const getNotificationIcon = (notification) => {
 const getNotificationIconColor = (notification) => {
   const { type, subType } = notification
   
-  // Schedule - Green (as requested for jadwal)
   if (type === 'schedule') {
     return '#9BCA61'
   }
   
-  // System - Gray
   if (type === 'system') {
     return '#535353'
   }
   
-  // Report - Blue
   if (type === 'report') {
     return '#488BBE'
   }
   
-  // Counseling subtype - Purple
   if (subType === 'counseling') {
     return '#9986ff'
   }
   
-  // Default
   return '#535353'
 }
 
@@ -199,7 +175,6 @@ const isNotificationRead = (notification) => {
 // Individual Notification Item
 const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
-    // Mark as read when clicked
     if (!isNotificationRead(notification) && !isMarkingAsRead) {
       onMarkAsRead(notification.id)
     }
@@ -217,7 +192,7 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
           : "bg-white border border-gray-100 cursor-pointer hover:bg-gray-50 hover:shadow-sm"
       } ${isMarkingAsRead ? "opacity-50" : ""}`}
     >
-      {/* 🔥 UPDATED: Icon tanpa background rounded, size 35x35 */}
+      {/* Icon */}
       <div className="flex-shrink-0 flex items-center justify-center">
         <span 
           className="material-icons"
@@ -251,6 +226,7 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
                 <span className={`hidden sm:inline mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
               </>
             )}
+            {/* 🔥 UPDATED: More detailed time formatting */}
             <span className="text-[#8a8a8a] font-light">
               {formatTimeAgo(notification.createdAt)}
             </span>
@@ -288,7 +264,6 @@ const NotificationList = ({
 }) => {
   const observer = useRef()
   
-  // Infinite scroll
   const lastElementRef = useCallback((node) => {
     if (isFetchingNextPage) return
     if (observer.current) observer.current.disconnect()
@@ -313,7 +288,6 @@ const NotificationList = ({
 
   return (
     <div className="space-y-6">
-      {/* Vertical scroll */}
       <div className="max-h-[70vh] overflow-y-auto space-y-6 pr-2">
         {Object.entries(groupedNotifications).map(([dateKey, notifications], groupIndex) => {
           const isLastGroup = groupIndex === Object.keys(groupedNotifications).length - 1
@@ -321,12 +295,12 @@ const NotificationList = ({
           return (
             <div key={dateKey} className="space-y-1">
               
-              {/* Date Separator */}
+              {/* 🔥 UPDATED: Date Separator with enhanced formatting */}
               <div className="text-xs font-normal text-[#8a8a8a] mb-1 sticky top-0 bg-white py-2 z-10">
                 {getDateLabel(dateKey)}
               </div>
 
-              {/* Notifications */}
+              {/* Notifications - All notifications for this date, not limited */}
               <div className="space-y-1">
                 {notifications.map((notification, index) => {
                   const isLastItem = isLastGroup && index === notifications.length - 1
@@ -347,7 +321,7 @@ const NotificationList = ({
           )
         })}
         
-        {/* Loading untuk infinite scroll */}
+        {/* Loading for infinite scroll */}
         {isFetchingNextPage && (
           <div className="flex justify-center py-4">
             <LoadingSpinner text="Memuat notifikasi lainnya..." />
@@ -367,7 +341,6 @@ const NotificationList = ({
 
 // Main Notifications Component
 const Notifications = ({ sidebarExpanded = false }) => {
-  // 🔥 USE ENHANCED HOOK
   const {
     groupedNotifications,
     totalCount,
@@ -390,38 +363,30 @@ const Notifications = ({ sidebarExpanded = false }) => {
     isMarkingAllAsRead,
   } = useNotifications()
 
-  // 🔥 EXPLAINED: Debug info untuk memahami perbedaan counts
-  console.log('🎯 Notifications.jsx - COUNTS EXPLANATION:', {
+  // 🔥 DEBUG: Log counts for debugging
+  console.log('🎯 Notifications.jsx - UPDATED COUNTS:', {
     selectedTab,
-    totalCount,      // Total semua notifications yang di-load (bisa 20+)
-    unreadCount,     // Unread notifications dari API (bisa 0)
-    counselingCount, // Unread schedule notifications saja
+    totalCount,
+    unreadCount,     // This is now generalCount from backend
+    counselingCount, // This is counselingCount from backend
     loadedNotifications: Object.values(groupedNotifications).flat().length,
-    explanation: {
-      totalCount: 'Total notifications loaded from API (termasuk yang sudah read)',
-      unreadCount: 'Notifications yang belum dibaca (dari API endpoint unread-count)',
-      counselingCount: 'Schedule notifications yang belum dibaca',
-      loadedNotifications: 'Jumlah notifications yang ter-render di UI'
-    }
   })
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
-      {/* 🔥 RESPONSIVE CONTAINER - BUKAN UBAH DESIGN, CUMA RESPONSIVE */}
       <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
         <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
           
-          {/* 🔥 FIXED: Pass correct props to NotificationHeader */}
+          {/* 🔥 UPDATED: Header with correct unread count */}
           <NotificationHeader 
             unreadCount={unreadCount}
             onMarkAllAsRead={handleMarkAllAsRead}
             isMarkingAllAsRead={isMarkingAllAsRead}
           />
 
-          {/* 🔥 FIXED: Pass correct props to NotificationTabs */}
+          {/* 🔥 UPDATED: Tabs with correct counts */}
           <NotificationTabs
             selectedTab={selectedTab}
-            totalCount={totalCount}
             unreadCount={unreadCount}
             counselingCount={counselingCount}
             onTabChange={handleTabChange}

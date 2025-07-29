@@ -10,13 +10,15 @@ import timezone from "dayjs/plugin/timezone"
 import "dayjs/locale/id"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
-import { getRelativeTime } from "../../schedule/utils/timezoneHandler"
 
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
 dayjs.extend(utc)
 dayjs.extend(timezone)
 dayjs.locale("id")
+
+// Set timezone default ke Asia/Jakarta
+dayjs.tz.setDefault('Asia/Jakarta')
 
 dayjs.updateLocale("id", {
   relativeTime: {
@@ -39,6 +41,7 @@ dayjs.updateLocale("id", {
 export const useNotificationDropdown = (selectedTab = 'all') => {
   const queryClient = useQueryClient()
 
+  // 🔥 UPDATED: Handle new unread count structure
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: notificationsAPI.getUnreadCount,
@@ -51,7 +54,7 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
     queryFn: async () => {
       const filters = {
         page: 1,
-        limit: 3, // 🔥 FIXED: Maksimal 3 item untuk dropdown
+        limit: 3, // Keep 3 items for dropdown
         type: selectedTab,
       };
       console.log('🔄 Dropdown fetching notifications:', filters);
@@ -59,26 +62,29 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
       console.log('📊 Dropdown fetch result:', result);
       return result;
     },
-    staleTime: 0, // 🔥 CHANGED: Make it fresh always
-    cacheTime: 1 * 60 * 1000, // Keep in cache for 1 minute
+    staleTime: 0,
+    cacheTime: 1 * 60 * 1000,
     refetchOnWindowFocus: true,
-    refetchOnMount: true, // 🔥 ADDED: Refetch on mount
+    refetchOnMount: true,
   })
 
   const notifications = notificationsData?.notifications || []
-  const unreadCount = unreadData?.count || 0
+  
+  // 🔥 UPDATED: Use new unread count structure
+  const generalCount = unreadData?.generalCount || 0
+  const counselingCount = unreadData?.counselingCount || 0
 
-  // 🔥 FIXED: Semua type schedule masuk ke Konseling, bukan hanya subType counseling
-  const counselingCount = notifications.filter(
-    (notif) => notif.type === 'schedule' && 
-    !(notif.status === 'read' || notif.isRead || notif.readAt)
-  ).length
+  console.log('🔢 Dropdown unread counts:', {
+    generalCount,
+    counselingCount,
+    selectedTab
+  });
 
   // 🔥 ENHANCED: Socket setup dengan improved real-time handling
   useEffect(() => {
     console.log('🔗 Dropdown: Setting up socket connection and listeners');
     
-    let isComponentMounted = true; // Track component mount status
+    let isComponentMounted = true;
 
     const setupSocket = async () => {
       try {
@@ -91,17 +97,15 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
 
     setupSocket();
 
-    // 🔥 ENHANCED: Better real-time update handlers
     const handleRealtimeUpdate = (event, payload = null) => {
-      if (!isComponentMounted) return; // Prevent updates if component unmounted
+      if (!isComponentMounted) return;
       
       console.log(`🔔 Dropdown: Received '${event}' event:`, payload);
       
-      // 🔥 IMMEDIATE: Invalidate and refetch dropdown queries
       Promise.all([
         queryClient.invalidateQueries({ 
           queryKey: ['notifications-dropdown', 'all'],
-          refetchType: 'active' // Only refetch active queries
+          refetchType: 'active'
         }),
         queryClient.invalidateQueries({ 
           queryKey: ['notifications-dropdown', 'counseling'],
@@ -114,7 +118,6 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
       ]).then(() => {
         console.log('✅ Dropdown: Queries invalidated and refetched');
         
-        // 🔥 FORCE REFETCH: If invalidation doesn't trigger, force it
         setTimeout(() => {
           if (isComponentMounted) {
             refetch();
@@ -125,81 +128,74 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
         console.error('❌ Dropdown: Query invalidation failed:', error);
       });
 
-      // Also invalidate main page queries for consistency
       queryClient.invalidateQueries({ queryKey: ['notifications'], refetchType: 'active' });
     };
 
     const createdHandler = (payload) => handleRealtimeUpdate('notification:created', payload);
     const readHandler = (payload) => handleRealtimeUpdate('notification:read', payload);
     const markAllReadHandler = (payload) => handleRealtimeUpdate('notification:mark-all-read', payload);
-    
-    // 🔥 ADDED: Handle socket reconnection
     const reconnectedHandler = (payload) => {
       console.log('🔄 Dropdown: Socket reconnected, refreshing data');
       handleRealtimeUpdate('socket:reconnected', payload);
     };
     
-    // 🔥 ADD SOCKET LISTENERS
     notificationSocket.on('notification:created', createdHandler);
     notificationSocket.on('notification:read', readHandler);
     notificationSocket.on('notification:mark-all-read', markAllReadHandler);
     notificationSocket.on('socket:reconnected', reconnectedHandler);
 
-    // 🔥 ENHANCED: Periodic refresh as fallback
     const refreshInterval = setInterval(() => {
       if (isComponentMounted && notificationSocket.isSocketConnected()) {
         console.log('🔄 Dropdown: Periodic refresh');
         refetch();
       }
-    }, 30000); // Refresh every 30 seconds as fallback
+    }, 30000);
 
     return () => {
-      isComponentMounted = false; // Mark component as unmounted
+      isComponentMounted = false;
       
-      // 🔥 CLEANUP SOCKET LISTENERS
       notificationSocket.off('notification:created', createdHandler);
       notificationSocket.off('notification:read', readHandler);
       notificationSocket.off('notification:mark-all-read', markAllReadHandler);
       notificationSocket.off('socket:reconnected', reconnectedHandler);
       
-      // Clear interval
       clearInterval(refreshInterval);
       
       console.log('🧹 Dropdown: Cleaned up listeners and intervals');
     }
   }, [queryClient, refetch])
 
-  // 🔥 FIXED: Improved time formatting with proper timezone handling
+  // 🔥 UPDATED: Simple time formatting for dropdown
   const formatTimeAgo = (timestamp) => {
     if (!timestamp) return "";
     
     try {
-      // Parse timestamp as UTC and convert to local timezone (WIB)
       const notificationTime = dayjs.utc(timestamp).tz('Asia/Jakarta');
       const now = dayjs().tz('Asia/Jakarta');
       
       const diffSeconds = now.diff(notificationTime, 'second');
       
-      // Jika waktu notifikasi di masa depan (karena sync issue), anggap sebagai "baru saja"
       if (diffSeconds < 0) {
         console.log('⚠️ Future timestamp detected, treating as "baru saja"');
         return "Baru saja";
       }
       
-      if (diffSeconds < 10) return "Baru saja";
-      if (diffSeconds < 60) return `${diffSeconds} detik lalu`;
-
+      // 🔥 UPDATED: Simple format for dropdown
+      if (diffSeconds < 60) return "Baru saja";
+      
       const diffMinutes = now.diff(notificationTime, 'minute');
       if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
 
       const diffHours = now.diff(notificationTime, 'hour');
       if (diffHours < 24) return `${diffHours} jam lalu`;
 
-      // Jika lebih dari sehari, tampilkan tanggal dalam format Indonesia
+      const diffDays = now.diff(notificationTime, 'day');
+      if (diffDays < 7) return `${diffDays} hari lalu`;
+
+      // For older notifications, show date
       return notificationTime.format('DD MMM YYYY');
     } catch (error) {
       console.error('❌ Error parsing timestamp:', timestamp, error);
-      // Fallback dengan dayjs biasa
       return dayjs(timestamp).fromNow();
     }
   }
@@ -210,8 +206,8 @@ export const useNotificationDropdown = (selectedTab = 'all') => {
 
   return {
     notifications,
-    unreadCount,
-    counselingCount,
+    unreadCount: generalCount, // Use generalCount for "Semua" tab
+    counselingCount, // Use counselingCount for "Konseling" tab
     isLoading,
     formatTimeAgo,
     formatUnreadCount,

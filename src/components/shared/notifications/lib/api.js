@@ -8,73 +8,22 @@ export const notificationsAPI = {
    * ALWAYS returns a consistent object: { notifications: [], total: 0 }
    */
   async getNotifications(params = {}) {
-    // 🔥 FIXED: Handling for 'all' tab - pastikan mengambil SEMUA notifikasi
-    if (params.type === 'all') {
-      try {
-        const [systemResponse, scheduleResponse, reportResponse] = await Promise.all([
-          this._getNotificationsByType({ ...params, type: 'system' }),
-          this._getNotificationsByType({ ...params, type: 'schedule' }),
-          this._getNotificationsByType({ ...params, type: 'report' })
-        ]);
-
-        const allNotifications = [
-          ...(systemResponse.notifications || []),
-          ...(scheduleResponse.notifications || []),
-          ...(reportResponse.notifications || [])
-        ];
-        
-        // Sort by createdAt descending (newest first)
-        allNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        
-        const limit = parseInt(params.limit || 10, 10);
-        const page = parseInt(params.page || 1, 10);
-        const startIndex = (page - 1) * limit;
-        const paginatedNotifications = allNotifications.slice(startIndex, startIndex + limit);
-        
-        return {
-          notifications: paginatedNotifications,
-          total: allNotifications.length
-        };
-      } catch (error) {
-        console.error('❌ Failed to fetch ALL notifications:', error);
-        return { notifications: [], total: 0 }; // Return consistent empty state on error
-      }
-    }
-    
-    // 🔥 FIXED: Handling for 'counseling' tab - ambil semua type schedule
-    if (params.type === 'counseling') {
-      return this._getNotificationsByType({
-        ...params,
-        type: 'schedule'
-        // Tidak perlu subType: 'counseling' karena semua schedule masuk konseling
-      });
-    }
-    
-    // For other specific types
-    return this._getNotificationsByType(params);
-  },
-
-  /**
-   * Helper method. ALWAYS returns a clean object: { notifications: [], total: 0 }
-   */
-  async _getNotificationsByType(params = {}) {
     const requestData = {
       page: parseInt(params.page || 1, 10),
       limit: parseInt(params.limit || 10, 10),
     };
 
-    if (params.type === 'schedule') {
+    // 🔥 UPDATED: Handle new API structure
+    if (params.type === 'counseling') {
+      // For counseling tab, use type=schedule
       requestData.type = 'schedule';
-    } else if (params.type === 'system') {
-      requestData.type = 'system';
-    } else if (params.type === 'report') {
-      requestData.type = 'report';
+    } else if (params.type === 'all') {
+      // For all tab, don't send type parameter (backend will return all)
+      // requestData.type is not set
+    } else if (params.type) {
+      // For other specific types
+      requestData.type = params.type;
     }
-
-    // 🔥 REMOVED: subType filter untuk counseling karena semua schedule masuk konseling
-    // if (params.subType) {
-    //   requestData.subType = params.subType;
-    // }
     
     const searchParams = new URLSearchParams();
     Object.entries(requestData).forEach(([key, value]) => {
@@ -86,8 +35,16 @@ export const notificationsAPI = {
     const url = `/notifications?${searchParams.toString()}`;
     
     try {
+      console.log('🔍 API Request:', url, requestData);
       const response = await apiClient.get(url);
       const data = response?.data?.data || response?.data || {};
+      
+      console.log('📊 API Response:', {
+        url,
+        notificationsCount: data.notifications?.length || 0,
+        total: data.total || 0
+      });
+      
       return {
         notifications: data.notifications || [],
         total: data.total || 0,
@@ -99,24 +56,30 @@ export const notificationsAPI = {
   },
 
   /**
-   * Get unread count. ALWAYS returns a clean object: { count: 0 }
+   * Get unread count with new backend structure
+   * Returns: { generalCount: number, counselingCount: number }
    */
   async getUnreadCount() {
     try {
       const response = await apiClient.get('/notifications/unread-count');
-      const count = response?.data?.data?.count || 0;
+      const data = response?.data?.data || {};
       
-      // 🔥 DEBUG: Log untuk tracking unread count
       console.log('🔢 API getUnreadCount response:', {
-        count,
+        generalCount: data.generalCount || 0,
+        counselingCount: data.counselingCount || 0,
         rawResponse: response?.data
       });
       
-      return { count };
+      return {
+        generalCount: data.generalCount || 0,
+        counselingCount: data.counselingCount || 0
+      };
     } catch (error) {
       console.error('❌ Unread Count Request Failed:', error);
-      // Selalu kembalikan objek yang valid bahkan saat error
-      return { count: 0 };
+      return { 
+        generalCount: 0, 
+        counselingCount: 0 
+      };
     }
   },
 

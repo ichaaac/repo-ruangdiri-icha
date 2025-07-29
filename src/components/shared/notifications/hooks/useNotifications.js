@@ -7,16 +7,22 @@ import relativeTime from "dayjs/plugin/relativeTime"
 import updateLocale from "dayjs/plugin/updateLocale"
 import utc from "dayjs/plugin/utc"
 import timezone from "dayjs/plugin/timezone"
+import isSameOrBefore from "dayjs/plugin/isSameOrBefore"
+import isSameOrAfter from "dayjs/plugin/isSameOrAfter"
 import "dayjs/locale/id"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
-import { getRelativeTime, formatDateIndonesian } from "../../schedule/utils/timezoneHandler"
 
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
 dayjs.extend(utc)
 dayjs.extend(timezone)
+dayjs.extend(isSameOrBefore)
+dayjs.extend(isSameOrAfter)
 dayjs.locale("id")
+
+// Set timezone default ke Asia/Jakarta
+dayjs.tz.setDefault('Asia/Jakarta')
 
 dayjs.updateLocale("id", {
   relativeTime: {
@@ -34,12 +40,20 @@ dayjs.updateLocale("id", {
     y: "setahun",
     yy: "%d tahun",
   },
+  weekdays: [
+    "Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"
+  ],
+  months: [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ]
 })
 
 export const useNotifications = () => {
   const queryClient = useQueryClient()
   const [selectedTab, setSelectedTab] = useState("all")
 
+  // 🔥 UPDATED: Handle new unread count structure
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: notificationsAPI.getUnreadCount,
@@ -50,11 +64,12 @@ export const useNotifications = () => {
     refetchInterval: false,
   })
 
-  const unreadCount = unreadData?.count || 0
+  const generalCount = unreadData?.generalCount || 0
+  const counselingCount = unreadData?.counselingCount || 0
 
-  // 🔥 DEBUG: Log unread count
   console.log('🔢 useNotifications unreadCount:', {
-    unreadCount,
+    generalCount,
+    counselingCount,
     unreadData,
     selectedTab
   });
@@ -73,7 +88,7 @@ export const useNotifications = () => {
     queryFn: async ({ pageParam = 1 }) => {
       const filters = {
         page: pageParam,
-        limit: 10,
+        limit: 10, // Keep pagination at 10 per request
         type: selectedTab,
       };
       
@@ -110,10 +125,10 @@ export const useNotifications = () => {
   const notifications = data?.pages.flatMap(page => page.notifications) || []
   const totalCount = data?.pages[0]?.total || 0
 
-  // 🔥 FIXED: Updated grouping dengan timezone handling yang benar
+  // 🔥 UPDATED: Improved grouping dengan timezone handling yang proper
   const groupedNotifications = notifications.reduce((acc, notification) => {
     try {
-      // Parse waktu sebagai UTC dan convert ke timezone lokal
+      // Parse waktu sebagai UTC dan convert ke timezone lokal (WIB)
       const notificationTime = dayjs.utc(notification.createdAt).tz('Asia/Jakarta');
       const dateKey = notificationTime.format("YYYY-MM-DD");
       
@@ -132,34 +147,6 @@ export const useNotifications = () => {
     }
     return acc
   }, {})
-
-  // 🔥 FIXED: Calculate unread counts from loaded notifications
-  // Note: unreadCount dari API mungkin berbeda dengan yang kita hitung dari loaded notifications
-  // karena loaded notifications ter-paginate sementara unreadCount dari API adalah total global
-  
-  const loadedUnreadCount = notifications.filter(
-    (notif) => !(notif.status === 'read' || notif.isRead || notif.readAt)
-  ).length;
-
-  const counselingCount = notifications.filter(
-    (notif) => notif.type === 'schedule' && 
-    !(notif.status === 'read' || notif.isRead || notif.readAt)
-  ).length
-
-  console.log('📈 Notification counts EXPLAINED:', {
-    totalCount,           // Total from API (all notifications available)
-    unreadCount,          // Global unread count from API endpoint
-    loadedUnreadCount,    // Unread count dari notifications yang sudah di-load
-    counselingCount,      // Unread schedule notifications dari yang sudah di-load
-    totalNotificationsLoaded: notifications.length,
-    selectedTab,
-    breakdown: {
-      system: notifications.filter(n => n.type === 'system').length,
-      schedule: notifications.filter(n => n.type === 'schedule').length,
-      report: notifications.filter(n => n.type === 'report').length,
-    },
-    explanation: 'totalCount shows ALL available notifications, unreadCount shows global unread count'
-  });
 
   const markAsReadMutation = useMutation({
     mutationFn: (notificationIds) => notificationsAPI.markAsRead(notificationIds),
@@ -223,29 +210,33 @@ export const useNotifications = () => {
     markAllAsReadMutation.mutate()
   }, [markAllAsReadMutation])
 
-  // 🔥 FIXED: Improved date label dengan timezone handling
+  // 🔥 ENHANCED: Improved date label dengan timezone handling dan hari
   const getDateLabel = useCallback((dateString) => {
     try {
-      // Parse dateString sebagai date lokal (karena sudah diformat sebagai YYYY-MM-DD)
-      const date = dayjs(dateString);
+      const date = dayjs(dateString).tz('Asia/Jakarta');
       const today = dayjs().tz('Asia/Jakarta');
       const yesterday = dayjs().tz('Asia/Jakarta').subtract(1, 'day');
 
-      if (date.isSame(today, 'day')) return 'Hari Ini'
-      if (date.isSame(yesterday, 'day')) return 'Kemarin'
-      
-      try {
-        return formatDateIndonesian(dateString) || date.format('DD MMMM YYYY')
-      } catch {
-        return date.format('DD MMMM YYYY')
+      if (date.isSame(today, 'day')) {
+        return 'Hari Ini'
       }
+      
+      if (date.isSame(yesterday, 'day')) {
+        return 'Kemarin'
+      }
+      
+      // 🔥 NEW: Show day name for older notifications
+      const dayName = date.format('dddd'); // Senin, Selasa, etc.
+      const dateFormat = date.format('DD MMMM YYYY');
+      
+      return `${dayName}, ${dateFormat}`;
     } catch (error) {
       console.error('❌ Error formatting date label:', dateString, error);
       return dayjs(dateString).format('DD MMMM YYYY')
     }
   }, [])
 
-  // 🔥 FIXED: Improved time formatting dengan timezone handling
+  // 🔥 ENHANCED: Detailed time formatting for main notifications page
   const formatTimeAgo = useCallback((timestamp) => {
     if (!timestamp) return "";
 
@@ -256,39 +247,56 @@ export const useNotifications = () => {
       
       const diffSeconds = now.diff(notificationTime, 'second');
       
-      // Jika waktu notifikasi di masa depan (karena sync issue), anggap sebagai "baru saja"
+      // Handle future timestamps
       if (diffSeconds < 0) {
         console.log('⚠️ Future timestamp detected, treating as "baru saja"');
         return "Baru saja";
       }
       
-      if (diffSeconds < 60) return "Baru saja";
+      // 🔥 UPDATED: More precise time formatting for main page
+      if (diffSeconds < 60) {
+        return "Baru saja";
+      }
 
       const diffMinutes = now.diff(notificationTime, 'minute');
-      if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+      if (diffMinutes < 60) {
+        return `${diffMinutes} menit lalu`;
+      }
       
       const diffHours = now.diff(notificationTime, 'hour');
-      if (diffHours < 24) return `${diffHours} jam lalu`;
-
-      // Untuk notifikasi yang lebih lama, gunakan fungsi getDateLabel
-      return getDateLabel(notificationTime.format('YYYY-MM-DD'));
+      
+      // 🔥 NEW: For today's notifications, show time with more detail
+      if (notificationTime.isSame(now, 'day')) {
+        if (diffHours < 24) {
+          const timeFormat = notificationTime.format('HH:mm');
+          return `${timeFormat} (${diffHours} jam lalu)`;
+        }
+      }
+      
+      // 🔥 NEW: For older notifications, show full date and time with day
+      const dayName = notificationTime.format('dddd');
+      const dateFormat = notificationTime.format('DD/MM/YYYY');
+      const timeFormat = notificationTime.format('HH:mm');
+      
+        return `${dayName}, ${dateFormat} - ${timeFormat}`;
 
     } catch (error) {
       console.error('❌ Error formatting time ago:', timestamp, error);
       // Fallback jika terjadi error parsing
       return dayjs(timestamp).fromNow();
     }
-  }, [getDateLabel]);
+  }, []);
 
+  // 🔥 UPDATED: Format count with 999+ limit for main page
   const formatCount = useCallback((count) => {
-    return count > 99 ? '99+' : count.toString()
+    return count > 999 ? '999+' : count.toString()
   }, [])
 
   return {
     groupedNotifications,
     totalCount,
-    unreadCount,
-    counselingCount,
+    unreadCount: generalCount, // Use generalCount for main unread count
+    counselingCount, // Use counselingCount for counseling tab
     selectedTab,
     isLoading,
     isError,

@@ -11,13 +11,16 @@ dayjs.extend(isToday);
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+// Set timezone default ke Asia/Jakarta
+dayjs.tz.setDefault('Asia/Jakarta');
+
 const NotificationDropdown = ({ onViewAll, onClose }) => {
   const [selectedTab, setSelectedTab] = useState('all');
   
   const { 
     notifications, 
-    unreadCount, 
-    counselingCount, 
+    unreadCount,      // This is now generalCount 
+    counselingCount,  // This is counselingCount from backend
     isLoading, 
     formatTimeAgo, 
     formatUnreadCount 
@@ -85,7 +88,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           isRead ? "bg-gray-100 opacity-60" : "bg-white"
         }`}
       >
-        {/* 🔥 UPDATED: Icon tanpa background rounded, size 37px */}
+        {/* Icon without background rounded, size 37px */}
         <span 
           className="material-icons flex-shrink-0"
           style={{ 
@@ -110,6 +113,14 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     );
   };
 
+  // 🔥 DEBUG: Log counts for debugging
+  console.log('🎯 NotificationDropdown - COUNTS:', {
+    selectedTab,
+    unreadCount,      // generalCount from backend
+    counselingCount,  // counselingCount from backend
+    notificationsCount: notifications.length
+  });
+
   return (
     <div className="absolute right-0 mt-2 w-[395px] max-h-[400px] overflow-hidden bg-white shadow-lg rounded-b-xl z-50 border border-gray-200 flex flex-col">
       
@@ -122,6 +133,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             className={`flex items-center gap-2 transition-colors ${selectedTab === 'all' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
           >
             <span>Semua</span>
+            {/* 🔥 UPDATED: Use generalCount (unreadCount) for "Semua" tab */}
             {unreadCount > 0 && (
               <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                 {formatUnreadCount(unreadCount)}
@@ -133,6 +145,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             className={`flex items-center gap-2 transition-colors ${selectedTab === 'counseling' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
           >
             <span>Konseling</span>
+            {/* 🔥 UPDATED: Use counselingCount for "Konseling" tab */}
             {counselingCount > 0 && (
               <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                 {formatUnreadCount(counselingCount)}
@@ -153,7 +166,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           <div className="px-5">
             {notifications.length > 0 ? (
               <div className="space-y-3">
-                {/* 🔥 ENHANCED: Render "Hari Ini" section */}
+                {/* Render "Hari Ini" section */}
                 {todayNotifications.length > 0 && (
                   <div>
                     <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
@@ -167,7 +180,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                   </div>
                 )}
                 
-                {/* 🔥 ENHANCED: Render "Sebelumnya" section */}
+                {/* Render "Sebelumnya" section */}
                 {previousNotifications.length > 0 && (
                   <div>
                     <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
