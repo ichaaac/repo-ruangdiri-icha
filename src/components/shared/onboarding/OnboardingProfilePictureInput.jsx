@@ -1,15 +1,14 @@
 "use client"
 
-// src/components/shared/onboarding/OnboardingProfilePictureInput.jsx - DIPERBAIKI: DESAIN MODAL DAN KONSISTENSI PROP
+// src/components/shared/onboarding/OnboardingProfilePictureInput.jsx - DIPERBAIKI: VALIDASI FILE DISAMAKAN
 
 import { useState, useRef, useEffect } from "react"
 import clsx from "clsx"
 import { toast } from "sonner"
-import { motion, AnimatePresence } from "framer-motion" // Import for modal animation
+import { motion, AnimatePresence } from "framer-motion"
 
-// --- KOMPONEN MODAL DENGAN LAYOUT YANG DIPOLES (SESUAI DESAIN YANG DIBERIKAN) ---
+// --- KOMPONEN MODAL DENGAN LAYOUT YANG DIPOLES ---
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isConfirming }) => {
-  // ✅ FIXED: Menggunakan isConfirming
   if (!isOpen) return null
 
   const handleClose = () => {
@@ -44,7 +43,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isConfirmin
               <button
                 type="button"
                 onClick={handleClose}
-                disabled={isConfirming} // ✅ FIXED: Menggunakan isConfirming
+                disabled={isConfirming}
                 className="absolute top-3 right-3 p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
               >
                 <span className="material-icons text-xl">close</span>
@@ -67,7 +66,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isConfirmin
               <button
                 type="button"
                 onClick={handleConfirm}
-                disabled={isConfirming} // ✅ FIXED: Menggunakan isConfirming
+                disabled={isConfirming}
                 className="w-full h-12 px-6 bg-primary text-white font-bold rounded-full hover:bg-primary-variant1 transition-colors disabled:bg-gray-400 flex items-center justify-center"
               >
                 {isConfirming ? <span className="material-icons animate-spin">refresh</span> : "Simpan"}
@@ -85,24 +84,22 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
   const [previewImage, setPreviewImage] = useState(currentProfilePicture)
   const [isHovering, setIsHovering] = useState(false)
   const [imageError, setImageError] = useState(false)
-
-  // State untuk modal konfirmasi
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [selectedFileForConfirmation, setSelectedFileForConfirmation] = useState(null)
   const [tempPreviewUrlForConfirmation, setTempPreviewUrlForConfirmation] = useState(null)
-  const [isConfirming, setIsConfirming] = useState(false) // Untuk disable tombol di modal
+  const [isConfirming, setIsConfirming] = useState(false)
 
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"]
-  const maxSize = 2 * 1024 * 1024 // 2MB
+  // --- PERUBAHAN DI SINI ---
+  // Menyamakan validasi dengan ProfilePictureUpload
+  const allowedTypes = ["image/jpeg", "image/png"]; // Hanya izinkan JPG dan PNG
+  const maxSize = 2 * 1024 * 1024; // 2MB
 
   useEffect(() => {
-    // Set initial preview image from props
     setPreviewImage(currentProfilePicture)
     setImageError(false)
   }, [currentProfilePicture])
 
   useEffect(() => {
-    // Cleanup temporary URL when modal is closed or component unmounts
     return () => {
       if (tempPreviewUrlForConfirmation) {
         URL.revokeObjectURL(tempPreviewUrlForConfirmation)
@@ -110,7 +107,6 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
     }
   }, [tempPreviewUrlForConfirmation])
 
-  // Cleanup for the main previewImage if it's a blob URL and not the original
   useEffect(() => {
     return () => {
       if (previewImage && previewImage.startsWith("blob:") && previewImage !== currentProfilePicture) {
@@ -130,23 +126,29 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
     maxWidth: "200px",
   }
 
+  // --- PERUBAHAN DI SINI ---
+  // Logika validasi disamakan persis dengan ProfilePictureUpload
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) {
       console.log("No file selected - user canceled file picker")
       return
     }
-    e.target.value = "" // Clear the input so same file can be selected again
+    e.target.value = "" // Reset input
 
+    // Validasi tipe file
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
-      return
+      toast.error("Gunakan format JPG atau PNG.", { style: toastStyle, closeButton: false })
+      return // Stop eksekusi
     }
+
+    // Validasi ukuran file
     if (file.size > maxSize) {
       toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
-      return
+      return // Stop eksekusi
     }
 
+    // Lanjut jika valid
     setSelectedFileForConfirmation(file)
     const newTempUrl = URL.createObjectURL(file)
     setTempPreviewUrlForConfirmation(newTempUrl)
@@ -160,19 +162,12 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
 
   const handleConfirmSelection = () => {
     if (selectedFileForConfirmation && tempPreviewUrlForConfirmation) {
-      setIsConfirming(true) // Disable modal buttons
-      // Call the parent's onFileSelect with the confirmed file and preview URL
+      setIsConfirming(true)
       onFileSelect(selectedFileForConfirmation, tempPreviewUrlForConfirmation)
-
-      // Update the main preview image state
       setPreviewImage(tempPreviewUrlForConfirmation)
-      setImageError(false) // Reset error if a new image is confirmed
-
-      // Reset modal states
+      setImageError(false)
       setShowConfirmation(false)
       setSelectedFileForConfirmation(null)
-      // setTempPreviewUrlForConfirmation(null); // This URL is now used by previewImage, so don't revoke immediately
-      // The URL will be revoked by the main previewImage's useEffect cleanup when it changes again or component unmounts.
       setIsConfirming(false)
     }
   }
@@ -181,7 +176,7 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
     setShowConfirmation(false)
     setSelectedFileForConfirmation(null)
     if (tempPreviewUrlForConfirmation) {
-      URL.revokeObjectURL(tempPreviewUrlForConfirmation) // Revoke if user cancels
+      URL.revokeObjectURL(tempPreviewUrlForConfirmation)
       setTempPreviewUrlForConfirmation(null)
     }
   }
@@ -225,12 +220,14 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
           >
             <span className="material-icons text-white text-xs sm:text-sm">photo_camera</span>
           </button>
-
+          
+          {/* --- PERUBAHAN DI SINI --- */}
+          {/* Menyamakan atribut `accept` */}
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg, image/png"
             className="hidden"
           />
         </div>
@@ -243,7 +240,7 @@ const OnboardingProfilePictureInput = ({ currentProfilePicture, organizationType
             onClose={handleCloseConfirmation}
             onConfirm={handleConfirmSelection}
             previewUrl={tempPreviewUrlForConfirmation}
-            isConfirming={isConfirming} // ✅ FIXED: Menggunakan isConfirming
+            isConfirming={isConfirming}
           />
         )}
       </AnimatePresence>
