@@ -20,6 +20,7 @@ import CustomBranchingDropdown from "./CustomBranchingDropdown"
 import EmailNotificationModal from "./EmailNotificationModal"
 import { useAuth } from "../../../hooks/useAuth"
 import { useYearlyStats } from "../../../hooks/useDashboardMetrics"
+import { getCurrentDateInfo } from "../../../lib/date"
 import TopRightControl from "../layout/TopRightControl"
 
 const DashboardHome = ({
@@ -33,7 +34,15 @@ const DashboardHome = ({
   onReportClick = () => {},
   sidebarExpanded = false,
 }) => {
-  const [currentHalf, setCurrentHalf] = useState("firstHalf")
+  // FIXED: Initialize semester based on current month
+  const getCurrentSemester = () => {
+    const currentDate = getCurrentDateInfo()
+    const currentMonth = parseInt(currentDate.month) // month as number (1-12)
+    // If month 1-6 (Jan-Jun) -> firstHalf, if month 7-12 (Jul-Dec) -> secondHalf  
+    return currentMonth <= 6 ? "firstHalf" : "secondHalf"
+  }
+  
+  const [currentHalf, setCurrentHalf] = useState(getCurrentSemester())
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
 

@@ -1,101 +1,55 @@
-// src/components/shared/onboarding/lib/onboardingApi.js - UPDATED FOR NEW BACKEND
+// src/components/shared/onboarding/lib/onboardingApi.js - UPDATED FOR NEW BACKEND (SINGLE ENDPOINT)
 import { apiClient } from '../../../../lib/api'; // Mengimpor apiClient dari api.js
 
 const onboardingApi = {
   /**
-   * Complete onboarding for users (student, employee, psychologist)
+   * Complete onboarding for any user type (student, employee, psychologist, organization)
+   * All profile updates go to /users/profile
    */
-  completeUserOnboarding: async (onboardingData) => {
+  completeProfileOnboarding: async (onboardingData) => { // ✅ FIXED: Unified function name
     try {
-      const response = await apiClient.patch('/users/profile', {
-        isOnboarded: "1", // ✅ FIXED: Convert to string
+      const response = await apiClient.patch('/users/profile', { // ✅ FIXED: Unified endpoint
+        isOnboarded: "1",
         ...onboardingData
       });
       return response.data;
     } catch (error) {
-      console.error('User onboarding error:', error);
+      console.error('Profile onboarding error:', error);
       throw error;
     }
   },
 
   /**
-   * Complete onboarding for organizations (school, company)
+   * Skip onboarding for any user type
+   * All skip requests go to /users/profile
    */
-  completeOrganizationOnboarding: async (onboardingData) => {
+  skipOnboarding: async () => { // ✅ FIXED: Unified function name
     try {
-      const response = await apiClient.patch('/organizations/profile', {
-        isOnboarded: "1", // ✅ FIXED: Convert to string
-        ...onboardingData
+      const response = await apiClient.patch('/users/profile', { // ✅ FIXED: Unified endpoint
+        isOnboarded: "1"
       });
       return response.data;
     } catch (error) {
-      console.error('Organization onboarding error:', error);
+      console.error('Skip onboarding error:', error);
       throw error;
     }
   },
 
   /**
-   * Skip onboarding for users
+   * Upload profile picture for any user type
+   * All profile picture uploads go to /users/profile
    */
-  skipUserOnboarding: async () => {
-    try {
-      const response = await apiClient.patch('/users/profile', {
-        isOnboarded: "1" // ✅ FIXED: Convert to string
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Skip user onboarding error:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Skip onboarding for organizations
-   */
-  skipOrganizationOnboarding: async () => {
-    try {
-      const response = await apiClient.patch('/organizations/profile', {
-        isOnboarded: "1" // ✅ FIXED: Convert to string
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Skip organization onboarding error:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Upload profile picture for users
-   */
-  uploadUserProfilePicture: async (file) => {
+  uploadProfilePicture: async (file) => { // ✅ FIXED: Unified function name
     try {
       const formData = new FormData();
       formData.append('profilePicture', file);
 
-      const response = await apiClient.patch('/users/profile', formData, {
+      const response = await apiClient.patch('/users/profile', formData, { // ✅ FIXED: Unified endpoint
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return response.data;
     } catch (error) {
-      console.error('User profile picture upload error:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Upload profile picture for organizations
-   */
-  uploadOrganizationProfilePicture: async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append('profilePicture', file);
-
-      const response = await apiClient.patch('/organizations/profile', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Organization profile picture upload error:', error);
+      console.error('Profile picture upload error:', error);
       throw error;
     }
   },

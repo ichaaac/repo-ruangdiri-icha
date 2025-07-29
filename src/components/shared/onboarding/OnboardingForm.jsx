@@ -1,4 +1,4 @@
-// src/components/shared/onboarding/OnboardingForm.jsx - FIXED REDIRECT ISSUE
+// src/components/shared/onboarding/OnboardingForm.jsx - FIXED ENDPOINT LOGIC
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useForm, Controller } from "react-hook-form"
@@ -112,7 +112,7 @@ const onboardingSchema = z.object({
 
 // --- MAIN COMPONENT ---
 const OnboardingForm = () => {
-  const { user, getUserRole, getOrganizationType, refetchUser } = useAuth() // ✅ ADDED: refetchUser
+  const { user, getUserRole, getOrganizationType, refetchUser } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [phoneValidationError, setPhoneValidationError] = useState("")
@@ -124,7 +124,7 @@ const OnboardingForm = () => {
   // Determine if user is organization or regular user
   const userRole = getUserRole()
   const orgType = getOrganizationType()
-  const isOrganization = ['school', 'company'].includes(orgType) || user?.organization
+  // const isOrganization = ['school', 'company'].includes(orgType) || user?.organization // ✅ REMOVED: No longer needed for API calls
 
   const {
     register,
@@ -153,7 +153,7 @@ const OnboardingForm = () => {
   useEffect(() => {
     return () => {
       if (profilePicturePreview) {
-        URL.revokeObjectURL(profilePicturePreview)
+        URL.revokeObjectURL(profilePicturePicturePreview)
       }
     }
   }, [profilePicturePreview])
@@ -166,7 +166,6 @@ const OnboardingForm = () => {
     setProfilePicturePreview(previewUrl)
   }
 
-  // ✅ FIXED: Enhanced redirect logic with proper cache invalidation
   const redirectToDashboard = () => {
     let redirectPath = "/"
     
@@ -184,16 +183,14 @@ const OnboardingForm = () => {
     
     console.log(`Redirecting to: ${redirectPath}`)
     
-    // ✅ FIXED: Force navigation with replace and reload
     navigate(redirectPath, { replace: true })
     
-    // ✅ ADDED: Force page reload to ensure fresh state
     setTimeout(() => {
       window.location.href = redirectPath
     }, 500)
   }
 
-  // ✅ FIXED: Enhanced onboarding completion with better cache handling
+  // ✅ FIXED: Simplified onboarding logic using unified API
   const completeOnboarding = async (formData = {}) => {
     setIsSubmitting(true)
 
@@ -201,11 +198,7 @@ const OnboardingForm = () => {
       // Step 1: Upload profile picture if selected
       if (selectedProfilePicture) {
         try {
-          if (isOrganization) {
-            await onboardingApi.uploadOrganizationProfilePicture(selectedProfilePicture)
-          } else {
-            await onboardingApi.uploadUserProfilePicture(selectedProfilePicture)
-          }
+          await onboardingApi.uploadProfilePicture(selectedProfilePicture) // ✅ FIXED: Use unified upload function
           console.log("Profile picture uploaded successfully")
         } catch (error) {
           console.error("Profile picture upload failed:", error)
@@ -227,13 +220,8 @@ const OnboardingForm = () => {
 
       console.log("Completing onboarding with data:", onboardingData)
       
-      // ✅ FIXED: Use appropriate API method based on user type
-      let response
-      if (isOrganization) {
-        response = await onboardingApi.completeOrganizationOnboarding(onboardingData)
-      } else {
-        response = await onboardingApi.completeUserOnboarding(onboardingData)
-      }
+      // ✅ FIXED: Use unified complete function
+      let response = await onboardingApi.completeProfileOnboarding(onboardingData)
 
       console.log("Onboarding API response:", response)
       toast.success("Profil berhasil disimpan!")
@@ -241,15 +229,12 @@ const OnboardingForm = () => {
       // ✅ FIXED: Enhanced cache clearing and user refetch
       console.log("Clearing cache and refetching user data...")
       
-      // Clear all queries
       queryClient.clear()
       
-      // Invalidate specific queries
       await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       await queryClient.invalidateQueries({ queryKey: ["user"] })
       await queryClient.invalidateQueries({ queryKey: ["auth"] })
       
-      // ✅ ADDED: Refetch user data if available
       if (refetchUser) {
         try {
           await refetchUser()
@@ -259,10 +244,9 @@ const OnboardingForm = () => {
         }
       }
 
-      // ✅ FIXED: Delayed redirect with proper timing
       setTimeout(() => {
         redirectToDashboard()
-      }, 1500) // Increased delay to ensure cache is updated
+      }, 1500)
 
     } catch (error) {
       console.error("Onboarding failed:", error)
@@ -288,7 +272,7 @@ const OnboardingForm = () => {
     await completeOnboarding(data)
   }
 
-  // ✅ FIXED: Enhanced skip logic with better cache handling
+  // ✅ FIXED: Simplified skip logic using unified API
   const handleSkip = async () => {
     console.log("Skipping onboarding...")
     setIsSkipping(true)
@@ -297,11 +281,7 @@ const OnboardingForm = () => {
       // Step 1: Upload profile picture if selected
       if (selectedProfilePicture) {
         try {
-          if (isOrganization) {
-            await onboardingApi.uploadOrganizationProfilePicture(selectedProfilePicture)
-          } else {
-            await onboardingApi.uploadUserProfilePicture(selectedProfilePicture)
-          }
+          await onboardingApi.uploadProfilePicture(selectedProfilePicture) // ✅ FIXED: Use unified upload function
           console.log("Profile picture uploaded during skip")
         } catch (error) {
           console.error("Profile picture upload failed during skip:", error)
@@ -312,13 +292,8 @@ const OnboardingForm = () => {
       // Step 2: Skip onboarding (only mark as onboarded)
       console.log("Skipping onboarding...")
       
-      // ✅ FIXED: Use appropriate skip API method
-      let response
-      if (isOrganization) {
-        response = await onboardingApi.skipOrganizationOnboarding()
-      } else {
-        response = await onboardingApi.skipUserOnboarding()
-      }
+      // ✅ FIXED: Use unified skip API method
+      let response = await onboardingApi.skipOnboarding()
       
       console.log("Skip onboarding API response:", response)
       toast.success("Onboarding dilewati!")
@@ -326,15 +301,12 @@ const OnboardingForm = () => {
       // ✅ FIXED: Enhanced cache clearing and user refetch
       console.log("Clearing cache and refetching user data...")
       
-      // Clear all queries
       queryClient.clear()
       
-      // Invalidate specific queries
       await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       await queryClient.invalidateQueries({ queryKey: ["user"] })
       await queryClient.invalidateQueries({ queryKey: ["auth"] })
       
-      // ✅ ADDED: Refetch user data if available
       if (refetchUser) {
         try {
           await refetchUser()
@@ -344,10 +316,9 @@ const OnboardingForm = () => {
         }
       }
 
-      // ✅ FIXED: Delayed redirect with proper timing
       setTimeout(() => {
         redirectToDashboard()
-      }, 1500) // Increased delay to ensure cache is updated
+      }, 1500)
 
     } catch (error) {
       console.error("Skip onboarding failed:", error)
