@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js - Updated with Complete Onboarding Logic
+// src/hooks/useAuth.js - FIXED VERSION (Anti-Loop)
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -101,14 +101,8 @@ export const useAuth = () => {
 
           console.log("User data:", userData)
 
-          // Redirect based on onboarding status and role/org type
-          if (userData.isOnboarded === false) {
-            // User needs onboarding
-            redirectToOnboarding(userData)
-          } else {
-            // User completed onboarding
-            redirectToDashboard(userData)
-          }
+          // ✅ FIXED: Better redirect logic with loop prevention
+          redirectAfterLogin(userData, location.pathname)
         } else {
           queryClient.invalidateQueries({ queryKey: ["currentUser"] })
           navigate("/")
@@ -127,37 +121,35 @@ export const useAuth = () => {
     },
   })
 
-  // Helper function to redirect to appropriate onboarding
-  const redirectToOnboarding = (userData) => {
-    const userRole = userData.role
-    const orgType = userData.organization?.type
+  // ✅ IMPROVED: Smart redirect logic with loop prevention
+  const redirectAfterLogin = (userData, currentPath) => {
+    // Prevent redirect if already on correct page
+    if (currentPath.includes('/onboarding') && userData.isOnboarded === false) {
+      console.log("Already on onboarding page, no redirect needed")
+      return
+    }
 
-    console.log("Redirecting to onboarding...", { userRole, orgType })
-
-    // All roles now use the unified onboarding system
-    navigate("/onboarding")
+    if (userData.isOnboarded === false) {
+      console.log("User needs onboarding, redirecting...")
+      navigate("/onboarding", { replace: true })
+    } else {
+      console.log("User completed onboarding, redirecting to dashboard...")
+      const dashboardPath = getDashboardPath(userData)
+      navigate(dashboardPath, { replace: true })
+    }
   }
 
-  // Helper function to redirect to appropriate dashboard
-  const redirectToDashboard = (userData) => {
+  // ✅ HELPER: Get dashboard path based on user role/org
+  const getDashboardPath = (userData) => {
     const userRole = userData.role
     const orgType = userData.organization?.type
 
-    console.log("Redirecting to dashboard...", { userRole, orgType })
-
-    if (userRole === "student") {
-      navigate("/user/student/booking")        // booking session
-    } else if (userRole === "employee") {
-      navigate("/user/employee/booking")       // booking session  
-    } else if (userRole === "psychologist") {
-      navigate("/user/psychologist/chat")      // chat page
-    } else if (orgType === "school") {
-      navigate("/organization/school/dashboard")
-    } else if (orgType === "company") {
-      navigate("/organization/company/dashboard")
-    } else {
-      navigate("/")
-    }
+    if (userRole === "student") return "/user/student/booking"
+    if (userRole === "employee") return "/user/employee/booking"  
+    if (userRole === "psychologist") return "/user/psychologist/chat"
+    if (orgType === "school") return "/organization/school/dashboard"
+    if (orgType === "company") return "/organization/company/dashboard"
+    return "/"
   }
 
   const forgotPassword = useMutation({
@@ -234,8 +226,11 @@ export const useAuth = () => {
     return userRole || storedRole || null
   }
 
+  // ✅ IMPROVED: More precise onboarding check
   const needsOnboarding = () => {
-    return user?.isOnboarded === false
+    // Only check if user data is loaded
+    if (!user) return false
+    return user.isOnboarded === false
   }
 
   const isOrganizationAdmin = () => {
@@ -262,15 +257,8 @@ export const useAuth = () => {
   }
 
   const getDefaultRoute = () => {
-    const userRole = getUserRole()
-    const orgType = getOrganizationType()
-
-    if (userRole === "student") return "/user/student/booking"
-    if (userRole === "employee") return "/user/employee/booking"
-    if (userRole === "psychologist") return "/user/psychologist/chat"
-    if (orgType === "school") return "/organization/school/dashboard"
-    if (orgType === "company") return "/organization/company/dashboard"
-    return "/"
+    if (!user) return "/"
+    return getDashboardPath(user)
   }
 
   return {

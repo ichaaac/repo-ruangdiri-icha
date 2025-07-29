@@ -1,12 +1,10 @@
-// src/components/shared/onboarding/OnboardingSplashScreen.jsx - Design Asli + Role Logic
+// src/components/shared/onboarding/OnboardingSplashScreen.jsx - FIXED VERSION
 
 import { motion } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"
-import { useNavigate } from "react-router-dom"
 
-function OnboardingSplashScreen() {
+function OnboardingSplashScreen({ onContinue }) { // ✅ Accept callback prop
   const { user, getUserRole, getOrganizationType } = useAuth()
-  const navigate = useNavigate()
 
   // Determine image based on role
   const getHeroImage = () => {
@@ -18,7 +16,6 @@ function OnboardingSplashScreen() {
     if (userRole === 'psychologist') return '/onboarding-psychologist.png'
     if (orgType) return '/onboarding-organization.png'
     
-    // Fallback
     return '/onboarding-organization.png'
   }
 
@@ -28,14 +25,9 @@ function OnboardingSplashScreen() {
     
     console.log("Starting onboarding for:", { userRole, orgType })
     
-    // For roles that have dedicated forms, go to form
-    if (userRole === 'student' || userRole === 'employee') {
-      // Navigate to the 'form' child route relative to the current /onboarding path
-      navigate("form", { replace: false }); // Changed to false to allow back navigation
-    } else {
-      // For other roles (psychologist, organization), auto-complete or show coming soon
-      // We'll handle this by navigating to form which will auto-complete for these roles
-      navigate("form", { replace: false });
+    // ✅ Use callback instead of navigate
+    if (onContinue) {
+      onContinue()
     }
   }
 
@@ -48,7 +40,7 @@ function OnboardingSplashScreen() {
 
   const pageTransition = {
     type: "tween",
-    ease: "anticipate",
+    ease: "anticipate", 
     duration: 0.5,
   }
 
@@ -89,8 +81,8 @@ function OnboardingSplashScreen() {
           alt="Onboarding illustration"
           variants={itemVariants}
           style={{ 
-            height: "444px", // Tinggi gambar tetap
-            width: "calc(100% - 40px)", // Lebar gambar menyesuaikan 20px dari kiri dan kanan
+            height: "444px",
+            width: "calc(100% - 40px)",
           }}
         />
 
@@ -137,26 +129,26 @@ function OnboardingSplashScreen() {
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
             variants={itemVariants}
           >
-<motion.button
-  className="flex items-center justify-center
-             bg-[#488BBA] text-white border border-[#488BBA] // <-- GANTI DI SINI
-             rounded-lg shadow-lg focus:outline-none focus:ring-4 focus:ring-[#488BBA]/30 // <-- Sesuaikan juga focus ring-nya
-             w-[150px] md:w-[189px] h-[40px] md:h-[42px] text-base md:text-lg lg:text-xl font-semibold
-             hover:bg-[#3A7699] disabled:opacity-50 disabled:cursor-not-allowed" // <-- Hover-nya udah bener, pertahanin
-  style={{
-    fontFamily: "Public Sans",
-    fontWeight: "600",
-    lineHeight: "normal",
-    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.07)",
-    borderRadius: "5px"
-  }}
-  variants={buttonVariants}
-  whileHover="hover"
-  whileTap="tap"
-  onClick={handleStartOnboarding}
->
-  Mulai Sekarang
-</motion.button>
+            <motion.button
+              className="flex items-center justify-center
+                         bg-[#488BBA] text-white border border-[#488BBA]
+                         rounded-lg shadow-lg focus:outline-none focus:ring-4 focus:ring-[#488BBA]/30
+                         w-[150px] md:w-[189px] h-[40px] md:h-[42px] text-base md:text-lg lg:text-xl font-semibold
+                         hover:bg-[#3A7699] disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                fontFamily: "Public Sans",
+                fontWeight: "600",
+                lineHeight: "normal",
+                boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.07)",
+                borderRadius: "5px"
+              }}
+              variants={buttonVariants}
+              whileHover="hover"
+              whileTap="tap"
+              onClick={handleStartOnboarding}
+            >
+              Mulai Sekarang
+            </motion.button>
           </motion.div>
         </motion.section>
       </div>
@@ -164,4 +156,4 @@ function OnboardingSplashScreen() {
   )
 }
 
-export default OnboardingSplashScreen;
+export default OnboardingSplashScreen

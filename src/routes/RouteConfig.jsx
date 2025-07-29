@@ -1,4 +1,4 @@
-// src/routes/routeConfig.jsx - Updated with Unified Onboarding System
+// src/routes/routeConfig.jsx 
 
 import React from "react";
 import { Navigate } from "react-router-dom";
@@ -16,8 +16,7 @@ import ForgotPassword from "../pages/shared/auth/ForgotPassword";
 import ResetPassword from "../pages/shared/auth/ResetPassword";
 
 // === UNIFIED ONBOARDING COMPONENTS ===
-import OnboardingForm from "../components/shared/onboarding/OnboardingForm";
-import OnboardingSplashScreen from "../components/shared/onboarding/OnboardingSplashScreen";
+import OnboardingContainer from "@/components/shared/onboarding/OnboardingContainer";
 
 // === SHARED PAGES ===
 import NotificationPage from "../pages/shared/NotificationPage";
@@ -132,15 +131,7 @@ const routes = [
     path: "/onboarding",
     element: (
       <ProtectedRoute>
-        <OnboardingSplashScreen />
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/onboarding/form",
-    element: (
-      <ProtectedRoute>
-        <OnboardingForm />
+        <OnboardingContainer />
       </ProtectedRoute>
     )
   },
@@ -424,12 +415,12 @@ const routes = [
   // DEVELOPMENT ROUTES - For Testing Unified Components
   // ==========================================
   {
-    path: "/dev/onboarding-splash",
-    element: <OnboardingSplashScreen />
-  },
-  {
-    path: "/dev/onboarding-form",
-    element: <OnboardingForm />
+    path: "/onboarding",
+    element: (
+      <ProtectedRoute>
+        <OnboardingContainer />
+      </ProtectedRoute>
+    )
   },
 
   // ==========================================

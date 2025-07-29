@@ -1,4 +1,4 @@
-// src/components/shared/onboarding/lib/onboardingApi.js
+// src/components/shared/onboarding/lib/onboardingApi.js - UPDATED FOR NEW BACKEND
 import { apiClient } from '../../../../lib/api'; // Mengimpor apiClient dari api.js
 
 const onboardingApi = {
@@ -7,8 +7,8 @@ const onboardingApi = {
    */
   completeUserOnboarding: async (onboardingData) => {
     try {
-      const response = await apiClient.patch('/users/me/profile', {
-        onboarded: true,
+      const response = await apiClient.patch('/users/profile', {
+        isOnboarded: "1", // ✅ FIXED: Convert to string
         ...onboardingData
       });
       return response.data;
@@ -24,7 +24,7 @@ const onboardingApi = {
   completeOrganizationOnboarding: async (onboardingData) => {
     try {
       const response = await apiClient.patch('/organizations/profile', {
-        onboarded: true,
+        isOnboarded: "1", // ✅ FIXED: Convert to string
         ...onboardingData
       });
       return response.data;
@@ -39,8 +39,8 @@ const onboardingApi = {
    */
   skipUserOnboarding: async () => {
     try {
-      const response = await apiClient.patch('/users/me/profile', {
-        onboarded: true
+      const response = await apiClient.patch('/users/profile', {
+        isOnboarded: "1" // ✅ FIXED: Convert to string
       });
       return response.data;
     } catch (error) {
@@ -55,7 +55,7 @@ const onboardingApi = {
   skipOrganizationOnboarding: async () => {
     try {
       const response = await apiClient.patch('/organizations/profile', {
-        onboarded: true
+        isOnboarded: "1" // ✅ FIXED: Convert to string
       });
       return response.data;
     } catch (error) {
@@ -72,7 +72,7 @@ const onboardingApi = {
       const formData = new FormData();
       formData.append('profilePicture', file);
 
-      const response = await apiClient.patch('/users/me/profile', formData, {
+      const response = await apiClient.patch('/users/profile', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       return response.data;
