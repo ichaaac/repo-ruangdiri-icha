@@ -37,6 +37,7 @@ import SchoolSchedule from "../pages/organization/school/SchoolSchedule";
 
 // === USER PAGES (SHARED) ===
 import BookingSession from "../pages/user/shared/BookingSession";
+import BookingPage from "@/pages/client/Student/BookingPage";
 import ChatPage from "../pages/user/shared/ChatPage";
 import UserProfile from "../pages/user/shared/UserProfile";
 import MentalHealthScreening from "../pages/user/shared/MentalHealthScreening";
@@ -161,6 +162,10 @@ const routes = [
       },
       {
         path: "booking",
+        element: <BookingPage />
+      },
+      {
+        path: "booking-sesi",
         element: <BookingSession />
       },
       {
@@ -202,8 +207,12 @@ const routes = [
         element: <MentalHealthScreening />
       },
       {
-        path: "booking",
+        path: "booking-sesi",
         element: <BookingSession />
+      },
+      {
+        path: "booking",
+        element: <BookingPage />
       },
       {
         path: "chat",
