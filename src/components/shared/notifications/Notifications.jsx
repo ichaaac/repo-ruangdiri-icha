@@ -46,7 +46,7 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
-      {unreadCount > 0 && (
+      {/* {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
           disabled={isMarkingAllAsRead}
@@ -55,7 +55,7 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
           {isMarkingAllAsRead && <span className="material-icons animate-spin text-sm">sync</span>}
           {isMarkingAllAsRead ? "Menandai..." : "Tandai Semua Dibaca"}
         </button>
-      )}
+      )} */}
     </div>
   </div>
 )
