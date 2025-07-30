@@ -679,16 +679,16 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // FIXED: Upload attachments with improved error handling and multiple endpoint support
-    async uploadAttachments(scheduleId, files) {
+// FIXED: Upload attachments using correct bulk endpoint
+    async uploadAttachments(scheduleIds, files) {
       try {
         console.log('=== uploadAttachments API call ===');
-        console.log('Schedule ID:', scheduleId);
+        console.log('Schedule IDs:', scheduleIds);
         console.log('Files:', files);
         
         // Validate inputs
-        if (!scheduleId) {
-          throw new Error('Schedule ID is required for attachment upload');
+        if (!scheduleIds || (Array.isArray(scheduleIds) && scheduleIds.length === 0)) {
+          throw new Error('Schedule IDs are required for attachment upload');
         }
         
         if (!files || files.length === 0) {
@@ -724,14 +724,20 @@ export const createScheduleApi = (organizationType = "school") => {
           formData.append('files', file);
         }
 
+        // FIXED: Add scheduleIds to form data as shown in API example
+        const idArray = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
+        idArray.forEach((scheduleId) => {
+          formData.append('scheduleIds', scheduleId);
+        });
+
         // Log FormData contents for debugging
         console.log('FormData entries:');
         for (let [key, value] of formData.entries()) {
           console.log(key, value instanceof File ? `File: ${value.name}` : value);
         }
 
-        // FIXED: Use the correct endpoint and headers
-        const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
+        // FIXED: Use the correct bulk endpoint
+        const response = await apiClient.post('/schedules/attachments', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -748,8 +754,8 @@ export const createScheduleApi = (organizationType = "school") => {
           console.log('Attachments uploaded successfully');
           return {
             success: true,
-            data: response.data.data,
-            message: `Successfully uploaded ${files.length} file(s)`
+            data: response.data,
+            message: `Successfully uploaded ${files.length} file(s) to ${idArray.length} schedule(s)`
           };
         } else {
           throw new Error(response.data?.message || 'Upload failed - unknown error');
@@ -773,6 +779,12 @@ export const createScheduleApi = (organizationType = "school") => {
           throw new Error(error.message || "Unknown error occurred during upload");
         }
       }
+    },
+
+    // FIXED: Remove the individual upload method since we use bulk endpoint
+    async uploadAttachmentsToMultipleSchedules(scheduleIds, files) {
+      // Just use the main uploadAttachments method since it handles multiple schedules
+      return this.uploadAttachments(scheduleIds, files);
     },
 
     // FIXED: Alternative bulk upload method for multiple schedules
