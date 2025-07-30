@@ -1,4 +1,4 @@
-// src/components/shared/layout/TopRightControl.jsx - ENHANCED SOCKET DEBUG
+// src/components/shared/layout/TopRightControl.jsx - UPDATED WITH GENERALCOUNT
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -16,7 +16,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 🔥 SIMPLIFIED: Use the SAME query key as hooks
+  // 🔥 UPDATED: Use the SAME query key as hooks with new structure
   const { data: unreadData, isLoading, error: unreadError } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: notificationsAPI.getUnreadCount,
@@ -28,8 +28,8 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     retry: 3,
   });
 
-  // 🔥 SIMPLIFIED: Get count directly, no local state needed
-  const unreadCount = unreadData?.count || 0;
+  // 🔥 FIXED: Use generalCount instead of count
+  const unreadCount = unreadData?.generalCount || 0;
 
   // 🔥 ENHANCED: Socket setup dengan better connection monitoring
   useEffect(() => {
@@ -174,9 +174,11 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
 
   const displayCount = formatBadgeCount(unreadCount)
 
-  // 🔥 ENHANCED DEBUG LOGGING
-  console.log('🎯 TopRightControl ENHANCED DEBUG:', {
-    unreadCount,
+  // 🔥 UPDATED DEBUG LOGGING with generalCount
+  console.log('🎯 TopRightControl UPDATED DEBUG:', {
+    unreadCount: unreadCount, // This is now generalCount
+    generalCount: unreadData?.generalCount,
+    counselingCount: unreadData?.counselingCount,
     displayCount,
     isLoading,
     isSocketConnected,
@@ -283,7 +285,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
             />
           )}
           
-          {/* 🔥 SIMPLIFIED BADGE COUNT */}
+          {/* 🔥 SIMPLIFIED BADGE COUNT using generalCount */}
           {displayCount && (
             <span 
               className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266] animate-pulse"
@@ -310,7 +312,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
           )}
         </button>
 
-        {/* 🔥 SIMPLIFIED DROPDOWN - No need to pass mutation props */}
+        {/* 🔥 SIMPLIFIED DROPDOWN */}
         {openNotif && (
           <NotificationDropdown
             onViewAll={handleViewAllNotifications}
@@ -318,8 +320,6 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
           />
         )}
       </div>
-
-
     </div>
   );
 };

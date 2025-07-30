@@ -52,7 +52,7 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
       {/* Mark All as Read - only show if there are unread notifications */}
-      {unreadCount > 0 && (
+      {/* {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
           disabled={isMarkingAllAsRead}
@@ -61,7 +61,7 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
           {isMarkingAllAsRead && <span className="material-icons animate-spin text-sm">sync</span>}
           {isMarkingAllAsRead ? "Menandai..." : "Tandai Semua Dibaca"}
         </button>
-      )}
+      )} */}
     </div>
   </div>
 )
