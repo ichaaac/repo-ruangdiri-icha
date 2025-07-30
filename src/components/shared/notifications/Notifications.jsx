@@ -44,8 +44,7 @@ const LoadingSpinner = ({ text = "Loading..." }) => (
 const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
   <div className="mb-8">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-      <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
-      
+      <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>     
       {/* {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
@@ -315,68 +314,73 @@ const NotificationList = ({
 }
 
 const Notifications = ({ sidebarExpanded = false }) => {
-  const {
-    groupedNotifications,
-    totalCount,
-    unreadCount,
-    counselingCount,
-    selectedTab,
-    isLoading,
-    isError,
-    error,
-    hasNextPage,
-    isFetchingNextPage,
-    handleTabChange,
-    handleMarkAsRead,
-    handleMarkAllAsRead,
-    fetchNextPage,
-    getDateLabel,
-    formatTimeAgo,
-    formatCount,
-    isMarkingAsRead,
-    isMarkingAllAsRead,
-  } = useNotifications()
+  const {
+    groupedNotifications,
+    totalCount,
+    unreadCount, // This is generalCount from the hook
+    counselingCount,
+    selectedTab,
+    isLoading,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    handleTabChange,
+    handleMarkAsRead,
+    handleMarkAllAsRead,
+    fetchNextPage,
+    getDateLabel,
+    formatTimeAgo,
+    formatCount,
+    isMarkingAsRead,
+    isMarkingAllAsRead,
+  } = useNotifications();
 
-  return (
-    <div className="w-full min-h-screen overflow-x-hidden bg-white">
-      <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
-        <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
-          
-          <NotificationHeader 
-            unreadCount={unreadCount}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            isMarkingAllAsRead={isMarkingAllAsRead}
-          />
+  // 🔥 ADDED: Calculate the total unread count for the "All" tab
+  const totalUnreadAllCount = unreadCount + counselingCount;
 
-          <NotificationTabs
-            selectedTab={selectedTab}
-            unreadCount={unreadCount}
-            counselingCount={counselingCount}
-            onTabChange={handleTabChange}
-            formatCount={formatCount}
-          />
+  return (
+    <div className="w-full min-h-screen overflow-x-hidden bg-white">
+      <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
+        <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
+          
+          {/* 🔥 UPDATED: Pass total count to the header */}
+          <NotificationHeader 
+            unreadCount={totalUnreadAllCount}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            isMarkingAllAsRead={isMarkingAllAsRead}
+          />
 
-          {isLoading ? (
-            <LoadingState />
-          ) : isError ? (
-            <ErrorState error={error} />
-          ) : (
-            <NotificationList
-              groupedNotifications={groupedNotifications}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              onMarkAsRead={handleMarkAsRead}
-              onFetchNextPage={fetchNextPage}
-              getDateLabel={getDateLabel}
-              formatTimeAgo={formatTimeAgo}
-              isMarkingAsRead={isMarkingAsRead}
-            />
-          )}
+          {/* 🔥 UPDATED: Pass total to "unreadCount" and keep counselingCount separate */}
+          <NotificationTabs
+            selectedTab={selectedTab}
+            unreadCount={totalUnreadAllCount} 
+            counselingCount={counselingCount}
+            onTabChange={handleTabChange}
+            formatCount={formatCount}
+          />
 
-        </div>
-      </div>
-    </div>
-  )
-}
+          {isLoading ? (
+            <LoadingState />
+          ) : isError ? (
+            <ErrorState error={error} />
+          ) : (
+            <NotificationList
+              groupedNotifications={groupedNotifications}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onMarkAsRead={handleMarkAsRead}
+              onFetchNextPage={fetchNextPage}
+              getDateLabel={getDateLabel}
+              formatTimeAgo={formatTimeAgo}
+              isMarkingAsRead={isMarkingAsRead}
+            />
+          )}
 
-export default Notifications
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Notifications;

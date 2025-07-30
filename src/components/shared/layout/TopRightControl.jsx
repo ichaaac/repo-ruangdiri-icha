@@ -29,7 +29,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   });
 
   // 🔥 FIXED: Use generalCount instead of count
-  const unreadCount = unreadData?.generalCount || 0;
+const unreadCount = (unreadData?.generalCount || 0) + (unreadData?.counselingCount || 0);
 
   // 🔥 ENHANCED: Socket setup dengan better connection monitoring
   useEffect(() => {

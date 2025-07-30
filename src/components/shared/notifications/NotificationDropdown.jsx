@@ -16,6 +16,8 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     isNotificationFromToday
   } = useNotificationDropdown(selectedTab);
 
+  const totalUnreadCount = unreadCount + counselingCount;
+
   const { todayNotifications, previousNotifications } = useMemo(() => {
     const today = [];
     const previous = [];
@@ -97,11 +99,11 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             onClick={() => setSelectedTab('all')}
             className={`flex items-center gap-2 transition-colors ${selectedTab === 'all' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
           >
-            <span>Semua</span>
-            {unreadCount > 0 && (
-              <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                {formatUnreadCount(unreadCount)}
-              </span>
+          <span>Semua</span>
+            {totalUnreadCount > 0 && (
+              <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                {formatUnreadCount(totalUnreadCount)}
+              </span>
             )}
           </button>
           <button
