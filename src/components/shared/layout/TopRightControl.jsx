@@ -174,8 +174,8 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
 
   const displayCount = formatBadgeCount(unreadCount)
 
-  // 🔥 UPDATED DEBUG LOGGING with generalCount
-  console.log('🎯 TopRightControl UPDATED DEBUG:', {
+  // 🔥 UPDATED DEBUG LOGGING with clean structure
+  console.log('🎯 TopRightControl CLEAN DEBUG:', {
     unreadCount: unreadCount, // This is now generalCount
     generalCount: unreadData?.generalCount,
     counselingCount: unreadData?.counselingCount,

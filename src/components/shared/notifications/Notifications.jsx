@@ -3,7 +3,6 @@
 import React, { useCallback, useRef, forwardRef } from "react"
 import { useNotifications } from "./hooks/useNotifications"
 
-// Loading State Component
 const LoadingState = () => (
   <div className="flex justify-center items-center py-12">
     <span className="material-icons animate-spin text-[#488BBE] text-3xl mr-3">sync</span>
@@ -11,7 +10,6 @@ const LoadingState = () => (
   </div>
 )
 
-// Error State Component
 const ErrorState = ({ error }) => (
   <div className="text-center py-12">
     <span className="material-icons text-red-500 text-5xl mb-4 block">error_outline</span>
@@ -28,7 +26,6 @@ const ErrorState = ({ error }) => (
   </div>
 )
 
-// Empty State Component
 const EmptyState = () => (
   <div className="text-center py-12">
     <span className="material-icons text-gray-400 text-5xl mb-4 block">notifications_none</span>
@@ -37,7 +34,6 @@ const EmptyState = () => (
   </div>
 )
 
-// Loading Spinner Component
 const LoadingSpinner = ({ text = "Loading..." }) => (
   <div className="flex items-center gap-2">
     <span className="material-icons animate-spin text-[#488BBE] text-lg">sync</span>
@@ -45,14 +41,12 @@ const LoadingSpinner = ({ text = "Loading..." }) => (
   </div>
 )
 
-// 🔥 UPDATED: Header Component
 const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
   <div className="mb-8">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
       <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
       
-      {/* Mark All as Read - only show if there are unread notifications */}
-      {/* {unreadCount > 0 && (
+      {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
           disabled={isMarkingAllAsRead}
@@ -61,16 +55,14 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
           {isMarkingAllAsRead && <span className="material-icons animate-spin text-sm">sync</span>}
           {isMarkingAllAsRead ? "Menandai..." : "Tandai Semua Dibaca"}
         </button>
-      )} */}
+      )}
     </div>
   </div>
 )
 
-// 🔥 UPDATED: Tabs Component dengan unread count yang benar
 const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChange, formatCount }) => {
   return (
     <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
-      {/* Tab Semua */}
       <button
         onClick={() => onTabChange("all")}
         className={`flex items-center gap-1 whitespace-nowrap ${
@@ -80,7 +72,6 @@ const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChan
         } transition-colors`}
       >
         <span>Semua</span>
-        {/* 🔥 UPDATED: Show generalCount (unreadCount) for "Semua" tab */}
         {unreadCount > 0 && (
           <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
             {formatCount(unreadCount)}
@@ -88,7 +79,6 @@ const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChan
         )}
       </button>
 
-      {/* Tab Konseling */}
       <button
         onClick={() => onTabChange("counseling")}
         className={`flex items-center gap-1 whitespace-nowrap ${
@@ -98,7 +88,6 @@ const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChan
         } transition-colors`}
       >
         <span>Konseling</span>
-        {/* 🔥 UPDATED: Show counselingCount for "Konseling" tab */}
         {counselingCount > 0 && (
           <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
             {formatCount(counselingCount)}
@@ -109,7 +98,6 @@ const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChan
   )
 }
 
-// 🔥 ENHANCED UTILITY FUNCTIONS - ICON LOGIC BASED ON TYPE
 const getNotificationIcon = (notification) => {
   const { type, subType } = notification
   
@@ -144,7 +132,6 @@ const getNotificationIcon = (notification) => {
   return 'notifications'
 }
 
-// 🔥 ENHANCED ICON COLOR BASED ON TYPE
 const getNotificationIconColor = (notification) => {
   const { type, subType } = notification
   
@@ -167,12 +154,10 @@ const getNotificationIconColor = (notification) => {
   return '#535353'
 }
 
-// 🔥 CHECK IF NOTIFICATION IS READ
 const isNotificationRead = (notification) => {
   return notification.status === 'read' || notification.isRead || notification.readAt;
 }
 
-// Individual Notification Item
 const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
     if (!isNotificationRead(notification) && !isMarkingAsRead) {
@@ -192,7 +177,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
           : "bg-white border border-gray-100 cursor-pointer hover:bg-gray-50 hover:shadow-sm"
       } ${isMarkingAsRead ? "opacity-50" : ""}`}
     >
-      {/* Icon */}
       <div className="flex-shrink-0 flex items-center justify-center">
         <span 
           className="material-icons"
@@ -205,7 +189,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
         </span>
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex flex-col gap-1">
           <p className={`text-sm font-semibold leading-tight ${
@@ -226,7 +209,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
                 <span className={`hidden sm:inline mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
               </>
             )}
-            {/* 🔥 UPDATED: More detailed time formatting */}
             <span className="text-[#8a8a8a] font-light">
               {formatTimeAgo(notification.createdAt)}
             </span>
@@ -234,12 +216,10 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
         </div>
       </div>
 
-      {/* Unread Indicator */}
       {!isRead && (
         <div className="flex-shrink-0 w-2 h-2 bg-[#488BBE] rounded-full mt-2 animate-pulse"></div>
       )}
       
-      {/* Read Indicator */}
       {isRead && (
         <div className="flex-shrink-0 mt-2">
           <span className="material-icons text-gray-400 text-sm">done</span>
@@ -251,7 +231,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
 
 NotificationItem.displayName = "NotificationItem"
 
-// Notification List with Infinite Scroll
 const NotificationList = ({ 
   groupedNotifications, 
   hasNextPage, 
@@ -295,12 +274,10 @@ const NotificationList = ({
           return (
             <div key={dateKey} className="space-y-1">
               
-              {/* 🔥 UPDATED: Date Separator with enhanced formatting */}
               <div className="text-xs font-normal text-[#8a8a8a] mb-1 sticky top-0 bg-white py-2 z-10">
                 {getDateLabel(dateKey)}
               </div>
 
-              {/* Notifications - All notifications for this date, not limited */}
               <div className="space-y-1">
                 {notifications.map((notification, index) => {
                   const isLastItem = isLastGroup && index === notifications.length - 1
@@ -321,14 +298,12 @@ const NotificationList = ({
           )
         })}
         
-        {/* Loading for infinite scroll */}
         {isFetchingNextPage && (
           <div className="flex justify-center py-4">
             <LoadingSpinner text="Memuat notifikasi lainnya..." />
           </div>
         )}
         
-        {/* End indicator */}
         {!hasNextPage && hasNotifications && (
           <div className="text-center py-4 text-gray-400 text-sm">
             Semua notifikasi telah dimuat
@@ -339,7 +314,6 @@ const NotificationList = ({
   )
 }
 
-// Main Notifications Component
 const Notifications = ({ sidebarExpanded = false }) => {
   const {
     groupedNotifications,
@@ -363,28 +337,17 @@ const Notifications = ({ sidebarExpanded = false }) => {
     isMarkingAllAsRead,
   } = useNotifications()
 
-  // 🔥 DEBUG: Log counts for debugging
-  console.log('🎯 Notifications.jsx - UPDATED COUNTS:', {
-    selectedTab,
-    totalCount,
-    unreadCount,     // This is now generalCount from backend
-    counselingCount, // This is counselingCount from backend
-    loadedNotifications: Object.values(groupedNotifications).flat().length,
-  })
-
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
       <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
         <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
           
-          {/* 🔥 UPDATED: Header with correct unread count */}
           <NotificationHeader 
             unreadCount={unreadCount}
             onMarkAllAsRead={handleMarkAllAsRead}
             isMarkingAllAsRead={isMarkingAllAsRead}
           />
 
-          {/* 🔥 UPDATED: Tabs with correct counts */}
           <NotificationTabs
             selectedTab={selectedTab}
             unreadCount={unreadCount}

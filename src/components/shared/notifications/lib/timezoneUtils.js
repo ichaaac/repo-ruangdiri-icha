@@ -1,29 +1,18 @@
 // src/components/shared/notifications/lib/timezoneUtils.js
 
 import dayjs from "dayjs"
-import utc from "dayjs/plugin/utc"
-import timezone from "dayjs/plugin/timezone"
 import relativeTime from "dayjs/plugin/relativeTime"
 import updateLocale from "dayjs/plugin/updateLocale"
-import isSameOrBefore from "dayjs/plugin/isSameOrBefore"
-import isSameOrAfter from "dayjs/plugin/isSameOrAfter"
 import "dayjs/locale/id"
 
-dayjs.extend(utc)
-dayjs.extend(timezone)
 dayjs.extend(relativeTime)
 dayjs.extend(updateLocale)
-dayjs.extend(isSameOrBefore)
-dayjs.extend(isSameOrAfter)
 dayjs.locale("id")
-
-// 🔥 FIXED: Set timezone default ke Asia/Jakarta (GMT+7)
-dayjs.tz.setDefault('Asia/Jakarta')
 
 dayjs.updateLocale("id", {
   relativeTime: {
     future: "dalam %s",
-    past: "%s lalu",
+    past: "%s lalu", 
     s: "beberapa detik",
     m: "semenit",
     mm: "%d menit",
@@ -46,135 +35,140 @@ dayjs.updateLocale("id", {
 })
 
 /**
- * Parse timestamp yang konsisten dengan timezone Asia/Jakarta
- * @param {string} timestamp - ISO timestamp dari backend
- * @returns {dayjs.Dayjs} - dayjs object dalam timezone Asia/Jakarta
+ * 🔥 FIXED: Backend kirim GMT+7 tapi masih pakai format 'Z' (UTC)
+ * Kita treat timestamp 'Z' sebagai sudah GMT+7, bukan UTC
+ * @param {string} timestamp - ISO timestamp dari backend (GMT+7 dalam format UTC)
+ * @returns {dayjs.Dayjs} - dayjs object
  */
 export const parseNotificationTime = (timestamp) => {
   if (!timestamp) return null;
   
   try {
-    // 🔥 CRITICAL: Backend biasanya mengirim UTC timestamp
-    // Kita parse sebagai UTC dan convert ke WIB (Asia/Jakarta)
-    const parsedTime = dayjs.utc(timestamp).tz('Asia/Jakarta');
+    // 🔥 FIXED: Backend kirim GMT+7 tapi pakai format Z
+    // Kita hilangkan Z dan parse sebagai local time (GMT+7)
+    if (timestamp.endsWith('Z')) {
+      // Remove Z dan parse sebagai local time
+      const localTimestamp = timestamp.slice(0, -1);
+      return dayjs(localTimestamp);
+    }
     
-    // 🔥 DEBUG: Log untuk memastikan parsing yang benar
-    console.log('🕐 Parse timestamp:', {
-      input: timestamp,
-      utcParsed: dayjs.utc(timestamp).format(),
-      wibConverted: parsedTime.format(),
-      currentWIB: dayjs().tz('Asia/Jakarta').format()
-    });
-    
-    return parsedTime;
+    // Kalau tidak ada Z, parse biasa
+    return dayjs(timestamp);
   } catch (error) {
     console.error('❌ Error parsing timestamp:', timestamp, error);
-    // Fallback: parse sebagai local time
-    return dayjs(timestamp).tz('Asia/Jakarta');
+    return null;
   }
 };
 
 /**
- * Get current time dalam timezone Asia/Jakarta
- * @returns {dayjs.Dayjs} - Current time dalam WIB
+ * Get current time (user's local time)
+ * @returns {dayjs.Dayjs} - Current time
  */
-export const getCurrentWIBTime = () => {
-  return dayjs().tz('Asia/Jakarta');
+export const getCurrentTime = () => {
+  return dayjs();
 };
 
 /**
- * Format time ago untuk dropdown (simple format)
+ * 🔥 FORMAT UNTUK DROPDOWN - Simple format (jam lalu, menit lalu, baru saja)
  * @param {string} timestamp - ISO timestamp
- * @returns {string} - Formatted time string
+ * @returns {string} - Simple time format
  */
 export const formatTimeAgoDropdown = (timestamp) => {
   if (!timestamp) return "";
   
   const notificationTime = parseNotificationTime(timestamp);
-  const now = getCurrentWIBTime();
+  const now = getCurrentTime();
   
   if (!notificationTime) return "";
   
-  const diffSeconds = now.diff(notificationTime, 'second');
+  const diffMinutes = now.diff(notificationTime, 'minute');
+  
+  console.log('🔍 Dropdown format debug:', {
+    timestamp,
+    notificationTime: notificationTime.format('YYYY-MM-DD HH:mm:ss'),
+    now: now.format('YYYY-MM-DD HH:mm:ss'),
+    diffMinutes
+  });
   
   // Handle future timestamps (sync issues)
-  if (diffSeconds < 0) {
-    console.log('⚠️ Future timestamp detected for dropdown:', timestamp);
+  if (diffMinutes < 0) {
     return "Baru saja";
   }
   
-  // 🔥 Simple format untuk dropdown
-  if (diffSeconds < 60) return "Baru saja";
+  // 🔥 SIMPLE FORMAT untuk dropdown
+  if (diffMinutes < 1) {
+    return "Baru saja";
+  }
   
-  const diffMinutes = now.diff(notificationTime, 'minute');
-  if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
+  if (diffMinutes < 60) {
+    return `${diffMinutes} menit lalu`;
+  }
 
   const diffHours = now.diff(notificationTime, 'hour');
-  if (diffHours < 24) return `${diffHours} jam lalu`;
-
-  const diffDays = now.diff(notificationTime, 'day');
-  if (diffDays < 7) return `${diffDays} hari lalu`;
-
-  // For older notifications, show date
-  return notificationTime.format('DD MMM YYYY');
+  return `${diffHours} jam lalu`;
 };
 
 /**
- * Format time ago untuk main page (detailed format)
+ * 🔥 FORMAT UNTUK MAIN PAGE - Detailed format dengan timestamp pukul
  * @param {string} timestamp - ISO timestamp
- * @returns {string} - Detailed formatted time string
+ * @returns {string} - Detailed time format with timestamp
  */
 export const formatTimeAgoDetailed = (timestamp) => {
   if (!timestamp) return "";
 
   const notificationTime = parseNotificationTime(timestamp);
-  const now = getCurrentWIBTime();
+  const now = getCurrentTime();
   
   if (!notificationTime) return "";
   
-  const diffSeconds = now.diff(notificationTime, 'second');
+  const diffMinutes = now.diff(notificationTime, 'minute');
+  
+  console.log('🔍 Detailed format debug:', {
+    timestamp,
+    notificationTime: notificationTime.format('YYYY-MM-DD HH:mm:ss'),
+    now: now.format('YYYY-MM-DD HH:mm:ss'),
+    diffMinutes
+  });
   
   // Handle future timestamps
-  if (diffSeconds < 0) {
-    console.log('⚠️ Future timestamp detected for main page:', timestamp);
+  if (diffMinutes < 0) {
     return "Baru saja";
   }
   
-  // 🔥 Detailed format untuk main page
-  if (diffSeconds < 60) {
+  if (diffMinutes < 1) {
     return "Baru saja";
   }
 
-  const diffMinutes = now.diff(notificationTime, 'minute');
+  // 🔥 FIXED: Format waktu yang benar
+  const timeFormat = notificationTime.format('HH:mm');
+
   if (diffMinutes < 60) {
-    return `${diffMinutes} menit lalu`;
+    return `${diffMinutes} menit lalu (${timeFormat})`;
   }
   
   const diffHours = now.diff(notificationTime, 'hour');
   
-  // 🔥 For today's notifications, show time with detail
+  // 🔥 For same day, show time detail
   if (notificationTime.isSame(now, 'day')) {
-    const timeFormat = notificationTime.format('HH:mm');
-    return `${timeFormat} (${diffHours} jam lalu)`;
+    return `${diffHours} jam lalu (${timeFormat})`;
   }
   
-  // 🔥 For older notifications, show full date and time with day
+  // 🔥 For different days, show full date and time
   const dayName = notificationTime.format('dddd');
   const dateFormat = notificationTime.format('DD/MM/YYYY');
-  const timeFormat = notificationTime.format('HH:mm');
   
-  return `${dayName}, ${dateFormat} - ${timeFormat}`;
+  return `${dayName}, ${dateFormat} pukul ${timeFormat}`;
 };
 
 /**
- * Get date label untuk grouping
+ * Get date label untuk grouping notifications
  * @param {string} dateString - Date string dalam format YYYY-MM-DD
  * @returns {string} - Formatted date label
  */
 export const getDateLabel = (dateString) => {
   try {
-    const date = dayjs(dateString).tz('Asia/Jakarta');
-    const today = getCurrentWIBTime();
+    const date = dayjs(dateString);
+    const today = getCurrentTime();
     const yesterday = today.subtract(1, 'day');
 
     if (date.isSame(today, 'day')) {
@@ -197,14 +191,13 @@ export const getDateLabel = (dateString) => {
 };
 
 /**
- * Group notifications by date dengan timezone handling yang benar
+ * Group notifications by date
  * @param {Array} notifications - Array of notifications
  * @returns {Object} - Grouped notifications by date
  */
 export const groupNotificationsByDate = (notifications) => {
   return notifications.reduce((acc, notification) => {
     try {
-      // Parse notification time dengan timezone handling yang benar
       const notificationTime = parseNotificationTime(notification.createdAt);
       
       if (!notificationTime) {
@@ -221,7 +214,7 @@ export const groupNotificationsByDate = (notifications) => {
     } catch (error) {
       console.error('❌ Error grouping notification:', notification.id, error);
       // Fallback: use current date
-      const fallbackKey = getCurrentWIBTime().format("YYYY-MM-DD");
+      const fallbackKey = getCurrentTime().format("YYYY-MM-DD");
       if (!acc[fallbackKey]) {
         acc[fallbackKey] = [];
       }
@@ -238,7 +231,7 @@ export const groupNotificationsByDate = (notifications) => {
  */
 export const isNotificationFromToday = (timestamp) => {
   const notificationTime = parseNotificationTime(timestamp);
-  const now = getCurrentWIBTime();
+  const now = getCurrentTime();
   
   if (!notificationTime) return false;
   
@@ -247,7 +240,7 @@ export const isNotificationFromToday = (timestamp) => {
 
 export default {
   parseNotificationTime,
-  getCurrentWIBTime,
+  getCurrentTime,
   formatTimeAgoDropdown,
   formatTimeAgoDetailed,
   getDateLabel,
