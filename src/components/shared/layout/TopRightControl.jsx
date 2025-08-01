@@ -1,4 +1,4 @@
-// src/components/shared/layout/TopRightControl.jsx - UPDATED WITH GENERALCOUNT
+// src/components/shared/layout/TopRightControl.jsx - UPDATED WITH NEW LANGUAGE SWITCHER
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -6,6 +6,61 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsAPI } from "@/components/shared/notifications/lib/api";
 import notificationSocket from "@/components/shared/notifications/lib/socket";
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
+
+// START: New Language Switcher Component
+// Komponen ini dibuat terpisah untuk mengelola logikanya sendiri tanpa mengganggu TopRightControl.
+const LanguageSwitcher = () => {
+  // State untuk melacak bahasa yang sedang dipilih. Defaultnya adalah 'ID'.
+  const [selectedLang, setSelectedLang] = useState('ID');
+
+  // Fungsi untuk mengganti bahasa, bisa diperluas untuk integrasi dengan i18n
+  const handleSelectLang = (lang) => {
+    setSelectedLang(lang);
+    // TODO: Tambahkan logika untuk mengubah bahasa aplikasi (misal: i18next.changeLanguage(lang))
+  };
+
+  const baseButtonClass = "w-14 h-full flex justify-center items-center gap-1.5 cursor-pointer transition-all duration-300 ease-in-out";
+  const activeClass = "bg-white rounded-[20px] shadow-[-1px_0px_1px_0px_rgba(0,0,0,0.13)]";
+  const inactiveClass = "text-white";
+  
+  const activeTextClass = "text-sm font-bold leading-tight";
+  const inactiveTextClass = "text-sm font-normal leading-tight";
+
+  return (
+    <div 
+      className="w-28 h-7 relative flex items-center rounded-[39px] outline outline-1 outline-[#488BBA]"
+      style={{ backgroundColor: '#488BBA' }}
+    >
+      {/* Tombol EN - UPDATED with flag */}
+      <div
+        onClick={() => handleSelectLang('EN')}
+        className={`${baseButtonClass} ${selectedLang === 'EN' ? activeClass : inactiveClass}`}
+      >
+        <img 
+            src="/icon/us-flag.png" 
+            alt="US Flag" 
+            className="w-4 h-4" // Removed grayscale filter
+        />
+        <span className={selectedLang === 'EN' ? "text-[#488BBA] " + activeTextClass : inactiveTextClass}>EN</span>
+      </div>
+
+      {/* Tombol ID */}
+      <div
+        onClick={() => handleSelectLang('ID')}
+        className={`${baseButtonClass} ${selectedLang === 'ID' ? activeClass : inactiveClass}`}
+      >
+        <img 
+            src="/icon/id-flag.png" 
+            alt="ID Flag" 
+            className="w-4 h-4" // Removed grayscale filter
+        />
+        <span className={selectedLang === 'ID' ? "text-[#488BBA] " + activeTextClass : inactiveTextClass}>ID</span>
+      </div>
+    </div>
+  );
+};
+// END: New Language Switcher Component
+
 
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const [openNotif, setOpenNotif] = useState(false);
@@ -29,7 +84,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   });
 
   // 🔥 FIXED: Use generalCount instead of count
-const unreadCount = (unreadData?.generalCount || 0) + (unreadData?.counselingCount || 0);
+  const unreadCount = (unreadData?.generalCount || 0) + (unreadData?.counselingCount || 0);
 
   // 🔥 ENHANCED: Socket setup dengan better connection monitoring
   useEffect(() => {
@@ -236,12 +291,8 @@ const unreadCount = (unreadData?.generalCount || 0) + (unreadData?.counselingCou
 
   return (
     <div className={`${wrapperClass} ${className} flex items-center gap-4 sm:gap-6`}>
-      {/* Language Switch */}
-      <div className="flex items-center">
-        <span className="font-bold text-primary text-sm sm:text-base">ID</span>
-        <span className="mx-2 text-primary text-sm sm:text-base">/</span>
-        <span className="text-zinc-500 text-sm sm:text-base">EN</span>
-      </div>
+      {/* Language Switch - UPDATED */}
+      <LanguageSwitcher />
 
       {/* Notification Container */}
       <div className="relative" ref={notifRef}>
