@@ -165,15 +165,11 @@ export const useSchedule = (type = "school") => {
       toast.error(err.message || 'Failed to create schedule');
     },
     onSuccess: (data) => {
-      console.log('=== CREATE MUTATION ON_SUCCESS ===', data);
-      // FIXED: Immediate cache refresh without relying on invalidation timing
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
-      queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
-      
-      const scheduleCount = Array.isArray(data?.data) ? data.data.length : 1;
-      const scheduleText = scheduleCount > 1 ? `${scheduleCount} schedules` : 'Schedule';
-      toast.success(`${scheduleText} created successfully`);
-    },
+  console.log('=== CREATE MUTATION ON_SUCCESS ===', data);
+  // Biarkan hanya logic untuk invalidasi data, jangan ada UI feedback di sini
+  queryClient.invalidateQueries({ queryKey: scheduleKeys.list(weekParams) });
+  queryClient.invalidateQueries({ queryKey: scheduleKeys.counselingQueue });
+},
     onSettled: () => {
       console.log('=== CREATE MUTATION ON_SETTLED ===');
       // FIXED: Force completion - mutation is definitely done at this point
