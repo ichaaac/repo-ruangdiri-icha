@@ -153,7 +153,7 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="booking" replace />
+        element: <Navigate to="screening" replace />
       },
       {
         path: "dashboard",
@@ -199,7 +199,7 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="booking" replace />
+        element: <Navigate to="screening" replace />
       },
       {
         path: "dashboard",

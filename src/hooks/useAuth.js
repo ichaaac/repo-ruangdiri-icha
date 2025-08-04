@@ -144,8 +144,11 @@ export const useAuth = () => {
     const userRole = userData.role
     const orgType = userData.organization?.type
 
-    if (userRole === "student") return "/user/student/booking"
-    if (userRole === "employee") return "/user/employee/booking"  
+    // --- PERUBAHAN DI SINI ---
+    if (userRole === "student") return "/user/student/screening" // Diubah dari booking ke screening
+    if (userRole === "employee") return "/user/employee/screening" // Diubah dari booking ke screening
+    // --- AKHIR PERUBAHAN ---
+
     if (userRole === "psychologist") return "/user/psychologist/chat"
     if (orgType === "school") return "/organization/school/dashboard"
     if (orgType === "company") return "/organization/company/dashboard"

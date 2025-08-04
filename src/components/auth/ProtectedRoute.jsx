@@ -63,13 +63,15 @@ const ProtectedRoute = ({
     return <Navigate to="/onboarding" replace />;
   }
 
-  // If user has completed onboarding but is trying to access onboarding pages, redirect to dashboard
-  if (!needsOnboarding() && location.pathname.includes('/onboarding')) {
+ if (!needsOnboarding() && location.pathname.includes('/onboarding')) {
+    // --- PERUBAHAN DI SINI (1) ---
     if (userRole === 'student') {
-      return <Navigate to="/user/student/booking" replace />;
+      return <Navigate to="/user/student/screening" replace />; // Diubah ke screening
     } else if (userRole === 'employee') {
-      return <Navigate to="/user/employee/booking" replace />;
-    } else if (userRole === 'psychologist') {
+      return <Navigate to="/user/employee/screening" replace />; // Diubah ke screening
+    } 
+    // --- AKHIR PERUBAHAN (1) ---
+    else if (userRole === 'psychologist') {
       return <Navigate to="/user/psychologist/chat" replace />;
     } else if (orgType === 'school') {
       return <Navigate to="/organization/school/dashboard" replace />;
@@ -132,8 +134,10 @@ const ProtectedRoute = ({
  * Helper function to get the default route for a user based on their role and org type
  */
 const getDefaultRouteForUser = (userRole, orgType) => {
-  if (userRole === 'student') return '/user/student/booking';
-  if (userRole === 'employee') return '/user/employee/booking';
+  // --- PERUBAHAN DI SINI (2) ---
+  if (userRole === 'student') return '/user/student/screening'; // Diubah ke screening
+  if (userRole === 'employee') return '/user/employee/screening'; // Diubah ke screening
+  // --- AKHIR PERUBAHAN (2) ---
   if (userRole === 'psychologist') return '/user/psychologist/chat';
   if (orgType === 'school') return '/organization/school/dashboard';
   if (orgType === 'company') return '/organization/company/dashboard';
