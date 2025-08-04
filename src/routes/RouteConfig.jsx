@@ -1,4 +1,4 @@
-// src/routes/routeConfig.jsx 
+// src/routes/routeConfig.jsx - UPDATED WITH NEW BOOKING COMPONENTS
 
 import React from "react";
 import { Navigate } from "react-router-dom";
@@ -37,11 +37,15 @@ import SchoolSchedule from "../pages/organization/school/SchoolSchedule";
 
 // === USER PAGES (SHARED) ===
 import BookingSession from "../pages/user/shared/BookingSession";
-import BookingPage from "@/pages/client/Student/BookingPage";
 import ChatPage from "../pages/user/shared/ChatPage";
 import UserProfile from "../pages/user/shared/UserProfile";
 import MentalHealthScreening from "../pages/user/shared/MentalHealthScreening";
 import UserDashboard from "../pages/user/shared/UserDashboard";
+import ScreeningWelcomePage from "@/components/shared/screening/ScreeningWelcomePage";
+
+// === NEW BOOKING COMPONENTS ===
+import StudentBookingPage from "@/pages/user/student/StudentBookingPages";
+import EmployeeBookingPage from "../pages/user/employee/EmployeeBookingPage";
 
 // === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
@@ -138,7 +142,7 @@ const routes = [
   },
 
   // ==========================================
-  // STUDENT ROUTES
+  // STUDENT ROUTES - UPDATED WITH NEW BOOKING
   // ==========================================
   {
     path: "/user/student",
@@ -162,7 +166,7 @@ const routes = [
       },
       {
         path: "booking",
-        element: <BookingPage />
+        element: <StudentBookingPage />
       },
       {
         path: "booking-sesi",
@@ -184,7 +188,7 @@ const routes = [
   },
 
   // ==========================================
-  // EMPLOYEE ROUTES
+  // EMPLOYEE ROUTES - UPDATED WITH NEW BOOKING
   // ==========================================
   {
     path: "/user/employee",
@@ -212,7 +216,7 @@ const routes = [
       },
       {
         path: "booking",
-        element: <BookingPage />
+        element: <EmployeeBookingPage />
       },
       {
         path: "chat",
@@ -315,6 +319,9 @@ const routes = [
         path: "dashboard",
         element: <SchoolDashboard />
       },
+{     {
+        path: "screening-welcome-page",
+        element: <ScreeningWelcomePage />
       {
         path: "profile",
         element: <SchoolProfilePage />
