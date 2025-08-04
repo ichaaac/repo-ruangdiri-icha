@@ -41,7 +41,6 @@ import ChatPage from "../pages/user/shared/ChatPage";
 import UserProfile from "../pages/user/shared/UserProfile";
 import MentalHealthScreening from "../pages/user/shared/MentalHealthScreening";
 import UserDashboard from "../pages/user/shared/UserDashboard";
-import ScreeningWelcomePage from "@/components/shared/screening/ScreeningWelcomePage";
 
 // === NEW BOOKING COMPONENTS ===
 import StudentBookingPage from "@/pages/user/student/StudentBookingPages";
@@ -319,9 +318,6 @@ const routes = [
         path: "dashboard",
         element: <SchoolDashboard />
       },
-{     {
-        path: "screening-welcome-page",
-        element: <ScreeningWelcomePage />
       {
         path: "profile",
         element: <SchoolProfilePage />
