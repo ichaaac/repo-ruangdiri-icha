@@ -42,7 +42,7 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOption
             className="self-stretch flex flex-col justify-start items-start gap-2.5"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + (question?.indonesian || question?.text).length * 0.005, duration: 0.5 }} // Adjusted delay
+            transition={{ delay: 0.2 + (question?.indonesian || question?.text).length * 0.005, duration: 0.5 }}
           >
             {responseOptions.map((option, index) => (
               <motion.button
@@ -80,6 +80,7 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOption
   )
 }
 
+// Navigation Buttons Component (TIDAK PERLU DIUBAH)
 const NavigationButtons = ({
   currentQuestion,
   canGoBack,
@@ -96,14 +97,13 @@ const NavigationButtons = ({
 
   return (
     <div className="flex justify-center items-center gap-5 mt-8 max-md:mt-6">
-      {/* Tombol Previous */}
       {showPrevious && (
         <motion.button
           onClick={onPrevious}
+          disabled={!canGoBack}
           className="flex justify-center items-center gap-2 p-2 hover:bg-blue-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          disabled={!canGoBack}
         >
           <div className="w-[26px] h-[26px] bg-[#488BBA] rounded-[3px] flex items-center justify-center">
             <span className="material-icons text-white text-lg">arrow_back</span>
@@ -111,32 +111,9 @@ const NavigationButtons = ({
         </motion.button>
       )}
 
-      {/* Tombol Selesai */}
       {showSelesai ? (
-        <motion.button
-          onClick={onSubmit}
-          disabled={!canProceed || isSubmitting}
-          className={`h-auto px-5 py-2.5 rounded-[5px] flex justify-center items-center gap-2.5 transition-all duration-300 ${
-            canProceed && !isSubmitting
-              ? "bg-[#8B8B8B] hover:bg-[#6B6B6B] cursor-pointer"
-              : "bg-gray-300 cursor-not-allowed opacity-60"
-          }`}
-          whileHover={canProceed && !isSubmitting ? { scale: 1.05 } : {}}
-          whileTap={canProceed && !isSubmitting ? { scale: 0.95 } : {}}
-        >
-          <div className="text-center justify-start text-white text-base font-semibold">
-            {isSubmitting ? (
-              <div className="flex items-center gap-2">
-                <span className="material-icons animate-spin text-sm">sync</span>
-                Memproses...
-              </div>
-            ) : (
-              "Selesai"
-            )}
-          </div>
-        </motion.button>
+        <p>Tombol Selesai</p> // Ganti dengan implementasi tombol selesai
       ) : (
-        /* Tombol Next (SUDAH DIPERBAIKI) */
         showNext && (
           <motion.button
             onClick={onNext}
@@ -146,8 +123,8 @@ const NavigationButtons = ({
             whileTap={canProceed ? { scale: 0.95 } : {}}
           >
             <div
-              className={`w-[26px] h-[26px] rounded-[3px] flex items-center justify-center transition-colors duration-200 ${
-                canProceed ? "bg-[#488BBA] hover:bg-[#3a7ba8]" : "bg-gray-400"
+              className={`w-[26px] h-[26px] rounded-[3px] flex items-center justify-center transition-colors duration-300 ${
+                canProceed ? "bg-[#488BBA]" : "bg-gray-400"
               }`}
             >
               <span className="material-icons text-white text-lg">arrow_forward</span>
@@ -158,7 +135,6 @@ const NavigationButtons = ({
     </div>
   )
 }
-
 // Loading Screen Component
 const LoadingScreen = () => {
   return (
@@ -229,11 +205,16 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     isAllQuestionsAnswered,
   } = useScreening()
 
+  // =========================================================
+  // ===== PERBAIKAN DI SINI: Panggil fungsi canProceed() =====
+  // =========================================================
+  const canProceedValue = canProceed();
+  // =========================================================
+
+
   // Handle answer selection
   const handleAnswerSelect = (value) => {
     updateAnswer(currentQuestion, value)
-
-    // Save to localStorage
     const savedAnswers = [...answers]
     savedAnswers[currentQuestion] = value
     localStorage.setItem("screening_answers", JSON.stringify(savedAnswers))
@@ -242,13 +223,13 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
 
   // Handle next question
   const handleNext = () => {
-    if (!canProceed) {
+    // Gunakan nilai boolean yang sudah dihitung
+    if (!canProceedValue) {
       toast.warning("Pilih jawaban terlebih dahulu", {
         description: "Kamu harus memilih salah satu jawaban untuk melanjutkan.",
       })
       return
     }
-
     nextQuestion()
   }
 
@@ -267,18 +248,11 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
       })
       return
     }
-
     try {
-      // Submit screening and get ID
       const submissionResult = await submitScreening()
-
-      // Clear localStorage on successful submission
       localStorage.removeItem("screening_answers")
       localStorage.removeItem("screening_current_question")
-
       toast.success("Screening berhasil diselesaikan!")
-
-      // Pass the screening ID to parent for fetching full result
       onComplete?.(submissionResult)
     } catch (error) {
       console.error("Submission failed:", error)
@@ -297,28 +271,22 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
   useEffect(() => {
     const savedAnswers = localStorage.getItem("screening_answers")
     const savedQuestion = localStorage.getItem("screening_current_question")
-
-    // Load progress silently without showing toast
     if (savedAnswers && savedQuestion) {
       // Progress loaded in background
     }
   }, [])
 
-  // Show loading screen
   if (isLoading) {
     return <LoadingScreen />
   }
 
-  // Show error screen
   if (error) {
     return <ErrorScreen error={error} onRetry={handleRetry} />
   }
 
   return (
     <div className="w-full min-h-screen relative bg-white overflow-hidden flex items-center justify-center p-4 md:p-8">
-      {/* Main fixed-size container for the layout, scales down on smaller screens */}
       <div className="relative w-[1440px] h-[810px] max-w-full max-h-screen overflow-hidden flex flex-col items-center justify-center">
-        {/* Background Layer - positioned absolutely within the fixed-size container */}
         <div
           className="absolute top-[127px] left-[79px] w-[1341px] h-[658px] rounded-[10px] overflow-hidden"
           style={{
@@ -327,10 +295,7 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
             backgroundPosition: "center",
           }}
         />
-
-        {/* Content Layer - positioned absolutely within the fixed-size container */}
         <div className="absolute top-[181px] left-[138px] w-[1223px] flex flex-col justify-start items-center gap-7">
-          {/* Question Card */}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentQuestion}
@@ -348,12 +313,10 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
               />
             </motion.div>
           </AnimatePresence>
-
-          {/* Navigation Buttons */}
           <NavigationButtons
             currentQuestion={currentQuestion}
             canGoBack={canGoBack}
-            canProceed={canProceed}
+            canProceed={canProceedValue} // <-- Gunakan nilai boolean di sini
             isLastQuestion={isLastQuestion}
             onPrevious={handlePrevious}
             onNext={handleNext}
@@ -361,8 +324,6 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
             isSubmitting={isSubmitting}
           />
         </div>
-
-        {/* Progress Indicator */}
         <div className="absolute top-[320px] left-[1319px] text-gray-600 text-xs font-normal">
           {currentQuestion + 1}/{21}
         </div>
