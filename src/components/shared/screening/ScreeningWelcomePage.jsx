@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/screening/ScreeningWelcomePage.jsx
 
 import React, { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -61,7 +61,7 @@ const Stage1Content = ({ onScrollDown }) => {
         whileTap={{ scale: 0.95 }}
       >
         <motion.img
-          src="/scroll-down.png"
+          src="/icon/scroll-down.svg"
           alt="Scroll down"
           className="w-10 h-12 object-contain"
           animate={{ y: [0, 5, 0] }}
