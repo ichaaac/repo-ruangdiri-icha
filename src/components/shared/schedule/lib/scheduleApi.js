@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - FIXED ATTACHMENT UPLOADS
+// src/components/shared/schedule/lib/scheduleApi.js - FIXED BULK ATTACHMENT UPLOAD & VALIDATION
 
 import { apiClient } from "../../../../lib/api.js"
 
@@ -88,10 +88,10 @@ export const createScheduleApi = (organizationType = "school") => {
     }
   };
 
-  // FIXED: Transform schedule data with proper error handling
+  // Transform schedule data with proper error handling
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
-      // FIXED: Validate and safely convert UTC times to local
+      // Validate and safely convert UTC times to local
       let startDateTimeLocal, endDateTimeLocal;
       
       try {
@@ -127,7 +127,7 @@ export const createScheduleApi = (organizationType = "school") => {
       const baseTransform = {
         ...schedule,
         displayName: schedule.agenda,
-        // FIXED: Safe ISO conversion with fallback
+        // Safe ISO conversion with fallback
         startDateTime: startDateTimeLocal.toISOString(),
         endDateTime: endDateTimeLocal.toISOString(),
         startTime: startDateTimeLocal.toLocaleTimeString('en-GB', { 
@@ -273,9 +273,12 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
-  // Data validation helper for create
+  // FIXED: Data validation helper for create - more specific validation
   const validateScheduleData = (data) => {
     const errors = [];
+    
+    console.log('=== validateScheduleData ===');
+    console.log('Data to validate:', data);
     
     if (!data.agenda || data.agenda.trim().length === 0) {
       errors.push('Agenda is required');
@@ -287,12 +290,29 @@ export const createScheduleApi = (organizationType = "school") => {
       errors.push('Description cannot exceed 255 characters');
     }
     
+    // FIXED: Allow 'others' as valid type
     if (!data.type || !['counseling', 'class', 'seminar', 'others'].includes(data.type)) {
-      errors.push('Invalid schedule type');
+      console.error('Invalid type:', data.type);
+      errors.push(`Invalid schedule type: ${data.type}. Must be one of: counseling, class, seminar, others`);
     }
     
+    // FIXED: Better dates validation
     if (!data.dates || !Array.isArray(data.dates) || data.dates.length === 0) {
+      console.error('Invalid dates:', data.dates);
       errors.push('At least one date is required');
+    } else {
+      // Validate each date object
+      data.dates.forEach((dateItem, index) => {
+        if (!dateItem.date) {
+          errors.push(`Date is required for item ${index + 1}`);
+        }
+        if (!dateItem.startTime) {
+          errors.push(`Start time is required for item ${index + 1}`);
+        }
+        if (!dateItem.endTime) {
+          errors.push(`End time is required for item ${index + 1}`);
+        }
+      });
     }
     
     if (data.type === 'counseling') {
@@ -307,10 +327,11 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     }
     
+    console.log('Validation errors:', errors);
     return errors;
   };
 
-  // FIXED: Data validation helper for update - only validate changed fields
+  // Data validation helper for update - only validate changed fields
   const validateScheduleUpdateData = (data) => {
     const errors = [];
     
@@ -419,17 +440,24 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
+    // FIXED: createSchedule with better validation and error handling
     async createSchedule(scheduleData) {
       try {
+        console.log('=== createSchedule API call ===');
+        console.log('Raw schedule data received:', scheduleData);
+
         const validationErrors = validateScheduleData(scheduleData);
         if (validationErrors.length > 0) {
-          throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+          const errorMessage = `Validation failed: ${validationErrors.join(', ')}`;
+          console.error(errorMessage);
+          throw new Error(errorMessage);
         }
 
+        // FIXED: Build the payload correctly
         const transformedData = {
           agenda: scheduleData.agenda.trim(),
           description: (scheduleData.description || "").trim(),
-          notificationOffset: scheduleData.notificationOffset,
+          notificationOffset: scheduleData.notificationOffset || 60,
           type: scheduleData.type,
           dates: scheduleData.dates.map((dateItem) => ({
             date: dateItem.date,
@@ -439,7 +467,9 @@ export const createScheduleApi = (organizationType = "school") => {
           })),
         }
 
-        // Handle new participants structure
+        console.log('Base transformed data:', transformedData);
+
+        // Handle participants structure properly
         if (scheduleData.type === "counseling" && scheduleData.participants) {
           if (scheduleData.participants.psychologistId && scheduleData.participants.patientIds) {
             transformedData.participants = {
@@ -452,6 +482,8 @@ export const createScheduleApi = (organizationType = "school") => {
               patientIds: scheduleData.selectedParticipants.map(p => p.id)
             };
           }
+          
+          console.log('Added participants:', transformedData.participants);
         }
 
         // Location handling
@@ -461,38 +493,49 @@ export const createScheduleApi = (organizationType = "school") => {
             transformedData.location = scheduleData.location;
           } else {
             transformedData.location = "offline";
+            if (scheduleData.actualLocationName) {
+              transformedData.actualLocationName = scheduleData.actualLocationName;
+            }
           }
+          console.log('Added location:', transformedData.location);
         } else {
-          transformedData.customLocation = scheduleData.customLocation;
+          if (scheduleData.customLocation) {
+            transformedData.customLocation = scheduleData.customLocation;
+            console.log('Added customLocation:', transformedData.customLocation);
+          }
         }
 
-        if (scheduleData.id) {
-          transformedData.id = scheduleData.id;
-        }
+        console.log('Final payload to send:', transformedData);
 
         const response = await apiClient.post("/schedules", transformedData)
         
-        // FIXED: Handle response transformation with better error handling
+        console.log('Backend response:', response);
+        
+        // Handle response transformation with better error handling
         if (response.data?.status === "success") {
           try {
-            // Attempt to transform the response data
-            const transformedResponse = transformScheduleData([response.data.data], organizationType)[0];
+            // FIXED: Handle array response from backend
+            const scheduleArray = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+            console.log('Schedule array to transform:', scheduleArray);
+            
+            const transformedResponse = transformScheduleData(scheduleArray, organizationType);
+            console.log('Transformed response:', transformedResponse);
+            
             return {
               ...response,
               data: {
                 ...response.data,
-                data: transformedResponse
+                data: transformedResponse[0] || transformedResponse // Return first item if array
               }
             };
           } catch (transformError) {
             console.error("Error transforming create response, using raw data:", transformError);
-            // FIXED: Return raw response if transformation fails
-            // The schedule was created successfully, just return without transformation
+            // Return raw response if transformation fails
             return {
               ...response,
               data: {
                 ...response.data,
-                data: response.data.data // Use raw data from backend
+                data: Array.isArray(response.data.data) ? response.data.data[0] : response.data.data
               }
             };
           }
@@ -505,20 +548,20 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // FIXED: Updated updateSchedule to support selective updates
+    // Updated updateSchedule to support selective updates
     async updateSchedule(scheduleId, scheduleData) {
       try {
         console.log('=== updateSchedule API call ===');
         console.log('Schedule ID:', scheduleId);
         console.log('Update data received:', scheduleData);
 
-        // FIXED: Use selective validation for update
+        // Use selective validation for update
         const validationErrors = validateScheduleUpdateData(scheduleData);
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
         }
 
-        // FIXED: Build payload with only provided fields (selective update)
+        // Build payload with only provided fields (selective update)
         const transformedData = {};
 
         // Only include fields that are actually being updated
@@ -569,6 +612,9 @@ export const createScheduleApi = (organizationType = "school") => {
             transformedData.location = scheduleData.location;
           } else {
             transformedData.location = "offline";
+            if (scheduleData.actualLocationName) {
+              transformedData.actualLocationName = scheduleData.actualLocationName;
+            }
           }
         }
 
@@ -582,7 +628,7 @@ export const createScheduleApi = (organizationType = "school") => {
         
         console.log('Backend response:', response.data);
 
-        // FIXED: Handle response transformation with better error handling
+        // Handle response transformation with better error handling
         if (response.data?.status === "success") {
           try {
             // Attempt to transform the response data
@@ -596,8 +642,7 @@ export const createScheduleApi = (organizationType = "school") => {
             };
           } catch (transformError) {
             console.error("Error transforming update response, using raw data:", transformError);
-            // FIXED: Return raw response if transformation fails
-            // The schedule was updated successfully, just return without transformation
+            // Return raw response if transformation fails
             return {
               ...response,
               data: {
@@ -662,7 +707,7 @@ export const createScheduleApi = (organizationType = "school") => {
             }
           } catch (transformError) {
             console.error("Error transforming schedule detail, using raw data:", transformError);
-            // FIXED: Return raw response if transformation fails
+            // Return raw response if transformation fails
             return {
               ...response,
               data: {
@@ -679,10 +724,10 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-// FIXED: Upload attachments using correct bulk endpoint
+    // FIXED: Upload attachments using correct bulk endpoint
     async uploadAttachments(scheduleIds, files) {
       try {
-        console.log('=== uploadAttachments API call ===');
+        console.log('=== uploadAttachments API call (BULK ENDPOINT) ===');
         console.log('Schedule IDs:', scheduleIds);
         console.log('Files:', files);
         
@@ -724,7 +769,7 @@ export const createScheduleApi = (organizationType = "school") => {
           formData.append('files', file);
         }
 
-        // FIXED: Add scheduleIds to form data as shown in API example
+        // FIXED: Add scheduleIds to form data correctly
         const idArray = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
         idArray.forEach((scheduleId) => {
           formData.append('scheduleIds', scheduleId);
@@ -736,7 +781,7 @@ export const createScheduleApi = (organizationType = "school") => {
           console.log(key, value instanceof File ? `File: ${value.name}` : value);
         }
 
-        // FIXED: Use the correct bulk endpoint
+        // FIXED: Use the correct bulk endpoint /schedules/attachments
         const response = await apiClient.post('/schedules/attachments', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -778,68 +823,6 @@ export const createScheduleApi = (organizationType = "school") => {
           console.error("Upload error message:", error.message);
           throw new Error(error.message || "Unknown error occurred during upload");
         }
-      }
-    },
-
-    // FIXED: Remove the individual upload method since we use bulk endpoint
-    async uploadAttachmentsToMultipleSchedules(scheduleIds, files) {
-      // Just use the main uploadAttachments method since it handles multiple schedules
-      return this.uploadAttachments(scheduleIds, files);
-    },
-
-    // FIXED: Alternative bulk upload method for multiple schedules
-    async uploadAttachmentsToMultipleSchedules(scheduleIds, files) {
-      try {
-        console.log('=== uploadAttachmentsToMultipleSchedules ===');
-        console.log('Schedule IDs:', scheduleIds);
-        console.log('Files:', files);
-        
-        // Upload to each schedule individually for better reliability
-        const uploadResults = [];
-        
-        for (const scheduleId of scheduleIds) {
-          try {
-            const result = await this.uploadAttachments(scheduleId, files);
-            uploadResults.push({
-              scheduleId,
-              success: true,
-              data: result.data
-            });
-          } catch (error) {
-            console.error(`Failed to upload to schedule ${scheduleId}:`, error);
-            uploadResults.push({
-              scheduleId,
-              success: false,
-              error: error.message
-            });
-          }
-        }
-        
-        const successful = uploadResults.filter(r => r.success);
-        const failed = uploadResults.filter(r => !r.success);
-        
-        if (failed.length === 0) {
-          console.log(`Successfully uploaded to all ${successful.length} schedules`);
-          return {
-            success: true,
-            results: uploadResults,
-            message: `Successfully uploaded to all ${successful.length} schedule(s)`
-          };
-        } else if (successful.length > 0) {
-          console.warn(`Partial success: ${successful.length} succeeded, ${failed.length} failed`);
-          return {
-            success: false,
-            results: uploadResults,
-            message: `Uploaded to ${successful.length} schedule(s), failed for ${failed.length} schedule(s)`
-          };
-        } else {
-          console.error('All uploads failed');
-          throw new Error(`Failed to upload to all ${failed.length} schedule(s)`);
-        }
-        
-      } catch (error) {
-        console.error("Error in bulk upload:", error);
-        throw error;
       }
     },
 

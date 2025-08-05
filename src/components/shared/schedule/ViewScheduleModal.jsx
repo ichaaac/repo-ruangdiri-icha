@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ViewScheduleModal.jsx - SIMPLIFIED VIEW MODAL
+// src/components/shared/schedule/ViewScheduleModal.jsx - FIXED WITH PAST SCHEDULE CHECK
 
 import React, { useState, useEffect } from "react";
 import { useQuery } from '@tanstack/react-query';
@@ -18,6 +18,32 @@ const ViewScheduleModal = ({
   const [scheduleData, setScheduleData] = useState(initialScheduleData);
   
   const scheduleApi = createScheduleApi(organizationType);
+
+  // FIXED: Check if schedule is in the past (cannot edit)
+  const isScheduleInPast = () => {
+    if (!scheduleData?.startDateTime) return false
+    
+    const scheduleStartTime = new Date(scheduleData.startDateTime)
+    const now = new Date()
+    
+    // Consider schedule in past if it's more than 5 minutes ago
+    return scheduleStartTime < new Date(now.getTime() - 5 * 60 * 1000)
+  }
+
+  // FIXED: Check if schedule is within 24 hours (counseling restriction)
+  const isWithin24Hours = () => {
+    if (!scheduleData?.startDateTime || scheduleData.type !== "counseling") return false
+    
+    const scheduleStartTime = new Date(scheduleData.startDateTime)
+    const twentyFourHoursFromNow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    
+    return scheduleStartTime < twentyFourHoursFromNow
+  }
+
+  // FIXED: Check if edit should be disabled
+  const isEditDisabled = () => {
+    return isScheduleInPast() || (scheduleData.type === "counseling" && isWithin24Hours())
+  }
 
   // Fetch detailed schedule data
   const { data: detailedScheduleData, isLoading: isLoadingDetail } = useQuery({
@@ -297,16 +323,31 @@ const ViewScheduleModal = ({
     return isImage ? 'Preview' : 'Download';
   };
 
-  // Handle edit
+  // Handle edit - FIXED: Check if edit is allowed
   const handleEdit = () => {
     if (loading || isLoadingDetail) return;
+    
+    if (isEditDisabled()) {
+      if (isScheduleInPast()) {
+        toast.error("Tidak dapat mengedit jadwal yang sudah berlalu");
+      } else if (scheduleData.type === "counseling" && isWithin24Hours()) {
+        toast.error("Tidak dapat mengedit jadwal konseling yang kurang dari 24 jam dari sekarang");
+      }
+      return;
+    }
+    
     onEdit && onEdit(scheduleData);
   };
 
   // Handle delete with sonner confirmation
   const handleDelete = () => {
     if (onDelete && !loading && !isLoadingDetail) {
-      // FIXED: Use sonner toast for confirmation instead of window.confirm
+      // FIXED: Also prevent delete for past schedules
+      if (isScheduleInPast()) {
+        toast.error("Tidak dapat menghapus jadwal yang sudah berlalu");
+        return;
+      }
+
       toast("Apakah Anda yakin ingin menghapus jadwal ini?", {
         description: "Tindakan ini tidak dapat dibatalkan. Jadwal akan dihapus secara permanen.",
         action: {
@@ -346,7 +387,23 @@ const ViewScheduleModal = ({
       <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
         
         {/* Header */}
-        <div className="flex justify-end items-center p-6">
+        <div className="flex justify-between items-center p-6">
+          {/* FIXED: Show status indicator for past schedules */}
+          <div className="flex-1">
+            {isScheduleInPast() && (
+              <div className="bg-gray-100 border border-gray-400 text-gray-700 px-3 py-1 rounded text-sm inline-flex items-center">
+                <span className="material-icons text-sm mr-1">history</span>
+                Jadwal Selesai
+              </div>
+            )}
+            {!isScheduleInPast() && isWithin24Hours() && (
+              <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-3 py-1 rounded text-sm inline-flex items-center">
+                <span className="material-icons text-sm mr-1">schedule</span>
+                Kurang dari 24 jam
+              </div>
+            )}
+          </div>
+          
           <button
             onClick={onClose}
             disabled={loading}
@@ -555,20 +612,36 @@ const ViewScheduleModal = ({
 
             {/* Action Buttons */}
             <div className="mt-6 flex gap-3 justify-end">
-              <button
-                onClick={handleDelete}
-                disabled={loading}
-                className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                title="Hapus jadwal"
-              >
-                <span className="material-icons text-[20px]">delete</span>
-              </button>
+              {/* FIXED: Only show delete if not past schedule */}
+              {!isScheduleInPast() && (
+                <button
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="w-12 h-12 flex items-center justify-center text-red-600 border border-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                  title="Hapus jadwal"
+                >
+                  <span className="material-icons text-[20px]">delete</span>
+                </button>
+              )}
+              
+              {/* FIXED: Edit button with proper disable state */}
               <button
                 onClick={handleEdit}
-                disabled={loading}
-                className="px-6 py-2 bg-[#488BBA] text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-400 font-medium"
+                disabled={loading || isEditDisabled()}
+                className={`px-6 py-2 rounded-lg transition-colors font-medium ${
+                  isEditDisabled()
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-[#488BBA] text-white hover:bg-blue-600'
+                }`}
+                title={
+                  isScheduleInPast() 
+                    ? "Tidak dapat mengedit jadwal yang sudah berlalu"
+                    : isWithin24Hours()
+                    ? "Tidak dapat mengedit konseling kurang dari 24 jam"
+                    : "Edit jadwal"
+                }
               >
-                {loading ? "Loading..." : "Edit"}
+                {loading ? "Loading..." : isEditDisabled() ? "Tidak Dapat Edit" : "Edit"}
               </button>
             </div>
           </div>

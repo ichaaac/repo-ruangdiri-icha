@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/schedule/CreateScheduleModal.jsx
 import { toast } from "sonner"
 import { useScheduleForm } from "./hooks/useScheduleForm"
 import ScheduleFormFields from "./ScheduleFormFields"
@@ -44,158 +44,94 @@ const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, lo
     setUploadingAttachments, // Declare the variable here
   } = useScheduleForm("create", initialData, isOpen)
 
+const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting); // <-- TAMBAH DI SINI
+
+// CreateScheduleModal.jsx
+
 const handleSubmit = async () => {
     if (!validateForm()) {
       return
     }
 
-    // For edit mode - only send changed fields
-    const submitData = {}
-
-    if (formData.agenda.trim() !== (initialData.agenda || "").trim()) {
-      submitData.agenda = formData.agenda.trim()
-    }
-
-    if (formData.type !== (initialData.type || "counseling")) {
-      submitData.type = formData.type
-    }
-
-    if (formData.description.trim() !== (initialData.description || "").trim()) {
-      submitData.description = formData.description.trim()
-    }
-
-    if (formData.notificationOffset !== (initialData.notificationOffset || 60)) {
-      submitData.notificationOffset = formData.notificationOffset
-    }
-
-    const currentDatesStr = JSON.stringify(formData.dates)
-    const initialDatesStr = JSON.stringify(initialData.dates || [])
-    if (currentDatesStr !== initialDatesStr) {
-      submitData.dates = formData.dates
+    // LANGSUNG BANGUN PAYLOAD LENGKAP UNTUK CREATE
+    const submitData = {
+      agenda: formData.agenda.trim(),
+      type: formData.type,
+      description: formData.description.trim(),
+      notificationOffset: formData.notificationOffset,
+      dates: formData.dates,
     }
 
     if (formData.type === "counseling") {
-      const currentPsychId = formData.selectedPsychologist?.id
-      const initialPsychId = initialData.selectedPsychologist?.id
-
-      const currentPatientIds = formData.selectedParticipants.map((p) => p.id).sort()
-      const initialPatientIds = (initialData.selectedParticipants || []).map((p) => p.id).sort()
-
-      const psychChanged = currentPsychId !== initialPsychId
-      const patientsChanged = JSON.stringify(currentPatientIds) !== JSON.stringify(initialPatientIds)
-
-      if (psychChanged || patientsChanged) {
-        if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
-          submitData.participants = {
-            psychologistId: formData.selectedPsychologist.id,
-            patientIds: formData.selectedParticipants.map((participant) => participant.id),
-          }
+      if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
+        submitData.participants = {
+          psychologistId: formData.selectedPsychologist.id,
+          patientIds: formData.selectedParticipants.map((p) => p.id),
         }
       }
-    }
-
-    if (formData.type === "counseling") {
-      const currentLoc = formData.location
-      const initialLoc = initialData.location || initialData._originalBackendLocation || ""
-
-      if (currentLoc !== initialLoc) {
-        const isStandardLocation = fixedLocationOptions.find((opt) => opt.value === currentLoc)
-        if (isStandardLocation) {
-          submitData.location = currentLoc
-        } else {
-          submitData.location = "offline"
-          submitData.actualLocationName = currentLoc
-        }
+      
+      const isStandardLocation = fixedLocationOptions.find((opt) => opt.value === formData.location)
+      if (isStandardLocation) {
+        submitData.location = formData.location
+      } else {
+        submitData.location = "offline"
+        submitData.actualLocationName = formData.location
       }
+
     } else {
-      if (formData.customLocation !== (initialData.customLocation || "")) {
+      if (formData.customLocation) {
         submitData.customLocation = formData.customLocation
       }
-    }
-
-    if (initialData?.id) {
-      submitData.id = initialData.id
     }
 
     const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting)
 
     try {
-      console.log("=== EditScheduleModal handleSubmit ===")
+      console.log("=== CreateScheduleModal handleSubmit ===")
       console.log("Submit data:", submitData)
       console.log("Attachments to upload:", newAttachmentsToUpload)
 
-      // FIXED: Step 1 - Update schedule FIRST
-      console.log("Step 1: Updating schedule...")
+      // Step 1: Create the schedule
       const result = await onSubmit(submitData)
-      console.log("Schedule update result:", result)
-
-      // FIXED: Step 2 - Show success toast immediately after schedule update
+      
+      // Step 2: Show success toast
       if (newAttachmentsToUpload.length === 0) {
-        toast.success("Jadwal berhasil diperbarui")
+        toast.success("Jadwal berhasil dibuat")
       } else {
-        toast.success("Jadwal berhasil diperbarui, sedang mengunggah lampiran...")
+        toast.success("Jadwal dibuat, sedang mengunggah lampiran...")
       }
 
-      // FIXED: Step 3 - Upload attachments in background AFTER schedule is updated
-      if (result?.data && newAttachmentsToUpload.length > 0) {
-        console.log("Step 3: Processing attachments in background...")
+      // Step 3: Upload attachments in the background
+      if (result?.data?.data && newAttachmentsToUpload.length > 0) {
+        const createdSchedule = Array.isArray(result.data.data) ? result.data.data : [result.data.data];
+        const scheduleIds = createdSchedule.map(s => s.id).filter(Boolean);
 
-        // Run attachment upload in background without blocking UI
-        setTimeout(async () => {
-          try {
-            // For edit mode, we usually have a single schedule ID
-            const scheduleIds = initialData?.id ? [initialData.id] : []
-
-            console.log("Extracted schedule IDs for attachment upload:", scheduleIds)
-
-            if (scheduleIds.length > 0) {
-              console.log(
-                `Uploading ${newAttachmentsToUpload.length} attachments to ${scheduleIds.length} schedule(s)...`,
-              )
-
-              // Upload attachments
+        if (scheduleIds.length > 0) {
+           setTimeout(async () => {
+            try {
               await uploadAttachmentsMutation.mutateAsync({
                 scheduleIds,
                 files: newAttachmentsToUpload.map((a) => a.file),
               })
-
-              console.log("Attachments uploaded successfully")
-              toast.success(`${newAttachmentsToUpload.length} lampiran berhasil diunggah`)
-            } else {
-              console.warn("No schedule IDs found for attachment upload")
-              toast.warning("Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan")
+              toast.success(`${newAttachmentsToUpload.length} lampiran berhasil diunggah.`)
+            } catch (attachmentError) {
+              const errorMessage = attachmentError?.response?.data?.message || attachmentError.message
+              toast.error("Gagal mengunggah lampiran", { description: errorMessage })
             }
-          } catch (attachmentError) {
-            console.error("Background attachment upload error:", attachmentError)
-
-            const errorMessage =
-              attachmentError?.response?.data?.message || attachmentError?.message || "Unknown attachment upload error"
-
-            // Show error toast
-            toast.error("Gagal mengunggah lampiran", {
-              description: `Error: ${errorMessage}. Silakan edit jadwal untuk menambahkan lampiran.`,
-              duration: 8000,
-            })
-          }
-        }, 100) // Small delay to ensure UI updates first
+          }, 100)
+        }
       }
-
-      // Modal will be closed by parent component on successful onSubmit
+      
     } catch (error) {
-      console.error("Update schedule error:", error)
-
-      // FIXED: Don't close modal on error - let user retry
-      const errorMessage = error?.response?.data?.message || error.message || "Failed to update schedule"
+      console.error("Create schedule error:", error)
+      const errorMessage = error?.response?.data?.message || error.message || "Failed to create schedule"
       const parsedMessage = parseErrorMessage(errorMessage)
-
-      toast.error("Gagal memperbarui jadwal", {
+      toast.error("Gagal membuat jadwal", {
         description: parsedMessage,
         duration: 8000,
       })
-
-      // Don't return or close modal - let user retry
     }
-  }
+}
 
   const handleCancel = () => {
     if (hasUnsavedChanges() && !hasShownUnsavedToast) {
