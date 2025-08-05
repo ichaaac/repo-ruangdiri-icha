@@ -3,7 +3,6 @@
 import React, { useCallback, useRef, forwardRef } from "react"
 import { useNotifications } from "./hooks/useNotifications"
 
-// Loading State Component
 const LoadingState = () => (
   <div className="flex justify-center items-center py-12">
     <span className="material-icons animate-spin text-[#488BBE] text-3xl mr-3">sync</span>
@@ -11,7 +10,6 @@ const LoadingState = () => (
   </div>
 )
 
-// Error State Component
 const ErrorState = ({ error }) => (
   <div className="text-center py-12">
     <span className="material-icons text-red-500 text-5xl mb-4 block">error_outline</span>
@@ -28,7 +26,6 @@ const ErrorState = ({ error }) => (
   </div>
 )
 
-// Empty State Component
 const EmptyState = () => (
   <div className="text-center py-12">
     <span className="material-icons text-gray-400 text-5xl mb-4 block">notifications_none</span>
@@ -37,7 +34,6 @@ const EmptyState = () => (
   </div>
 )
 
-// Loading Spinner Component
 const LoadingSpinner = ({ text = "Loading..." }) => (
   <div className="flex items-center gap-2">
     <span className="material-icons animate-spin text-[#488BBE] text-lg">sync</span>
@@ -45,14 +41,11 @@ const LoadingSpinner = ({ text = "Loading..." }) => (
   </div>
 )
 
-// 🔥 FIXED: Header Component dengan props yang benar
 const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
   <div className="mb-8">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-      <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>
-      
-      {/* 🔥 FIXED: Mark All as Read - hanya tampil jika ada unread */}
-      {unreadCount > 0 && (
+      <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>     
+      {/* {unreadCount > 0 && (
         <button
           onClick={onMarkAllAsRead}
           disabled={isMarkingAllAsRead}
@@ -61,28 +54,14 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
           {isMarkingAllAsRead && <span className="material-icons animate-spin text-sm">sync</span>}
           {isMarkingAllAsRead ? "Menandai..." : "Tandai Semua Dibaca"}
         </button>
-      )}
+      )} */}
     </div>
   </div>
 )
 
-// 🔥 FIXED: Tabs Component dengan logika yang diperbaiki
-const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCount, onTabChange, formatCount }) => {
-  // 🔥 EXPLAINED: Bedakan antara total notifications vs unread notifications
-  const getTabCount = (tabType) => {
-    if (tabType === 'all') {
-      // Untuk tab "Semua", tampilkan unread count dari semua tipe notifikasi
-      return unreadCount;
-    } else if (tabType === 'counseling') {
-      // Untuk tab "Konseling", tampilkan unread count dari schedule notifications saja
-      return counselingCount;
-    }
-    return 0;
-  };
-
+const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChange, formatCount }) => {
   return (
     <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
-      {/* Tab Semua */}
       <button
         onClick={() => onTabChange("all")}
         className={`flex items-center gap-1 whitespace-nowrap ${
@@ -92,15 +71,13 @@ const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCoun
         } transition-colors`}
       >
         <span>Semua</span>
-        {/* 🔥 FIXED: Tampilkan unread count untuk tab Semua */}
-        {getTabCount('all') > 0 && (
+        {unreadCount > 0 && (
           <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-            {formatCount(getTabCount('all'))}
+            {formatCount(unreadCount)}
           </div>
         )}
       </button>
 
-      {/* Tab Konseling */}
       <button
         onClick={() => onTabChange("counseling")}
         className={`flex items-center gap-1 whitespace-nowrap ${
@@ -110,10 +87,9 @@ const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCoun
         } transition-colors`}
       >
         <span>Konseling</span>
-        {/* 🔥 FIXED: Tampilkan unread count untuk tab Konseling */}
-        {getTabCount('counseling') > 0 && (
+        {counselingCount > 0 && (
           <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-            {formatCount(getTabCount('counseling'))}
+            {formatCount(counselingCount)}
           </div>
         )}
       </button>
@@ -121,13 +97,10 @@ const NotificationTabs = ({ selectedTab, totalCount, unreadCount, counselingCoun
   )
 }
 
-// 🔥 ENHANCED UTILITY FUNCTIONS - ICON LOGIC BASED ON TYPE
 const getNotificationIcon = (notification) => {
   const { type, subType } = notification
   
-  // Schedule notifications
   if (type === 'schedule') {
-    // Check for specific schedule actions
     if (notification.title?.toLowerCase().includes('buat') || notification.title?.toLowerCase().includes('created')) {
       return 'event'
     }
@@ -140,66 +113,52 @@ const getNotificationIcon = (notification) => {
     if (notification.title?.toLowerCase().includes('reminder') || notification.title?.toLowerCase().includes('pengingat')) {
       return 'schedule'
     }
-    // Default schedule icon - check_circle as requested
     return 'check_circle'
   }
   
-  // System notifications
   if (type === 'system') {
     return 'settings'
   }
   
-  // Report notifications
   if (type === 'report') {
     return 'assessment'
   }
   
-  // Counseling subtype
   if (subType === 'counseling') {
     return 'psychology'
   }
   
-  // Default fallback
   return 'notifications'
 }
 
-// 🔥 ENHANCED ICON COLOR BASED ON TYPE
 const getNotificationIconColor = (notification) => {
   const { type, subType } = notification
   
-  // Schedule - Green (as requested for jadwal)
   if (type === 'schedule') {
     return '#9BCA61'
   }
   
-  // System - Gray
   if (type === 'system') {
     return '#535353'
   }
   
-  // Report - Blue
   if (type === 'report') {
     return '#488BBE'
   }
   
-  // Counseling subtype - Purple
   if (subType === 'counseling') {
     return '#9986ff'
   }
   
-  // Default
   return '#535353'
 }
 
-// 🔥 CHECK IF NOTIFICATION IS READ
 const isNotificationRead = (notification) => {
   return notification.status === 'read' || notification.isRead || notification.readAt;
 }
 
-// Individual Notification Item
 const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
-    // Mark as read when clicked
     if (!isNotificationRead(notification) && !isMarkingAsRead) {
       onMarkAsRead(notification.id)
     }
@@ -217,7 +176,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
           : "bg-white border border-gray-100 cursor-pointer hover:bg-gray-50 hover:shadow-sm"
       } ${isMarkingAsRead ? "opacity-50" : ""}`}
     >
-      {/* 🔥 UPDATED: Icon tanpa background rounded, size 35x35 */}
       <div className="flex-shrink-0 flex items-center justify-center">
         <span 
           className="material-icons"
@@ -230,7 +188,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
         </span>
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex flex-col gap-1">
           <p className={`text-sm font-semibold leading-tight ${
@@ -258,12 +215,10 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
         </div>
       </div>
 
-      {/* Unread Indicator */}
       {!isRead && (
         <div className="flex-shrink-0 w-2 h-2 bg-[#488BBE] rounded-full mt-2 animate-pulse"></div>
       )}
       
-      {/* Read Indicator */}
       {isRead && (
         <div className="flex-shrink-0 mt-2">
           <span className="material-icons text-gray-400 text-sm">done</span>
@@ -275,7 +230,6 @@ const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRe
 
 NotificationItem.displayName = "NotificationItem"
 
-// Notification List with Infinite Scroll
 const NotificationList = ({ 
   groupedNotifications, 
   hasNextPage, 
@@ -288,7 +242,6 @@ const NotificationList = ({
 }) => {
   const observer = useRef()
   
-  // Infinite scroll
   const lastElementRef = useCallback((node) => {
     if (isFetchingNextPage) return
     if (observer.current) observer.current.disconnect()
@@ -313,7 +266,6 @@ const NotificationList = ({
 
   return (
     <div className="space-y-6">
-      {/* Vertical scroll */}
       <div className="max-h-[70vh] overflow-y-auto space-y-6 pr-2">
         {Object.entries(groupedNotifications).map(([dateKey, notifications], groupIndex) => {
           const isLastGroup = groupIndex === Object.keys(groupedNotifications).length - 1
@@ -321,12 +273,10 @@ const NotificationList = ({
           return (
             <div key={dateKey} className="space-y-1">
               
-              {/* Date Separator */}
               <div className="text-xs font-normal text-[#8a8a8a] mb-1 sticky top-0 bg-white py-2 z-10">
                 {getDateLabel(dateKey)}
               </div>
 
-              {/* Notifications */}
               <div className="space-y-1">
                 {notifications.map((notification, index) => {
                   const isLastItem = isLastGroup && index === notifications.length - 1
@@ -347,14 +297,12 @@ const NotificationList = ({
           )
         })}
         
-        {/* Loading untuk infinite scroll */}
         {isFetchingNextPage && (
           <div className="flex justify-center py-4">
             <LoadingSpinner text="Memuat notifikasi lainnya..." />
           </div>
         )}
         
-        {/* End indicator */}
         {!hasNextPage && hasNotifications && (
           <div className="text-center py-4 text-gray-400 text-sm">
             Semua notifikasi telah dimuat
@@ -365,90 +313,74 @@ const NotificationList = ({
   )
 }
 
-// Main Notifications Component
 const Notifications = ({ sidebarExpanded = false }) => {
-  // 🔥 USE ENHANCED HOOK
-  const {
-    groupedNotifications,
-    totalCount,
-    unreadCount,
-    counselingCount,
-    selectedTab,
-    isLoading,
-    isError,
-    error,
-    hasNextPage,
-    isFetchingNextPage,
-    handleTabChange,
-    handleMarkAsRead,
-    handleMarkAllAsRead,
-    fetchNextPage,
-    getDateLabel,
-    formatTimeAgo,
-    formatCount,
-    isMarkingAsRead,
-    isMarkingAllAsRead,
-  } = useNotifications()
+  const {
+    groupedNotifications,
+    totalCount,
+    unreadCount, // This is generalCount from the hook
+    counselingCount,
+    selectedTab,
+    isLoading,
+    isError,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    handleTabChange,
+    handleMarkAsRead,
+    handleMarkAllAsRead,
+    fetchNextPage,
+    getDateLabel,
+    formatTimeAgo,
+    formatCount,
+    isMarkingAsRead,
+    isMarkingAllAsRead,
+  } = useNotifications();
 
-  // 🔥 EXPLAINED: Debug info untuk memahami perbedaan counts
-  console.log('🎯 Notifications.jsx - COUNTS EXPLANATION:', {
-    selectedTab,
-    totalCount,      // Total semua notifications yang di-load (bisa 20+)
-    unreadCount,     // Unread notifications dari API (bisa 0)
-    counselingCount, // Unread schedule notifications saja
-    loadedNotifications: Object.values(groupedNotifications).flat().length,
-    explanation: {
-      totalCount: 'Total notifications loaded from API (termasuk yang sudah read)',
-      unreadCount: 'Notifications yang belum dibaca (dari API endpoint unread-count)',
-      counselingCount: 'Schedule notifications yang belum dibaca',
-      loadedNotifications: 'Jumlah notifications yang ter-render di UI'
-    }
-  })
+  // 🔥 ADDED: Calculate the total unread count for the "All" tab
+  const totalUnreadAllCount = unreadCount + counselingCount;
 
-  return (
-    <div className="w-full min-h-screen overflow-x-hidden bg-white">
-      {/* 🔥 RESPONSIVE CONTAINER - BUKAN UBAH DESIGN, CUMA RESPONSIVE */}
-      <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
-        <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
-          
-          {/* 🔥 FIXED: Pass correct props to NotificationHeader */}
-          <NotificationHeader 
-            unreadCount={unreadCount}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            isMarkingAllAsRead={isMarkingAllAsRead}
-          />
+  return (
+    <div className="w-full min-h-screen overflow-x-hidden bg-white">
+      <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
+        <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
+          
+          {/* 🔥 UPDATED: Pass total count to the header */}
+          <NotificationHeader 
+            unreadCount={totalUnreadAllCount}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            isMarkingAllAsRead={isMarkingAllAsRead}
+          />
 
-          {/* 🔥 FIXED: Pass correct props to NotificationTabs */}
-          <NotificationTabs
-            selectedTab={selectedTab}
-            totalCount={totalCount}
-            unreadCount={unreadCount}
-            counselingCount={counselingCount}
-            onTabChange={handleTabChange}
-            formatCount={formatCount}
-          />
+          {/* 🔥 UPDATED: Pass total to "unreadCount" and keep counselingCount separate */}
+          <NotificationTabs
+            selectedTab={selectedTab}
+            unreadCount={totalUnreadAllCount} 
+            counselingCount={counselingCount}
+            onTabChange={handleTabChange}
+            formatCount={formatCount}
+          />
 
-          {isLoading ? (
-            <LoadingState />
-          ) : isError ? (
-            <ErrorState error={error} />
-          ) : (
-            <NotificationList
-              groupedNotifications={groupedNotifications}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              onMarkAsRead={handleMarkAsRead}
-              onFetchNextPage={fetchNextPage}
-              getDateLabel={getDateLabel}
-              formatTimeAgo={formatTimeAgo}
-              isMarkingAsRead={isMarkingAsRead}
-            />
-          )}
+          {isLoading ? (
+            <LoadingState />
+          ) : isError ? (
+            <ErrorState error={error} />
+          ) : (
+            <NotificationList
+              groupedNotifications={groupedNotifications}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onMarkAsRead={handleMarkAsRead}
+              onFetchNextPage={fetchNextPage}
+              getDateLabel={getDateLabel}
+              formatTimeAgo={formatTimeAgo}
+              isMarkingAsRead={isMarkingAsRead}
+            />
+          )}
 
-        </div>
-      </div>
-    </div>
-  )
-}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-export default Notifications
+export default Notifications;

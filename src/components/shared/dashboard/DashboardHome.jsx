@@ -1,6 +1,6 @@
-// src/components/shared/dashboard/DashboardHome.jsx - Fixed chevron z-index issue
+// src/components/shared/dashboard/DashboardHome.jsx - FIXED yearly stats fetching
 
-import { useCallback, useState, useEffect, useRef } from "react"
+import { useCallback, useState, useEffect, useRef, useMemo } from "react"
 import {
   PieChart,
   Pie,
@@ -20,6 +20,7 @@ import CustomBranchingDropdown from "./CustomBranchingDropdown"
 import EmailNotificationModal from "./EmailNotificationModal"
 import { useAuth } from "../../../hooks/useAuth"
 import { useYearlyStats } from "../../../hooks/useDashboardMetrics"
+import { getCurrentDateInfo } from "../../../lib/date"
 import TopRightControl from "../layout/TopRightControl"
 
 const DashboardHome = ({
@@ -33,7 +34,15 @@ const DashboardHome = ({
   onReportClick = () => {},
   sidebarExpanded = false,
 }) => {
-  const [currentHalf, setCurrentHalf] = useState("firstHalf")
+  // FIXED: Initialize semester based on current month
+  const getCurrentSemester = () => {
+    const currentDate = getCurrentDateInfo()
+    const currentMonth = parseInt(currentDate.month) // month as number (1-12)
+    // If month 1-6 (Jan-Jun) -> firstHalf, if month 7-12 (Jul-Dec) -> secondHalf  
+    return currentMonth <= 6 ? "firstHalf" : "secondHalf"
+  }
+  
+  const [currentHalf, setCurrentHalf] = useState(getCurrentSemester())
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
 
@@ -61,6 +70,7 @@ const DashboardHome = ({
 
   const HOVER_DELAY = 25
 
+  // FIXED: Initialize filters only once to prevent multiple fetches
   useEffect(() => {
     if (type === "student") {
       if (!barChartClassroom && options?.classrooms?.length > 0) {
@@ -90,11 +100,29 @@ const DashboardHome = ({
 
   const { user: authUser } = useAuth?.() || { user: {} }
 
-  const { data: yearlyStatsData } = useYearlyStats(type, {
-    year: "2025",
-    ...(type === "student"
-      ? { classroom: barChartClassroom, grade: barChartGrade }
-      : { department: barChartClassroom }),
+  // FIXED: Create stable yearly stats filters to prevent multiple fetches
+  const yearlyStatsFilters = useMemo(() => {
+    const filters = { year: "2025" }
+    
+    if (type === "student") {
+      filters.classroom = barChartClassroom || "X"
+      filters.grade = barChartGrade || "A"
+    } else {
+      filters.department = barChartClassroom || "Finance"
+    }
+    
+    return filters
+  }, [type, barChartClassroom, barChartGrade])
+
+  // FIXED: Only fetch yearly stats when we have stable filters
+  const shouldFetchYearlyStats = Boolean(
+    type === "student" 
+      ? (barChartClassroom && barChartGrade)
+      : barChartClassroom
+  )
+
+  const { data: yearlyStatsData } = useYearlyStats(type, yearlyStatsFilters, {
+    enabled: shouldFetchYearlyStats
   })
 
   const handleBarChartClassroomChange = useCallback(
@@ -102,11 +130,14 @@ const DashboardHome = ({
       if (classroom !== barChartClassroom) {
         setBarChartClassroom(classroom)
         if (type === "student" && options?.grades?.length > 0) {
-          setBarChartGrade(options.grades[0] || "A")
+          // Keep existing grade if it exists, otherwise use first available
+          if (!barChartGrade) {
+            setBarChartGrade(options.grades[0] || "A")
+          }
         }
       }
     },
-    [barChartClassroom, type, options?.grades],
+    [barChartClassroom, type, options?.grades, barChartGrade],
   )
 
   const handleBarChartGradeChange = useCallback(

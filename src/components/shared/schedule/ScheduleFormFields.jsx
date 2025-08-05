@@ -1,6 +1,4 @@
-// src/components/shared/schedule/components/ScheduleFormFields.jsx - Shared Form Fields
-
-import React from "react";
+"use client"
 
 const ScheduleFormFields = ({
   formData,
@@ -30,14 +28,19 @@ const ScheduleFormFields = ({
   setParticipantSearch,
   setPreviewAttachment,
   uploadingAttachments,
-  loading
+  loading,
 }) => {
-  const selectedEventType = eventTypes.find(type => type.value === formData.type) || eventTypes[0];
-  const showParticipants = formData.type === "counseling";
+  const selectedEventType = eventTypes.find((type) => type.value === formData.type) || eventTypes[0]
+  const showParticipants = formData.type === "counseling"
 
   const openAttachmentPreview = (attachment) => {
-    setPreviewAttachment(attachment);
-  };
+    setPreviewAttachment(attachment)
+  }
+
+  // Helper to get the base URL for uploads
+  const getUploadBaseUrl = () => {
+    return import.meta.env.VITE_UPLOAD_URL || import.meta.env.VITE_API_URL || ""
+  }
 
   return (
     <>
@@ -51,17 +54,17 @@ const ScheduleFormFields = ({
           <input
             type="text"
             value={formData.agenda}
-            onChange={(e) => handleInputChange('agenda', e.target.value)}
+            onChange={(e) => handleInputChange("agenda", e.target.value)}
             placeholder="Masukkan agenda"
             disabled={loading}
             className={`w-full pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-              formData.agenda.trim() ? 'pl-3' : 'pl-6'
+              formData.agenda.trim() ? "pl-3" : "pl-6"
             }`}
           />
         </div>
         <div className="relative">
           <button
-            onClick={() => !loading && toggleDropdown('type')}
+            onClick={() => !loading && toggleDropdown("type")}
             disabled={loading}
             className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[120px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
           >
@@ -76,8 +79,8 @@ const ScheduleFormFields = ({
                 <button
                   key={type.value}
                   onClick={() => {
-                    handleInputChange('type', type.value);
-                    toggleDropdown('type');
+                    handleInputChange("type", type.value)
+                    toggleDropdown("type")
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
                 >
@@ -101,22 +104,24 @@ const ScheduleFormFields = ({
                 type="date"
                 value={dateInfo.date}
                 onChange={(e) => {
-                  const newDates = [...formData.dates];
-                  newDates[index] = { ...newDates[index], date: e.target.value };
-                  handleInputChange('dates', newDates);
+                  const newDates = [...formData.dates]
+                  newDates[index] = { ...newDates[index], date: e.target.value }
+                  handleInputChange("dates", newDates)
                 }}
                 disabled={loading}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
               />
-              
+
               <select
                 value={dateInfo.startTime}
-                onChange={(e) => updateAdditionalDate(index, 'startTime', e.target.value)}
+                onChange={(e) => updateAdditionalDate(index, "startTime", e.target.value)}
                 disabled={loading}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
               >
                 {timeOptions.map((time) => (
-                  <option key={time} value={time}>{time}</option>
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
                 ))}
               </select>
 
@@ -124,23 +129,27 @@ const ScheduleFormFields = ({
 
               <select
                 value={dateInfo.endTime}
-                onChange={(e) => updateAdditionalDate(index, 'endTime', e.target.value)}
+                onChange={(e) => updateAdditionalDate(index, "endTime", e.target.value)}
                 disabled={loading}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
               >
                 {timeOptions.map((time) => (
-                  <option key={time} value={time}>{time}</option>
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
                 ))}
               </select>
 
               <select
                 value={dateInfo.timezone}
-                onChange={(e) => updateAdditionalDate(index, 'timezone', e.target.value)}
+                onChange={(e) => updateAdditionalDate(index, "timezone", e.target.value)}
                 disabled={loading}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
               >
                 {timezoneOptions.map((tz) => (
-                  <option key={tz.value} value={tz.value}>{tz.label}</option>
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
                 ))}
               </select>
 
@@ -170,12 +179,14 @@ const ScheduleFormFields = ({
         <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
         <select
           value={formData.notificationOffset}
-          onChange={(e) => handleInputChange('notificationOffset', parseInt(e.target.value))}
+          onChange={(e) => handleInputChange("notificationOffset", Number.parseInt(e.target.value))}
           disabled={loading}
           className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
         >
           {notificationOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
       </div>
@@ -186,9 +197,7 @@ const ScheduleFormFields = ({
           <div className="flex gap-4 items-start">
             <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
             <div className="flex-1">
-              
               <div className="flex flex-col gap-4">
-                
                 {/* Psychologist Field */}
                 <div>
                   <div className="relative">
@@ -196,17 +205,15 @@ const ScheduleFormFields = ({
                       <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
                     )}
                     <button
-                      onClick={() => !loading && toggleDropdown('psychologist')}
+                      onClick={() => !loading && toggleDropdown("psychologist")}
                       disabled={loading}
                       className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                        formData.selectedPsychologist ? 'px-3 py-2' : 'pl-6'
+                        formData.selectedPsychologist ? "px-3 py-2" : "pl-6"
                       }`}
-                      style={{ minHeight: '42px' }}
+                      style={{ minHeight: "42px" }}
                     >
                       {!formData.selectedPsychologist ? (
-                        <span className="text-gray-500">
-                          Email/nama Psikolog
-                        </span>
+                        <span className="text-gray-500">Email/nama Psikolog</span>
                       ) : (
                         <div className="flex items-center gap-2 py-1">
                           <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
@@ -214,10 +221,10 @@ const ScheduleFormFields = ({
                               {formData.selectedPsychologist.fullName}
                             </div>
                             <button
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                handleInputChange('selectedPsychologist', null);
-                                handleInputChange('location', "");
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleInputChange("selectedPsychologist", null)
+                                handleInputChange("location", "")
                               }}
                               disabled={loading}
                               className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
@@ -227,7 +234,9 @@ const ScheduleFormFields = ({
                           </div>
                         </div>
                       )}
-                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
+                        keyboard_arrow_down
+                      </span>
                     </button>
                     {dropdowns.psychologist && !loading && (
                       <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
@@ -238,9 +247,9 @@ const ScheduleFormFields = ({
                             <button
                               key={psychologist.id}
                               onClick={() => {
-                                handleInputChange('selectedPsychologist', psychologist);
-                                handleInputChange('location', "");
-                                toggleDropdown('psychologist');
+                                handleInputChange("selectedPsychologist", psychologist)
+                                handleInputChange("location", "")
+                                toggleDropdown("psychologist")
                               }}
                               className="w-full px-3 py-2 text-left hover:bg-gray-100"
                             >
@@ -263,17 +272,19 @@ const ScheduleFormFields = ({
                       <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
                     )}
                     <button
-                      onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants1')}
-                      disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])}
+                      onClick={() =>
+                        !loading && formData.selectedParticipants.length < 2 && toggleDropdown("participants1")
+                      }
+                      disabled={
+                        loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])
+                      }
                       className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                        formData.selectedParticipants[0] ? 'px-3 py-2' : 'pl-6'
+                        formData.selectedParticipants[0] ? "px-3 py-2" : "pl-6"
                       }`}
-                      style={{ minHeight: '42px' }}
+                      style={{ minHeight: "42px" }}
                     >
                       {!formData.selectedParticipants[0] ? (
-                        <span className="text-gray-500">
-                          Email/nama Klien 1
-                        </span>
+                        <span className="text-gray-500">Email/nama Klien 1</span>
                       ) : (
                         <div className="flex items-center gap-2 py-1">
                           <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
@@ -281,7 +292,10 @@ const ScheduleFormFields = ({
                               {formData.selectedParticipants[0].fullName}
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[0].id); }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeParticipant(formData.selectedParticipants[0].id)
+                              }}
                               disabled={loading}
                               className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
                             >
@@ -290,43 +304,47 @@ const ScheduleFormFields = ({
                           </div>
                         </div>
                       )}
-                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
+                        keyboard_arrow_down
+                      </span>
                     </button>
-                    {dropdowns.participants1 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
-                      <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                        <div className="p-2 border-b">
-                          <input
-                            type="text"
-                            placeholder="Cari nama atau email..."
-                            value={participantSearch}
-                            onChange={(e) => setParticipantSearch(e.target.value)}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                        {loadingParticipants ? (
-                          <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                        ) : participants.length > 0 ? (
-                          participants
-                            .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                            .map((participant) => (
-                              <button
-                                key={participant.id}
-                                onClick={() => handleParticipantSelect(participant, 0)}
-                                className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                              >
-                                <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                              </button>
-                            ))
-                        ) : (
-                          <div className="p-3 text-center text-gray-500 text-sm">
-                            {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+                    {dropdowns.participants1 &&
+                      !loading &&
+                      (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
+                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                          <div className="p-2 border-b">
+                            <input
+                              type="text"
+                              placeholder="Cari nama atau email..."
+                              value={participantSearch}
+                              onChange={(e) => setParticipantSearch(e.target.value)}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {loadingParticipants ? (
+                            <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                          ) : participants.length > 0 ? (
+                            participants
+                              .filter((p) => !formData.selectedParticipants.find((sp) => sp.id === p.id))
+                              .map((participant) => (
+                                <button
+                                  key={participant.id}
+                                  onClick={() => handleParticipantSelect(participant, 0)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                >
+                                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                                </button>
+                              ))
+                          ) : (
+                            <div className="p-3 text-center text-gray-500 text-sm">
+                              {participantSearch ? "Tidak ada hasil pencarian" : "Tidak ada partisipan ditemukan"}
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
 
@@ -334,17 +352,19 @@ const ScheduleFormFields = ({
                 <div>
                   <div className="relative">
                     <button
-                      onClick={() => !loading && formData.selectedParticipants.length < 2 && toggleDropdown('participants2')}
-                      disabled={loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])}
+                      onClick={() =>
+                        !loading && formData.selectedParticipants.length < 2 && toggleDropdown("participants2")
+                      }
+                      disabled={
+                        loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])
+                      }
                       className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                        formData.selectedParticipants[1] ? 'px-3 py-2' : 'pl-6'
+                        formData.selectedParticipants[1] ? "px-3 py-2" : "pl-6"
                       }`}
-                      style={{ minHeight: '42px' }}
+                      style={{ minHeight: "42px" }}
                     >
                       {!formData.selectedParticipants[1] ? (
-                        <span className="text-gray-500">
-                          Email/nama Klien 2 (Opsional)
-                        </span>
+                        <span className="text-gray-500">Email/nama Klien 2 (Opsional)</span>
                       ) : (
                         <div className="flex items-center gap-2 py-1">
                           <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
@@ -352,7 +372,10 @@ const ScheduleFormFields = ({
                               {formData.selectedParticipants[1].fullName}
                             </div>
                             <button
-                              onClick={(e) => { e.stopPropagation(); removeParticipant(formData.selectedParticipants[1].id); }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeParticipant(formData.selectedParticipants[1].id)
+                              }}
                               disabled={loading}
                               className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
                             >
@@ -361,43 +384,47 @@ const ScheduleFormFields = ({
                           </div>
                         </div>
                       )}
-                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">keyboard_arrow_down</span>
+                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
+                        keyboard_arrow_down
+                      </span>
                     </button>
-                    {dropdowns.participants2 && !loading && (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
-                      <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                        <div className="p-2 border-b">
-                          <input
-                            type="text"
-                            placeholder="Cari nama atau email..."
-                            value={participantSearch}
-                            onChange={(e) => setParticipantSearch(e.target.value)}
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                        {loadingParticipants ? (
-                          <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                        ) : participants.length > 0 ? (
-                          participants
-                            .filter(p => !formData.selectedParticipants.find(sp => sp.id === p.id))
-                            .map((participant) => (
-                              <button
-                                key={participant.id}
-                                onClick={() => handleParticipantSelect(participant, 1)}
-                                className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                              >
-                                <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                              </button>
-                            ))
-                        ) : (
-                          <div className="p-3 text-center text-gray-500 text-sm">
-                            {participantSearch ? 'Tidak ada hasil pencarian' : 'Tidak ada partisipan ditemukan'}
+                    {dropdowns.participants2 &&
+                      !loading &&
+                      (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
+                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                          <div className="p-2 border-b">
+                            <input
+                              type="text"
+                              placeholder="Cari nama atau email..."
+                              value={participantSearch}
+                              onChange={(e) => setParticipantSearch(e.target.value)}
+                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#488BBA]"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            />
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {loadingParticipants ? (
+                            <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                          ) : participants.length > 0 ? (
+                            participants
+                              .filter((p) => !formData.selectedParticipants.find((sp) => sp.id === p.id))
+                              .map((participant) => (
+                                <button
+                                  key={participant.id}
+                                  onClick={() => handleParticipantSelect(participant, 1)}
+                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                >
+                                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
+                                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
+                                </button>
+                              ))
+                          ) : (
+                            <div className="p-3 text-center text-gray-500 text-sm">
+                              {participantSearch ? "Tidak ada hasil pencarian" : "Tidak ada partisipan ditemukan"}
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
@@ -409,13 +436,15 @@ const ScheduleFormFields = ({
             <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
             <select
               value={formData.location}
-              onChange={(e) => handleInputChange('location', e.target.value)}
+              onChange={(e) => handleInputChange("location", e.target.value)}
               disabled={loading}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
             >
               <option value="">Pilih Lokasi</option>
               {getAvailableLocations().map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
             </select>
           </div>
@@ -428,7 +457,7 @@ const ScheduleFormFields = ({
           <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
           <textarea
             value={formData.customLocation}
-            onChange={(e) => handleInputChange('customLocation', e.target.value)}
+            onChange={(e) => handleInputChange("customLocation", e.target.value)}
             placeholder="Masukkan lokasi"
             disabled={loading}
             className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 resize-none min-h-[42px]"
@@ -442,61 +471,78 @@ const ScheduleFormFields = ({
         <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
         <div className="flex-1">
           <div className="border border-gray-300 rounded-md min-h-[100px] p-3 relative">
-            {(!formData.description || formData.description.trim() === '' || formData.description === '<br>') && (
-              <div className="absolute top-3 left-3 text-gray-500 pointer-events-none">
-                Masukkan deskripsi
-              </div>
+            {(!formData.description || formData.description.trim() === "" || formData.description === "<br>") && (
+              <div className="absolute top-3 left-3 text-gray-500 pointer-events-none">Masukkan deskripsi</div>
             )}
             <div
               ref={editorRef}
               contentEditable={!loading}
               onInput={() => {
                 if (editorRef.current) {
-                  const content = editorRef.current.innerHTML;
-                  const cleanContent = content === '<br>' || content === '<div><br></div>' ? '' : content;
-                  
+                  const content = editorRef.current.innerHTML
+                  const cleanContent = content === "<br>" || content === "<div><br></div>" ? "" : content
+
                   if (cleanContent.length <= 255) {
-                    handleInputChange('description', cleanContent);
+                    handleInputChange("description", cleanContent)
                   } else {
-                    const truncated = cleanContent.substring(0, 255);
-                    editorRef.current.innerHTML = truncated;
-                    handleInputChange('description', truncated);
+                    const truncated = cleanContent.substring(0, 255)
+                    editorRef.current.innerHTML = truncated
+                    handleInputChange("description", truncated)
                   }
                 }
               }}
               onFocus={() => {
-                if (editorRef.current && (editorRef.current.innerHTML === '' || editorRef.current.innerHTML === '<br>')) {
-                  editorRef.current.innerHTML = '';
+                if (
+                  editorRef.current &&
+                  (editorRef.current.innerHTML === "" || editorRef.current.innerHTML === "<br>")
+                ) {
+                  editorRef.current.innerHTML = ""
                 }
               }}
               onBlur={() => {
                 if (editorRef.current) {
-                  const content = editorRef.current.innerHTML;
-                  if (content === '<br>' || content === '<div><br></div>' || content.trim() === '') {
-                    editorRef.current.innerHTML = '';
-                    handleInputChange('description', '');
+                  const content = editorRef.current.innerHTML
+                  if (content === "<br>" || content === "<div><br></div>" || content.trim() === "") {
+                    editorRef.current.innerHTML = ""
+                    handleInputChange("description", "")
                   }
                 }
               }}
               className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
-              style={{ wordBreak: 'break-word' }}
+              style={{ wordBreak: "break-word" }}
               suppressContentEditableWarning={true}
             />
-            
+
             {/* Attachment Preview */}
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {attachments.map((attachment) => (
                   <div key={attachment.id} className="relative group">
                     <button
-                      onClick={() => openAttachmentPreview(attachment)}
+                      onClick={() => {
+                        if (attachment.isExisting) {
+                          // For existing attachments, handle preview/download
+                          const attachmentUrl = attachment.downloadUrl.startsWith("http")
+                            ? attachment.downloadUrl
+                            : `${getUploadBaseUrl()}${attachment.downloadUrl}`
+                          if (attachment.type === "image" && attachmentUrl) {
+                            window.open(attachmentUrl, "_blank")
+                          } else if (attachmentUrl) {
+                            window.open(attachmentUrl, "_blank")
+                          }
+                        } else {
+                          // For new attachments, show preview
+                          openAttachmentPreview(attachment)
+                        }
+                      }}
                       className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-xs transition-colors"
-                      title="Click to preview"
+                      title={attachment.isExisting ? "Click to view/download" : "Click to preview"}
                     >
                       <span className="material-icons text-xs">
-                        {attachment.type === 'image' ? 'image' : 'description'}
+                        {attachment.type === "image" ? "image" : "description"}
                       </span>
                       <span className="max-w-20 truncate">{attachment.name}</span>
+                      {attachment.isExisting && <span className="text-blue-600 text-[10px]">(existing)</span>}
                     </button>
                     <button
                       onClick={() => removeAttachment(attachment.id)}
@@ -509,14 +555,14 @@ const ScheduleFormFields = ({
                 ))}
               </div>
             )}
-            
+
             <div className="flex items-center gap-3 mt-3">
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
-                onChange={(e) => handleFileSelect(e, 'document')}
+                onChange={(e) => handleFileSelect(e, "document")}
                 className="hidden"
                 disabled={loading}
               />
@@ -526,15 +572,17 @@ const ScheduleFormFields = ({
                 className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
                 title="Upload Files"
               >
-                <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>attach_file</span>
+                <span className="material-icons text-gray-400" style={{ fontSize: "18px" }}>
+                  attach_file
+                </span>
               </button>
-              
+
               <input
                 ref={photoInputRef}
                 type="file"
                 multiple
                 accept="image/*"
-                onChange={(e) => handleFileSelect(e, 'image')}
+                onChange={(e) => handleFileSelect(e, "image")}
                 className="hidden"
                 disabled={loading}
               />
@@ -544,12 +592,12 @@ const ScheduleFormFields = ({
                 className="flex items-center justify-center hover:text-[#488BBA] transition-colors"
                 title="Upload Photos"
               >
-                <span className="material-icons text-gray-400" style={{ fontSize: '18px' }}>add_photo_alternate</span>
+                <span className="material-icons text-gray-400" style={{ fontSize: "18px" }}>
+                  add_photo_alternate
+                </span>
               </button>
-              
-              {uploadingAttachments && (
-                <span className="text-xs text-blue-500">Uploading...</span>
-              )}
+
+              {uploadingAttachments && <span className="text-xs text-blue-500">Uploading...</span>}
             </div>
           </div>
 
@@ -561,7 +609,7 @@ const ScheduleFormFields = ({
         </div>
       </div>
     </>
-  );
-};
+  )
+}
 
-export default ScheduleFormFields;
+export default ScheduleFormFields

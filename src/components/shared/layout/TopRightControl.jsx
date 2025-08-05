@@ -1,4 +1,4 @@
-// src/components/shared/layout/TopRightControl.jsx - ENHANCED SOCKET DEBUG
+// src/components/shared/layout/TopRightControl.jsx - FIXED: Restored original socket logic
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -6,6 +6,46 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsAPI } from "@/components/shared/notifications/lib/api";
 import notificationSocket from "@/components/shared/notifications/lib/socket";
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
+
+// START: Language Switcher Component (No logic changes here)
+const LanguageSwitcher = () => {
+  const [selectedLang, setSelectedLang] = useState('ID');
+
+  const handleSelectLang = (lang) => {
+    setSelectedLang(lang);
+  };
+
+  const baseButtonClass = "w-14 h-full flex justify-center items-center gap-1.5 cursor-pointer transition-all duration-300 ease-in-out";
+  const activeClass = "bg-white rounded-[20px] shadow-[-1px_0px_1px_0px_rgba(0,0,0,0.13)]";
+  const inactiveClass = "text-white";
+  
+  const activeTextClass = "text-sm font-bold leading-tight";
+  const inactiveTextClass = "text-sm font-normal leading-tight";
+
+  return (
+    <div 
+      className="w-28 h-7 relative flex items-center rounded-[39px] outline outline-1 outline-[#488BBA]"
+      style={{ backgroundColor: '#488BBA' }}
+    >
+      <div
+        onClick={() => handleSelectLang('EN')}
+        className={`${baseButtonClass} ${selectedLang === 'EN' ? activeClass : inactiveClass}`}
+      >
+        <img src="/icon/us-flag.png" alt="US Flag" className="w-4 h-4" />
+        <span className={selectedLang === 'EN' ? "text-[#488BBA] " + activeTextClass : inactiveTextClass}>EN</span>
+      </div>
+      <div
+        onClick={() => handleSelectLang('ID')}
+        className={`${baseButtonClass} ${selectedLang === 'ID' ? activeClass : inactiveClass}`}
+      >
+        <img src="/icon/id-flag.png" alt="ID Flag" className="w-4 h-4" />
+        <span className={selectedLang === 'ID' ? "text-[#488BBA] " + activeTextClass : inactiveTextClass}>ID</span>
+      </div>
+    </div>
+  );
+};
+// END: Language Switcher Component
+
 
 const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const [openNotif, setOpenNotif] = useState(false);
@@ -16,7 +56,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 🔥 SIMPLIFIED: Use the SAME query key as hooks
+  // 🔥 ORIGINAL LOGIC: Use the SAME query key as hooks with new structure
   const { data: unreadData, isLoading, error: unreadError } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: notificationsAPI.getUnreadCount,
@@ -28,10 +68,10 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     retry: 3,
   });
 
-  // 🔥 SIMPLIFIED: Get count directly, no local state needed
-  const unreadCount = unreadData?.count || 0;
+  // 🔥 ORIGINAL LOGIC: Use generalCount instead of count
+  const unreadCount = (unreadData?.generalCount || 0) + (unreadData?.counselingCount || 0);
 
-  // 🔥 ENHANCED: Socket setup dengan better connection monitoring
+  // 🔥 ORIGINAL LOGIC: Socket setup dengan better connection monitoring. THIS IS THE RESTORED LOGIC.
   useEffect(() => {
     console.log('🔗 TopRightControl: Setting up socket connection')
     
@@ -58,7 +98,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     // Initial connection
     initializeSocket();
 
-    // 🔥 ENHANCED: Better status monitoring
+    // 🔥 ORIGINAL LOGIC: Better status monitoring
     statusCheckInterval = setInterval(() => {
       if (isComponentMounted) {
         const actualStatus = notificationSocket.isSocketConnected();
@@ -69,7 +109,8 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       }
     }, 5000); // Check every 5 seconds
 
-    // 🔥 MINIMAL REALTIME UPDATE HANDLERS
+    // 🔥 ORIGINAL LOGIC: MINIMAL REALTIME UPDATE HANDLERS
+    // This part is crucial for refreshing the unread count.
     const handleRealtimeUpdate = (event, payload) => {
       if (!isComponentMounted) return;
       
@@ -84,7 +125,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     const readHandler = (payload) => handleRealtimeUpdate('notification:read', payload);
     const markAllReadHandler = (payload) => handleRealtimeUpdate('notification:mark-all-read', payload);
 
-    // 🔥 ENHANCED: Monitor socket connection status
+    // 🔥 ORIGINAL LOGIC: Monitor socket connection status
     const handleConnect = () => {
       if (isComponentMounted) {
         console.log('🔗 TopRightControl: Socket connected');
@@ -110,7 +151,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       }
     }
 
-    // 🔥 ADD SOCKET LISTENERS
+    // 🔥 ORIGINAL LOGIC: ADD SOCKET LISTENERS
     notificationSocket.on('notification:created', createdHandler);
     notificationSocket.on('notification:read', readHandler);
     notificationSocket.on('notification:mark-all-read', markAllReadHandler);
@@ -136,7 +177,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         clearInterval(statusCheckInterval);
       }
       
-      // 🔥 CLEANUP SOCKET LISTENERS
+      // 🔥 ORIGINAL LOGIC: CLEANUP SOCKET LISTENERS
       notificationSocket.off('notification:created', createdHandler);
       notificationSocket.off('notification:read', readHandler);
       notificationSocket.off('notification:mark-all-read', markAllReadHandler);
@@ -151,7 +192,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     }
   }, [queryClient])
 
-  // 🔥 FORCE RECONNECT FUNCTION
+  // 🔥 ORIGINAL LOGIC: FORCE RECONNECT FUNCTION
   const handleForceReconnect = () => {
     console.log('🔄 Force reconnecting socket...');
     notificationSocket.forceReconnect()
@@ -165,7 +206,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       });
   };
 
-  // 🔥 SIMPLIFIED: Format badge count
+  // 🔥 ORIGINAL LOGIC: SIMPLIFIED: Format badge count
   const formatBadgeCount = (count) => {
     if (isLoading || count === 0) return null
     if (count > 99) return "99+"
@@ -174,9 +215,11 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
 
   const displayCount = formatBadgeCount(unreadCount)
 
-  // 🔥 ENHANCED DEBUG LOGGING
-  console.log('🎯 TopRightControl ENHANCED DEBUG:', {
-    unreadCount,
+  // 🔥 ORIGINAL LOGIC: UPDATED DEBUG LOGGING with clean structure
+  console.log('🎯 TopRightControl CLEAN DEBUG:', {
+    unreadCount: unreadCount,
+    generalCount: unreadData?.generalCount,
+    counselingCount: unreadData?.counselingCount,
     displayCount,
     isLoading,
     isSocketConnected,
@@ -223,7 +266,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     ? "absolute top-[29px] right-[12px] z-50"
     : "flex justify-end w-full";
 
-  // 🔥 ENHANCED: Better status determination
+  // 🔥 ORIGINAL LOGIC: ENHANCED: Better status determination
   const getConnectionStatus = () => {
     if (isSocketConnected) return 'connected';
     if (socketRetryCount > 0) return 'retrying';
@@ -234,19 +277,15 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
 
   return (
     <div className={`${wrapperClass} ${className} flex items-center gap-4 sm:gap-6`}>
-      {/* Language Switch */}
-      <div className="flex items-center">
-        <span className="font-bold text-primary text-sm sm:text-base">ID</span>
-        <span className="mx-2 text-primary text-sm sm:text-base">/</span>
-        <span className="text-zinc-500 text-sm sm:text-base">EN</span>
-      </div>
+      {/* Language Switch - INTEGRATED */}
+      <LanguageSwitcher />
 
       {/* Notification Container */}
       <div className="relative" ref={notifRef}>
         <button
           aria-label="Notifications"
           onClick={() => setOpenNotif(!openNotif)}
-          onDoubleClick={handleForceReconnect} // 🔥 Double click to force reconnect
+          onDoubleClick={handleForceReconnect}
           className={`material-icons text-xl sm:text-2xl transition-colors relative inline-flex items-center justify-center ${
             connectionStatus === 'connected' 
               ? "text-zinc-500 hover:text-[#488BBE]" 
@@ -264,7 +303,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         >
           notifications
           
-          {/* 🔥 ENHANCED CONNECTION STATUS INDICATOR */}
+          {/* 🔥 ORIGINAL LOGIC: ENHANCED CONNECTION STATUS INDICATOR */}
           {connectionStatus !== 'connected' && (
             <span 
               className={`absolute flex items-center justify-center text-white font-bold rounded-full ${
@@ -283,7 +322,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
             />
           )}
           
-          {/* 🔥 SIMPLIFIED BADGE COUNT */}
+          {/* 🔥 ORIGINAL LOGIC: SIMPLIFIED BADGE COUNT using generalCount */}
           {displayCount && (
             <span 
               className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266] animate-pulse"
@@ -310,7 +349,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
           )}
         </button>
 
-        {/* 🔥 SIMPLIFIED DROPDOWN - No need to pass mutation props */}
+        {/* 🔥 ORIGINAL LOGIC: SIMPLIFIED DROPDOWN */}
         {openNotif && (
           <NotificationDropdown
             onViewAll={handleViewAllNotifications}
@@ -318,8 +357,6 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
           />
         )}
       </div>
-
-
     </div>
   );
 };

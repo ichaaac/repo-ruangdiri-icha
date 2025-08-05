@@ -1,4 +1,4 @@
-// src/routes/routeConfig.jsx - WITH DEVELOPMENT ROUTES FOR STUDENT/EMPLOYEE
+// src/routes/routeConfig.jsx - UPDATED WITH NEW BOOKING COMPONENTS
 
 import React from "react";
 import { Navigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import ProtectedRoute from "../components/auth/ProtectedRoute";
 // === LAYOUTS ===
 import CompanyLayout from "../components/organization/company/layout/CompanyLayout";
 import SchoolLayout from "../components/organization/school/layout/SchoolLayout";
+import UserLayout from "../components/user/shared/layout/UserLayout";
 
 // === PUBLIC PAGES ===
 import Homepage from "../pages/shared/HomePage";
@@ -14,17 +15,11 @@ import Login from "../pages/shared/auth/Login";
 import ForgotPassword from "../pages/shared/auth/ForgotPassword";
 import ResetPassword from "../pages/shared/auth/ResetPassword";
 
-// === ONBOARDING PAGES ===
-import OnboardingForm from "@/pages/shared/OnboardingForm";
-import OnboardingSplashScreen from "@/pages/shared/OnboardingSplashScreen";
-
-// === ONBOARDING PAGES - STUDENT/EMPLOYEE ===
-import StudentOnboardingSplashScreen from "@/pages/user/student/OnboardingSplashScreen";
-import EmployeeOnboardingSplashScreen from "@/pages/user/employee/OnboardingSplashScreen";
-import UserOnboardingForm from "@/pages/user/shared/OnboardingForm";
+// === UNIFIED ONBOARDING COMPONENTS ===
+import OnboardingContainer from "@/components/shared/onboarding/OnboardingContainer";
 
 // === SHARED PAGES ===
-import NotificationPage from "@/pages/shared/NotificationPage";
+import NotificationPage from "../pages/shared/NotificationPage";
 
 // === COMPANY PAGES ===
 import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
@@ -40,7 +35,18 @@ import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
 import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
 import SchoolSchedule from "../pages/organization/school/SchoolSchedule";
 
-// === SHARED COMPONENTS ===
+// === USER PAGES (SHARED) ===
+import BookingSession from "../pages/user/shared/BookingSession";
+import ChatPage from "../pages/user/shared/ChatPage";
+import UserProfile from "../pages/user/shared/UserProfile";
+import MentalHealthScreening from "../pages/user/shared/MentalHealthScreening";
+import UserDashboard from "../pages/user/shared/UserDashboard";
+
+// === NEW BOOKING COMPONENTS ===
+import StudentBookingPage from "@/pages/user/student/StudentBookingPages";
+import EmployeeBookingPage from "../pages/user/employee/EmployeeBookingPage";
+
+// === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
   <div className="p-8 text-center">
     <div className="max-w-md mx-auto">
@@ -50,6 +56,50 @@ const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => 
       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
         <p className="text-green-700 text-sm">
           🚧 Feature ini sedang dalam pengembangan
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+// === PSYCHOLOGIST COMING SOON PAGE ===
+const PsychologistComingSoon = () => (
+  <div className="p-8 text-center">
+    <div className="max-w-lg mx-auto">
+      <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <span className="material-icons text-purple-600 text-3xl">psychology</span>
+      </div>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Platform Psikolog</h2>
+      <p className="text-gray-600 mb-6">
+        Fitur khusus untuk psikolog sedang dalam tahap pengembangan final. 
+        Saat ini Anda dapat mengakses sistem chat untuk berkomunikasi dengan klien.
+      </p>
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+        <h3 className="font-semibold text-blue-800 mb-3">Fitur yang Akan Datang:</h3>
+        <ul className="text-sm text-blue-700 space-y-2 text-left">
+          <li className="flex items-center gap-2">
+            <span className="material-icons text-xs">schedule</span>
+            Manajemen jadwal konseling
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="material-icons text-xs">folder_shared</span>
+            Case management system
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="material-icons text-xs">assessment</span>
+            Assessment tools terintegrasi
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="material-icons text-xs">analytics</span>
+            Dashboard analytics klien
+          </li>
+        </ul>
+      </div>
+
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <p className="text-green-800 text-sm font-medium">
+          💬 Sistem Chat sudah tersedia untuk komunikasi dengan klien
         </p>
       </div>
     </div>
@@ -79,71 +129,178 @@ const routes = [
   },
 
   // ==========================================
-  // ONBOARDING ROUTES (PROTECTED) - ORGANIZATION ADMIN
+  // UNIFIED ONBOARDING SYSTEM
   // ==========================================
   {
     path: "/onboarding",
     element: (
       <ProtectedRoute>
-        <OnboardingSplashScreen />
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/onboarding/form",
-    element: (
-      <ProtectedRoute>
-        <OnboardingForm />
+        <OnboardingContainer />
       </ProtectedRoute>
     )
   },
 
   // ==========================================
-  // ONBOARDING ROUTES (PROTECTED) - STUDENT/EMPLOYEE
+  // STUDENT ROUTES - UPDATED WITH NEW BOOKING
   // ==========================================
   {
-    path: "/user/onboarding/student",
+    path: "/user/student",
     element: (
-      <ProtectedRoute>
-        <StudentOnboardingSplashScreen />
+      <ProtectedRoute requiredRole="student">
+        <UserLayout userType="student" />
       </ProtectedRoute>
-    )
-  },
-  {
-    path: "/user/onboarding/employee",
-    element: (
-      <ProtectedRoute>
-        <EmployeeOnboardingSplashScreen />
-      </ProtectedRoute>
-    )
-  },
-  {
-    path: "/user/onboarding/form",
-    element: (
-      <ProtectedRoute>
-        <UserOnboardingForm />
-      </ProtectedRoute>
-    )
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="screening" replace />
+      },
+      {
+        path: "dashboard",
+        element: <UserDashboard />
+      },
+      {
+        path: "screening",
+        element: <MentalHealthScreening />
+      },
+      {
+        path: "booking",
+        element: <StudentBookingPage />
+      },
+      {
+        path: "booking-sesi",
+        element: <BookingSession />
+      },
+      {
+        path: "chat",
+        element: <ChatPage />
+      },
+      {
+        path: "profile",
+        element: <UserProfile />
+      },
+      {
+        path: "notifications",
+        element: <NotificationPage />
+      }
+    ]
   },
 
   // ==========================================
-  // DEVELOPMENT ROUTES - REMOVE IN PRODUCTION
+  // EMPLOYEE ROUTES - UPDATED WITH NEW BOOKING
   // ==========================================
   {
-    path: "/dev/student-onboarding",
-    element: <StudentOnboardingSplashScreen />
-  },
-  {
-    path: "/dev/employee-onboarding",
-    element: <EmployeeOnboardingSplashScreen />
-  },
-  {
-    path: "/dev/user-onboarding-form",
-    element: <UserOnboardingForm />
+    path: "/user/employee",
+    element: (
+      <ProtectedRoute requiredRole="employee">
+        <UserLayout userType="employee" />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="screening" replace />
+      },
+      {
+        path: "dashboard",
+        element: <UserDashboard />
+      },
+      {
+        path: "screening",
+        element: <MentalHealthScreening />
+      },
+      {
+        path: "booking-sesi",
+        element: <BookingSession />
+      },
+      {
+        path: "booking",
+        element: <EmployeeBookingPage />
+      },
+      {
+        path: "chat",
+        element: <ChatPage />
+      },
+      {
+        path: "profile",
+        element: <UserProfile />
+      },
+      {
+        path: "notifications",
+        element: <NotificationPage />
+      }
+    ]
   },
 
   // ==========================================
-  // SCHOOL ORGANIZATION ROUTES (PROTECTED)
+  // PSYCHOLOGIST ROUTES - Updated for current functionality
+  // ==========================================
+  {
+    path: "/user/psychologist",
+    element: (
+      <ProtectedRoute requiredRole="psychologist">
+        <UserLayout userType="psychologist" />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="chat" replace />
+      },
+      {
+        path: "dashboard",
+        element: <PsychologistComingSoon />
+      },
+      {
+        path: "chat",
+        element: <ChatPage />
+      },
+      {
+        path: "profile",
+        element: <UserProfile />
+      },
+      {
+        path: "notifications",
+        element: <NotificationPage />
+      },
+      // Placeholder routes for future features
+      {
+        path: "schedule",
+        element: <UnderDevelopmentPage 
+          title="Manajemen Jadwal" 
+          description="Kelola jadwal konseling dan appointment dengan klien"
+          icon="schedule"
+        />
+      },
+      {
+        path: "clients",
+        element: <UnderDevelopmentPage 
+          title="Manajemen Klien" 
+          description="Overview klien, riwayat sesi, dan progress tracking"
+          icon="groups"
+        />
+      },
+      {
+        path: "assessments",
+        element: <UnderDevelopmentPage 
+          title="Assessment Tools" 
+          description="Tools asesmen kesehatan mental untuk klien"
+          icon="assessment"
+        />
+      },
+      {
+        path: "analytics",
+        element: <UnderDevelopmentPage 
+          title="Analytics & Reports" 
+          description="Analisis data klien dan laporan progress"
+          icon="analytics"
+        />
+      }
+    ]
+  },
+
+  // ==========================================
+  // SCHOOL ORGANIZATION ROUTES
   // ==========================================
   {
     path: "/organization/school",
@@ -197,7 +354,7 @@ const routes = [
   },
 
   // ==========================================
-  // COMPANY ORGANIZATION ROUTES (PROTECTED)
+  // COMPANY ORGANIZATION ROUTES
   // ==========================================
   {
     path: "/organization/company",
@@ -267,6 +424,18 @@ const routes = [
   },
 
   // ==========================================
+  // DEVELOPMENT ROUTES - For Testing Unified Components
+  // ==========================================
+  {
+    path: "/onboarding",
+    element: (
+      <ProtectedRoute>
+        <OnboardingContainer />
+      </ProtectedRoute>
+    )
+  },
+
+  // ==========================================
   // LEGACY REDIRECTS
   // ==========================================
   {
@@ -280,6 +449,12 @@ const routes = [
   {
     path: "/demo/*",
     element: <Navigate to="/" replace />
+  },
+  
+  // Redirect old user onboarding routes to unified system
+  {
+    path: "/user/onboarding/*",
+    element: <Navigate to="/onboarding" replace />
   },
 
   // ==========================================

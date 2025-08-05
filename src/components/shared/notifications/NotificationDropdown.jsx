@@ -1,15 +1,7 @@
 // src/components/shared/notifications/NotificationDropdown.jsx
 
 import React, { useState, useMemo } from "react";
-import dayjs from "dayjs";
-import isToday from "dayjs/plugin/isToday";
-import utc from "dayjs/plugin/utc";
-import timezone from "dayjs/plugin/timezone";
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown";
-
-dayjs.extend(isToday);
-dayjs.extend(utc);
-dayjs.extend(timezone);
 
 const NotificationDropdown = ({ onViewAll, onClose }) => {
   const [selectedTab, setSelectedTab] = useState('all');
@@ -17,40 +9,29 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
   const { 
     notifications, 
     unreadCount, 
-    counselingCount, 
+    counselingCount,
     isLoading, 
     formatTimeAgo, 
-    formatUnreadCount 
+    formatUnreadCount,
+    isNotificationFromToday
   } = useNotificationDropdown(selectedTab);
 
-  // 🔥 ENHANCED: Memoize notification grouping dengan timezone handling yang benar
+  const totalUnreadCount = unreadCount + counselingCount;
+
   const { todayNotifications, previousNotifications } = useMemo(() => {
     const today = [];
     const previous = [];
-    const nowLocal = dayjs().tz('Asia/Jakarta');
     
     notifications.forEach(notif => {
-      try {
-        // Parse sebagai UTC dan convert ke timezone lokal
-        const notifTime = dayjs.utc(notif.createdAt).tz('Asia/Jakarta');
-        
-        if (notifTime.isSame(nowLocal, 'day')) {
-          today.push(notif);
-        } else {
-          previous.push(notif);
-        }
-      } catch (error) {
-        console.error('❌ Error parsing notification time:', notif.id, error);
-        // Fallback ke parsing biasa
-        if (dayjs(notif.createdAt).isToday()) {
-          today.push(notif);
-        } else {
-          previous.push(notif);
-        }
+      if (isNotificationFromToday(notif.createdAt)) {
+        today.push(notif);
+      } else {
+        previous.push(notif);
       }
     });
+    
     return { todayNotifications: today, previousNotifications: previous };
-  }, [notifications]);
+  }, [notifications, isNotificationFromToday]);
 
   const getNotificationIcon = (notification) => {
     const { type, subType } = notification;
@@ -70,7 +51,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     return '#535353';
   };
 
-  // 🔥 CHECK IF NOTIFICATION IS READ
   const isNotificationRead = (notification) => {
     return notification.status === 'read' || notification.isRead || notification.readAt;
   };
@@ -85,7 +65,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           isRead ? "bg-gray-100 opacity-60" : "bg-white"
         }`}
       >
-        {/* 🔥 UPDATED: Icon tanpa background rounded, size 37px */}
         <span 
           className="material-icons flex-shrink-0"
           style={{ 
@@ -113,7 +92,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
   return (
     <div className="absolute right-0 mt-2 w-[395px] max-h-[400px] overflow-hidden bg-white shadow-lg rounded-b-xl z-50 border border-gray-200 flex flex-col">
       
-      {/* HEADER SECTION */}
       <div className="p-5 pb-0">
         <div className="text-[#488abe] font-semibold text-base mb-4">Notifikasi</div>
         <div className="flex items-center gap-5 text-sm text-[#535353] mb-4">
@@ -121,11 +99,11 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             onClick={() => setSelectedTab('all')}
             className={`flex items-center gap-2 transition-colors ${selectedTab === 'all' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
           >
-            <span>Semua</span>
-            {unreadCount > 0 && (
-              <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                {formatUnreadCount(unreadCount)}
-              </span>
+          <span>Semua</span>
+            {totalUnreadCount > 0 && (
+              <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                {formatUnreadCount(totalUnreadCount)}
+              </span>
             )}
           </button>
           <button
@@ -142,7 +120,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         </div>
       </div>
 
-      {/* CONTENT SECTION (VIEW ONLY) */}
       <div className="flex-grow max-h-[290px] overflow-y-auto">
         {isLoading && (
           <div className="flex justify-center items-center h-full">
@@ -153,7 +130,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           <div className="px-5">
             {notifications.length > 0 ? (
               <div className="space-y-3">
-                {/* 🔥 ENHANCED: Render "Hari Ini" section */}
                 {todayNotifications.length > 0 && (
                   <div>
                     <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
@@ -167,7 +143,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                   </div>
                 )}
                 
-                {/* 🔥 ENHANCED: Render "Sebelumnya" section */}
                 {previousNotifications.length > 0 && (
                   <div>
                     <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
@@ -191,7 +166,6 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         )}
       </div>
 
-      {/* FOOTER SECTION */}
       <div className="border-t border-gray-100 p-4 bg-gray-50 mt-auto">
         <button
           onClick={onViewAll}

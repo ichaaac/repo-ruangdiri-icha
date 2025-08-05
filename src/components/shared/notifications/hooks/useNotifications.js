@@ -2,39 +2,13 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import dayjs from "dayjs"
-import relativeTime from "dayjs/plugin/relativeTime"
-import updateLocale from "dayjs/plugin/updateLocale"
-import utc from "dayjs/plugin/utc"
-import timezone from "dayjs/plugin/timezone"
-import "dayjs/locale/id"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
-import { getRelativeTime, formatDateIndonesian } from "../../schedule/utils/timezoneHandler"
-
-dayjs.extend(relativeTime)
-dayjs.extend(updateLocale)
-dayjs.extend(utc)
-dayjs.extend(timezone)
-dayjs.locale("id")
-
-dayjs.updateLocale("id", {
-  relativeTime: {
-    future: "dalam %s",
-    past: "%s lalu",
-    s: "beberapa detik",
-    m: "semenit",
-    mm: "%d menit",
-    h: "sejam",
-    hh: "%d jam",
-    d: "sehari",
-    dd: "%d hari",
-    M: "sebulan",
-    MM: "%d bulan",
-    y: "setahun",
-    yy: "%d tahun",
-  },
-})
+import { 
+  formatTimeAgoDetailed, 
+  getDateLabel, 
+  groupNotificationsByDate 
+} from "../lib/timezoneUtils"
 
 export const useNotifications = () => {
   const queryClient = useQueryClient()
@@ -50,14 +24,8 @@ export const useNotifications = () => {
     refetchInterval: false,
   })
 
-  const unreadCount = unreadData?.count || 0
-
-  // 🔥 DEBUG: Log unread count
-  console.log('🔢 useNotifications unreadCount:', {
-    unreadCount,
-    unreadData,
-    selectedTab
-  });
+  const generalCount = unreadData?.generalCount || 0
+  const counselingCount = unreadData?.counselingCount || 0
 
   const {
     data,
@@ -77,10 +45,7 @@ export const useNotifications = () => {
         type: selectedTab,
       };
       
-      console.log('🔍 Fetching notifications with filters:', filters);
       const result = await notificationsAPI.getNotifications(filters);
-      console.log('📊 Fetched notifications result:', result);
-      
       return result;
     },
     getNextPageParam: (lastPage, allPages) => {
@@ -110,61 +75,12 @@ export const useNotifications = () => {
   const notifications = data?.pages.flatMap(page => page.notifications) || []
   const totalCount = data?.pages[0]?.total || 0
 
-  // 🔥 FIXED: Updated grouping dengan timezone handling yang benar
-  const groupedNotifications = notifications.reduce((acc, notification) => {
-    try {
-      // Parse waktu sebagai UTC dan convert ke timezone lokal
-      const notificationTime = dayjs.utc(notification.createdAt).tz('Asia/Jakarta');
-      const dateKey = notificationTime.format("YYYY-MM-DD");
-      
-      if (!acc[dateKey]) {
-        acc[dateKey] = []
-      }
-      acc[dateKey].push(notification)
-    } catch (error) {
-      console.error('❌ Error grouping notification:', notification.id, error);
-      // Fallback ke parsing biasa
-      const dateKey = dayjs(notification.createdAt).format("YYYY-MM-DD");
-      if (!acc[dateKey]) {
-        acc[dateKey] = []
-      }
-      acc[dateKey].push(notification)
-    }
-    return acc
-  }, {})
-
-  // 🔥 FIXED: Calculate unread counts from loaded notifications
-  // Note: unreadCount dari API mungkin berbeda dengan yang kita hitung dari loaded notifications
-  // karena loaded notifications ter-paginate sementara unreadCount dari API adalah total global
-  
-  const loadedUnreadCount = notifications.filter(
-    (notif) => !(notif.status === 'read' || notif.isRead || notif.readAt)
-  ).length;
-
-  const counselingCount = notifications.filter(
-    (notif) => notif.type === 'schedule' && 
-    !(notif.status === 'read' || notif.isRead || notif.readAt)
-  ).length
-
-  console.log('📈 Notification counts EXPLAINED:', {
-    totalCount,           // Total from API (all notifications available)
-    unreadCount,          // Global unread count from API endpoint
-    loadedUnreadCount,    // Unread count dari notifications yang sudah di-load
-    counselingCount,      // Unread schedule notifications dari yang sudah di-load
-    totalNotificationsLoaded: notifications.length,
-    selectedTab,
-    breakdown: {
-      system: notifications.filter(n => n.type === 'system').length,
-      schedule: notifications.filter(n => n.type === 'schedule').length,
-      report: notifications.filter(n => n.type === 'report').length,
-    },
-    explanation: 'totalCount shows ALL available notifications, unreadCount shows global unread count'
-  });
+  // 🔥 UPDATED: Use utility function for grouping
+  const groupedNotifications = groupNotificationsByDate(notifications);
 
   const markAsReadMutation = useMutation({
     mutationFn: (notificationIds) => notificationsAPI.markAsRead(notificationIds),
     onSuccess: (response, notificationIds) => {
-      console.log('✅ Main: Mark as read success:', response)
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-dropdown'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -175,7 +91,6 @@ export const useNotifications = () => {
   const markAllAsReadMutation = useMutation({
     mutationFn: notificationsAPI.markallAsRead,
     onSuccess: (response) => {
-      console.log('✅ Main: Mark all as read success:', response)
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-dropdown'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -184,13 +99,14 @@ export const useNotifications = () => {
   })
 
   useEffect(() => {
-    notificationSocket.connect()
+    notificationSocket.connect().catch(err => {
+      console.error('❌ Socket connection failed:', err);
+    });
 
     const handleRealtimeUpdate = (event) => {
-        console.log(`🔔 Main: Received '${event}' event. Invalidating queries.`);
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        queryClient.invalidateQueries({ queryKey: ['notifications-dropdown'] });
-        queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-dropdown'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
     };
 
     const createdHandler = () => handleRealtimeUpdate('notification:created');
@@ -206,88 +122,39 @@ export const useNotifications = () => {
       notificationSocket.off('notification:read', readHandler)
       notificationSocket.off('notification:mark-all-read', markAllReadHandler)
     }
-  }, [queryClient, selectedTab])
+  }, [queryClient])
 
   const handleTabChange = useCallback((tab) => {
-    console.log('🔄 Tab changed to:', tab);
     setSelectedTab(tab)
   }, [])
 
   const handleMarkAsRead = useCallback((notificationId) => {
-    console.log('📖 Marking as read:', notificationId);
     markAsReadMutation.mutate([notificationId])
   }, [markAsReadMutation])
 
   const handleMarkAllAsRead = useCallback(() => {
-    console.log('📖 Marking all as read');
     markAllAsReadMutation.mutate()
   }, [markAllAsReadMutation])
 
-  // 🔥 FIXED: Improved date label dengan timezone handling
-  const getDateLabel = useCallback((dateString) => {
-    try {
-      // Parse dateString sebagai date lokal (karena sudah diformat sebagai YYYY-MM-DD)
-      const date = dayjs(dateString);
-      const today = dayjs().tz('Asia/Jakarta');
-      const yesterday = dayjs().tz('Asia/Jakarta').subtract(1, 'day');
-
-      if (date.isSame(today, 'day')) return 'Hari Ini'
-      if (date.isSame(yesterday, 'day')) return 'Kemarin'
-      
-      try {
-        return formatDateIndonesian(dateString) || date.format('DD MMMM YYYY')
-      } catch {
-        return date.format('DD MMMM YYYY')
-      }
-    } catch (error) {
-      console.error('❌ Error formatting date label:', dateString, error);
-      return dayjs(dateString).format('DD MMMM YYYY')
-    }
+  // 🔥 UPDATED: Use utility function
+  const formatDateLabel = useCallback((dateString) => {
+    return getDateLabel(dateString);
   }, [])
 
-  // 🔥 FIXED: Improved time formatting dengan timezone handling
+  // 🔥 DETAILED FORMAT untuk main page - dengan timestamp pukul
   const formatTimeAgo = useCallback((timestamp) => {
     if (!timestamp) return "";
-
-    try {
-      // Parse timestamp sebagai UTC dan convert ke timezone lokal (WIB)
-      const notificationTime = dayjs.utc(timestamp).tz('Asia/Jakarta');
-      const now = dayjs().tz('Asia/Jakarta');
-      
-      const diffSeconds = now.diff(notificationTime, 'second');
-      
-      // Jika waktu notifikasi di masa depan (karena sync issue), anggap sebagai "baru saja"
-      if (diffSeconds < 0) {
-        console.log('⚠️ Future timestamp detected, treating as "baru saja"');
-        return "Baru saja";
-      }
-      
-      if (diffSeconds < 60) return "Baru saja";
-
-      const diffMinutes = now.diff(notificationTime, 'minute');
-      if (diffMinutes < 60) return `${diffMinutes} menit lalu`;
-      
-      const diffHours = now.diff(notificationTime, 'hour');
-      if (diffHours < 24) return `${diffHours} jam lalu`;
-
-      // Untuk notifikasi yang lebih lama, gunakan fungsi getDateLabel
-      return getDateLabel(notificationTime.format('YYYY-MM-DD'));
-
-    } catch (error) {
-      console.error('❌ Error formatting time ago:', timestamp, error);
-      // Fallback jika terjadi error parsing
-      return dayjs(timestamp).fromNow();
-    }
-  }, [getDateLabel]);
+    return formatTimeAgoDetailed(timestamp);
+  }, []);
 
   const formatCount = useCallback((count) => {
-    return count > 99 ? '99+' : count.toString()
+    return count > 999 ? '999+' : count.toString()
   }, [])
 
   return {
     groupedNotifications,
     totalCount,
-    unreadCount,
+    unreadCount: generalCount,
     counselingCount,
     selectedTab,
     isLoading,
@@ -299,7 +166,7 @@ export const useNotifications = () => {
     handleMarkAsRead,
     handleMarkAllAsRead,
     fetchNextPage,
-    getDateLabel,
+    getDateLabel: formatDateLabel,
     formatTimeAgo,
     formatCount,
     isMarkingAsRead: markAsReadMutation.isPending,

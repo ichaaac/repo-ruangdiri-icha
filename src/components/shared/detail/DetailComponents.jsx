@@ -538,7 +538,6 @@ export const Divider = ({ sidebarExpanded = false }) => (
 export const DetailPageLayout = ({ children, sidebarExpanded = false }) => {
   return (
     <main className="bg-white min-h-screen relative">
-      <LanguageSwitcher />
       <div className="flex flex-col lg:flex-row">
         <motion.aside
           className="hidden lg:block flex-shrink-0"

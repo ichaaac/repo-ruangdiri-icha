@@ -1,18 +1,16 @@
-// src/components/shared/schedule/EditScheduleModal.jsx - Simplified Edit Modal
-
-import React from "react";
-import { toast } from "sonner";
-import { useScheduleForm } from "./hooks/useScheduleForm";
-import ScheduleFormFields from "./ScheduleFormFields";
-import AttachmentPreviewModal from "./AttachmentPreviewModal";
-
+"use client"
+import { toast } from "sonner"
+import { useScheduleForm } from "./hooks/useScheduleForm"
+import ScheduleFormFields from "./ScheduleFormFields"
+import AttachmentPreviewModal from "./AttachmentPreviewModal"
 
 const EditScheduleModal = ({
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  initialData = null, 
-  loading = false
+  isOpen,
+  onClose,
+  onSubmit,
+  initialData = null,
+  loading = false,
+  onCancelReturnToView, // New prop for returning to view modal
 }) => {
   const {
     formData,
@@ -50,181 +48,264 @@ const EditScheduleModal = ({
     hasUnsavedChanges,
     parseErrorMessage,
     uploadAttachmentsMutation,
-  } = useScheduleForm("edit", initialData, isOpen);
+    setUploadingAttachments, // Declared variable
+  } = useScheduleForm("edit", initialData, isOpen)
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      return;
+      return
     }
-    
+
     // For edit mode - only send changed fields
-    const submitData = {};
+    const submitData = {}
 
     if (formData.agenda.trim() !== (initialData.agenda || "").trim()) {
-      submitData.agenda = formData.agenda.trim();
+      submitData.agenda = formData.agenda.trim()
     }
 
     if (formData.type !== (initialData.type || "counseling")) {
-      submitData.type = formData.type;
+      submitData.type = formData.type
     }
 
     if (formData.description.trim() !== (initialData.description || "").trim()) {
-      submitData.description = formData.description.trim();
+      submitData.description = formData.description.trim()
     }
 
     if (formData.notificationOffset !== (initialData.notificationOffset || 60)) {
-      submitData.notificationOffset = formData.notificationOffset;
+      submitData.notificationOffset = formData.notificationOffset
     }
 
-    const currentDatesStr = JSON.stringify(formData.dates);
-    const initialDatesStr = JSON.stringify(initialData.dates || []);
+    const currentDatesStr = JSON.stringify(formData.dates)
+    const initialDatesStr = JSON.stringify(initialData.dates || [])
     if (currentDatesStr !== initialDatesStr) {
-      submitData.dates = formData.dates;
+      submitData.dates = formData.dates
     }
 
     if (formData.type === "counseling") {
-      const currentPsychId = formData.selectedPsychologist?.id;
-      const initialPsychId = initialData.selectedPsychologist?.id;
-      
-      const currentPatientIds = formData.selectedParticipants.map(p => p.id).sort();
-      const initialPatientIds = (initialData.selectedParticipants || []).map(p => p.id).sort();
-      
-      const psychChanged = currentPsychId !== initialPsychId;
-      const patientsChanged = JSON.stringify(currentPatientIds) !== JSON.stringify(initialPatientIds);
-      
+      const currentPsychId = formData.selectedPsychologist?.id
+      const initialPsychId = initialData.selectedPsychologist?.id
+
+      const currentPatientIds = formData.selectedParticipants.map((p) => p.id).sort()
+      const initialPatientIds = (initialData.selectedParticipants || []).map((p) => p.id).sort()
+
+      const psychChanged = currentPsychId !== initialPsychId
+      const patientsChanged = JSON.stringify(currentPatientIds) !== JSON.stringify(initialPatientIds)
+
       if (psychChanged || patientsChanged) {
         if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
           submitData.participants = {
             psychologistId: formData.selectedPsychologist.id,
-            patientIds: formData.selectedParticipants.map(participant => participant.id)
-          };
+            patientIds: formData.selectedParticipants.map((participant) => participant.id),
+          }
         }
       }
     }
 
     if (formData.type === "counseling") {
-      const currentLoc = formData.location;
-      const initialLoc = initialData.location || initialData._originalBackendLocation || "";
-      
+      const currentLoc = formData.location
+      const initialLoc = initialData.location || initialData._originalBackendLocation || ""
+
       if (currentLoc !== initialLoc) {
-        const isStandardLocation = fixedLocationOptions.find(opt => opt.value === currentLoc);
+        const isStandardLocation = fixedLocationOptions.find((opt) => opt.value === currentLoc)
         if (isStandardLocation) {
-          submitData.location = currentLoc;
+          submitData.location = currentLoc
         } else {
-          submitData.location = "offline";
-          submitData.actualLocationName = currentLoc;
+          submitData.location = "offline"
+          submitData.actualLocationName = currentLoc
         }
       }
     } else {
       if (formData.customLocation !== (initialData.customLocation || "")) {
-        submitData.customLocation = formData.customLocation;
+        submitData.customLocation = formData.customLocation
       }
     }
 
     if (initialData?.id) {
-      submitData.id = initialData.id;
+      submitData.id = initialData.id
     }
-    
+
+    const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting) // Declared variable
+
     try {
-      const result = await onSubmit(submitData);
-      
-      // Handle attachments after successful update
-      if (result?.data && attachments.length > 0) {
+      console.log("=== EditScheduleModal handleSubmit ===")
+      console.log("Submit data:", submitData)
+      console.log("Attachments to upload:", newAttachmentsToUpload)
+
+      // Filter out existing attachments, only upload new ones
+
+      // FIXED: Update schedule first, then handle attachments
+      const result = await onSubmit(submitData)
+      console.log("Schedule update result:", result)
+
+      // FIXED: Handle attachments after successful update with better error handling
+      if (result?.data && newAttachmentsToUpload.length > 0) {
+        console.log("Processing attachments...")
+
         try {
-          let scheduleIds = [];
-          
-          if (Array.isArray(result.data)) {
-            scheduleIds = result.data.map(schedule => schedule.id);
-          } else if (result.data.ids && Array.isArray(result.data.ids)) {
-            scheduleIds = result.data.ids;
-          } else if (result.data.id) {
-            scheduleIds = [result.data.id];
-          }
-          
+          // For edit mode, we usually have a single schedule ID
+          const scheduleIds = initialData?.id ? [initialData.id] : []
+
+          console.log("Extracted schedule IDs for attachment upload:", scheduleIds)
+
           if (scheduleIds.length > 0) {
+            console.log(
+              `Uploading ${newAttachmentsToUpload.length} attachments to ${scheduleIds.length} schedule(s)...`,
+            )
+
+            // FIXED: Use the mutation with proper error handling
             await uploadAttachmentsMutation.mutateAsync({
               scheduleIds,
-              files: attachments.map(a => a.file)
-            });
+              files: newAttachmentsToUpload.map((a) => a.file),
+            })
+
+            console.log("Attachments uploaded successfully")
+            toast.success(`Jadwal dan ${newAttachmentsToUpload.length} lampiran berhasil diperbarui`)
+          } else {
+            console.warn("No schedule IDs found for attachment upload")
+            toast.success("Jadwal berhasil diperbarui", {
+              description: "Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan.",
+            })
           }
-        } catch (error) {
-          console.error("Attachment upload error:", error);
-          // Don't throw here - schedule was updated successfully
+        } catch (attachmentError) {
+          console.error("Attachment upload error:", attachmentError)
+
+          // FIXED: Don't throw here - schedule was updated successfully
+          const errorMessage =
+            attachmentError?.response?.data?.message || attachmentError?.message || "Unknown attachment upload error"
+
+          // FIXED: Toast with retry button for attachment upload
           toast.error("Jadwal berhasil diperbarui, tetapi gagal mengunggah lampiran", {
-            description: "Anda dapat menambahkan lampiran nanti melalui edit jadwal.",
-            duration: 5000,
-          });
+            description: `Error: ${errorMessage}.`,
+            action: {
+              label: "Coba Lagi",
+              onClick: async () => {
+                // Retry upload with schedule ID
+                if (newAttachmentsToUpload.length > 0 && initialData?.id) {
+                  try {
+                    setUploadingAttachments(true)
+                    await uploadAttachmentsMutation.mutateAsync({
+                      scheduleIds: [initialData.id],
+                      files: newAttachmentsToUpload.map((a) => a.file),
+                    })
+                    toast.success("Lampiran berhasil diunggah")
+                  } catch (retryError) {
+                    toast.error("Gagal mengunggah lampiran", {
+                      description: "Silakan coba edit jadwal lagi untuk menambahkan lampiran.",
+                    })
+                  } finally {
+                    setUploadingAttachments(false)
+                  }
+                }
+              },
+            },
+            duration: 10000,
+          })
         }
+      } else if (newAttachmentsToUpload.length === 0) {
+        console.log("No new attachments to upload")
+        toast.success("Jadwal berhasil diperbarui")
+      } else {
+        console.warn("Schedule updated but no result data for attachments")
+
+        // FIXED: Toast with retry button for attachment upload
+        toast.error("Jadwal berhasil diperbarui, tetapi lampiran gagal diunggah", {
+          description: "Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan.",
+          action: {
+            label: "Coba Lagi",
+            onClick: async () => {
+              // Retry upload with schedule ID
+              if (newAttachmentsToUpload.length > 0 && initialData?.id) {
+                try {
+                  setUploadingAttachments(true)
+                  await uploadAttachmentsMutation.mutateAsync({
+                    scheduleIds: [initialData.id],
+                    files: newAttachmentsToUpload.map((a) => a.file),
+                  })
+                  toast.success("Lampiran berhasil diunggah")
+                } catch (retryError) {
+                  toast.error("Gagal mengunggah lampiran", {
+                    description: "Silakan coba edit jadwal lagi untuk menambahkan lampiran.",
+                  })
+                } finally {
+                  setUploadingAttachments(false)
+                }
+              }
+            },
+          },
+          duration: 10000,
+        })
       }
-      
+
       // Modal will be closed by parent component on successful onSubmit
-      
     } catch (error) {
-      console.error("Update schedule error:", error);
-      
+      console.error("Update schedule error:", error)
+
       // FIXED: Don't close modal on error - let user retry
-      const errorMessage = error?.response?.data?.message || error.message || 'Failed to update schedule';
-      const parsedMessage = parseErrorMessage(errorMessage);
-      
+      const errorMessage = error?.response?.data?.message || error.message || "Failed to update schedule"
+      const parsedMessage = parseErrorMessage(errorMessage)
+
       toast.error("Gagal memperbarui jadwal", {
         description: parsedMessage,
-        duration: 5000,
-      });
-      
+        duration: 8000,
+      })
+
       // Don't return or close modal - let user retry
     }
-  };
+  }
 
   const handleCancel = () => {
     if (hasUnsavedChanges() && !hasShownUnsavedToast) {
-      setHasShownUnsavedToast(true);
-      
+      setHasShownUnsavedToast(true)
+
       toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
         action: {
           label: "Ya, Batalkan",
           onClick: () => {
-            setHasShownUnsavedToast(false);
-            onClose();
+            setHasShownUnsavedToast(false)
+            if (onCancelReturnToView) {
+              onCancelReturnToView() // Return to view modal
+            } else {
+              onClose() // Close completely
+            }
           },
-          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854] !ml-auto"
+          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854] !ml-auto",
         },
         cancel: {
           label: "Tetap Edit",
           onClick: () => {
-            setHasShownUnsavedToast(false);
+            setHasShownUnsavedToast(false)
           },
-          className: "!bg-transparent hover:!bg-gray-100 !text-[#EE4266] !border !border-[#EE4266] hover:!border-[#d63854]"
+          className:
+            "!bg-transparent hover:!bg-gray-100 !text-[#EE4266] !border !border-[#EE4266] hover:!border-[#d63854]",
         },
         duration: 10000,
         className: "!bg-white !border !border-gray-200 !shadow-lg",
         onDismiss: () => setHasShownUnsavedToast(false),
-        position: "top-center"
-      });
+        position: "top-center",
+      })
     } else if (!hasUnsavedChanges()) {
-      onClose();
+      if (onCancelReturnToView) {
+        onCancelReturnToView() // Return to view modal
+      } else {
+        onClose() // Close completely
+      }
     }
-  };
+  }
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
+
+  // FIXED: Combined loading state for better UX
+  const isSubmitting = loading || uploadAttachmentsMutation.isPending
 
   return (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
         onClick={(e) => e.target === e.currentTarget && handleCancel()}
       >
         <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-          
-          {/* Header */}
-          <div className="flex justify-end items-center p-6">
-            <button
-              onClick={handleCancel}
-              disabled={loading}
-              className="text-[#EE4266] hover:text-[#d63854] transition-colors disabled:opacity-50"
-            >
-              <span className="material-icons text-[20px]">close</span>
-            </button>
-          </div>
+          {/* Header - Removed close button */}
+          <div className="flex justify-end items-center p-6">{/* Removed close button as per request */}</div>
 
           <div className="p-6 space-y-6">
             <ScheduleFormFields
@@ -255,32 +336,50 @@ const EditScheduleModal = ({
               setParticipantSearch={setParticipantSearch}
               setPreviewAttachment={setPreviewAttachment}
               uploadingAttachments={uploadingAttachments}
-              loading={loading}
+              loading={isSubmitting}
             />
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleCancel}
-                disabled={loading}
+                disabled={isSubmitting}
                 className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={loading || !formData.agenda.trim() || (formData.type === "counseling" && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0 || !formData.location.trim()))}
-                className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
+                disabled={
+                  isSubmitting ||
+                  !formData.agenda.trim() ||
+                  (formData.type === "counseling" &&
+                    (!formData.selectedPsychologist ||
+                      formData.selectedParticipants.length === 0 ||
+                      !formData.location.trim()))
+                }
+                className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300 flex items-center gap-2"
               >
-                {loading ? 'Menyimpan...' : 'Update'}
+                {isSubmitting && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                {isSubmitting ? "Menyimpan..." : "Update"}
               </button>
             </div>
           </div>
 
-          {loading && (
+          {/* FIXED: Better loading overlay */}
+          {isSubmitting && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
-                <span className="text-[#488BBA] font-medium">Menyimpan...</span>
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#488BBA]"></div>
+                <div className="text-center">
+                  <span className="text-[#488BBA] font-medium block">
+                    {uploadAttachmentsMutation.isPending ? "Mengunggah lampiran..." : "Memperbarui jadwal..."}
+                  </span>
+                  {newAttachmentsToUpload.length > 0 && (
+                    <span className="text-sm text-gray-500">
+                      {uploadAttachmentsMutation.isPending ? `${newAttachmentsToUpload.length} file` : "Mohon tunggu"}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -293,7 +392,7 @@ const EditScheduleModal = ({
         onClose={() => setPreviewAttachment(null)}
       />
     </>
-  );
-};
+  )
+}
 
-export default EditScheduleModal;
+export default EditScheduleModal

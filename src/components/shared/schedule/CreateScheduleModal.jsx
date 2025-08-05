@@ -1,18 +1,10 @@
-// src/components/shared/schedule/CreateScheduleModal.jsx - Simplified Create Modal
+"use client"
+import { toast } from "sonner"
+import { useScheduleForm } from "./hooks/useScheduleForm"
+import ScheduleFormFields from "./ScheduleFormFields"
+import AttachmentPreviewModal from "./AttachmentPreviewModal"
 
-import React from "react";
-import { toast } from "sonner";
-import { useScheduleForm } from "./hooks/useScheduleForm";
-import ScheduleFormFields from "./ScheduleFormFields";
-import AttachmentPreviewModal from "./AttachmentPreviewModal";
-
-const CreateScheduleModal = ({
-  isOpen, 
-  onClose, 
-  onSubmit, 
-  initialData = null, 
-  loading = false
-}) => {
+const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, loading = false }) => {
   const {
     formData,
     dropdowns,
@@ -49,142 +41,253 @@ const CreateScheduleModal = ({
     hasUnsavedChanges,
     parseErrorMessage,
     uploadAttachmentsMutation,
-  } = useScheduleForm("create", initialData, isOpen);
+    setUploadingAttachments, // Declare the variable here
+  } = useScheduleForm("create", initialData, isOpen)
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      return;
+      return
     }
-    
+
     const submitData = {
       agenda: formData.agenda.trim(),
       type: formData.type,
       description: formData.description.trim(),
       notificationOffset: formData.notificationOffset,
-      dates: formData.dates
-    };
+      dates: formData.dates,
+    }
 
     if (formData.type === "counseling") {
       if (formData.selectedPsychologist && formData.selectedParticipants.length > 0) {
         submitData.participants = {
           psychologistId: formData.selectedPsychologist.id,
-          patientIds: formData.selectedParticipants.map(participant => participant.id)
-        };
+          patientIds: formData.selectedParticipants.map((participant) => participant.id),
+        }
       }
     }
 
     if (formData.type === "counseling") {
-      const isStandardLocation = fixedLocationOptions.find(opt => opt.value === formData.location);
+      const isStandardLocation = fixedLocationOptions.find((opt) => opt.value === formData.location)
       if (isStandardLocation) {
-        submitData.location = formData.location;
+        submitData.location = formData.location
       } else {
-        submitData.location = "offline";
-        submitData.actualLocationName = formData.location;
+        submitData.location = "offline"
+        submitData.actualLocationName = formData.location
       }
     } else {
-      submitData.customLocation = formData.customLocation;
+      submitData.customLocation = formData.customLocation
     }
-    
+
     try {
-      const result = await onSubmit(submitData);
-      
-      // Handle attachments after successful creation
-      if (result?.data && attachments.length > 0) {
+      console.log("=== CreateScheduleModal handleSubmit ===")
+      console.log("Submit data:", submitData)
+      console.log("Attachments to upload:", attachments)
+
+      // Filter out existing attachments, only upload new ones
+      const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting)
+
+      // FIXED: Create schedule first, then handle attachments
+      const result = await onSubmit(submitData)
+      console.log("Schedule creation result:", result)
+
+      // FIXED: Handle attachments after successful creation with better error handling
+      if (result?.data && newAttachmentsToUpload.length > 0) {
+        console.log("Processing attachments...")
+
         try {
-          let scheduleIds = [];
-          
+          // Extract schedule IDs from various response formats
+          let scheduleIds = []
+
+          // Handle array response (multiple schedules)
           if (Array.isArray(result.data)) {
-            scheduleIds = result.data.map(schedule => schedule.id);
-          } else if (result.data.ids && Array.isArray(result.data.ids)) {
-            scheduleIds = result.data.ids;
-          } else if (result.data.id) {
-            scheduleIds = [result.data.id];
+            scheduleIds = result.data.filter((schedule) => schedule && schedule.id).map((schedule) => schedule.id)
           }
-          
+          // Handle response with ids array
+          else if (result.data.ids && Array.isArray(result.data.ids)) {
+            scheduleIds = result.data.ids
+          }
+          // Handle single schedule response
+          else if (result.data.id) {
+            scheduleIds = [result.data.id]
+          }
+          // Handle nested data structure
+          else if (result.data.data) {
+            if (Array.isArray(result.data.data)) {
+              scheduleIds = result.data.data
+                .filter((schedule) => schedule && schedule.id)
+                .map((schedule) => schedule.id)
+            } else if (result.data.data.id) {
+              scheduleIds = [result.data.data.id]
+            }
+          }
+
+          console.log("Extracted schedule IDs for attachment upload:", scheduleIds)
+
           if (scheduleIds.length > 0) {
+            console.log(
+              `Uploading ${newAttachmentsToUpload.length} attachments to ${scheduleIds.length} schedule(s)...`,
+            )
+
+            // FIXED: Use the mutation with proper error handling
             await uploadAttachmentsMutation.mutateAsync({
               scheduleIds,
-              files: attachments.map(a => a.file)
-            });
+              files: newAttachmentsToUpload.map((a) => a.file),
+            })
+
+            console.log("Attachments uploaded successfully")
+            toast.success(`Jadwal dan ${newAttachmentsToUpload.length} lampiran berhasil dibuat`)
+          } else {
+            console.warn("No schedule IDs found for attachment upload")
+            toast.success("Jadwal berhasil dibuat", {
+              description: "Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan.",
+            })
           }
-        } catch (error) {
-          console.error("Attachment upload error:", error);
-          // Don't throw here - schedule was created successfully
-          toast.error("Jadwal berhasil dibuat, tetapi gagal mengunggah lampiran", {
-            description: "Anda dapat menambahkan lampiran nanti melalui edit jadwal.",
-            duration: 5000,
-          });
+        } catch (attachmentError) {
+          console.error("Attachment upload error:", attachmentError)
+
+          // FIXED: Don't throw here - schedule was created successfully
+          const errorMessage =
+            attachmentError?.response?.data?.message || attachmentError?.message || "Unknown attachment upload error"
+
+          // FIXED: Toast with retry button for attachment upload
+          toast.error("Jadwal berhasil dibuat, tetapi lampiran gagal diunggah", {
+            description: `Error: ${errorMessage}.`,
+            action: {
+              label: "Coba Lagi",
+              onClick: async () => {
+                // Attempt to find the created schedule and retry upload
+                if (newAttachmentsToUpload.length > 0) {
+                  try {
+                    setUploadingAttachments(true)
+                    const retryScheduleIds = result?.data?.data?.id ? [result.data.data.id] : scheduleIds // Use extracted IDs or single ID
+                    if (retryScheduleIds.length > 0) {
+                      await uploadAttachmentsMutation.mutateAsync({
+                        scheduleIds: retryScheduleIds,
+                        files: newAttachmentsToUpload.map((a) => a.file),
+                      })
+                      toast.success("Lampiran berhasil diunggah")
+                    } else {
+                      toast.error("Gagal mengunggah lampiran", {
+                        description: "Tidak ada ID jadwal yang valid untuk mencoba lagi.",
+                      })
+                    }
+                  } catch (retryError) {
+                    toast.error("Gagal mengunggah lampiran", {
+                      description: "Silakan edit jadwal untuk menambahkan lampiran secara manual.",
+                    })
+                  } finally {
+                    setUploadingAttachments(false)
+                  }
+                }
+              },
+            },
+            duration: 10000,
+          })
         }
+      } else if (newAttachmentsToUpload.length === 0) {
+        console.log("No new attachments to upload")
+        toast.success("Jadwal berhasil dibuat")
+      } else {
+        console.warn("Schedule created but no result data for attachments")
+
+        // FIXED: Toast with retry button for attachment upload
+        toast.error("Jadwal berhasil dibuat, tetapi lampiran gagal diunggah", {
+          description: "Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan.",
+          action: {
+            label: "Coba Lagi",
+            onClick: async () => {
+              // Attempt to find the created schedule and retry upload
+              if (newAttachmentsToUpload.length > 0) {
+                try {
+                  setUploadingAttachments(true)
+                  const retryScheduleIds = result?.data?.data?.id ? [result.data.data.id] : []
+                  if (retryScheduleIds.length > 0) {
+                    await uploadAttachmentsMutation.mutateAsync({
+                      scheduleIds: retryScheduleIds,
+                      files: newAttachmentsToUpload.map((a) => a.file),
+                    })
+                    toast.success("Lampiran berhasil diunggah")
+                  } else {
+                    toast.error("Gagal mengunggah lampiran", {
+                      description: "Tidak ada ID jadwal yang valid untuk mencoba lagi.",
+                    })
+                  }
+                } catch (retryError) {
+                  toast.error("Gagal mengunggah lampiran", {
+                    description: "Silakan edit jadwal untuk menambahkan lampiran secara manual.",
+                  })
+                } finally {
+                  setUploadingAttachments(false)
+                }
+              }
+            },
+          },
+          duration: 10000,
+        })
       }
-      
+
       // Modal will be closed by parent component on successful onSubmit
-      
     } catch (error) {
-      console.error("Create schedule error:", error);
-      
+      console.error("Create schedule error:", error)
+
       // FIXED: Don't close modal on error - let user retry
-      const errorMessage = error?.response?.data?.message || error.message || 'Failed to create schedule';
-      const parsedMessage = parseErrorMessage(errorMessage);
-      
+      const errorMessage = error?.response?.data?.message || error.message || "Failed to create schedule"
+      const parsedMessage = parseErrorMessage(errorMessage)
+
       toast.error("Gagal membuat jadwal", {
         description: parsedMessage,
-        duration: 5000,
-      });
-      
+        duration: 8000,
+      })
+
       // Don't return or close modal - let user retry
     }
-  };
+  }
 
   const handleCancel = () => {
     if (hasUnsavedChanges() && !hasShownUnsavedToast) {
-      setHasShownUnsavedToast(true);
-      
+      setHasShownUnsavedToast(true)
+
       toast("Ada perubahan yang belum disimpan. Yakin ingin membatalkan?", {
         action: {
           label: "Ya, Batalkan",
           onClick: () => {
-            setHasShownUnsavedToast(false);
-            onClose();
+            setHasShownUnsavedToast(false)
+            onClose()
           },
-          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854] !ml-auto"
+          className: "!bg-[#EE4266] hover:!bg-[#d63854] !text-white !border-[#EE4266] hover:!border-[#d63854] !ml-auto",
         },
         cancel: {
           label: "Tetap Edit",
           onClick: () => {
-            setHasShownUnsavedToast(false);
+            setHasShownUnsavedToast(false)
           },
-          className: "!bg-transparent hover:!bg-gray-100 !text-[#EE4266] !border !border-[#EE4266] hover:!border-[#d63854]"
+          className:
+            "!bg-transparent hover:!bg-gray-100 !text-[#EE4266] !border !border-[#EE4266] hover:!border-[#d63854]",
         },
         duration: 10000,
         className: "!bg-white !border !border-gray-200 !shadow-lg",
         onDismiss: () => setHasShownUnsavedToast(false),
-        position: "top-center"
-      });
+        position: "top-center",
+      })
     } else if (!hasUnsavedChanges()) {
-      onClose();
+      onClose()
     }
-  };
+  }
 
-  if (!isOpen) return null;
+  if (!isOpen) return null
+
+  // FIXED: Combined loading state for better UX
+  const isSubmitting = loading || uploadAttachmentsMutation.isPending
 
   return (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]"
         onClick={(e) => e.target === e.currentTarget && handleCancel()}
       >
         <div className="bg-white rounded-lg max-w-[600px] w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-          
-          {/* Header */}
-          <div className="flex justify-end items-center p-6">
-            <button
-              onClick={handleCancel}
-              disabled={loading}
-              className="text-[#EE4266] hover:text-[#d63854] transition-colors disabled:opacity-50"
-            >
-              <span className="material-icons text-[20px]">close</span>
-            </button>
-          </div>
+          {/* Header - Removed close button */}
+          <div className="flex justify-end items-center p-6">{/* Removed close button as per request */}</div>
 
           <div className="p-6 space-y-6">
             <ScheduleFormFields
@@ -215,32 +318,52 @@ const CreateScheduleModal = ({
               setParticipantSearch={setParticipantSearch}
               setPreviewAttachment={setPreviewAttachment}
               uploadingAttachments={uploadingAttachments}
-              loading={loading}
+              loading={isSubmitting}
             />
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleCancel}
-                disabled={loading}
+                disabled={isSubmitting}
                 className="px-6 py-2 text-[#488BBA] border border-[#488BBA] rounded-md hover:bg-blue-50 transition-colors disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={loading || !formData.agenda.trim() || (formData.type === "counseling" && (!formData.selectedPsychologist || formData.selectedParticipants.length === 0 || !formData.location.trim()))}
-                className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300"
+                disabled={
+                  isSubmitting ||
+                  !formData.agenda.trim() ||
+                  (formData.type === "counseling" &&
+                    (!formData.selectedPsychologist ||
+                      formData.selectedParticipants.length === 0 ||
+                      !formData.location.trim()))
+                }
+                className="px-6 py-2 bg-[#488BBA] text-white rounded-md hover:bg-blue-600 transition-colors disabled:bg-gray-300 flex items-center gap-2"
               >
-                {loading ? 'Menyimpan...' : 'Tambah'}
+                {isSubmitting && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                {isSubmitting ? "Menyimpan..." : "Tambah"}
               </button>
             </div>
           </div>
 
-          {loading && (
+          {/* FIXED: Better loading overlay */}
+          {isSubmitting && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBA]"></div>
-                <span className="text-[#488BBA] font-medium">Menyimpan...</span>
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#488BBA]"></div>
+                <div className="text-center">
+                  <span className="text-[#488BBA] font-medium block">
+                    {uploadAttachmentsMutation.isPending ? "Mengunggah lampiran..." : "Menyimpan jadwal..."}
+                  </span>
+                  {attachments.filter((att) => !att.isExisting).length > 0 && (
+                    <span className="text-sm text-gray-500">
+                      {uploadAttachmentsMutation.isPending
+                        ? `${attachments.filter((att) => !att.isExisting).length} file`
+                        : "Mohon tunggu"}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -253,7 +376,7 @@ const CreateScheduleModal = ({
         onClose={() => setPreviewAttachment(null)}
       />
     </>
-  );
-};
+  )
+}
 
-export default CreateScheduleModal;
+export default CreateScheduleModal
