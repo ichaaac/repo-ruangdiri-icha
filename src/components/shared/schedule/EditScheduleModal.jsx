@@ -51,7 +51,7 @@ const EditScheduleModal = ({
     setUploadingAttachments, // Declared variable
   } = useScheduleForm("edit", initialData, isOpen)
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     if (!validateForm()) {
       return
     }
@@ -124,116 +124,67 @@ const EditScheduleModal = ({
       submitData.id = initialData.id
     }
 
-    const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting) // Declared variable
+    const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting)
 
     try {
       console.log("=== EditScheduleModal handleSubmit ===")
       console.log("Submit data:", submitData)
       console.log("Attachments to upload:", newAttachmentsToUpload)
 
-      // Filter out existing attachments, only upload new ones
-
-      // FIXED: Update schedule first, then handle attachments
+      // FIXED: Step 1 - Update schedule FIRST
+      console.log("Step 1: Updating schedule...")
       const result = await onSubmit(submitData)
       console.log("Schedule update result:", result)
 
-      // FIXED: Handle attachments after successful update with better error handling
-      if (result?.data && newAttachmentsToUpload.length > 0) {
-        console.log("Processing attachments...")
-
-        try {
-          // For edit mode, we usually have a single schedule ID
-          const scheduleIds = initialData?.id ? [initialData.id] : []
-
-          console.log("Extracted schedule IDs for attachment upload:", scheduleIds)
-
-          if (scheduleIds.length > 0) {
-            console.log(
-              `Uploading ${newAttachmentsToUpload.length} attachments to ${scheduleIds.length} schedule(s)...`,
-            )
-
-            // FIXED: Use the mutation with proper error handling
-            await uploadAttachmentsMutation.mutateAsync({
-              scheduleIds,
-              files: newAttachmentsToUpload.map((a) => a.file),
-            })
-
-            console.log("Attachments uploaded successfully")
-            toast.success(`Jadwal dan ${newAttachmentsToUpload.length} lampiran berhasil diperbarui`)
-          } else {
-            console.warn("No schedule IDs found for attachment upload")
-            toast.success("Jadwal berhasil diperbarui", {
-              description: "Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan.",
-            })
-          }
-        } catch (attachmentError) {
-          console.error("Attachment upload error:", attachmentError)
-
-          // FIXED: Don't throw here - schedule was updated successfully
-          const errorMessage =
-            attachmentError?.response?.data?.message || attachmentError?.message || "Unknown attachment upload error"
-
-          // FIXED: Toast with retry button for attachment upload
-          toast.error("Jadwal berhasil diperbarui, tetapi gagal mengunggah lampiran", {
-            description: `Error: ${errorMessage}.`,
-            action: {
-              label: "Coba Lagi",
-              onClick: async () => {
-                // Retry upload with schedule ID
-                if (newAttachmentsToUpload.length > 0 && initialData?.id) {
-                  try {
-                    setUploadingAttachments(true)
-                    await uploadAttachmentsMutation.mutateAsync({
-                      scheduleIds: [initialData.id],
-                      files: newAttachmentsToUpload.map((a) => a.file),
-                    })
-                    toast.success("Lampiran berhasil diunggah")
-                  } catch (retryError) {
-                    toast.error("Gagal mengunggah lampiran", {
-                      description: "Silakan coba edit jadwal lagi untuk menambahkan lampiran.",
-                    })
-                  } finally {
-                    setUploadingAttachments(false)
-                  }
-                }
-              },
-            },
-            duration: 10000,
-          })
-        }
-      } else if (newAttachmentsToUpload.length === 0) {
-        console.log("No new attachments to upload")
+      // FIXED: Step 2 - Show success toast immediately after schedule update
+      if (newAttachmentsToUpload.length === 0) {
         toast.success("Jadwal berhasil diperbarui")
       } else {
-        console.warn("Schedule updated but no result data for attachments")
+        toast.success("Jadwal berhasil diperbarui, sedang mengunggah lampiran...")
+      }
 
-        // FIXED: Toast with retry button for attachment upload
-        toast.error("Jadwal berhasil diperbarui, tetapi lampiran gagal diunggah", {
-          description: "Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan.",
-          action: {
-            label: "Coba Lagi",
-            onClick: async () => {
-              // Retry upload with schedule ID
-              if (newAttachmentsToUpload.length > 0 && initialData?.id) {
-                try {
-                  setUploadingAttachments(true)
-                  await uploadAttachmentsMutation.mutateAsync({
-                    scheduleIds: [initialData.id],
-                    files: newAttachmentsToUpload.map((a) => a.file),
-                  })
-                  toast.success("Lampiran berhasil diunggah")
-                } catch (retryError) {
-                  toast.error("Gagal mengunggah lampiran", {
-                    description: "Silakan coba edit jadwal lagi untuk menambahkan lampiran.",
-                  })
-                } finally {
-                  setUploadingAttachments(false)
-                }
-              }
-            },
-          },
-          duration: 10000,
-        })
+      // FIXED: Step 3 - Upload attachments in background AFTER schedule is updated
+      if (result?.data && newAttachmentsToUpload.length > 0) {
+        console.log("Step 3: Processing attachments in background...")
+
+        // Run attachment upload in background without blocking UI
+        setTimeout(async () => {
+          try {
+            // For edit mode, we usually have a single schedule ID
+            const scheduleIds = initialData?.id ? [initialData.id] : []
+
+            console.log("Extracted schedule IDs for attachment upload:", scheduleIds)
+
+            if (scheduleIds.length > 0) {
+              console.log(
+                `Uploading ${newAttachmentsToUpload.length} attachments to ${scheduleIds.length} schedule(s)...`,
+              )
+
+              // Upload attachments
+              await uploadAttachmentsMutation.mutateAsync({
+                scheduleIds,
+                files: newAttachmentsToUpload.map((a) => a.file),
+              })
+
+              console.log("Attachments uploaded successfully")
+              toast.success(`${newAttachmentsToUpload.length} lampiran berhasil diunggah`)
+            } else {
+              console.warn("No schedule IDs found for attachment upload")
+              toast.warning("Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan")
+            }
+          } catch (attachmentError) {
+            console.error("Background attachment upload error:", attachmentError)
+
+            const errorMessage =
+              attachmentError?.response?.data?.message || attachmentError?.message || "Unknown attachment upload error"
+
+            // Show error toast
+            toast.error("Gagal mengunggah lampiran", {
+              description: `Error: ${errorMessage}. Silakan edit jadwal untuk menambahkan lampiran.`,
+              duration: 8000,
+            })
+          }
+        }, 100) // Small delay to ensure UI updates first
       }
 
       // Modal will be closed by parent component on successful onSubmit

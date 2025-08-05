@@ -1,11 +1,12 @@
-// src/components/shared/schedule/hooks/useScheduleForm.js - FIXED: Remove duration validation & fix attachments
+// src/components/shared/schedule/hooks/useScheduleForm.js
 
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
+import dayjs from "dayjs"
 import { toast } from "sonner"
 import { apiClient } from "@/lib/api"
-import { parseScheduleDateTime } from "@/components/shared/schedule/utils/timezoneHandler"
-import dayjs from "dayjs" // Import dayjs for date comparisons
+import { parseScheduleDateTime } from "../utils/timezoneHandler"
+import { createScheduleApi } from "../lib/scheduleApi"
 
 const formatDateLocal = (date) => {
   const year = date.getFullYear()
@@ -100,128 +101,176 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   // Initialize form data
   useEffect(() => {
     if (isOpen) {
-      if (mode === "edit" && initialData) {
-        let dates = []
-        if (initialData.dates && initialData.dates.length > 0) {
-          dates = initialData.dates.map((dateInfo) => ({
-            ...dateInfo,
-            timezone: dateInfo.timezone || "WIB",
-          }))
-        } else if (initialData.startDateTime) {
-          const scheduleData = parseScheduleDateTime(
-            initialData.startDateTime,
-            initialData.endDateTime,
-            initialData.timezone,
-          )
-
-          dates = [
-            {
-              date: scheduleData.date,
-              startTime: scheduleData.startTime,
-              endTime: scheduleData.endTime,
-              timezone: scheduleData.timezone || "WIB",
-            },
-          ]
-        }
-
-        let locationValue = ""
-        if (initialData.type === "counseling") {
-          locationValue = initialData.location || initialData._originalBackendLocation || ""
-        }
-
-        const transformedData = {
-          agenda: initialData.agenda || "",
-          type: initialData.type || "counseling",
-          description: initialData.description || "",
-          notificationOffset: initialData.notificationOffset || 60,
-          dates:
-            dates.length > 0
-              ? dates
-              : [
-                  {
-                    date: formatDateLocal(new Date()),
-                    startTime: "09:00",
-                    endTime: "10:00",
-                    timezone: "WIB",
-                  },
-                ],
-          location: initialData.type === "counseling" ? locationValue : "",
-          customLocation:
-            initialData.type !== "counseling" ? initialData.customLocation || initialData.location || "" : "",
-          selectedPsychologist: initialData.selectedPsychologist || null,
-          selectedParticipants: initialData.selectedParticipants || [],
-          multipleDate: dates.length > 1 || initialData.multipleDate || false,
-          _originalBackendLocation: initialData.location,
-        }
-
-        setFormData(transformedData)
-
-        if (editorRef.current && transformedData.description) {
-          editorRef.current.innerHTML = transformedData.description
-        }
-      } else {
-        let defaultDates = [
-          {
-            date: formatDateLocal(new Date()),
-            startTime: "09:00",
-            endTime: "10:00",
-            timezone: "WIB",
-          },
-        ]
-
-        if (initialData?.dates && initialData.dates.length > 0) {
-          defaultDates = initialData.dates.map((dateInfo) => {
-            let dateString = dateInfo.date
-            if (dateInfo.date instanceof Date) {
-              dateString = formatDateLocal(dateInfo.date)
-            }
-
-            return {
-              date: dateString,
-              startTime: dateInfo.startTime || "09:00",
-              endTime: dateInfo.endTime || "10:00",
+      try {
+        if (mode === "edit" && initialData) {
+          let dates = []
+          if (initialData.dates && initialData.dates.length > 0) {
+            dates = initialData.dates.map((dateInfo) => ({
+              ...dateInfo,
               timezone: dateInfo.timezone || "WIB",
-            }
-          })
-        } else if (initialData?.startDateTime && initialData?.endDateTime) {
-          const startDate = new Date(initialData.startDateTime)
-          const endDate = new Date(initialData.endDateTime)
+            }))
+          } else if (initialData.startDateTime) {
+            const scheduleData = parseScheduleDateTime(
+              initialData.startDateTime,
+              initialData.endDateTime,
+              initialData.timezone,
+            )
 
-          defaultDates = [
+            dates = [
+              {
+                date: scheduleData.date,
+                startTime: scheduleData.startTime,
+                endTime: scheduleData.endTime,
+                timezone: scheduleData.timezone || "WIB",
+              },
+            ]
+          }
+
+          let locationValue = ""
+          if (initialData.type === "counseling") {
+            locationValue = initialData.location || initialData._originalBackendLocation || ""
+          }
+
+          const transformedData = {
+            agenda: initialData.agenda || "",
+            type: initialData.type || "counseling",
+            description: initialData.description || "",
+            notificationOffset: initialData.notificationOffset || 60,
+            dates:
+              dates.length > 0
+                ? dates
+                : [
+                    {
+                      date: formatDateLocal(new Date()),
+                      startTime: "09:00",
+                      endTime: "10:00",
+                      timezone: "WIB",
+                    },
+                  ],
+            location: initialData.type === "counseling" ? locationValue : "",
+            customLocation:
+              initialData.type !== "counseling" ? initialData.customLocation || initialData.location || "" : "",
+            selectedPsychologist: initialData.selectedPsychologist || null,
+            selectedParticipants: Array.isArray(initialData.selectedParticipants) ? initialData.selectedParticipants : [],
+            multipleDate: dates.length > 1 || initialData.multipleDate || false,
+            _originalBackendLocation: initialData.location,
+          }
+
+          setFormData(transformedData)
+
+          // FIXED: Handle existing attachments from initialData
+          if (initialData.attachments && Array.isArray(initialData.attachments) && initialData.attachments.length > 0) {
+            const existingAttachments = initialData.attachments.map(att => ({
+              ...att,
+              id: att.id || `existing-${Date.now()}-${Math.random()}`,
+              isExisting: true,
+              name: att.originalName || att.fileName || `File ${att.id}`,
+              size: att.fileSize || 0,
+              type: att.fileType?.startsWith('image/') ? 'image' : 'document',
+              fileType: att.fileType || 'application/octet-stream',
+              downloadUrl: att.fileUrl || ''
+            }))
+            setAttachments(existingAttachments)
+          } else {
+            setAttachments([])
+          }
+
+          if (editorRef.current && transformedData.description) {
+            editorRef.current.innerHTML = transformedData.description
+          }
+        } else {
+          let defaultDates = [
             {
-              date: formatDateLocal(startDate),
-              startTime: startDate.toTimeString().slice(0, 5),
-              endTime: endDate.toTimeString().slice(0, 5),
+              date: formatDateLocal(new Date()),
+              startTime: "09:00",
+              endTime: "10:00",
               timezone: "WIB",
             },
           ]
+
+          if (initialData?.dates && Array.isArray(initialData.dates) && initialData.dates.length > 0) {
+            defaultDates = initialData.dates.map((dateInfo) => {
+              let dateString = dateInfo.date
+              if (dateInfo.date instanceof Date) {
+                dateString = formatDateLocal(dateInfo.date)
+              }
+
+              return {
+                date: dateString,
+                startTime: dateInfo.startTime || "09:00",
+                endTime: dateInfo.endTime || "10:00",
+                timezone: dateInfo.timezone || "WIB",
+              }
+            })
+          } else if (initialData?.startDateTime && initialData?.endDateTime) {
+            const startDate = new Date(initialData.startDateTime)
+            const endDate = new Date(initialData.endDateTime)
+
+            defaultDates = [
+              {
+                date: formatDateLocal(startDate),
+                startTime: startDate.toTimeString().slice(0, 5),
+                endTime: endDate.toTimeString().slice(0, 5),
+                timezone: "WIB",
+              },
+            ]
+          }
+
+          const createModeData = {
+            agenda: "",
+            type: "counseling",
+            dates: defaultDates,
+            notificationOffset: 60,
+            selectedPsychologist: null,
+            selectedParticipants: [],
+            location: "",
+            customLocation: "",
+            description: "",
+            multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
+          }
+
+          setFormData(createModeData)
+          setAttachments([])
+
+          if (editorRef.current) {
+            editorRef.current.innerHTML = ""
+          }
         }
 
-        const createModeData = {
+        setDropdowns({})
+        setParticipantSearch("")
+        setHasShownUnsavedToast(false)
+        setPreviewAttachment(null)
+      } catch (error) {
+        console.error("Error initializing form data:", error)
+        toast.error("Gagal memuat form, silakan coba lagi")
+        
+        // Fallback to safe default state
+        setFormData({
           agenda: "",
           type: "counseling",
-          dates: defaultDates,
+          dates: [
+            {
+              date: formatDateLocal(new Date()),
+              startTime: "09:00",
+              endTime: "10:00",
+              timezone: "WIB",
+            },
+          ],
           notificationOffset: 60,
           selectedPsychologist: null,
           selectedParticipants: [],
           location: "",
           customLocation: "",
           description: "",
-          multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
-        }
-
-        setFormData(createModeData)
-
-        if (editorRef.current) {
-          editorRef.current.innerHTML = ""
-        }
+          multipleDate: false,
+        })
+        setAttachments([])
+        setDropdowns({})
+        setParticipantSearch("")
+        setHasShownUnsavedToast(false)
+        setPreviewAttachment(null)
       }
-
-      setAttachments([])
-      setDropdowns({})
-      setParticipantSearch("")
-      setHasShownUnsavedToast(false)
-      setPreviewAttachment(null)
     }
   }, [isOpen, mode, initialData])
 
@@ -267,42 +316,120 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   const { data: backendLocations = [] } = useQuery({
     queryKey: ["psychologist-locations"],
     queryFn: async () => {
-      const response = await apiClient.get("/psychologists/locations")
-      const locations = response.data || []
-      setPsychologistLocations(locations)
-      return locations
+      try {
+        const response = await apiClient.get("/psychologists/locations")
+        const data = response.data || []
+        
+        // FIXED: Handle various response formats and ensure we get strings
+        let locations = []
+        
+        if (Array.isArray(data)) {
+          locations = data.map(item => {
+            if (typeof item === 'string') {
+              return item
+            } else if (typeof item === 'object' && item !== null) {
+              // Handle object with locations array
+              if (item.locations && Array.isArray(item.locations)) {
+                return item.locations[0] || item.address || JSON.stringify(item)
+              }
+              // Handle simple object
+              return item.name || item.label || item.value || JSON.stringify(item)
+            }
+            return String(item)
+          }).filter(Boolean) // Remove empty values
+        } else if (typeof data === 'object' && data !== null) {
+          // If data is an object, try to extract locations
+          if (data.locations && Array.isArray(data.locations)) {
+            locations = data.locations.map(String).filter(Boolean)
+          } else {
+            locations = [JSON.stringify(data)]
+          }
+        }
+        
+        console.log("Processed psychologist locations:", locations)
+        setPsychologistLocations(locations)
+        return locations
+      } catch (error) {
+        console.error("Error fetching psychologist locations:", error)
+        toast.error("Gagal memuat lokasi psikolog")
+        setPsychologistLocations([])
+        return []
+      }
     },
     enabled: isOpen && formData.type === "counseling" && !formData.selectedPsychologist,
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   })
 
   // Fetch psychologists
   const { data: psychologists = [], isLoading: loadingPsychologists } = useQuery({
     queryKey: ["psychologists", formData.location],
     queryFn: async () => {
-      const response = await apiClient.get("/psychologists")
-      return response.data?.data || response.data || []
+      try {
+        const response = await apiClient.get("/psychologists")
+        const data = response.data?.data || response.data || []
+        
+        // FIXED: Ensure data is always an array with proper structure
+        if (!Array.isArray(data)) {
+          console.warn("Psychologists API returned non-array data:", data)
+          return []
+        }
+        
+        // Ensure each psychologist has required fields
+        return data.map(psychologist => ({
+          ...psychologist,
+          id: psychologist.id || `psych-${Date.now()}-${Math.random()}`,
+          fullName: psychologist.fullName || psychologist.name || 'Unknown Psychologist',
+          email: psychologist.email || 'no-email@example.com'
+        }))
+      } catch (error) {
+        console.error("Error fetching psychologists:", error)
+        toast.error("Gagal memuat data psikolog")
+        return []
+      }
     },
     enabled: isOpen && formData.type === "counseling" && dropdowns.psychologist,
     staleTime: 2 * 60 * 1000,
+    retry: 1,
   })
 
   // Fetch participants
   const { data: participants = [], isLoading: loadingParticipants } = useQuery({
     queryKey: ["participants", participantSearch],
     queryFn: async () => {
-      const params = {
-        limit: 100,
-        ...(participantSearch && { search: participantSearch }),
+      try {
+        const params = {
+          limit: 100,
+          ...(participantSearch && { search: participantSearch }),
+        }
+        const response = await apiClient.get("/users", { params })
+        const data = response.data?.data || []
+        
+        // FIXED: Ensure data is always an array with proper structure  
+        if (!Array.isArray(data)) {
+          console.warn("Participants API returned non-array data:", data)
+          return []
+        }
+        
+        // Ensure each participant has required fields
+        return data.map(participant => ({
+          ...participant,
+          id: participant.id || `participant-${Date.now()}-${Math.random()}`,
+          fullName: participant.fullName || participant.name || 'Unknown Participant',
+          email: participant.email || 'no-email@example.com'
+        }))
+      } catch (error) {
+        console.error("Error fetching participants:", error)
+        toast.error("Gagal memuat data partisipan")
+        return []
       }
-      const response = await apiClient.get("/users", { params })
-      return response.data?.data || []
     },
     enabled: isOpen && formData.type === "counseling" && (dropdowns.participants1 || dropdowns.participants2),
     staleTime: 30 * 1000,
+    retry: 1,
   })
 
-  // FIXED: Upload attachments mutation with proper endpoint and error handling
+  // FIXED: Upload attachments mutation using individual schedule endpoint
   const uploadAttachmentsMutation = useMutation({
     mutationFn: async ({ scheduleIds, files }) => {
       console.log("=== Uploading attachments ===")
@@ -312,21 +439,19 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       // FIXED: Handle single schedule ID or multiple schedule IDs
       const idArray = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds]
 
-      // FIXED: Upload to each schedule individually for better reliability
+      // For multiple schedules, use individual upload to each schedule
       const uploadPromises = idArray.map(async (scheduleId) => {
-        const formData = new FormData()
-
-        // Add files to form data
-        files.forEach((file) => {
-          console.log(`Adding file to schedule ${scheduleId}:`, file.name, file.size)
-          formData.append("files", file)
-        })
-
         console.log(`Uploading to schedule ${scheduleId}`)
 
         try {
-          // FIXED: Use the correct endpoint for individual schedule
-          const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, formData, {
+          const response = await apiClient.post(`/schedules/${scheduleId}/attachments`, (() => {
+            const formData = new FormData()
+            files.forEach((file) => {
+              console.log(`Adding file to schedule ${scheduleId}:`, file.name, file.size)
+              formData.append("files", file)
+            })
+            return formData
+          })(), {
             headers: {
               "Content-Type": "multipart/form-data",
             },
@@ -362,9 +487,27 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     },
   })
 
-  // FIXED: Form validation - Completely remove duration requirements
+  // FIXED: Delete attachment mutation
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async ({ scheduleId, attachmentId }) => {
+      console.log("=== Deleting attachment ===")
+      console.log("Schedule ID:", scheduleId)
+      console.log("Attachment ID:", attachmentId)
+
+      try {
+        const response = await apiClient.delete(`/schedules/${scheduleId}/attachments/${attachmentId}`)
+        console.log("Delete attachment response:", response)
+        return { scheduleId, attachmentId, success: true, data: response.data }
+      } catch (error) {
+        console.error("Delete attachment error:", error)
+        throw new Error(error.response?.data?.message || error.message || "Failed to delete attachment")
+      }
+    },
+  })
+
+  // FIXED: Form validation - Fix timezone issues and past time detection
   const validateForm = () => {
-    const now = dayjs()
+    const now = dayjs() // Current local time
 
     if (!formData.agenda.trim()) {
       toast.error("Agenda wajib diisi")
@@ -374,11 +517,20 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     // Date and time validation
     for (let i = 0; i < formData.dates.length; i++) {
       const dateInfo = formData.dates[i]
-      const scheduleDateTime = dayjs(`${dateInfo.date}T${dateInfo.startTime}:00`)
+      
+      // FIXED: Parse datetime properly considering local timezone
+      const scheduleDateTime = dayjs(`${dateInfo.date} ${dateInfo.startTime}`, 'YYYY-MM-DD HH:mm')
 
-      // FIXED: Prevent creating/editing schedules in the past
-      if (scheduleDateTime.isBefore(now)) {
-        toast.error("Tidak dapat membuat/mengedit jadwal di masa lalu.")
+      console.log('=== VALIDATION DEBUG ===')
+      console.log('Current time (now):', now.format('YYYY-MM-DD HH:mm:ss'))
+      console.log('Schedule datetime:', scheduleDateTime.format('YYYY-MM-DD HH:mm:ss'))
+      console.log('Is schedule before now?:', scheduleDateTime.isBefore(now))
+      console.log('Time difference (minutes):', scheduleDateTime.diff(now, 'minute'))
+
+      // FIXED: Only prevent schedules that are more than 5 minutes in the past
+      // This accounts for small timezone differences and processing delays
+      if (scheduleDateTime.isBefore(now.subtract(5, 'minute'))) {
+        toast.error(`Tidak dapat membuat jadwal di masa lalu (${scheduleDateTime.format('DD/MM/YYYY HH:mm')})`)
         return false
       }
 
@@ -486,10 +638,40 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     if (formData.selectedPsychologist) {
       return fixedLocationOptions
     } else {
-      return psychologistLocations.map((location) => ({
-        label: location,
-        value: location,
-      }))
+      // FIXED: Ensure we return proper array of objects, not raw strings
+      return (psychologistLocations || []).map((location) => {
+        // Handle case where location might be an object with nested properties
+        if (typeof location === 'object' && location !== null) {
+          // If location is an object like {locations: [...], address: "..."}
+          if (location.locations && Array.isArray(location.locations)) {
+            // Return the first location from the array, or use address as fallback
+            const locationValue = location.locations[0] || location.address || 'Unknown';
+            return {
+              label: locationValue,
+              value: locationValue,
+            };
+          } else if (location.name || location.label || location.value) {
+            // Handle standard location object
+            return {
+              label: location.name || location.label || location.value,
+              value: location.value || location.name || location.label,
+            };
+          } else {
+            // Convert object to string representation
+            const locationStr = JSON.stringify(location);
+            return {
+              label: locationStr,
+              value: locationStr,
+            };
+          }
+        } else {
+          // Handle simple string locations
+          return {
+            label: String(location),
+            value: String(location),
+          };
+        }
+      }).filter(location => location.label && location.value); // Filter out invalid entries
     }
   }
 
@@ -580,8 +762,55 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   }
 
   const removeAttachment = (attachmentId) => {
-    setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
-    toast.success("File dihapus dari daftar lampiran")
+    const attachmentToRemove = attachments.find(att => att.id === attachmentId)
+    
+    if (!attachmentToRemove) {
+      toast.error("Attachment tidak ditemukan")
+      return
+    }
+
+    // FIXED: Handle removing existing attachments vs new attachments
+    if (attachmentToRemove.isExisting && initialData?.id) {
+      // For existing attachments, call delete API
+      toast("Hapus lampiran dari server?", {
+        description: `Lampiran "${attachmentToRemove.name}" akan dihapus secara permanen.`,
+        action: {
+          label: "Ya, Hapus",
+          onClick: async () => {
+            try {
+              await deleteAttachmentMutation.mutateAsync({
+                scheduleId: initialData.id,
+                attachmentId: attachmentToRemove.id
+              })
+              
+              // Remove from local state after successful deletion
+              setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
+              toast.success("Lampiran berhasil dihapus dari server")
+            } catch (error) {
+              console.error("Failed to delete attachment:", error)
+              toast.error("Gagal menghapus lampiran", {
+                description: error.message || "Terjadi kesalahan saat menghapus lampiran"
+              })
+            }
+          },
+          className: "!bg-red-600 hover:!bg-red-700 !text-white !border-red-600 hover:!border-red-700 !ml-auto"
+        },
+        cancel: {
+          label: "Batal",
+          onClick: () => {
+            // Do nothing
+          },
+          className: "!bg-transparent hover:!bg-gray-100 !text-gray-700 !border !border-gray-300 hover:!border-gray-400"
+        },
+        duration: 10000,
+        className: "!bg-white !border !border-gray-200 !shadow-lg",
+        position: "top-center"
+      })
+    } else {
+      // For new attachments, just remove from local state
+      setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
+      toast.success("File dihapus dari daftar lampiran")
+    }
   }
 
   // Participant handlers
@@ -748,5 +977,6 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
 
     // Mutations
     uploadAttachmentsMutation,
+    deleteAttachmentMutation,
   }
 }

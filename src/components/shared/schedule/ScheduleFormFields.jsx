@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/schedule/ScheduleFormFields.jsx
 
 const ScheduleFormFields = ({
   formData,
@@ -240,26 +240,26 @@ const ScheduleFormFields = ({
                     </button>
                     {dropdowns.psychologist && !loading && (
                       <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                        {loadingPsychologists ? (
-                          <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                        ) : psychologists.length > 0 ? (
-                          psychologists.map((psychologist) => (
-                            <button
-                              key={psychologist.id}
-                              onClick={() => {
-                                handleInputChange("selectedPsychologist", psychologist)
-                                handleInputChange("location", "")
-                                toggleDropdown("psychologist")
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                            >
-                              <div className="font-medium text-sm truncate">{psychologist.fullName}</div>
-                              <div className="text-xs text-gray-500 truncate">{psychologist.email}</div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
-                        )}
+{loadingPsychologists ? (
+                        <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                      ) : psychologists && psychologists.length > 0 ? (
+                        psychologists.map((psychologist) => (
+                          <button
+                            key={psychologist.id}
+                            onClick={() => {
+                              handleInputChange("selectedPsychologist", psychologist)
+                              handleInputChange("location", "")
+                              toggleDropdown("psychologist")
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                          >
+                            <div className="font-medium text-sm truncate">{psychologist.fullName || 'Unknown'}</div>
+                            <div className="text-xs text-gray-500 truncate">{psychologist.email || 'No email'}</div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
+                      )}
                       </div>
                     )}
                   </div>
