@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
+import { useOutletContext } from "react-router-dom"
 import { useScreening } from "./hooks/useScreening"
 
 // Question Card Component
@@ -94,7 +95,9 @@ const NavigationButtons = ({
   const showSelesai = currentQuestion === 20
 
   return (
-    <div className="flex justify-center items-center gap-5" style={{ marginTop: '40px' }}>
+    <div className="flex justify-center items-center gap-5 top-10" 
+    // style={{ marginBottom: '40px' }}
+    >
       {/* Tombol Previous */}
       {showPrevious && (
         <motion.button
@@ -225,6 +228,9 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     isAllQuestionsAnswered,
   } = useScreening()
 
+  // Get sidebar state from context (same as ScreeningWelcomePage)
+  const { sidebarExpanded } = useOutletContext() || { sidebarExpanded: false }
+
   // Handle answer selection
   const handleAnswerSelect = (value) => {
     updateAnswer(currentQuestion, value)
@@ -310,54 +316,54 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
   }
 
   return (
-    <div className="w-full min-h-screen relative bg-white overflow-hidden flex items-center justify-center p-4 md:p-8">
-      {/* Main responsive container */}
-      <div className="relative w-full max-w-[1440px] min-h-[810px] overflow-hidden flex flex-col items-center justify-center">
-        {/* Background Layer - responsive positioning */}
+    <div className="w-full h-screen relative bg-white overflow-hidden">
+      {/* Background and content container - mengikuti pola ScreeningWelcomePage */}
+      <div className="absolute left-[20px] right-[20px] top-[127px] h-[658px] rounded-[10px] overflow-hidden max-md:left-[20px] max-md:right-[20px] max-md:h-[calc(100vh-8rem)]">
+        {/* Background Layer with gradient */}
         <div 
-          className="absolute inset-4 md:top-[127px] md:left-[79px] md:right-[20px] md:bottom-[25px] w-[1341px] h-[658px] rounded-[10px] overflow-hidden"
+          className="absolute inset-0 w-full h-full rounded-[10px] overflow-hidden"
           style={{
-            background: 'radial-gradient(ellipse at 130% -38%, #D7EDFF 0%, #F9F9F9 100%)'
+            background: 'radial-gradient(ellipse at 130% -38%, #D7EDFF 0%, #FFFFFF 100%)'
           }}
         >
           {/* Progress Indicator - positioned inside background with padding */}
           <div className="absolute top-4 right-6 text-gray-600 text-xs font-normal">
             {currentQuestion + 1}/{21}
           </div>
-        </div>
 
-        {/* Content Layer - responsive positioning */}
-        <div className="relative z-10 w-full max-w-[1223px] flex flex-col justify-start items-center gap-7 px-4 md:px-0 py-8 md:py-0">
-          {/* Question Card */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentQuestion}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3 }}
-              className="w-full flex flex-col justify-start items-center gap-7"
-            >
-              <QuestionCard
-                question={currentQuestionData}
-                selectedAnswer={answers[currentQuestion]}
-                onAnswerSelect={handleAnswerSelect}
-                responseOptions={responseOptions}
-              />
-            </motion.div>
-          </AnimatePresence>
+          {/* Content positioned inside background with 54px padding */}
+          <div className="relative w-full h-full p-[54px] flex flex-col justify-start items-center gap-7 max-md:p-6">
+            {/* Question Card */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentQuestion}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.3 }}
+                className="w-full flex flex-col justify-start items-center gap-7"
+              >
+                <QuestionCard
+                  question={currentQuestionData}
+                  selectedAnswer={answers[currentQuestion]}
+                  onAnswerSelect={handleAnswerSelect}
+                  responseOptions={responseOptions}
+                />
+              </motion.div>
+            </AnimatePresence>
 
-          {/* Navigation Buttons */}
-          <NavigationButtons
-            currentQuestion={currentQuestion}
-            canGoBack={canGoBack}
-            canProceed={canProceed}
-            isLastQuestion={isLastQuestion}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-          />
+            {/* Navigation Buttons */}
+            <NavigationButtons
+              currentQuestion={currentQuestion}
+              canGoBack={canGoBack}
+              canProceed={canProceed}
+              isLastQuestion={isLastQuestion}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+            />
+          </div>
         </div>
       </div>
     </div>
