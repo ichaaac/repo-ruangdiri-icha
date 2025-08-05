@@ -1,5 +1,3 @@
-"use client"
-
 import { useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
@@ -23,7 +21,7 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOption
       <div className="self-stretch h-0 outline outline-[0.50px] outline-offset-[-0.25px] outline-[#488BBE]"></div>
 
       {/* Question Container */}
-      <div className="self-stretch h-96 px-14 py-7 bg-white rounded-[10px] flex flex-col justify-center items-center gap-2.5 max-md:px-6 max-md:py-4 max-md:h-auto max-md:min-h-[320px]">
+      <div className="self-stretch px-14 py-7 bg-white rounded-[10px] flex flex-col justify-center items-center gap-2.5 max-md:px-6 max-md:py-4 min-h-[320px] md:h-96">
         <div className="w-full max-w-[1104px] flex flex-col justify-start items-end gap-9 max-md:gap-6">
           {/* Question Text */}
           <motion.div
@@ -80,7 +78,7 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOption
   )
 }
 
-// Navigation Buttons Component (TIDAK PERLU DIUBAH)
+// Navigation Buttons Component
 const NavigationButtons = ({
   currentQuestion,
   canGoBack,
@@ -96,7 +94,8 @@ const NavigationButtons = ({
   const showSelesai = currentQuestion === 20
 
   return (
-    <div className="flex justify-center items-center gap-5 mt-8 max-md:mt-6">
+    <div className="flex justify-center items-center gap-5" style={{ marginTop: '40px' }}>
+      {/* Tombol Previous */}
       {showPrevious && (
         <motion.button
           onClick={onPrevious}
@@ -112,8 +111,28 @@ const NavigationButtons = ({
       )}
 
       {showSelesai ? (
-        <p>Tombol Selesai</p> // Ganti dengan implementasi tombol selesai
+        /* Tombol Selesai */
+        <motion.button
+          onClick={onSubmit}
+          disabled={isSubmitting}
+          className="flex justify-center items-center gap-2 px-6 py-3 bg-[#488BBE] text-white rounded-lg hover:bg-[#3a7ba8] transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          whileHover={!isSubmitting ? { scale: 1.05 } : {}}
+          whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+        >
+          {isSubmitting ? (
+            <>
+              <span className="material-icons animate-spin text-lg">sync</span>
+              <span>Mengirim...</span>
+            </>
+          ) : (
+            <>
+              <span className="material-icons text-lg">check</span>
+              <span>Selesai</span>
+            </>
+          )}
+        </motion.button>
       ) : (
+        /* Tombol Next */
         showNext && (
           <motion.button
             onClick={onNext}
@@ -135,6 +154,7 @@ const NavigationButtons = ({
     </div>
   )
 }
+
 // Loading Screen Component
 const LoadingScreen = () => {
   return (
@@ -205,16 +225,11 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     isAllQuestionsAnswered,
   } = useScreening()
 
-  // =========================================================
-  // ===== PERBAIKAN DI SINI: Panggil fungsi canProceed() =====
-  // =========================================================
-  const canProceedValue = canProceed();
-  // =========================================================
-
-
   // Handle answer selection
   const handleAnswerSelect = (value) => {
     updateAnswer(currentQuestion, value)
+
+    // Save to localStorage
     const savedAnswers = [...answers]
     savedAnswers[currentQuestion] = value
     localStorage.setItem("screening_answers", JSON.stringify(savedAnswers))
@@ -223,13 +238,13 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
 
   // Handle next question
   const handleNext = () => {
-    // Gunakan nilai boolean yang sudah dihitung
-    if (!canProceedValue) {
+    if (!canProceed) {
       toast.warning("Pilih jawaban terlebih dahulu", {
         description: "Kamu harus memilih salah satu jawaban untuk melanjutkan.",
       })
       return
     }
+
     nextQuestion()
   }
 
@@ -248,11 +263,18 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
       })
       return
     }
+
     try {
+      // Submit screening and get ID
       const submissionResult = await submitScreening()
+
+      // Clear localStorage on successful submission
       localStorage.removeItem("screening_answers")
       localStorage.removeItem("screening_current_question")
+
       toast.success("Screening berhasil diselesaikan!")
+
+      // Pass the screening ID to parent for fetching full result
       onComplete?.(submissionResult)
     } catch (error) {
       console.error("Submission failed:", error)
@@ -267,35 +289,46 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     window.location.reload()
   }
 
-  // Load saved progress on mount (silently)
+  // Load saved progress on mount
   useEffect(() => {
     const savedAnswers = localStorage.getItem("screening_answers")
     const savedQuestion = localStorage.getItem("screening_current_question")
+
     if (savedAnswers && savedQuestion) {
       // Progress loaded in background
     }
   }, [])
 
+  // Show loading screen
   if (isLoading) {
     return <LoadingScreen />
   }
 
+  // Show error screen
   if (error) {
     return <ErrorScreen error={error} onRetry={handleRetry} />
   }
 
   return (
     <div className="w-full min-h-screen relative bg-white overflow-hidden flex items-center justify-center p-4 md:p-8">
-      <div className="relative w-[1440px] h-[810px] max-w-full max-h-screen overflow-hidden flex flex-col items-center justify-center">
-        <div
-          className="absolute top-[127px] left-[79px] w-[1341px] h-[658px] rounded-[10px] overflow-hidden"
+      {/* Main responsive container */}
+      <div className="relative w-full max-w-[1440px] min-h-[810px] overflow-hidden flex flex-col items-center justify-center">
+        {/* Background Layer - responsive positioning */}
+        <div 
+          className="absolute inset-4 md:top-[127px] md:left-[79px] md:right-[20px] md:bottom-[25px] w-[1341px] h-[658px] rounded-[10px] overflow-hidden"
           style={{
-            backgroundImage: "url('/screening-gradient.svg')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
+            background: 'radial-gradient(ellipse at 130% -38%, #D7EDFF 0%, #F9F9F9 100%)'
           }}
-        />
-        <div className="absolute top-[181px] left-[138px] w-[1223px] flex flex-col justify-start items-center gap-7">
+        >
+          {/* Progress Indicator - positioned inside background with padding */}
+          <div className="absolute top-4 right-6 text-gray-600 text-xs font-normal">
+            {currentQuestion + 1}/{21}
+          </div>
+        </div>
+
+        {/* Content Layer - responsive positioning */}
+        <div className="relative z-10 w-full max-w-[1223px] flex flex-col justify-start items-center gap-7 px-4 md:px-0 py-8 md:py-0">
+          {/* Question Card */}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentQuestion}
@@ -313,19 +346,18 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
               />
             </motion.div>
           </AnimatePresence>
+
+          {/* Navigation Buttons */}
           <NavigationButtons
             currentQuestion={currentQuestion}
             canGoBack={canGoBack}
-            canProceed={canProceedValue} // <-- Gunakan nilai boolean di sini
+            canProceed={canProceed}
             isLastQuestion={isLastQuestion}
             onPrevious={handlePrevious}
             onNext={handleNext}
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
           />
-        </div>
-        <div className="absolute top-[320px] left-[1319px] text-gray-600 text-xs font-normal">
-          {currentQuestion + 1}/{21}
         </div>
       </div>
     </div>
