@@ -132,7 +132,6 @@ const Sidebar = ({
     }
   }, [expanded, hovered, isMobile, setExpanded, onHoverChange]);
 
-// ... (sisa kode)
 
   const handleImageError = () => setFallbackProfileImage(true)
 
@@ -214,6 +213,8 @@ const Sidebar = ({
         initial={{ width: expanded ? expandedWidth : collapsedWidth }}
         animate={{ width: sidebarWidth }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
+        onMouseEnter={() => (document.body.style.overflow = "hidden")}
+        onMouseLeave={() => (document.body.style.overflow = "")}
       >
         {/* Logo Container */}
         <div className={`relative ${isMobile ? "h-[60px]" : "h-[80px]"} flex-shrink-0 flex items-center justify-center`}>
