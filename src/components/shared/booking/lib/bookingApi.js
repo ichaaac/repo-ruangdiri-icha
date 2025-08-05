@@ -169,6 +169,52 @@ export const createBookingApi = (userType = "student") => {
       }
     },
 
+    // Get available locations for offline counseling
+    getLocations: async () => {
+      try {
+        const response = await apiClient.get('/psychologists/locations');
+        
+        if (response.data && Array.isArray(response.data)) {
+          return {
+            status: 'success',
+            data: response.data.map((location, index) => ({
+              id: index + 1,
+              name: location.locations,
+              address: location.address
+            }))
+          };
+        }
+        
+        return {
+          status: 'success',
+          data: response.data || []
+        };
+      } catch (error) {
+        console.error("Error fetching locations:", error);
+        // Return fallback locations
+        return {
+          status: 'fallback',
+          data: [
+            {
+              id: 1,
+              name: 'PT. Jasa Raharja Headquarter',
+              address: 'Kuningan, Jakarta Selatan'
+            },
+            {
+              id: 2,
+              name: 'Biro Psikologi Sehati',
+              address: 'Bekasi, Jawa Barat'
+            },
+            {
+              id: 3,
+              name: 'Jiwaku Sehati',
+              address: 'Bekasi, Jawa Barat'
+            }
+          ]
+        };
+      }
+    },
+
     // Get available time slots for a specific date and psychologist
     getAvailableTimeSlots: async (params = {}) => {
       try {
@@ -219,7 +265,6 @@ export const createBookingApi = (userType = "student") => {
       }
     },
 
-// GUNAKAN BLOK INI SEBAGAI PENGGANTI
     // Get user's subscription info
     getSubscriptionInfo: async () => {
       try {
@@ -275,6 +320,11 @@ export const createBookingApi = (userType = "student") => {
           endTime: bookingData.endTime,
           timezone: bookingData.timezone || 'Asia/Jakarta'
         };
+
+        // Add location for offline bookings
+        if (bookingData.method === 'offline' && bookingData.locationId) {
+          transformedData.locationId = bookingData.locationId;
+        }
 
         console.log('Final payload sent to backend:', transformedData);
 

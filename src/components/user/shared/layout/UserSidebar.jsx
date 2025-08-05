@@ -60,8 +60,9 @@ const UserSidebar = ({
         {
           label: "Booking Sesi",
           icon: "event_available",
-          path: `/user/student/booking`,
-          disabled: false
+          path: `/booking-session/student`, // Updated to standalone page
+          disabled: false,
+          isExternal: true // Mark as external/standalone
         },
         {
           label: "Pesan",
@@ -87,8 +88,9 @@ const UserSidebar = ({
         {
           label: "Booking Sesi",
           icon: "event_available",
-          path: `/user/employee/booking`,
-          disabled: false
+          path: `/booking-session/employee`, // Updated to standalone page
+          disabled: false,
+          isExternal: true // Mark as external/standalone
         },
         {
           label: "Pesan",
@@ -175,8 +177,6 @@ const UserSidebar = ({
     }
   }
 
- // ... (kode lainnya di dalam useEffect)
-
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target) &&
@@ -187,24 +187,23 @@ const UserSidebar = ({
       }
     }
 
-    // Logika penguncian scroll sudah dihapus dari sini
-
     document.addEventListener("mousedown", handleClickOutside)
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
       clearTimeout(expandTimeoutRef.current)
       clearTimeout(collapseTimeoutRef.current)
-      // Pastikan style dikembalikan ke default saat komponen unmount jika diperlukan
     }
   }, [expanded, hovered, isMobile, setExpanded, onHoverChange]);
-
-
 
   const handleImageError = () => setFallbackProfileImage(true)
 
   const isActive = (path) => {
     if (path.includes("/dashboard")) {
       return location.pathname.includes("/dashboard")
+    }
+    // Don't mark external/standalone pages as active in sidebar
+    if (path.includes("/booking-session/")) {
+      return false
     }
     return location.pathname === path
   }
@@ -231,6 +230,22 @@ const UserSidebar = ({
   }
 
   const toggleMenuDropdown = (path) => setActiveMenuPath(activeMenuPath === path ? null : path)
+
+  // Handle menu item clicks
+  const handleMenuItemClick = (item) => {
+    if (item.disabled) return;
+    
+    if (item.hasDropdown) {
+      toggleMenuDropdown(item.path)
+    } else if (item.isExternal) {
+      // For external/standalone pages, open in new window/tab
+      window.open(item.path, '_blank')
+    } else {
+      navigate(item.path)
+      if (item.path.includes('/dashboard')) onDashboardTabChange('home')
+      if (isMobile) setExpanded(false)
+    }
+  }
 
   const getInitial = () => {
     if (userData?.fullName && userData.fullName.length > 0) {
@@ -362,17 +377,7 @@ const UserSidebar = ({
             {menuItems.map((item, index) => (
               <div key={index}>
                 <motion.div className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${ isActive(item.path) ? "bg-[#488BBE] text-white font-bold" : item.disabled ? "text-gray-400 cursor-not-allowed" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white" }`}
-                  onClick={() => {
-                    if (item.disabled) return;
-                    
-                    if (item.hasDropdown) {
-                        toggleMenuDropdown(item.path)
-                    } else {
-                      navigate(item.path)
-                      if (item.path.includes('/dashboard')) onDashboardTabChange('home')
-                      if (isMobile) setExpanded(false)
-                    }
-                  }}>
+                  onClick={() => handleMenuItemClick(item)}>
                   <span className={`material-icons ${isMobile ? "w-[16px]" : "w-[20px]"} flex-shrink-0`} style={{ fontSize: isMobile ? "16px" : "20px" }}>{item.icon}</span>
                   <motion.span animate={{ width: expanded || hovered ? "auto" : 0, opacity: expanded || hovered ? 1 : 0, marginLeft: expanded || hovered ? (isMobile ? "8px" : "10px") : 0, }}
                     transition={{ duration: 0.3, ease: "easeInOut" }}

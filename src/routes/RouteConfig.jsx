@@ -1,50 +1,47 @@
-// src/routes/routeConfig.jsx - UPDATED WITH NEW BOOKING COMPONENTS
+// src/routes/RouteConfig.jsx
 
-import React from "react";
-import { Navigate } from "react-router-dom";
-import ProtectedRoute from "../components/auth/ProtectedRoute";
+import { Navigate } from "react-router-dom"
+import ProtectedRoute from "../components/auth/ProtectedRoute"
 
 // === LAYOUTS ===
-import CompanyLayout from "../components/organization/company/layout/CompanyLayout";
-import SchoolLayout from "../components/organization/school/layout/SchoolLayout";
-import UserLayout from "../components/user/shared/layout/UserLayout";
+import CompanyLayout from "../components/organization/company/layout/CompanyLayout"
+import SchoolLayout from "../components/organization/school/layout/SchoolLayout"
+import UserLayout from "../components/user/shared/layout/UserLayout"
 
 // === PUBLIC PAGES ===
-import Homepage from "../pages/shared/HomePage";
-import Login from "../pages/shared/auth/Login";
-import ForgotPassword from "../pages/shared/auth/ForgotPassword";
-import ResetPassword from "../pages/shared/auth/ResetPassword";
+import Homepage from "../pages/shared/HomePage"
+import Login from "../pages/shared/auth/Login"
+import ForgotPassword from "../pages/shared/auth/ForgotPassword"
+import ResetPassword from "../pages/shared/auth/ResetPassword"
 
 // === UNIFIED ONBOARDING COMPONENTS ===
-import OnboardingContainer from "@/components/shared/onboarding/OnboardingContainer";
+import OnboardingContainer from "@/components/shared/onboarding/OnboardingContainer"
 
 // === SHARED PAGES ===
-import NotificationPage from "../pages/shared/NotificationPage";
+import NotificationPage from "../pages/shared/NotificationPage"
+import BookingSessionComplete from "@/components/shared/booking/BookingSessionComplete"
 
 // === COMPANY PAGES ===
-import CompanyDashboard from "../pages/organization/company/CompanyDashboard";
-import EmployeeListPage from "../pages/organization/company/EmployeeListPage";
-import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage";
-import EmployeeDetailPage from "../pages/organization/company/EmployeeDetailPage";
-import CompanySchedule from "../pages/organization/company/CompanySchedule";
+import CompanyDashboard from "../pages/organization/company/CompanyDashboard"
+import EmployeeListPage from "../pages/organization/company/EmployeeListPage"
+import CompanyProfilePage from "../pages/organization/company/CompanyProfilePage"
+import EmployeeDetailPage from "../pages/organization/company/EmployeeDetailPage"
+import CompanySchedule from "../pages/organization/company/CompanySchedule"
 
 // === SCHOOL PAGES ===
-import SchoolDashboard from "../pages/organization/school/SchoolDashboard"; 
-import StudentListPage from "../pages/organization/school/StudentListPage";
-import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage";
-import StudentDetailPage from "../pages/organization/school/StudentDetailPage";
-import SchoolSchedule from "../pages/organization/school/SchoolSchedule";
+import SchoolDashboard from "../pages/organization/school/SchoolDashboard"
+import StudentListPage from "../pages/organization/school/StudentListPage"
+import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage"
+import StudentDetailPage from "../pages/organization/school/StudentDetailPage"
+import SchoolSchedule from "../pages/organization/school/SchoolSchedule"
+import BookingSessionStandalone from "@/pages/user/shared/BookingSessonStandalone"
+import ChatPage from "../pages/user/shared/ChatPage"
+import UserProfile from "../pages/user/shared/UserProfile"
+import MentalHealthScreening from "../pages/user/shared/MentalHealthScreening"
+import UserDashboard from "../pages/user/shared/UserDashboard"
 
-// === USER PAGES (SHARED) ===
-import BookingSession from "../pages/user/shared/BookingSession";
-import ChatPage from "../pages/user/shared/ChatPage";
-import UserProfile from "../pages/user/shared/UserProfile";
-import MentalHealthScreening from "../pages/user/shared/MentalHealthScreening";
-import UserDashboard from "../pages/user/shared/UserDashboard";
-
-// === NEW BOOKING COMPONENTS ===
-import StudentBookingPage from "@/pages/user/student/StudentBookingPages";
-import EmployeeBookingPage from "../pages/user/employee/EmployeeBookingPage";
+// === STANDALONE BOOKING COMPONENTS ===
+import BookingContainer from "@/components/shared/booking/BookingContainer"
 
 // === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
@@ -54,13 +51,11 @@ const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => 
       <h2 className="text-xl font-semibold text-gray-700 mb-2">{title}</h2>
       <p className="text-gray-500 mb-4">{description}</p>
       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <p className="text-green-700 text-sm">
-          🚧 Feature ini sedang dalam pengembangan
-        </p>
+        <p className="text-green-700 text-sm">🚧 Feature ini sedang dalam pengembangan</p>
       </div>
     </div>
   </div>
-);
+)
 
 // === PSYCHOLOGIST COMING SOON PAGE ===
 const PsychologistComingSoon = () => (
@@ -71,10 +66,10 @@ const PsychologistComingSoon = () => (
       </div>
       <h2 className="text-2xl font-semibold text-gray-800 mb-4">Platform Psikolog</h2>
       <p className="text-gray-600 mb-6">
-        Fitur khusus untuk psikolog sedang dalam tahap pengembangan final. 
-        Saat ini Anda dapat mengakses sistem chat untuk berkomunikasi dengan klien.
+        Fitur khusus untuk psikolog sedang dalam tahap pengembangan final. Saat ini Anda dapat mengakses sistem chat
+        untuk berkomunikasi dengan klien.
       </p>
-      
+
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
         <h3 className="font-semibold text-blue-800 mb-3">Fitur yang Akan Datang:</h3>
         <ul className="text-sm text-blue-700 space-y-2 text-left">
@@ -104,7 +99,7 @@ const PsychologistComingSoon = () => (
       </div>
     </div>
   </div>
-);
+)
 
 // === MAIN ROUTES CONFIGURATION ===
 const routes = [
@@ -113,19 +108,39 @@ const routes = [
   // ==========================================
   {
     path: "/",
-    element: <Homepage />
+    element: <Homepage />,
   },
   {
     path: "/login",
-    element: <Login />
+    element: <Login />,
   },
   {
     path: "/forgot-password",
-    element: <ForgotPassword />
+    element: <ForgotPassword />,
   },
   {
     path: "/reset-password",
-    element: <ResetPassword />
+    element: <ResetPassword />,
+  },
+
+  // ==========================================
+  // STANDALONE BOOKING ROUTES (NO LAYOUT)
+  // ==========================================
+  {
+    path: "/booking-session/:userType",
+    element: (
+      <ProtectedRoute>
+        <BookingContainer showTopRightControl={false} />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/user/:userType/booking-complete",
+    element: (
+      <ProtectedRoute>
+        <BookingSessionComplete />
+      </ProtectedRoute>
+    ),
   },
 
   // ==========================================
@@ -137,11 +152,11 @@ const routes = [
       <ProtectedRoute>
         <OnboardingContainer />
       </ProtectedRoute>
-    )
+    ),
   },
 
   // ==========================================
-  // STUDENT ROUTES - UPDATED WITH NEW BOOKING
+  // STUDENT ROUTES - UPDATED WITHOUT BOOKING IN LAYOUT
   // ==========================================
   {
     path: "/user/student",
@@ -153,41 +168,33 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="screening" replace />
+        element: <Navigate to="screening" replace />,
       },
       {
         path: "dashboard",
-        element: <UserDashboard />
+        element: <UserDashboard />,
       },
       {
         path: "screening",
-        element: <MentalHealthScreening />
-      },
-      {
-        path: "booking",
-        element: <StudentBookingPage />
-      },
-      {
-        path: "booking-sesi",
-        element: <BookingSession />
+        element: <MentalHealthScreening />,
       },
       {
         path: "chat",
-        element: <ChatPage />
+        element: <ChatPage />,
       },
       {
         path: "profile",
-        element: <UserProfile />
+        element: <UserProfile />,
       },
       {
         path: "notifications",
-        element: <NotificationPage />
-      }
-    ]
+        element: <NotificationPage />,
+      },
+    ],
   },
 
   // ==========================================
-  // EMPLOYEE ROUTES - UPDATED WITH NEW BOOKING
+  // EMPLOYEE ROUTES - UPDATED WITHOUT BOOKING IN LAYOUT
   // ==========================================
   {
     path: "/user/employee",
@@ -199,37 +206,29 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="screening" replace />
+        element: <Navigate to="screening" replace />,
       },
       {
         path: "dashboard",
-        element: <UserDashboard />
+        element: <UserDashboard />,
       },
       {
         path: "screening",
-        element: <MentalHealthScreening />
-      },
-      {
-        path: "booking-sesi",
-        element: <BookingSession />
-      },
-      {
-        path: "booking",
-        element: <EmployeeBookingPage />
+        element: <MentalHealthScreening />,
       },
       {
         path: "chat",
-        element: <ChatPage />
+        element: <ChatPage />,
       },
       {
         path: "profile",
-        element: <UserProfile />
+        element: <UserProfile />,
       },
       {
         path: "notifications",
-        element: <NotificationPage />
-      }
-    ]
+        element: <NotificationPage />,
+      },
+    ],
   },
 
   // ==========================================
@@ -245,58 +244,66 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="chat" replace />
+        element: <Navigate to="chat" replace />,
       },
       {
         path: "dashboard",
-        element: <PsychologistComingSoon />
+        element: <PsychologistComingSoon />,
       },
       {
         path: "chat",
-        element: <ChatPage />
+        element: <ChatPage />,
       },
       {
         path: "profile",
-        element: <UserProfile />
+        element: <UserProfile />,
       },
       {
         path: "notifications",
-        element: <NotificationPage />
+        element: <NotificationPage />,
       },
       // Placeholder routes for future features
       {
         path: "schedule",
-        element: <UnderDevelopmentPage 
-          title="Manajemen Jadwal" 
-          description="Kelola jadwal konseling dan appointment dengan klien"
-          icon="schedule"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Manajemen Jadwal"
+            description="Kelola jadwal konseling dan appointment dengan klien"
+            icon="schedule"
+          />
+        ),
       },
       {
         path: "clients",
-        element: <UnderDevelopmentPage 
-          title="Manajemen Klien" 
-          description="Overview klien, riwayat sesi, dan progress tracking"
-          icon="groups"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Manajemen Klien"
+            description="Overview klien, riwayat sesi, dan progress tracking"
+            icon="groups"
+          />
+        ),
       },
       {
         path: "assessments",
-        element: <UnderDevelopmentPage 
-          title="Assessment Tools" 
-          description="Tools asesmen kesehatan mental untuk klien"
-          icon="assessment"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Assessment Tools"
+            description="Tools asesmen kesehatan mental untuk klien"
+            icon="assessment"
+          />
+        ),
       },
       {
         path: "analytics",
-        element: <UnderDevelopmentPage 
-          title="Analytics & Reports" 
-          description="Analisis data klien dan laporan progress"
-          icon="analytics"
-        />
-      }
-    ]
+        element: (
+          <UnderDevelopmentPage
+            title="Analytics & Reports"
+            description="Analisis data klien dan laporan progress"
+            icon="analytics"
+          />
+        ),
+      },
+    ],
   },
 
   // ==========================================
@@ -312,45 +319,47 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="dashboard" replace />
+        element: <Navigate to="dashboard" replace />,
       },
       {
         path: "dashboard",
-        element: <SchoolDashboard />
+        element: <SchoolDashboard />,
       },
       {
         path: "profile",
-        element: <SchoolProfilePage />
+        element: <SchoolProfilePage />,
       },
       {
         path: "student-list",
-        element: <StudentListPage />
+        element: <StudentListPage />,
       },
       {
         path: "student/:studentId",
-        element: <StudentDetailPage />
+        element: <StudentDetailPage />,
       },
       {
         path: "schedule",
-        element: <SchoolSchedule />
+        element: <SchoolSchedule />,
       },
       {
         path: "notifications",
-        element: <NotificationPage />
+        element: <NotificationPage />,
       },
       {
         path: "message",
-        element: <UnderDevelopmentPage 
-          title="Messages" 
-          description="Sistem pesan untuk komunikasi dengan siswa dan orangtua"
-          icon="chat"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Messages"
+            description="Sistem pesan untuk komunikasi dengan siswa dan orangtua"
+            icon="chat"
+          />
+        ),
       },
       {
         path: "settings",
-        element: <Navigate to="profile" replace />
-      }
-    ]
+        element: <Navigate to="profile" replace />,
+      },
+    ],
   },
 
   // ==========================================
@@ -366,73 +375,67 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="dashboard" replace />
+        element: <Navigate to="dashboard" replace />,
       },
       {
         path: "dashboard",
-        element: <CompanyDashboard />
+        element: <CompanyDashboard />,
       },
       {
         path: "profile",
-        element: <CompanyProfilePage />
+        element: <CompanyProfilePage />,
       },
       {
         path: "employee-list",
-        element: <EmployeeListPage />
+        element: <EmployeeListPage />,
       },
       {
         path: "employee/:employeeId",
-        element: <EmployeeDetailPage />
+        element: <EmployeeDetailPage />,
       },
       {
         path: "schedule",
-        element: <CompanySchedule />
+        element: <CompanySchedule />,
       },
       {
         path: "notifications",
-        element: <NotificationPage />
+        element: <NotificationPage />,
       },
       {
         path: "message",
-        element: <UnderDevelopmentPage 
-          title="Messages" 
-          description="Sistem pesan untuk komunikasi dengan karyawan"
-          icon="chat"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Messages"
+            description="Sistem pesan untuk komunikasi dengan karyawan"
+            icon="chat"
+          />
+        ),
       },
       {
         path: "candidates",
-        element: <UnderDevelopmentPage 
-          title="Candidates Management" 
-          description="Candidate profiles, application tracking, dan recruitment pipeline"
-          icon="people"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Candidates Management"
+            description="Candidate profiles, application tracking, dan recruitment pipeline"
+            icon="people"
+          />
+        ),
       },
       {
         path: "jobs",
-        element: <UnderDevelopmentPage 
-          title="Jobs Management" 
-          description="Job postings, requirements management, dan application processing"
-          icon="work"
-        />
+        element: (
+          <UnderDevelopmentPage
+            title="Jobs Management"
+            description="Job postings, requirements management, dan application processing"
+            icon="work"
+          />
+        ),
       },
       {
         path: "settings",
-        element: <Navigate to="profile" replace />
-      }
-    ]
-  },
-
-  // ==========================================
-  // DEVELOPMENT ROUTES - For Testing Unified Components
-  // ==========================================
-  {
-    path: "/onboarding",
-    element: (
-      <ProtectedRoute>
-        <OnboardingContainer />
-      </ProtectedRoute>
-    )
+        element: <Navigate to="profile" replace />,
+      },
+    ],
   },
 
   // ==========================================
@@ -440,21 +443,21 @@ const routes = [
   // ==========================================
   {
     path: "/school/*",
-    element: <Navigate to="/organization/school" replace />
+    element: <Navigate to="/organization/school" replace />,
   },
   {
     path: "/company/*",
-    element: <Navigate to="/organization/company" replace />
+    element: <Navigate to="/organization/company" replace />,
   },
   {
     path: "/demo/*",
-    element: <Navigate to="/" replace />
+    element: <Navigate to="/" replace />,
   },
-  
+
   // Redirect old user onboarding routes to unified system
   {
     path: "/user/onboarding/*",
-    element: <Navigate to="/onboarding" replace />
+    element: <Navigate to="/onboarding" replace />,
   },
 
   // ==========================================
@@ -462,8 +465,8 @@ const routes = [
   // ==========================================
   {
     path: "*",
-    element: <Navigate to="/" replace />
-  }
-];
+    element: <Navigate to="/" replace />,
+  },
+]
 
-export default routes;
+export default routes

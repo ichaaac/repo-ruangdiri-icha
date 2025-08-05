@@ -1,18 +1,11 @@
-// src/pages/user/student/StudentBookingPage.jsx
-
-import BookingContainer from "../../../components/shared/booking/BookingContainer";
+import BookingContainer from "../../../components/shared/booking/BookingContainer"
 
 const StudentBookingPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Booking Component with TopRightControl */}
-      <BookingContainer 
-        userType="student"
-        className="pb-6"
-        showTopRightControl={true}
-      />
+      <BookingContainer userType="student" className="pb-6" showTopRightControl={true} />
     </div>
-  );
-};
+  )
+}
 
-export default StudentBookingPage;
+export default StudentBookingPage
