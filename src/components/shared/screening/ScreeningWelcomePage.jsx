@@ -164,11 +164,11 @@ const WelcomeView = ({ onStart, onExit }) => {
 
     try {
       await initializeScreening()
-      toast.success("Screening dimulai", {
-        description: "Jawab semua pertanyaan dengan jujur sesuai kondisi 2 minggu terakhir.",
-      })
+      toast.success("Screening \n dimulai")
       onStart?.()
-    } catch (error) {
+    } 
+
+    catch (error) {
       console.error("Failed to initialize screening:", error)
       toast.error("Gagal memulai screening", {
         description: "Terjadi kesalahan. Silakan coba lagi.",
@@ -245,9 +245,9 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && currentView === "assessment") {
-        toast.warning("Jangan tinggalkan halaman ini", {
-          description: "Progress screening kamu akan hilang jika meninggalkan halaman.",
-        })
+        // toast.warning("Jangan tinggalkan halaman ini", {
+        //   description: "Progress screening kamu akan hilang jika meninggalkan halaman.",
+        // })
       }
     }
 
