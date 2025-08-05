@@ -432,7 +432,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
           <div className="flex-1 flex flex-col gap-3.5">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Jenis Konseling</div>
             <div
-              className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
+              className="p-2.5 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
               onClick={() => setShowMethodDropdown(!showMethodDropdown)}
             >
               <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
@@ -472,7 +472,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             <div className="flex-1 flex flex-col gap-3.5">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Lokasi Konseling</div>
               <div
-                className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
+                className="p-2.5 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
                 onClick={() => setShowLocationDropdown(!showLocationDropdown)}
               >
                 <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
@@ -616,20 +616,20 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                 </div>
               </div>
             </div>
-            
-            {/* Quota Info - Moved here */}
-            <div className="flex justify-start items-center gap-[5px] mt-2">
-              <span className="material-icons text-[#EE4266] text-base">info</span>
-              <div className="text-[#EE4266] text-[10px] font-normal font-['Public_Sans'] leading-3">
-                Kuota tersisa untuk konseling : {remainingQuota}
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
+      {/* Quota Info */}
+      <div className="absolute right-[59px] top-[520px] flex justify-end items-center gap-[5px] max-md:right-[30px] max-md:top-[480px]">
+        <span className="material-icons text-[#EE4266] text-base">info</span>
+        <div className="text-[#EE4266] text-[10px] font-normal font-['Public_Sans'] leading-3">
+          Kuota tersisa untuk konseling : {remainingQuota}
+        </div>
+      </div>
+
       {/* Problem Description */}
-      <div className="absolute left-[59px] right-[59px] top-[550px] flex flex-col gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:top-[510px]">
+      <div className="absolute left-[59px] right-[59px] top-[580px] flex flex-col gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:top-[540px]">
         <div className="flex flex-col">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
@@ -649,15 +649,15 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
         {/* Terms and Conditions */}
         <div className="flex flex-col gap-2">
-          <div className="text-[#EE4266] text-[10px] font-bold font-['Public_Sans'] max-md:text-[9px]">{getTermsTitle()}</div>
-          <div className="text-gray-600 text-[10px] font-normal font-['Public_Sans'] whitespace-pre-line leading-relaxed max-md:text-[9px] max-md:leading-normal">
+          <div className="text-[#EE4266] text-[8px] font-bold font-['Public_Sans']">{getTermsTitle()}</div>
+          <div className="text-gray-600 text-[8px] font-normal font-['Public_Sans'] whitespace-pre-line">
             {getTermsContent()}
           </div>
         </div>
       </div>
 
       {/* Action Buttons - Responsive positioning */}
-      <div className="absolute right-[59px] bottom-[30px] flex justify-end items-center gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:bottom-[20px] max-md:justify-center">
+      <div className="absolute right-[59px] bottom-[50px] flex justify-end items-center gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:bottom-[30px] max-md:justify-center">
         <button
           onClick={handleCancel}
           className="h-8 px-5 py-2.5 rounded-[5px] outline outline-1 outline-offset-[-1px] outline-[#488BBA] flex justify-center items-center gap-2.5 hover:bg-blue-50 transition-colors max-md:flex-1"
