@@ -24,7 +24,6 @@ const ScreeningContainer = ({ user, onComplete, onExit, userRole = "student" }) 
 
     // Cleanup on unmount
     return () => {
-      // Don't clear progress data on unmount - only clear on successful completion or explicit reset
       console.log("Screening container unmounted")
     }
   }, [])
@@ -38,6 +37,8 @@ const ScreeningContainer = ({ user, onComplete, onExit, userRole = "student" }) 
     try {
       localStorage.removeItem("screening_session_id")
       localStorage.removeItem("screening_start_time")
+      localStorage.removeItem("screening_answers")
+      localStorage.removeItem("screening_current_question")
     } catch (error) {
       console.error("Error clearing session:", error)
     }

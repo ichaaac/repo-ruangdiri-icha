@@ -6,18 +6,18 @@ import { toast } from "sonner"
 import { useScreening } from "./hooks/useScreening"
 import ScreeningAssessment from "./ScreeningAssesment"
 import ScreeningResult from "./ScreeningResult"
-import { useOutletContext } from "react-router-dom" // Import useOutletContext
+import { useOutletContext } from "react-router-dom"
 
 // Stage 1 Content Component
 const Stage1Content = ({ onScrollDown }) => {
   return (
     <motion.div
-      className="w-96 inline-flex flex-col justify-center items-end gap-7 pr-8 pb-5 max-md:w-[calc(100%-40px)] max-md:left-[20px] max-md:right-[20px] max-md:items-center" // Adjusted positioning and padding
+      className="w-96 inline-flex flex-col justify-center items-end gap-7 pr-8 pb-5 max-md:w-[calc(100%-40px)] max-md:left-[20px] max-md:right-[20px] max-md:items-center"
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
-      {/* Re-added Selamat Datang Header */}
+      {/* Selamat Datang Header */}
       <motion.div
         className="self-stretch justify-start text-white text-3xl font-bold leading-tight mb-2 max-md:text-2xl"
         initial={{ opacity: 0, y: 20 }}
@@ -26,7 +26,7 @@ const Stage1Content = ({ onScrollDown }) => {
       >
         Selamat Datang
       </motion.div>
-      {/* Re-added Divider */}
+      {/* Divider */}
       <motion.div
         className="self-stretch h-[1px] bg-white bg-opacity-50 mb-5"
         initial={{ opacity: 0, y: 20 }}
@@ -35,7 +35,7 @@ const Stage1Content = ({ onScrollDown }) => {
       />
 
       <motion.div
-        className="self-stretch justify-start text-white text-lg font-medium leading-tight" // Increased font size
+        className="self-stretch justify-start text-white text-lg font-medium leading-tight"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.6 }}
@@ -77,13 +77,13 @@ const Stage1Content = ({ onScrollDown }) => {
 const Stage2Content = ({ isAgreed, onAgreementChange, onStart, isLoading }) => {
   return (
     <motion.div
-      className="w-96 inline-flex flex-col justify-center items-end gap-7 pr-8 pb-5 max-md:w-[calc(100%-40px)] max-md:left-[20px] max-md:right-[20px] max-md:items-center" // Adjusted positioning and padding
-      initial={{ opacity: 0 }} // Removed y:20 to fix animation
+      className="w-96 inline-flex flex-col justify-center items-end gap-7 pr-8 pb-5 max-md:w-[calc(100%-40px)] max-md:left-[20px] max-md:right-[20px] max-md:items-center"
+      initial={{ opacity: 0 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
       <motion.div
-        className="self-stretch justify-start text-white text-lg font-medium leading-tight" // Increased font size
+        className="self-stretch justify-start text-white text-lg font-medium leading-tight"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.6 }}
@@ -146,10 +146,10 @@ const Stage2Content = ({ isAgreed, onAgreementChange, onStart, isLoading }) => {
 
 // Welcome View Component
 const WelcomeView = ({ onStart, onExit }) => {
-  const [currentStage, setCurrentStage] = useState(1) // 1 or 2
+  const [currentStage, setCurrentStage] = useState(1)
   const [isAgreed, setIsAgreed] = useState(false)
   const { initializeScreening, isLoading } = useScreening()
-  const { sidebarExpanded } = useOutletContext() // Get sidebarExpanded from context
+  const { sidebarExpanded } = useOutletContext() || { sidebarExpanded: false }
 
   const handleScrollDown = () => {
     setCurrentStage(2)
@@ -164,11 +164,9 @@ const WelcomeView = ({ onStart, onExit }) => {
 
     try {
       await initializeScreening()
-      toast.success("Screening \n dimulai")
+      toast.success("Screening dimulai")
       onStart?.()
-    } 
-
-    catch (error) {
+    } catch (error) {
       console.error("Failed to initialize screening:", error)
       toast.error("Gagal memulai screening", {
         description: "Terjadi kesalahan. Silakan coba lagi.",
@@ -178,7 +176,7 @@ const WelcomeView = ({ onStart, onExit }) => {
 
   return (
     <div className="w-full h-screen relative bg-white overflow-hidden">
-      {/* Main image container with padding and fixed top/height */}
+      {/* Main image container */}
       <div className="absolute left-[20px] right-[20px] top-[127px] h-[658px] rounded-[10px] overflow-hidden max-md:left-[20px] max-md:right-[20px] max-md:h-[calc(100vh-8rem)]">
         {/* Main background image */}
         <img
@@ -187,7 +185,7 @@ const WelcomeView = ({ onStart, onExit }) => {
           alt="Screening background"
         />
 
-        {/* Gradient overlay image */}
+        {/* Gradient overlay */}
         <div
           className="absolute inset-0"
           style={{
@@ -203,7 +201,7 @@ const WelcomeView = ({ onStart, onExit }) => {
             key="stage1"
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
-            className="absolute right-[80px] top-[190px] max-md:top-[140px]" // Adjusted positioning
+            className="absolute right-[80px] top-[190px] max-md:top-[140px]"
           >
             <Stage1Content onScrollDown={handleScrollDown} />
           </motion.div>
@@ -213,7 +211,7 @@ const WelcomeView = ({ onStart, onExit }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="absolute right-[80px] top-[250px] max-md:top-[180px]" // Adjusted positioning
+            className="absolute right-[80px] top-[250px] max-md:top-[180px]"
           >
             <Stage2Content
               isAgreed={isAgreed}
@@ -245,9 +243,7 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && currentView === "assessment") {
-        // toast.warning("Jangan tinggalkan halaman ini", {
-        //   description: "Progress screening kamu akan hilang jika meninggalkan halaman.",
-        // })
+        // Optional: Add warning about leaving page
       }
     }
 
@@ -261,27 +257,40 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   }, [currentView])
 
   const handleStartAssessment = () => {
+    console.log("Starting assessment...")
     setCurrentView("assessment")
   }
 
   const handleAssessmentComplete = (result) => {
     console.log("Assessment completed with result:", result)
+    
+    // Ensure we have valid result data
+    if (!result) {
+      console.error("No result data received from assessment")
+      toast.error("Gagal mendapatkan hasil screening")
+      return
+    }
+    
+    // Set the result and immediately switch to result view
     setScreeningResult(result)
     setCurrentView("result")
+    console.log("Switched to result view with data:", result)
   }
 
   const handleAssessmentExit = () => {
     toast.info("Screening dibatalkan", {
       description: "Progress screening tidak tersimpan.",
     })
-
     setCurrentView("welcome")
     onExit?.()
   }
 
   const handleResultBackToHome = () => {
-    // Navigate back to home/dashboard
-    onComplete?.(screeningResult)
+    // Navigate back to welcome/screening home
+    setCurrentView("welcome")
+    setScreeningResult(null)
+    // Or call onComplete to go back to main dashboard
+    // onComplete?.(screeningResult)
   }
 
   const handleResultBookingSession = () => {
@@ -290,10 +299,16 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   }
 
   const renderCurrentView = () => {
+    console.log("Rendering view:", currentView, "with result:", screeningResult)
+    
     switch (currentView) {
       case "welcome":
         return (
-          <motion.div key="welcome" exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.5 }}>
+          <motion.div 
+            key="welcome" 
+            exit={{ opacity: 0, scale: 0.95 }} 
+            transition={{ duration: 0.5 }}
+          >
             <WelcomeView onStart={handleStartAssessment} onExit={onExit} />
           </motion.div>
         )
@@ -312,6 +327,13 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
         )
 
       case "result":
+        if (!screeningResult) {
+          console.error("No screening result available for result view")
+          // Fallback to welcome if no result
+          setCurrentView("welcome")
+          return null
+        }
+        
         return (
           <motion.div
             key="result"
@@ -328,7 +350,12 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
         )
 
       default:
-        return null
+        console.warn("Unknown view:", currentView)
+        return (
+          <motion.div key="welcome">
+            <WelcomeView onStart={handleStartAssessment} onExit={onExit} />
+          </motion.div>
+        )
     }
   }
 

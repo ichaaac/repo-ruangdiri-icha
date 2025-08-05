@@ -5,7 +5,7 @@ import { useOutletContext } from "react-router-dom"
 import { useScreening } from "./hooks/useScreening"
 
 // Question Card Component
-const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOptions }) => {
+const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOptions, currentQuestion }) => {
   return (
     <div className="w-full flex flex-col justify-start items-center gap-7 px-4 md:px-0">
       {/* Header */}
@@ -21,8 +21,13 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOption
       {/* Divider */}
       <div className="self-stretch h-0 outline outline-[0.50px] outline-offset-[-0.25px] outline-[#488BBE]"></div>
 
-      {/* Question Container */}
-      <div className="self-stretch px-14 py-7 bg-white rounded-[10px] flex flex-col justify-center items-center gap-2.5 max-md:px-6 max-md:py-4 min-h-[320px] md:h-96">
+      {/* Question Container with Progress Indicator */}
+      <div className="self-stretch px-14 py-7 bg-white rounded-[10px] flex flex-col justify-center items-center gap-2.5 max-md:px-6 max-md:py-4 min-h-[320px] md:h-96 relative">
+        {/* Progress Indicator - now inside question container */}
+        <div className="absolute top-4 right-6 text-gray-600 text-xs font-normal">
+          {currentQuestion + 1}/21
+        </div>
+
         <div className="w-full max-w-[1104px] flex flex-col justify-start items-end gap-9 max-md:gap-6">
           {/* Question Text */}
           <motion.div
@@ -89,15 +94,17 @@ const NavigationButtons = ({
   onNext,
   onSubmit,
   isSubmitting,
+  selectedAnswer,
 }) => {
   const showPrevious = currentQuestion > 0
   const showNext = currentQuestion < 20
   const showSelesai = currentQuestion === 20
 
+  // Check if answer is selected for current question
+  const hasAnswerSelected = selectedAnswer !== null && selectedAnswer !== undefined
+
   return (
-    <div className="flex justify-center items-center gap-5 top-10" 
-    // style={{ marginBottom: '40px' }}
-    >
+    <div className="flex justify-center items-center gap-5 top-10">
       {/* Tombol Previous */}
       {showPrevious && (
         <motion.button
@@ -117,10 +124,14 @@ const NavigationButtons = ({
         /* Tombol Selesai */
         <motion.button
           onClick={onSubmit}
-          disabled={isSubmitting}
-          className="flex justify-center items-center gap-2 px-6 py-3 bg-[#488BBE] text-white rounded-lg hover:bg-[#3a7ba8] transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          whileHover={!isSubmitting ? { scale: 1.05 } : {}}
-          whileTap={!isSubmitting ? { scale: 0.95 } : {}}
+          disabled={isSubmitting || !hasAnswerSelected}
+          className={`flex justify-center items-center gap-2 px-6 py-3 rounded-lg transition-colors duration-300 disabled:cursor-not-allowed ${
+            isSubmitting || !hasAnswerSelected
+              ? "bg-[#8B8B8B] text-white opacity-50"
+              : "bg-[#488BBE] text-white hover:bg-[#3a7ba8]"
+          }`}
+          whileHover={!isSubmitting && hasAnswerSelected ? { scale: 1.05 } : {}}
+          whileTap={!isSubmitting && hasAnswerSelected ? { scale: 0.95 } : {}}
         >
           {isSubmitting ? (
             <>
@@ -139,14 +150,14 @@ const NavigationButtons = ({
         showNext && (
           <motion.button
             onClick={onNext}
-            disabled={!canProceed}
+            disabled={!canProceed || !hasAnswerSelected}
             className="flex justify-center items-center gap-2 p-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            whileHover={canProceed ? { scale: 1.05 } : {}}
-            whileTap={canProceed ? { scale: 0.95 } : {}}
+            whileHover={canProceed && hasAnswerSelected ? { scale: 1.05 } : {}}
+            whileTap={canProceed && hasAnswerSelected ? { scale: 0.95 } : {}}
           >
             <div
               className={`w-[26px] h-[26px] rounded-[3px] flex items-center justify-center transition-colors duration-300 ${
-                canProceed ? "bg-[#488BBA]" : "bg-gray-400"
+                canProceed && hasAnswerSelected ? "bg-[#488BBA]" : "bg-[#8B8B8B]"
               }`}
             >
               <span className="material-icons text-white text-lg">arrow_forward</span>
@@ -228,7 +239,7 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     isAllQuestionsAnswered,
   } = useScreening()
 
-  // Get sidebar state from context (same as ScreeningWelcomePage)
+  // Get sidebar state from context
   const { sidebarExpanded } = useOutletContext() || { sidebarExpanded: false }
 
   // Handle answer selection
@@ -242,9 +253,12 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     localStorage.setItem("screening_current_question", currentQuestion.toString())
   }
 
-  // Handle next question
+  // Handle next question with validation
   const handleNext = () => {
-    if (!canProceed) {
+    const currentAnswer = answers[currentQuestion]
+    const hasAnswer = currentAnswer !== null && currentAnswer !== undefined
+
+    if (!hasAnswer) {
       toast.warning("Pilih jawaban terlebih dahulu", {
         description: "Kamu harus memilih salah satu jawaban untuk melanjutkan.",
       })
@@ -261,8 +275,18 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     }
   }
 
-  // Handle submission
+  // Handle submission with validation
   const handleSubmit = async () => {
+    const currentAnswer = answers[currentQuestion]
+    const hasCurrentAnswer = currentAnswer !== null && currentAnswer !== undefined
+
+    if (!hasCurrentAnswer) {
+      toast.warning("Pilih jawaban terlebih dahulu", {
+        description: "Kamu harus memilih jawaban untuk pertanyaan terakhir ini.",
+      })
+      return
+    }
+
     if (!isAllQuestionsAnswered()) {
       toast.warning("Lengkapi semua jawaban", {
         description: "Kamu harus menjawab semua pertanyaan untuk menyelesaikan skrining.",
@@ -271,17 +295,28 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     }
 
     try {
-      // Submit screening and get ID
+      console.log("Submitting screening with answers:", answers)
+      
+      // Submit screening and get result
       const submissionResult = await submitScreening()
+      
+      console.log("Submission successful, result:", submissionResult)
 
       // Clear localStorage on successful submission
       localStorage.removeItem("screening_answers")
       localStorage.removeItem("screening_current_question")
 
+      // Show success toast briefly
       toast.success("Screening berhasil diselesaikan!")
 
-      // Pass the screening ID to parent for fetching full result
-      onComplete?.(submissionResult)
+      // Navigate to result immediately with the full result data
+      if (submissionResult) {
+        console.log("Calling onComplete with result:", submissionResult)
+        onComplete?.(submissionResult)
+      } else {
+        console.error("No submission result received")
+        toast.error("Gagal mendapatkan hasil screening")
+      }
     } catch (error) {
       console.error("Submission failed:", error)
       toast.error("Gagal menyelesaikan screening", {
@@ -317,7 +352,7 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
 
   return (
     <div className="w-full h-screen relative bg-white overflow-hidden">
-      {/* Background and content container - mengikuti pola ScreeningWelcomePage */}
+      {/* Background and content container */}
       <div className="absolute left-[20px] right-[20px] top-[127px] h-[658px] rounded-[10px] overflow-hidden max-md:left-[20px] max-md:right-[20px] max-md:h-[calc(100vh-8rem)]">
         {/* Background Layer with gradient */}
         <div 
@@ -326,12 +361,7 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
             background: 'radial-gradient(ellipse at 130% -38%, #D7EDFF 0%, #FFFFFF 100%)'
           }}
         >
-          {/* Progress Indicator - positioned inside background with padding */}
-          <div className="absolute top-4 right-6 text-gray-600 text-xs font-normal">
-            {currentQuestion + 1}/{21}
-          </div>
-
-          {/* Content positioned inside background with 54px padding */}
+          {/* Content positioned inside background with padding */}
           <div className="relative w-full h-full p-[54px] flex flex-col justify-start items-center gap-7 max-md:p-6">
             {/* Question Card */}
             <AnimatePresence mode="wait">
@@ -348,6 +378,7 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
                   selectedAnswer={answers[currentQuestion]}
                   onAnswerSelect={handleAnswerSelect}
                   responseOptions={responseOptions}
+                  currentQuestion={currentQuestion}
                 />
               </motion.div>
             </AnimatePresence>
@@ -362,6 +393,7 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
               onNext={handleNext}
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
+              selectedAnswer={answers[currentQuestion]}
             />
           </div>
         </div>

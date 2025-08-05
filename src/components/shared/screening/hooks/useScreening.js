@@ -55,13 +55,6 @@ export const useScreening = () => {
     onSuccess: (data) => {
       // Invalidate and refetch screening history
       queryClient.invalidateQueries({ queryKey: ["myScreenings"] })
-
-      // Clear localStorage
-      clearScreeningStorage()
-
-      // Reset screening state
-      resetScreening()
-
       return data
     },
     onError: (error) => {
@@ -92,8 +85,6 @@ export const useScreening = () => {
 
           setAnswers(validAnswers)
           setCurrentQuestion(Math.max(0, Math.min(20, parsedQuestion)))
-
-          // Progress loaded silently, no need to show toast
 
           return true
         }
@@ -268,6 +259,8 @@ export const useScreening = () => {
   const submitScreening = useCallback(
     async (notes = "") => {
       try {
+        console.log("useScreening: Starting submission with answers:", answers)
+        
         // Ensure all answers are integers
         const validatedAnswers = answers.map((answer) => {
           const intAnswer = Number.parseInt(answer, 10)
@@ -276,6 +269,8 @@ export const useScreening = () => {
           }
           return intAnswer
         })
+
+        console.log("useScreening: Validated answers:", validatedAnswers)
 
         // Validate answers using helper
         screeningHelpers.validateAnswers(validatedAnswers)
@@ -298,19 +293,29 @@ export const useScreening = () => {
           finalNotes = `${notes}\n\nSession ID: ${sessionId}\nDuration: ${sessionDuration}s`.trim()
         }
 
+        console.log("useScreening: Submitting to API...")
+
         // Submit to API - backend returns full result including ID
         const result = await submitScreeningMutation.mutateAsync({
           answers: validatedAnswers,
           notes: finalNotes,
         })
 
+        console.log("useScreening: API response received:", result)
+
+        // Clear localStorage and reset state on successful submission
+        clearScreeningStorage()
+        resetScreening()
+
         // Return the complete result from backend (no additional formatting needed)
+        console.log("useScreening: Returning result data:", result.data)
         return result.data
       } catch (error) {
+        console.error("useScreening: Submission error:", error)
         throw error
       }
     },
-    [answers, submitScreeningMutation],
+    [answers, submitScreeningMutation, clearScreeningStorage],
   )
 
   // Reset screening state
@@ -318,8 +323,7 @@ export const useScreening = () => {
     setCurrentQuestion(0)
     setAnswers(new Array(21).fill(null))
     setIsInitialized(false)
-    clearScreeningStorage()
-  }, [clearScreeningStorage])
+  }, [])
 
   // Get current question data
   const getCurrentQuestion = useCallback(() => {
