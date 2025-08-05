@@ -220,21 +220,14 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
   const [showMethodDropdown, setShowMethodDropdown] = useState(false)  
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
 
-  // ✅ FIXED: Get selected method from props or location state
+  // Get selected method from props or location state
   const methodFromProps = selectedMethod
   const methodFromState = location.state?.selectedMethod
   const initialMethod = methodFromProps || methodFromState
 
-  console.log("=== BOOKING SESSION DEBUG ===")
-  console.log("Initial method:", initialMethod)
-  console.log("Current selected method:", currentSelectedMethod)
-  console.log("Props selected method:", selectedMethod)
-  console.log("Loading methods:", loading.methods)
-
   // Set selected method from props or location state when component mounts
   useEffect(() => {
     if (initialMethod && !loading.methods) {
-      console.log("Setting initial method:", initialMethod)
       handleMethodSelection(initialMethod)
     }
   }, [initialMethod, handleMethodSelection, loading.methods])
@@ -268,74 +261,34 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
   const availableDates = getAvailableDates()
   const selectedDateObject = availableDates.find((date) => date.value === selectedDate)
 
-  // Check if form is valid for button enabling - FIXED validation
+  // Check if form is valid for button enabling
   const isFormValid = () => {
     const hasRequiredFields = currentSelectedMethod && selectedDate && selectedTimeSlot
     // Only require location for offline method
     const hasLocationIfOffline = currentSelectedMethod?.id !== "offline" || selectedLocation
-    const isValid = hasRequiredFields && hasLocationIfOffline
-    
-    console.log("=== FORM VALIDATION ===")
-    console.log("Current method:", currentSelectedMethod)
-    console.log("Selected date:", selectedDate)
-    console.log("Selected time slot:", selectedTimeSlot)
-    console.log("Selected location:", selectedLocation)
-    console.log("Has required fields:", hasRequiredFields)
-    console.log("Has location if offline:", hasLocationIfOffline)
-    console.log("Form valid:", isValid)
-    
-    return isValid
+    return hasRequiredFields && hasLocationIfOffline
   }
 
-  // Back button navigation
-  const handleBack = () => {
+  // Back button navigation - prioritize onBack callback
+  const handleBackNavigation = () => {
     if (isFormValid()) {
       setShowConfirmModal(true)
     } else {
-      if (standalone) {
-        window.history.back()
-      } else if (onBack) {
+      if (onBack) {
         onBack()
       } else {
-        window.history.back()
-      }
-    }
-  }
-
-  const handleCancel = () => {
-    if (isFormValid()) {
-      setShowConfirmModal(true)
-    } else {
-      if (standalone) {
-        window.history.back()
-      } else if (onBack) {
-        onBack()
-      } else {
-        window.history.back()
+        navigate(-1)
       }
     }
   }
 
   const handleSubmit = async () => {
     try {
-      console.log("=== BOOKING SUBMISSION START ===")
-      console.log("User type:", userType)
-      console.log("Form valid:", isFormValid())
-      console.log("Selected method:", currentSelectedMethod)
-      console.log("Selected location:", selectedLocation)
-      console.log("onSuccess callback:", typeof onSuccess)
-
       const result = await handleBookingSubmit()
-      console.log("Booking result:", result)
-      console.log("=== BOOKING SUBMISSION SUCCESS ===")
 
-      // ✅ FIXED: Always call onSuccess if provided, otherwise navigate directly
       if (onSuccess && typeof onSuccess === 'function') {
-        console.log("Calling onSuccess callback...")
         onSuccess(result)
       } else {
-        console.log("No onSuccess callback, navigating directly...")
-        // Navigate to completion page with booking result
         navigate(`/user/${userType}/booking-complete`, {
           state: { bookingResult: result },
           replace: true,
@@ -392,7 +345,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
       {/* Background Header */}
       <div className="w-full h-72 left-0 top-0 absolute bg-gradient-to-b from-teal-200 to-indigo-500" />
 
-      {/* Main Content Card - Responsive */}
+      {/* Main Content Card */}
       <div className="absolute left-[20px] right-[20px] top-[142px] bg-white rounded-tl-[10px] rounded-tr-[10px] shadow-[0px_12px_27px_0px_rgba(0,0,0,0.07)] shadow-[0px_49px_49px_0px_rgba(0,0,0,0.06)] shadow-[0px_111px_67px_0px_rgba(0,0,0,0.04)] shadow-[0px_198px_79px_0px_rgba(0,0,0,0.01)] shadow-[0px_309px_86px_0px_rgba(0,0,0,0.00)] min-h-[calc(100vh-162px)] max-md:left-[10px] max-md:right-[10px] max-md:top-[120px]" />
 
       {/* Logo */}
@@ -414,25 +367,25 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
       {/* Back Arrow */}
       <div className="absolute left-[59px] top-[196px] max-md:left-[30px] max-md:top-[170px]">
-        <BackArrow onClick={handleBack} />
+        <BackArrow onClick={handleBackNavigation} />
       </div>
 
-      {/* Header - Aligned with back button */}
+      {/* Header - Aligned with back button (not center) */}
       <div className="absolute left-[104px] top-[191px] max-md:left-[70px] max-md:top-[165px]">
         <div className="text-[#488BBA] text-5xl font-extrabold font-['Public_Sans'] leading-[74px] max-md:text-3xl max-md:leading-[50px]">
           Booking Sesi Konseling
         </div>
       </div>
 
-      {/* Form Section - Responsive Layout */}
+      {/* Form Section */}
       <div className="absolute left-[59px] right-[59px] top-[329px] flex flex-col gap-5 max-md:left-[30px] max-md:right-[30px] max-md:top-[290px]">
-        {/* Method and Location Row - Side by side on desktop, stacked on mobile */}
+        {/* Method Selection Row */}
         <div className="flex gap-5 max-md:flex-col max-md:gap-4">
-          {/* Method Selection */}
+          {/* Method Selection - Fixed height to match other fields */}
           <div className="flex-1 flex flex-col gap-3.5">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Jenis Konseling</div>
             <div
-              className="p-2.5 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
+              className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
               onClick={() => setShowMethodDropdown(!showMethodDropdown)}
             >
               <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
@@ -449,7 +402,6 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                       className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
                       onClick={(e) => {
                         e.stopPropagation()
-                        console.log("Method selected from dropdown:", method)
                         handleMethodSelection(method)
                         setShowMethodDropdown(false)
                       }}
@@ -467,12 +419,12 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Location Selection for Offline - Show next to method selection */}
+          {/* Location Selection for Offline */}
           {currentSelectedMethod?.id === "offline" && (
             <div className="flex-1 flex flex-col gap-3.5">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Lokasi Konseling</div>
               <div
-                className="p-2.5 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
+                className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
                 onClick={() => setShowLocationDropdown(!showLocationDropdown)}
               >
                 <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
@@ -566,7 +518,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
                 {/* Time Dropdown */}
                 {showTimePicker && (
-                  <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-50 mt-1">
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9999] mt-1">
                     {loading.timeSlots ? (
                       <div className="px-3 py-2 text-sm text-gray-500">Loading available times...</div>
                     ) : timeSlots?.length > 0 ? (
@@ -616,20 +568,20 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                 </div>
               </div>
             </div>
+            
+            {/* Quota Info - Right aligned */}
+            <div className="flex justify-end items-center gap-[5px]">
+              <span className="material-icons text-[#EE4266] text-base">info</span>
+              <div className="text-[#EE4266] text-xs font-normal font-['Public_Sans'] leading-4">
+                Kuota tersisa untuk konseling : {remainingQuota}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Quota Info */}
-      <div className="absolute right-[59px] top-[520px] flex justify-end items-center gap-[5px] max-md:right-[30px] max-md:top-[480px]">
-        <span className="material-icons text-[#EE4266] text-base">info</span>
-        <div className="text-[#EE4266] text-[10px] font-normal font-['Public_Sans'] leading-3">
-          Kuota tersisa untuk konseling : {remainingQuota}
-        </div>
-      </div>
-
       {/* Problem Description */}
-      <div className="absolute left-[59px] right-[59px] top-[580px] flex flex-col gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:top-[540px]">
+      <div className="absolute left-[59px] right-[59px] top-[590px] flex flex-col gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:top-[550px]">
         <div className="flex flex-col">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
@@ -648,18 +600,18 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         </div>
 
         {/* Terms and Conditions */}
-        <div className="flex flex-col gap-2">
-          <div className="text-[#EE4266] text-[8px] font-bold font-['Public_Sans']">{getTermsTitle()}</div>
-          <div className="text-gray-600 text-[8px] font-normal font-['Public_Sans'] whitespace-pre-line">
+        <div className="flex flex-col gap-2 mt-2">
+          <div className="text-[#EE4266] text-xs font-bold font-['Public_Sans'] max-md:text-[10px]">{getTermsTitle()}</div>
+          <div className="text-gray-600 text-xs font-normal font-['Public_Sans'] whitespace-pre-line leading-relaxed max-md:text-[10px] max-md:leading-normal">
             {getTermsContent()}
           </div>
         </div>
       </div>
 
-      {/* Action Buttons - Responsive positioning */}
-      <div className="absolute right-[59px] bottom-[50px] flex justify-end items-center gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:bottom-[30px] max-md:justify-center">
+      {/* Action Buttons */}
+      <div className="absolute right-[59px] bottom-[30px] flex justify-end items-center gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:bottom-[20px] max-md:justify-center">
         <button
-          onClick={handleCancel}
+          onClick={handleBackNavigation}
           className="h-8 px-5 py-2.5 rounded-[5px] outline outline-1 outline-offset-[-1px] outline-[#488BBA] flex justify-center items-center gap-2.5 hover:bg-blue-50 transition-colors max-md:flex-1"
         >
           <div className="text-[#488BBA] text-base font-semibold font-['Public_Sans'] max-md:text-sm">Batal</div>
@@ -693,12 +645,10 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
               <button
                 onClick={() => {
                   setShowConfirmModal(false)
-                  if (standalone) {
-                    window.history.back()
-                  } else if (onBack) {
+                  if (onBack) {
                     onBack()
                   } else {
-                    window.history.back()
+                    navigate(-1)
                   }
                 }}
                 className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"

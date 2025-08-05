@@ -98,8 +98,8 @@ const BookingSessionComplete = () => {
         }}
       />
       
-      {/* Background Card - Responsive */}
-      <div className="w-full max-w-[926px] mx-auto min-h-[580px] absolute left-4 right-4 top-28 bg-white rounded-[10px] shadow-lg px-4 py-6 lg:left-1/2 lg:transform lg:-translate-x-1/2 lg:top-36 lg:min-h-[660px] lg:px-6 sm:left-4 sm:right-4 sm:top-28 sm:min-h-[520px] xs:left-2 xs:right-2 xs:top-24 xs:min-h-[480px] xs:px-3 xs:py-4" />
+      {/* Background Card - Fixed centering */}
+      <div className="w-full max-w-[926px] mx-auto min-h-[580px] absolute left-1/2 top-28 transform -translate-x-1/2 bg-white rounded-[10px] shadow-lg px-4 py-6 lg:top-36 lg:min-h-[660px] lg:px-6 sm:top-28 sm:min-h-[520px] xs:top-24 xs:min-h-[480px] xs:px-3 xs:py-4" />
 
       {/* Logo */}
       <div className="flex flex-col gap-2.5 items-start justify-start w-16 absolute left-1/2 top-4 overflow-hidden transform -translate-x-1/2 lg:w-24 lg:top-7 sm:w-20 sm:top-5 xs:w-16 xs:top-3">
