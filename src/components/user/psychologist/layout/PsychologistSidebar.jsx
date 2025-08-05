@@ -91,13 +91,20 @@ const PsychologistSidebar = ({
     onHoverChange?.(!expanded)
   }
 
-  const handleLogout = async () => {
-    try {
-      await logout.mutateAsync()
-    } catch (error) {
-      console.error("Logout error:", error)
-    }
+// DENGAN KODE BARU INI
+const handleLogout = async () => {
+  try {
+    await logout.mutateAsync();
+    // Navigasi secara eksplisit SETELAH proses logout (pembersihan token, dll) selesai.
+    // Tambahkan opsi replace: true untuk membersihkan history navigasi.
+    navigate("/login", { replace: true }); 
+  } catch (error) {
+    console.error("Logout error:", error);
+    // Sebagai fallback, jika API gagal tapi pengguna tetap harus keluar,
+    // kita paksa navigasi.
+    navigate("/login", { replace: true });
   }
+};
 
   useEffect(() => {
     const handleClickOutside = (event) => {
