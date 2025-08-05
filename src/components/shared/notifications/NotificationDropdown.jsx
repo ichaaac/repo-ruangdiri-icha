@@ -13,7 +13,10 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     isLoading, 
     formatTimeAgo, 
     formatUnreadCount,
-    isNotificationFromToday
+    isNotificationFromToday,
+    // 🔥 ADDED: Get the mark as read function and loading state from the hook
+    handleMarkAsRead,
+    isMarkingAsRead,
   } = useNotificationDropdown(selectedTab);
 
   const totalUnreadCount = unreadCount + counselingCount;
@@ -55,14 +58,29 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     return notification.status === 'read' || notification.isRead || notification.readAt;
   };
   
+  // 🔥 UPDATED: NotificationItem now handles clicks
   const NotificationItem = ({ notification }) => {
     const isRead = isNotificationRead(notification);
+
+    const onItemClick = () => {
+      // Only mark as read if it's currently unread and not being processed
+      if (!isRead && !isMarkingAsRead) {
+        handleMarkAsRead(notification.id);
+        // You can also add navigation logic here if needed
+        // e.g., onClose(); navigate(`/notifications/${notification.id}`);
+      }
+    };
     
     return (
       <div 
+        onClick={onItemClick}
         key={notification.id} 
         className={`flex gap-3 items-start p-3 rounded-lg transition-all ${
-          isRead ? "bg-gray-100 opacity-60" : "bg-white"
+          isRead 
+            ? "bg-gray-100 opacity-70" 
+            : "bg-white hover:bg-gray-50 cursor-pointer"
+        } ${
+          isMarkingAsRead ? "opacity-50 cursor-not-allowed" : ""
         }`}
       >
         <span 
@@ -99,11 +117,11 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
             onClick={() => setSelectedTab('all')}
             className={`flex items-center gap-2 transition-colors ${selectedTab === 'all' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
           >
-          <span>Semua</span>
-            {totalUnreadCount > 0 && (
-              <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                {formatUnreadCount(totalUnreadCount)}
-              </span>
+            <span>Semua</span>
+            {totalUnreadCount > 0 && (
+              <span className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+                {formatUnreadCount(totalUnreadCount)}
+              </span>
             )}
           </button>
           <button
