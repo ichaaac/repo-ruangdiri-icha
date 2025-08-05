@@ -500,8 +500,8 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
 
       // FIXED: Only prevent schedules that are more than 5 minutes in the past
       // This accounts for small timezone differences and processing delays
-      if (scheduleDateTime.isBefore(now.subtract(5, 'minute'))) {
-        toast.error(`Tidak dapat membuat jadwal di masa lalu (${scheduleDateTime.format('DD/MM/YYYY HH:mm')})`)
+   if (mode === 'create' && scheduleDateTime.isBefore(now.subtract(5, 'minute'))) {
+        toast.error(`Tidak dapat mengatur jadwal di masa lalu (${scheduleDateTime.format('DD/MM/YYYY HH:mm')})`)
         return false
       }
 
