@@ -175,6 +175,8 @@ const UserSidebar = ({
     }
   }
 
+ // ... (kode lainnya di dalam useEffect)
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target) &&
@@ -185,23 +187,18 @@ const UserSidebar = ({
       }
     }
 
-    if (expanded || (hovered && !isMobile)) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    }
+    // Logika penguncian scroll sudah dihapus dari sini
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
       clearTimeout(expandTimeoutRef.current)
       clearTimeout(collapseTimeoutRef.current)
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      // Pastikan style dikembalikan ke default saat komponen unmount jika diperlukan
     }
   }, [expanded, hovered, isMobile, setExpanded, onHoverChange]);
+
+
 
   const handleImageError = () => setFallbackProfileImage(true)
 
