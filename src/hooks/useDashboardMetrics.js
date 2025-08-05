@@ -1,4 +1,4 @@
-// src/hooks/useDashboardMetrics.js (FIXED - No more multiple fetches)
+// src/hooks/useDashboardMetrics.js (UPDATED - Added PDF Download Support)
 
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
@@ -229,6 +229,81 @@ export const useEmployeeRoles = () => {
       },
     },
   })
+}
+
+/**
+ * Hook for downloading PDF reports.
+ * Handles both student and employee report downloads.
+ */
+export const usePdfReport = () => {
+  const currentDate = getCurrentDateInfo()
+
+  const downloadPdfReport = async (type = "student", reportType = "at_risk", params = {}) => {
+    try {
+      // Determine endpoint based on type
+      const baseEndpoint = type === "student" ? "/pdf/students/risk-report" : "/pdf/employees/risk-report"
+      
+      // Build query parameters
+      const queryParams = new URLSearchParams()
+      // For PDF reports, download ALL data - set large limit or use totalCount
+      const totalCount = params.totalCount || 1000 // Fallback to large number
+      queryParams.append("page", "1")
+      queryParams.append("limit", totalCount.toString())
+      queryParams.append("month", params.month || currentDate.month)
+      queryParams.append("year", params.year || currentDate.year)
+
+      // Set screening status based on report type
+      if (reportType === "at_risk") {
+        queryParams.append("screeningStatus", "at_risk")
+      } else if (reportType === "not_screened") {
+        queryParams.append("screeningStatus", "not_screened")
+      } else if (reportType === "not_counseled") {
+        queryParams.append("screeningStatus", "at_risk")
+        queryParams.append("counselingStatus", "0")
+      }
+
+      // Add additional filters if provided
+      if (type === "student") {
+        if (params.classroom) queryParams.append("classroom", params.classroom)
+        if (params.grade) queryParams.append("grade", params.grade)
+      } else {
+        if (params.department) queryParams.append("department", params.department)
+      }
+
+      // Make request with responseType blob for file download
+      const response = await apiClient.get(`${baseEndpoint}?${queryParams}`, {
+        responseType: 'blob'
+      })
+
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      
+      // Generate filename
+      const entityName = type === "student" ? "Siswa" : "Karyawan"
+      const reportName = reportType === "at_risk" ? "Berisiko" : 
+                        reportType === "not_screened" ? "Belum-Skrining" : "Belum-Konseling"
+      const filename = `Laporan-${entityName}-${reportName}-${currentDate.monthName}-${currentDate.year}.pdf`
+      
+      // Create download link and click it
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      return { success: true, filename }
+    } catch (error) {
+      console.error('Error downloading PDF report:', error)
+      throw error
+    }
+  }
+
+  return { downloadPdfReport }
 }
 
 /**

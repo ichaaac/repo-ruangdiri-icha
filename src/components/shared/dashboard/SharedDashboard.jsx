@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/SharedDashboard.jsx - FIXED data flow and prevent multiple fetches
+// src/components/shared/dashboard/SharedDashboard.jsx - UPDATED removed email modal, added PDF download
 
 import { useState, useEffect, useMemo } from "react"
 import DashboardHome from "./DashboardHome"
@@ -12,12 +12,8 @@ const SharedDashboard = ({
   selectedDashboardTab = "home",
   onDashboardTabChange = () => {},
   useAuth,
-  SuccessModalComponent,
   sidebarExpanded = false,
 }) => {
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("")
-
   // Get current user with fallback
   const { user } = useAuth?.() || { user: {} }
   const currentDate = getCurrentDateInfo()
@@ -111,10 +107,10 @@ const SharedDashboard = ({
     onDashboardTabChange("home")
   }
 
-  // Handle report click - now handled by individual components with modal
+  // Handle report click - now handled by individual components with PDF download
   const handleReportClick = (reportName) => {
     console.log(`Report triggered: ${reportName}`)
-    // Individual components now handle their own modals
+    // Individual components now handle their own PDF downloads
   }
 
   // FIXED: Get count for specific tab type from monthly stats ONLY
@@ -208,15 +204,6 @@ const SharedDashboard = ({
           isLoading={tabLoading}
           isError={tabError}
           sidebarExpanded={sidebarExpanded}
-        />
-      )}
-
-      {/* Success Modal - kept for backward compatibility */}
-      {showSuccessModal && SuccessModalComponent && (
-        <SuccessModalComponent
-          isOpen={showSuccessModal}
-          message={successMessage}
-          onClose={() => setShowSuccessModal(false)}
         />
       )}
     </div>

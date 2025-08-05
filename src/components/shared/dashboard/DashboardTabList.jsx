@@ -1,11 +1,11 @@
-// src/components/shared/dashboard/DashboardTabList.jsx - FIXED MetricCard data source
+// src/components/shared/dashboard/DashboardTabList.jsx - UPDATED with PDF download support
 
 import { useState } from "react"
 import DashboardTable from "./DashboardTable"
 import MetricCard from "./MetricCard"
-import EmailNotificationModal from "./EmailNotificationModal"
 import { useInfiniteScroll } from "../../../hooks/useInfiniteScroll"
 import { useAuth } from "../../../hooks/useAuth"
+import { usePdfReport } from "../../../hooks/useDashboardMetrics"
 import TopRightControl from "../layout/TopRightControl"
 
 const DashboardTabList = ({
@@ -21,9 +21,8 @@ const DashboardTabList = ({
 }) => {
   const { user: authUser } = useAuth?.() || { user: {} }
   
-  // Modal states for email notification
-  const [showEmailModal, setShowEmailModal] = useState(false)
-  const [reportName, setReportName] = useState("")
+  // PDF download hook
+  const { downloadPdfReport } = usePdfReport()
 
   const getAllMetrics = () => [
     {
@@ -49,23 +48,24 @@ const DashboardTabList = ({
     },
   ]
 
-  // Handle report click with modal
-  const handleReportClick = (reportTitle) => {
-    setReportName(reportTitle)
-    setShowEmailModal(true)
-  }
+  // Handle PDF download instead of email modal
+  const handleReportDownload = async (reportType) => {
+    try {
+      const additionalParams = {}
+      
+      // Add total count to download ALL data instead of just 10
+      if (reportType === "at_risk") {
+        additionalParams.totalCount = metrics?.summary?.atRisk?.count || 1000
+      } else if (reportType === "not_screened") {
+        additionalParams.totalCount = metrics?.summary?.notScreened?.count || 1000
+      } else if (reportType === "not_counseled") {
+        additionalParams.totalCount = metrics?.summary?.notCounseled?.count || 1000
+      }
 
-  // Get appropriate report title based on active card
-  const getReportTitle = (cardId) => {
-    switch (cardId) {
-      case "at_risk":
-        return `Daftar ${config.entityName} Berisiko`
-      case "not_screened":
-        return `Daftar ${config.entityName} Belum Skrining`
-      case "not_counseled":
-        return `Daftar ${config.entityName} Belum Konseling`
-      default:
-        return `Laporan ${config.entityName}`
+      await downloadPdfReport(type, reportType, additionalParams)
+    } catch (error) {
+      console.error('Failed to download PDF report:', error)
+      // You can add error handling here (toast notification, etc.)
     }
   }
 
@@ -136,7 +136,7 @@ const DashboardTabList = ({
                         onCardClick(metric.cardId)
                       }
                     }}
-                    onReportClick={() => handleReportClick(getReportTitle(metric.cardId))}
+                    onReportClick={() => handleReportDownload(metric.cardId)}
                   />
                 </div>
               </div>
@@ -172,15 +172,6 @@ const DashboardTabList = ({
 
         <div style={{ height: '60px' }}></div>
       </div>
-
-      {/* Email Notification Modal */}
-      <EmailNotificationModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)} 
-        reportName={reportName}
-        entityName={config.entityName}
-        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
-      />
     </div>
   )
 }

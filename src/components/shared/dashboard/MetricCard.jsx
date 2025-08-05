@@ -1,3 +1,5 @@
+// src/components/shared/dashboard/MetricCard.jsx - UPDATED with PDF download support
+
 import { motion } from "framer-motion"
 
 const MetricCard = ({
@@ -121,7 +123,7 @@ const MetricCard = ({
               className="text-[10px] sm:text-xs font-medium text-center leading-tight"
               style={{ color: isInactive ? "#8B8B8B" : "#488BBE" }}
             >
-              Kirim Laporan
+              Unduh Laporan
             </span>
           </div>
         </div>

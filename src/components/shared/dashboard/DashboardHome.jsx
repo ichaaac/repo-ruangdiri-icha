@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardHome.jsx - FIXED yearly stats fetching
+// src/components/shared/dashboard/DashboardHome.jsx - UPDATED with PDF download support
 
 import { useCallback, useState, useEffect, useRef, useMemo } from "react"
 import {
@@ -17,9 +17,8 @@ import {
 import { Menu } from "@headlessui/react"
 import MetricCard from "./MetricCard"
 import CustomBranchingDropdown from "./CustomBranchingDropdown"
-import EmailNotificationModal from "./EmailNotificationModal"
 import { useAuth } from "../../../hooks/useAuth"
-import { useYearlyStats } from "../../../hooks/useDashboardMetrics"
+import { useYearlyStats, usePdfReport } from "../../../hooks/useDashboardMetrics"
 import { getCurrentDateInfo } from "../../../lib/date"
 import TopRightControl from "../layout/TopRightControl"
 
@@ -46,9 +45,8 @@ const DashboardHome = ({
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
 
-  // Modal states
-  const [showEmailModal, setShowEmailModal] = useState(false)
-  const [reportName, setReportName] = useState("")
+  // PDF download hook
+  const { downloadPdfReport } = usePdfReport()
 
   // PieChart hover states
   const [hoveredPieIndex, setHoveredPieIndex] = useState(-1)
@@ -154,6 +152,35 @@ const DashboardHome = ({
     [barChartClassroom],
   )
 
+  const handleReportDownload = async (reportType) => {
+    try {
+      const additionalParams = {}
+      
+      // Add current filters to the download
+      if (type === "student") {
+        if (barChartClassroom) additionalParams.classroom = barChartClassroom
+        if (barChartGrade) additionalParams.grade = barChartGrade
+      } else {
+        if (barChartClassroom) additionalParams.department = barChartClassroom
+      }
+
+      // FIXED: Add total count to download ALL data instead of just 10
+      if (reportType === "at_risk") {
+        additionalParams.totalCount = metrics?.summary?.atRisk?.count || 1000
+      } else if (reportType === "not_screened") {
+        additionalParams.totalCount = metrics?.summary?.notScreened?.count || 1000
+      } else if (reportType === "not_counseled") {
+        additionalParams.totalCount = metrics?.summary?.notCounseled?.count || 1000
+      }
+
+      await downloadPdfReport(type, reportType, additionalParams)
+      onReportClick(reportType) // Still call the original handler for any additional logic
+    } catch (error) {
+      console.error('Failed to download PDF report:', error)
+      // You can add error handling here (toast notification, etc.)
+    }
+  }
+
   const getSemesterData = useCallback(() => {
     const yearlyData = yearlyStatsData?.data || []
     const allMonths =
@@ -211,12 +238,6 @@ const DashboardHome = ({
 
   const handlePrev = () => {
     if (canNavigatePrev()) setCurrentHalf("firstHalf")
-  }
-
-  const handleReportClickWithModal = (reportTitle) => {
-    setReportName(reportTitle)
-    setShowEmailModal(true)
-    onReportClick(reportTitle)
   }
 
   // Enhanced label renderer yang ikut bergerak dengan zoom
@@ -393,7 +414,7 @@ const DashboardHome = ({
                 isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
                 isReportEnabled={(metrics.summary?.atRisk?.count || 0) > 0}
                 onCardClick={() => onCardClick("at_risk")}
-                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Berisiko`)}
+                onReportClick={() => handleReportDownload("at_risk")}
               />
             </div>
             <div className="w-full">
@@ -406,7 +427,7 @@ const DashboardHome = ({
                 isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
                 isReportEnabled={(metrics.summary?.notScreened?.count || 0) > 0}
                 onCardClick={() => onCardClick("not_screened")}
-                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Skrining`)}
+                onReportClick={() => handleReportDownload("not_screened")}
               />
             </div>
             <div className="w-full">
@@ -419,7 +440,7 @@ const DashboardHome = ({
                 isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
                 isReportEnabled={(metrics.summary?.notCounseled?.count || 0) > 0}
                 onCardClick={() => onCardClick("not_counseled")}
-                onReportClick={() => handleReportClickWithModal(`Daftar ${config.entityName} Belum Konseling`)}
+                onReportClick={() => handleReportDownload("not_counseled")}
               />
             </div>
           </div>
@@ -669,14 +690,6 @@ const DashboardHome = ({
           </div>
         </div>
       </div>
-
-      <EmailNotificationModal
-        isOpen={showEmailModal}
-        onClose={() => setShowEmailModal(false)}
-        reportName={reportName}
-        entityName={config.entityName}
-        userEmail={user?.email || authUser?.email || "a******@gmail.com"}
-      />
     </div>
   )
 }
