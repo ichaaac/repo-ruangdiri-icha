@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js - FIXED VERSION (Anti-Loop)
+// src/hooks/useAuth.js - FIXED VERSION with better token management
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -144,11 +144,8 @@ export const useAuth = () => {
     const userRole = userData.role
     const orgType = userData.organization?.type
 
-    // --- PERUBAHAN DI SINI ---
-    if (userRole === "student") return "/user/student/screening" // Diubah dari booking ke screening
-    if (userRole === "employee") return "/user/employee/screening" // Diubah dari booking ke screening
-    // --- AKHIR PERUBAHAN ---
-
+    if (userRole === "student") return "/user/student/screening"
+    if (userRole === "employee") return "/user/employee/screening"
     if (userRole === "psychologist") return "/user/psychologist/chat"
     if (orgType === "school") return "/organization/school/dashboard"
     if (orgType === "company") return "/organization/company/dashboard"

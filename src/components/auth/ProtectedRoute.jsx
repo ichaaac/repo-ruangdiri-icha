@@ -1,6 +1,6 @@
-// src/components/auth/ProtectedRoute.jsx - Updated Protected Route
+// src/components/auth/ProtectedRoute.jsx - Fixed Protected Route with Better Token Management
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -21,24 +21,37 @@ const ProtectedRoute = ({
     isAuthenticated, 
     getUserRole, 
     getOrganizationType,
-    needsOnboarding 
+    needsOnboarding
   } = useAuth();
   const location = useLocation();
+
+  // ✅ IMPROVED: Better token validation
+  const hasValidToken = () => {
+    const token = localStorage.getItem("token");
+    return !!token;
+  };
 
   // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex items-center space-x-2">
-          <span className="material-icons animate-spin text-primary">sync</span>
-          <span className="text-primary">Loading...</span>
+          <span className="material-icons animate-spin text-blue-600">sync</span>
+          <span className="text-blue-600">Loading...</span>
         </div>
       </div>
     );
   }
 
-  // If not authenticated, redirect to login
+  // ✅ IMPROVED: Check token first, then authentication
+  if (!hasValidToken()) {
+    console.log("No valid token found, redirecting to login");
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // If token exists but not authenticated, redirect to login
   if (!isAuthenticated()) {
+    console.log("Token exists but not authenticated, redirecting to login");
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -47,8 +60,8 @@ const ProtectedRoute = ({
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="flex items-center space-x-2">
-          <span className="material-icons animate-spin text-primary">sync</span>
-          <span className="text-primary">Loading user data...</span>
+          <span className="material-icons animate-spin text-blue-600">sync</span>
+          <span className="text-blue-600">Loading user data...</span>
         </div>
       </div>
     );
@@ -59,19 +72,18 @@ const ProtectedRoute = ({
 
   // Check if user needs onboarding (but allow access to onboarding pages)
   if (needsOnboarding() && !location.pathname.includes('/onboarding')) {
-    // All users who need onboarding go to unified onboarding system
+    console.log("User needs onboarding, redirecting to onboarding");
     return <Navigate to="/onboarding" replace />;
   }
 
- if (!needsOnboarding() && location.pathname.includes('/onboarding')) {
-    // --- PERUBAHAN DI SINI (1) ---
+  // If user completed onboarding but still on onboarding page, redirect to appropriate dashboard
+  if (!needsOnboarding() && location.pathname.includes('/onboarding')) {
+    console.log("User completed onboarding, redirecting to dashboard");
     if (userRole === 'student') {
-      return <Navigate to="/user/student/screening" replace />; // Diubah ke screening
+      return <Navigate to="/user/student/screening" replace />;
     } else if (userRole === 'employee') {
-      return <Navigate to="/user/employee/screening" replace />; // Diubah ke screening
-    } 
-    // --- AKHIR PERUBAHAN (1) ---
-    else if (userRole === 'psychologist') {
+      return <Navigate to="/user/employee/screening" replace />;
+    } else if (userRole === 'psychologist') {
       return <Navigate to="/user/psychologist/chat" replace />;
     } else if (orgType === 'school') {
       return <Navigate to="/organization/school/dashboard" replace />;
@@ -82,23 +94,25 @@ const ProtectedRoute = ({
 
   // Check specific role requirement
   if (requiredRole && userRole !== requiredRole) {
-    // Redirect to appropriate dashboard or deny access
+    console.log(`Role mismatch. Required: ${requiredRole}, User: ${userRole}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
 
   // Check specific organization type requirement
   if (requiredOrgType && orgType !== requiredOrgType) {
-    // Redirect to appropriate dashboard or deny access
+    console.log(`Org type mismatch. Required: ${requiredOrgType}, User: ${orgType}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
 
   // Check allowed roles (if specified)
   if (allowedRoles && Array.isArray(allowedRoles) && userRole && !allowedRoles.includes(userRole)) {
+    console.log(`Role not in allowed list. User: ${userRole}, Allowed: ${allowedRoles.join(', ')}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
 
   // Check allowed organization types (if specified)
   if (allowedOrgTypes && Array.isArray(allowedOrgTypes) && orgType && !allowedOrgTypes.includes(orgType)) {
+    console.log(`Org type not in allowed list. User: ${orgType}, Allowed: ${allowedOrgTypes.join(', ')}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
 
@@ -107,26 +121,32 @@ const ProtectedRoute = ({
   
   // If user is trying to access a role-specific route that doesn't match their role
   if (currentPath.includes('/user/student/') && userRole !== 'student') {
+    console.log(`Student route accessed by non-student: ${userRole}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
   
   if (currentPath.includes('/user/employee/') && userRole !== 'employee') {
+    console.log(`Employee route accessed by non-employee: ${userRole}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
   
   if (currentPath.includes('/user/psychologist/') && userRole !== 'psychologist') {
+    console.log(`Psychologist route accessed by non-psychologist: ${userRole}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
   
   if (currentPath.includes('/organization/school/') && orgType !== 'school') {
+    console.log(`School route accessed by non-school org: ${orgType}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
   
   if (currentPath.includes('/organization/company/') && orgType !== 'company') {
+    console.log(`Company route accessed by non-company org: ${orgType}`);
     return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
   }
 
-  // If all checks pass, render the protected content
+  // ✅ SUCCESS: All checks passed, render the protected content
+  console.log(`Access granted to ${currentPath} for ${userRole || orgType}`);
   return children;
 };
 
@@ -134,10 +154,8 @@ const ProtectedRoute = ({
  * Helper function to get the default route for a user based on their role and org type
  */
 const getDefaultRouteForUser = (userRole, orgType) => {
-  // --- PERUBAHAN DI SINI (2) ---
-  if (userRole === 'student') return '/user/student/screening'; // Diubah ke screening
-  if (userRole === 'employee') return '/user/employee/screening'; // Diubah ke screening
-  // --- AKHIR PERUBAHAN (2) ---
+  if (userRole === 'student') return '/user/student/screening';
+  if (userRole === 'employee') return '/user/employee/screening';
   if (userRole === 'psychologist') return '/user/psychologist/chat';
   if (orgType === 'school') return '/organization/school/dashboard';
   if (orgType === 'company') return '/organization/company/dashboard';
@@ -204,7 +222,7 @@ export const usePermissions = () => {
     hasAnyRole,
     hasAnyOrgType,
     isStudent,
-    isEmployee,
+  isEmployee,
     isPsychologist,
     isSchoolAdmin,
     isCompanyAdmin,

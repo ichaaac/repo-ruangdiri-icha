@@ -1,5 +1,9 @@
+// src/pages/shared/HomePage.jsx - FIXED WITH AUTO REDIRECT
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import Navbar from "../../components/layout/Navbar";
 import HeroSection from "../../components/home/HeroSection";
 import Footer from "../../components/layout/Footer";
@@ -90,6 +94,53 @@ const [showScrollUp, setShowScrollUp] = useState(false);
 const [hasScrolled, setHasScrolled] = useState(false);
 const sectionsRef = useRef({});
 const sectionOrderRef = useRef(["hero", "services", "testimonials", "clients"]);
+
+// ✅ NEW: Auth hooks for auto redirect
+const navigate = useNavigate();
+const { user, isLoading, isAuthenticated, getUserRole, getOrganizationType } = useAuth();
+
+// ✅ NEW: Auto redirect authenticated users to their dashboard
+useEffect(() => {
+  const token = localStorage.getItem("token");
+  
+  if (token && isAuthenticated() && user && user.isOnboarded !== false) {
+    console.log("User is authenticated, redirecting from homepage to dashboard...");
+    
+    const userRole = getUserRole();
+    const orgType = getOrganizationType();
+    
+    let redirectPath = '/';
+    
+    if (userRole === 'student') {
+      redirectPath = '/user/student/screening';
+    } else if (userRole === 'employee') {
+      redirectPath = '/user/employee/screening';
+    } else if (userRole === 'psychologist') {
+      redirectPath = '/user/psychologist/chat';
+    } else if (orgType === 'school') {
+      redirectPath = '/organization/school/dashboard';
+    } else if (orgType === 'company') {
+      redirectPath = '/organization/company/dashboard';
+    }
+    
+    if (redirectPath !== '/') {
+      navigate(redirectPath, { replace: true });
+      return; // Early return to prevent further execution
+    }
+  }
+}, [user, isAuthenticated, getUserRole, getOrganizationType, navigate]);
+
+// ✅ Show loading while checking authentication
+if (isLoading) {
+  return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="flex items-center space-x-2">
+        <span className="material-icons animate-spin text-blue-600">sync</span>
+        <span className="text-blue-600">Loading...</span>
+      </div>
+    </div>
+  );
+}
 
 // Handle scroll event to determine current section
 const handleScroll = () => {
@@ -182,19 +233,19 @@ const ServicesSection = () => {
       title: "Konseling",
       boldTitle: "Klinis",
       thumbnailSrc: "/layanan-kami-1.svg",
-      action: () => window.location.href = "/layanan/klinis"
+      action: () => navigate('/login') // ✅ CHANGED: Navigate to login instead of direct service
     },
     {
       title: "Konseling",
       boldTitle: "Pendidikan",
       thumbnailSrc: "/layanan-kami-2.svg",
-      action: () => window.location.href = "/layanan/pendidikan"
+      action: () => navigate('/login') // ✅ CHANGED: Navigate to login instead of direct service
     },
     {
       title: "Konseling",
       boldTitle: "Karir",
       thumbnailSrc: "/layanan-kami-3.svg",
-      action: () => window.location.href = "/layanan/karir"
+      action: () => navigate('/login') // ✅ CHANGED: Navigate to login instead of direct service
     }
   ];
 

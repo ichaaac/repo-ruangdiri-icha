@@ -1,4 +1,4 @@
-// src/pages/shared/auth/Login.jsx
+// src/pages/shared/auth/Login.jsx - FIXED WITH AUTO REDIRECT
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../../hooks/useAuth";
@@ -22,41 +22,42 @@ const Login = () => {
 	const passwordRef = useRef(null);
 
 	const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-	const navigate = useNavigate(); // <-- TAMBAHKAN INI
-    const location = useLocation(); // <-- TAMBAHKAN INI
+	const navigate = useNavigate();
+    const location = useLocation();
 
 	// Use the useAuth hook
-	const { login, isAuthenticated, needsOnboarding, user } = useAuth();
+	const { login, isAuthenticated, needsOnboarding, user, isLoading } = useAuth();
 
-// useEffect(() => {
-//   // Only redirect if user is authenticated and on login page
-//   if (isAuthenticated() && user && location.pathname === '/login') {
-//     console.log("User already authenticated, redirecting...");
-    
-//     // Let ProtectedRoute handle the onboarding/dashboard routing
-//     if (needsOnboarding()) {
-//       navigate('/onboarding', { replace: true });
-//     } else {
-//       // Navigate to appropriate dashboard
-//       const userRole = user.role;
-//       const orgType = user.organization?.type;
-      
-//       if (userRole === "student") {
-//         navigate("/user/student/booking", { replace: true });
-//       } else if (userRole === "employee") {
-//         navigate("/user/employee/booking", { replace: true });
-//       } else if (userRole === "psychologist") {
-//         navigate("/user/psychologist/chat", { replace: true });
-//       } else if (orgType === "school") {
-//         navigate("/organization/school/dashboard", { replace: true });
-//       } else if (orgType === "company") {
-//         navigate("/organization/company/dashboard", { replace: true });
-//       } else {
-//         navigate("/", { replace: true });
-//       }
-//     }
-//   }
-// }, [isAuthenticated, user, needsOnboarding, navigate, location.pathname]);
+	// ✅ ENABLED: Auto redirect if already authenticated
+	useEffect(() => {
+		// Only redirect if user is authenticated and on login page
+		if (isAuthenticated() && user && location.pathname === '/login') {
+			console.log("User already authenticated, redirecting...");
+			
+			// Let ProtectedRoute handle the onboarding/dashboard routing
+			if (needsOnboarding()) {
+				navigate('/onboarding', { replace: true });
+			} else {
+				// Navigate to appropriate dashboard
+				const userRole = user.role;
+				const orgType = user.organization?.type;
+				
+				if (userRole === "student") {
+					navigate("/user/student/screening", { replace: true });
+				} else if (userRole === "employee") {
+					navigate("/user/employee/screening", { replace: true });
+				} else if (userRole === "psychologist") {
+					navigate("/user/psychologist/chat", { replace: true });
+				} else if (orgType === "school") {
+					navigate("/organization/school/dashboard", { replace: true });
+				} else if (orgType === "company") {
+					navigate("/organization/company/dashboard", { replace: true });
+				} else {
+					navigate("/", { replace: true });
+				}
+			}
+		}
+	}, [isAuthenticated, user, needsOnboarding, navigate, location.pathname]);
 
 	useEffect(() => {
 		const navEntries = performance.getEntriesByType("navigation");
@@ -83,6 +84,18 @@ const Login = () => {
 			}
 		}
 	}, []);
+
+	// ✅ Show loading while checking authentication
+	if (isLoading) {
+		return (
+			<div className="flex justify-center items-center min-h-screen">
+				<div className="flex items-center space-x-2">
+					<span className="material-icons animate-spin text-blue-600">sync</span>
+					<span className="text-blue-600">Checking authentication...</span>
+				</div>
+			</div>
+		);
+	}
 
 	const togglePasswordVisibility = () => {
 		setShowPassword(!showPassword);
@@ -241,93 +254,89 @@ const Login = () => {
 	};
 
 	const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // ✅ KEEP ALL VALIDATION - Same as before
-  setEmailTouched(true);
-  setPasswordTouched(true);
-  setErrorMessage("");
+		e.preventDefault();
+		
+		// ✅ KEEP ALL VALIDATION - Same as before
+		setEmailTouched(true);
+		setPasswordTouched(true);
+		setErrorMessage("");
 
-  // Validate form
-  const validation = validateWithZod({ email, password, rememberMe });
+		// Validate form
+		const validation = validateWithZod({ email, password, rememberMe });
 
-  if (!validation.valid) {
-    setErrorMessage(validation.message);
+		if (!validation.valid) {
+			setErrorMessage(validation.message);
 
-    if (validation.field === "email") {
-      setEmailError(true);
-      setPasswordError(false);
-      emailRef.current?.focus();
-    } else if (validation.field === "password") {
-      setPasswordError(true);
-      setEmailError(false);
-      passwordRef.current?.focus();
-    } else {
-      if (!email.trim()) {
-        setEmailError(true);
-        setErrorMessage("Email harus diisi");
-        emailRef.current?.focus();
-        return;
-      } else if (!password) {
-        setPasswordError(true);
-        setErrorMessage("Password harus diisi");
-        passwordRef.current?.focus();
-        return;
-      }
-    }
-    return;
-  }
+			if (validation.field === "email") {
+				setEmailError(true);
+				setPasswordError(false);
+				emailRef.current?.focus();
+			} else if (validation.field === "password") {
+				setPasswordError(true);
+				setEmailError(false);
+				passwordRef.current?.focus();
+			} else {
+				if (!email.trim()) {
+					setEmailError(true);
+					setErrorMessage("Email harus diisi");
+					emailRef.current?.focus();
+					return;
+				} else if (!password) {
+					setPasswordError(true);
+					setErrorMessage("Password harus diisi");
+					passwordRef.current?.focus();
+					return;
+				}
+			}
+			return;
+		}
 
-  // ✅ KEEP - Remember me logic
-  if (rememberMe) {
-    localStorage.setItem("rememberedEmail", email);
-    localStorage.setItem("rememberMe", "true");
-  } else {
-    localStorage.removeItem("rememberedEmail");
-    localStorage.removeItem("rememberedPassword");
-    localStorage.removeItem("rememberMe");
-  }
+		// ✅ KEEP - Remember me logic
+		if (rememberMe) {
+			localStorage.setItem("rememberedEmail", email);
+			localStorage.setItem("rememberMe", "true");
+		} else {
+			localStorage.removeItem("rememberedEmail");
+			localStorage.removeItem("rememberedPassword");
+			localStorage.removeItem("rememberMe");
+		}
 
-  try {
-    console.log("Attempting login...");
-    
-    // ✅ SIMPLIFIED: Just call login - useAuth will handle redirects
-    await login.mutateAsync({ 
-      email: email.toLowerCase().trim(), 
-      password, 
-      rememberMe 
-    });
+		try {
+			console.log("Attempting login...");
+			
+			// ✅ SIMPLIFIED: Just call login - useAuth will handle redirects
+			await login.mutateAsync({ 
+				email: email.toLowerCase().trim(), 
+				password, 
+				rememberMe 
+			});
 
-    // Clear temporary session data after successful login
-    sessionStorage.removeItem("tempEmail");
-    
-    console.log("Login successful - redirect will be handled by useAuth");
-    
-    // ❌ REMOVED: Manual redirect logic (useAuth.login onSuccess handles this)
-    
-  } catch (error) {
-    // ✅ KEEP ALL ERROR HANDLING - Same as before
-    console.error("Login error:", error);
+			// Clear temporary session data after successful login
+			sessionStorage.removeItem("tempEmail");
+			
+			console.log("Login successful - redirect will be handled by useAuth");
+			
+		} catch (error) {
+			// ✅ KEEP ALL ERROR HANDLING - Same as before
+			console.error("Login error:", error);
 
-    if (error.response?.status === 401) {
-      setErrorMessage("Email atau password tidak sesuai");
-      setEmailError(true);
-      setPasswordError(true);
-    } else if (error.response?.status === 403) {
-      setErrorMessage("Akun Anda belum diaktivasi atau diblokir");
-    } else if (error.response?.status === 429) {
-      setErrorMessage("Terlalu banyak percobaan login. Coba lagi nanti");
-    } else if (error.response?.data?.message) {
-      setErrorMessage(error.response.data.message);
-    } else if (error.message) {
-      setErrorMessage(error.message);
-    } else {
-      setErrorMessage("Terjadi kesalahan saat login. Silakan coba lagi");
-    }
-  }
-};
-
-	
+			if (error.response?.status === 401) {
+				setErrorMessage("Email atau password tidak sesuai");
+				setEmailError(true);
+				setPasswordError(true);
+			} else if (error.response?.status === 403) {
+				setErrorMessage("Akun Anda belum diaktivasi atau diblokir");
+			} else if (error.response?.status === 429) {
+				setErrorMessage("Terlalu banyak percobaan login. Coba lagi nanti");
+			} else if (error.response?.data?.message) {
+				setErrorMessage(error.response.data.message);
+			} else if (error.message) {
+				setErrorMessage(error.message);
+			} else {
+				setErrorMessage("Terjadi kesalahan saat login. Silakan coba lagi");
+			}
+		}
+	};
 
 	return (
 		<div className="flex flex-col md:flex-row w-full min-h-screen overflow-hidden">
