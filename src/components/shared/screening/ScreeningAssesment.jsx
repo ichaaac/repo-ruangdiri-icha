@@ -80,7 +80,6 @@ const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOption
   )
 }
 
-// Navigation Buttons Component
 const NavigationButtons = ({
   currentQuestion,
   canGoBack,
@@ -97,12 +96,14 @@ const NavigationButtons = ({
 
   return (
     <div className="flex justify-center items-center gap-5 mt-8 max-md:mt-6">
+      {/* Tombol Previous */}
       {showPrevious && (
         <motion.button
           onClick={onPrevious}
-          className="flex justify-center items-center gap-2 p-2 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+          className="flex justify-center items-center gap-2 p-2 hover:bg-blue-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
+          disabled={!canGoBack}
         >
           <div className="w-[26px] h-[26px] bg-[#488BBA] rounded-[3px] flex items-center justify-center">
             <span className="material-icons text-white text-lg">arrow_back</span>
@@ -110,11 +111,12 @@ const NavigationButtons = ({
         </motion.button>
       )}
 
+      {/* Tombol Selesai */}
       {showSelesai ? (
         <motion.button
           onClick={onSubmit}
           disabled={!canProceed || isSubmitting}
-          className={`h-8 px-5 py-2.5 rounded-[5px] outline outline-1 outline-offset-[-1px] flex justify-center items-center gap-2.5 transition-all duration-300 ${
+          className={`h-auto px-5 py-2.5 rounded-[5px] flex justify-center items-center gap-2.5 transition-all duration-300 ${
             canProceed && !isSubmitting
               ? "bg-[#8B8B8B] hover:bg-[#6B6B6B] cursor-pointer"
               : "bg-gray-300 cursor-not-allowed opacity-60"
@@ -134,19 +136,20 @@ const NavigationButtons = ({
           </div>
         </motion.button>
       ) : (
+        /* Tombol Next (SUDAH DIPERBAIKI) */
         showNext && (
           <motion.button
             onClick={onNext}
             disabled={!canProceed}
-            className={`h-8 px-5 py-2.5 rounded-[5px] outline outline-1 outline-offset-[-1px] flex justify-center items-center gap-2.5 transition-all duration-300 ${
-              canProceed
-                ? "bg-[#488BBA] outline-[#488BBA] hover:bg-[#3a7ba8] cursor-pointer"
-                : "bg-[#8B8B8B] outline-[#8B8B8B] cursor-not-allowed opacity-60"
-            }`}
+            className="flex justify-center items-center gap-2 p-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             whileHover={canProceed ? { scale: 1.05 } : {}}
             whileTap={canProceed ? { scale: 0.95 } : {}}
           >
-            <div className="w-[26px] h-[26px] bg-[#488BBA] rounded-[3px] flex items-center justify-center">
+            <div
+              className={`w-[26px] h-[26px] rounded-[3px] flex items-center justify-center transition-colors duration-200 ${
+                canProceed ? "bg-[#488BBA] hover:bg-[#3a7ba8]" : "bg-gray-400"
+              }`}
+            >
               <span className="material-icons text-white text-lg">arrow_forward</span>
             </div>
           </motion.button>
