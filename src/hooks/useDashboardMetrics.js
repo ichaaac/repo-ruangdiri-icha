@@ -307,8 +307,6 @@ export const useDashboard = (type = "student") => {
 
   const mainMetricsQuery = useDashboardMetrics(type)
   
-  // FIXED: Don't automatically fetch yearly data with default filters
-  // Let components request it with specific filters when needed
   const optionsQuery = type === "student" ? useAcademicInfo() : useEmployeeRoles()
 
   const processedMetrics = useMemo(() => {
@@ -326,7 +324,15 @@ export const useDashboard = (type = "student") => {
         counseling: { completed: 0, notCompleted: 0, ...(data.status?.counseling || {}) },
       },
       mentalHealth: {
-        overall: { atRisk: 0, monitored: 0, stable: 0, ...(data.mentalHealth?.overall || {}) },
+        // --- PERUBAHAN DI SINI ---
+        // SEBELUM: Mencari di `data.mentalHealth.overall` yang tidak ada
+        // overall: { atRisk: 0, monitored: 0, stable: 0, ...(data.mentalHealth?.overall || {}) },
+
+        // SESUDAH: Mengambil langsung dari `data.overall` sesuai struktur API
+        overall: { atRisk: 0, monitored: 0, stable: 0, ...(data.overall || {}) },
+        
+        // Bagian byMonth ini kita asumsikan bisa jadi berasal dari `mentalHealth` di masa depan,
+        // jadi kita biarkan saja, karena sudah ada fallback-nya.
         byMonth: data.mentalHealth?.byMonth || { firstHalf: [], secondHalf: [] }
       }
     };
