@@ -1,5 +1,51 @@
 // src/components/shared/schedule/ScheduleFormFields.jsx
 
+import { useState } from "react"
+
+// Custom Tooltip Component for truncated text
+const TruncateTooltip = ({ text, x, y, show, position = 'above' }) => {
+  if (!show || !text) return null;
+
+  const isAbove = position === 'above'
+
+  return (
+    <div
+      className="fixed z-[10000]"
+      style={{
+        left: x,
+        top: y,
+        transform: `translateX(-50%) ${isAbove ? 'translateY(-100%)' : 'translateY(0%)'}`,
+        pointerEvents: "none"
+      }}
+    >
+      <div className="relative">
+        <div className="bg-gray-900 text-white text-sm rounded-lg px-4 py-2 shadow-2xl border border-gray-700 max-w-xs">
+          <div
+            style={{
+              maxWidth: "280px",
+              whiteSpace: "normal",
+              wordBreak: "break-word",
+              fontWeight: "500",
+              lineHeight: "1.4"
+            }}
+          >
+            {text}
+          </div>
+        </div>
+        
+        {/* Arrow */}
+        <div className={`absolute left-1/2 transform -translate-x-1/2 ${isAbove ? 'top-full' : 'bottom-full'}`}>
+          {isAbove ? (
+            <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
+          ) : (
+            <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900"></div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ScheduleFormFields = ({
   formData,
   dropdowns,
@@ -23,7 +69,6 @@ const ScheduleFormFields = ({
   removeAttachment,
   handleParticipantSelect,
   removeParticipant,
-  removeDateSlot,
   updateAdditionalDate,
   setParticipantSearch,
   setPreviewAttachment,
@@ -33,6 +78,9 @@ const ScheduleFormFields = ({
   const selectedEventType = eventTypes.find((type) => type.value === formData.type) || eventTypes[0]
   const showParticipants = formData.type === "counseling"
 
+  // State for tooltips
+  const [hoveredTooltip, setHoveredTooltip] = useState(null)
+
   const openAttachmentPreview = (attachment) => {
     setPreviewAttachment(attachment)
   }
@@ -40,6 +88,58 @@ const ScheduleFormFields = ({
   // Helper to get the base URL for uploads
   const getUploadBaseUrl = () => {
     return import.meta.env.VITE_UPLOAD_URL || import.meta.env.VITE_API_URL || ""
+  }
+
+  // Helper to truncate text
+  const truncateText = (text, maxLength = 25) => {
+    if (!text) return "";
+    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  }
+
+  // Handle tooltip on hover
+  const handleTooltipHover = (e, fullText) => {
+    if (!fullText || fullText.length <= 25) {
+      setHoveredTooltip(null)
+      return
+    }
+    
+    const rect = e.currentTarget.getBoundingClientRect()
+    const scrollY = window.scrollY
+    const viewportHeight = window.innerHeight
+    
+    // Check if there's enough space above
+    const spaceAbove = rect.top
+    const spaceBelow = viewportHeight - rect.bottom
+    
+    let x = rect.left + rect.width / 2
+    let y, position
+    
+    if (spaceAbove > 100) {
+      // Position above
+      y = rect.top + scrollY - 10
+      position = 'above'
+    } else {
+      // Position below
+      y = rect.bottom + scrollY + 10
+      position = 'below'
+    }
+    
+    setHoveredTooltip({
+      text: fullText,
+      x: x,
+      y: y,
+      position: position
+    })
+  }
+
+  const handleTooltipLeave = () => {
+    setHoveredTooltip(null)
+  }
+
+  // Close tooltip when dropdown changes
+  const handleDropdownToggle = (dropdown) => {
+    setHoveredTooltip(null) // Clear tooltip when dropdown state changes
+    toggleDropdown(dropdown)
   }
 
   return (
@@ -64,7 +164,7 @@ const ScheduleFormFields = ({
         </div>
         <div className="relative">
           <button
-            onClick={() => !loading && toggleDropdown("type")}
+            onClick={() => !loading && handleDropdownToggle("type")}
             disabled={loading}
             className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[120px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
           >
@@ -74,13 +174,16 @@ const ScheduleFormFields = ({
             <span className="material-icons text-gray-400 ml-2">keyboard_arrow_down</span>
           </button>
           {dropdowns.type && !loading && (
-            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
+            <div 
+              className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10"
+              onMouseLeave={handleTooltipLeave}
+            >
               {eventTypes.map((type) => (
                 <button
                   key={type.value}
                   onClick={() => {
                     handleInputChange("type", type.value)
-                    toggleDropdown("type")
+                    handleDropdownToggle("type")
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
                 >
@@ -152,25 +255,34 @@ const ScheduleFormFields = ({
                   </option>
                 ))}
               </select>
-
-              {index > 0 && (
-                <button
-                  onClick={() => removeDateSlot(index)}
-                  disabled={loading}
-                  className="text-red-500 hover:text-red-700 p-1 disabled:opacity-50"
-                >
-                  <span className="material-icons text-sm">close</span>
-                </button>
-              )}
             </div>
           ))}
 
-          {formData.dates.length > 1 && (
-            <div className="flex gap-2 items-center text-sm">
-              <div className="w-4 h-4 bg-[#535353] rounded-sm"></div>
-              <span className="text-[#535353]">Multiple Date</span>
+          {/* Multiple Date Checkbox - Always Visible */}
+          <div 
+            className="flex gap-2 items-center text-sm cursor-pointer select-none hover:opacity-80 transition-opacity"
+            onClick={() => !loading && handleInputChange("multipleDate", !formData.multipleDate)}
+          >
+            <input
+              type="checkbox"
+              checked={formData.multipleDate}
+              onChange={(e) => handleInputChange("multipleDate", e.target.checked)}
+              disabled={loading}
+              className="sr-only"
+            />
+            <div className={`w-4 h-4 rounded-sm border-2 border-[#535353] flex items-center justify-center transition-colors ${
+              formData.multipleDate 
+                ? 'bg-[#535353]' 
+                : 'bg-white'
+            }`}>
+              {formData.multipleDate && (
+                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
             </div>
-          )}
+            <span className="text-[#535353]">Multiple Date</span>
+          </div>
         </div>
       </div>
 
@@ -205,7 +317,7 @@ const ScheduleFormFields = ({
                       <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
                     )}
                     <button
-                      onClick={() => !loading && toggleDropdown("psychologist")}
+                      onClick={() => !loading && handleDropdownToggle("psychologist")}
                       disabled={loading}
                       className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
                         formData.selectedPsychologist ? "px-3 py-2" : "pl-6"
@@ -239,27 +351,36 @@ const ScheduleFormFields = ({
                       </span>
                     </button>
                     {dropdowns.psychologist && !loading && (
-                      <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-{loadingPsychologists ? (
-                        <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
-                      ) : psychologists && psychologists.length > 0 ? (
-                        psychologists.map((psychologist) => (
-                          <button
-                            key={psychologist.id}
-                            onClick={() => {
-                              handleInputChange("selectedPsychologist", psychologist)
-                              handleInputChange("location", "")
-                              toggleDropdown("psychologist")
-                            }}
-                            className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                          >
-                            <div className="font-medium text-sm truncate">{psychologist.fullName || 'Unknown'}</div>
-                            <div className="text-xs text-gray-500 truncate">{psychologist.email || 'No email'}</div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
-                      )}
+                      <div 
+                        className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
+                        onMouseLeave={handleTooltipLeave}
+                      >
+                        {loadingPsychologists ? (
+                          <div className="p-3 text-center text-gray-500 text-sm">Loading...</div>
+                        ) : psychologists && psychologists.length > 0 ? (
+                          psychologists.map((psychologist) => {
+                            const fullName = psychologist.fullName || 'Unknown';
+                            const showTooltip = fullName.length > 25;
+                            return (
+                              <button
+                                key={psychologist.id}
+                                onClick={() => {
+                                  handleInputChange("selectedPsychologist", psychologist)
+                                  handleInputChange("location", "")
+                                  handleDropdownToggle("psychologist")
+                                }}
+                                onMouseEnter={(e) => showTooltip && handleTooltipHover(e, fullName)}
+                                onMouseLeave={handleTooltipLeave}
+                                className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                              >
+                                <div className="font-medium text-sm truncate">{truncateText(fullName, 25)}</div>
+                                <div className="text-xs text-gray-500 truncate">{truncateText(psychologist.email || 'No email', 30)}</div>
+                              </button>
+                            )
+                          })
+                        ) : (
+                          <div className="p-3 text-center text-gray-500 text-sm">Tidak ada psikolog ditemukan</div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -273,7 +394,7 @@ const ScheduleFormFields = ({
                     )}
                     <button
                       onClick={() =>
-                        !loading && formData.selectedParticipants.length < 2 && toggleDropdown("participants1")
+                        !loading && formData.selectedParticipants.length < 2 && handleDropdownToggle("participants1")
                       }
                       disabled={
                         loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])
@@ -311,7 +432,8 @@ const ScheduleFormFields = ({
                     {dropdowns.participants1 &&
                       !loading &&
                       (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
-                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
+                             onMouseLeave={handleTooltipLeave}>
                           <div className="p-2 border-b">
                             <input
                               type="text"
@@ -328,16 +450,22 @@ const ScheduleFormFields = ({
                           ) : participants.length > 0 ? (
                             participants
                               .filter((p) => !formData.selectedParticipants.find((sp) => sp.id === p.id))
-                              .map((participant) => (
-                                <button
-                                  key={participant.id}
-                                  onClick={() => handleParticipantSelect(participant, 0)}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                >
-                                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                </button>
-                              ))
+                              .map((participant) => {
+                                const fullName = participant.fullName;
+                                const showTooltip = fullName && fullName.length > 25;
+                                return (
+                                  <button
+                                    key={participant.id}
+                                    onClick={() => handleParticipantSelect(participant, 0)}
+                                    onMouseEnter={(e) => showTooltip && handleTooltipHover(e, fullName)}
+                                    onMouseLeave={handleTooltipLeave}
+                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                  >
+                                    <div className="font-medium text-sm truncate">{truncateText(fullName, 25)}</div>
+                                    <div className="text-xs text-gray-500 truncate">{truncateText(participant.email, 30)}</div>
+                                  </button>
+                                )
+                              })
                           ) : (
                             <div className="p-3 text-center text-gray-500 text-sm">
                               {participantSearch ? "Tidak ada hasil pencarian" : "Tidak ada partisipan ditemukan"}
@@ -353,7 +481,7 @@ const ScheduleFormFields = ({
                   <div className="relative">
                     <button
                       onClick={() =>
-                        !loading && formData.selectedParticipants.length < 2 && toggleDropdown("participants2")
+                        !loading && formData.selectedParticipants.length < 2 && handleDropdownToggle("participants2")
                       }
                       disabled={
                         loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[1])
@@ -391,7 +519,8 @@ const ScheduleFormFields = ({
                     {dropdowns.participants2 &&
                       !loading &&
                       (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[1]) && (
-                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
+                             onMouseLeave={handleTooltipLeave}>
                           <div className="p-2 border-b">
                             <input
                               type="text"
@@ -408,16 +537,22 @@ const ScheduleFormFields = ({
                           ) : participants.length > 0 ? (
                             participants
                               .filter((p) => !formData.selectedParticipants.find((sp) => sp.id === p.id))
-                              .map((participant) => (
-                                <button
-                                  key={participant.id}
-                                  onClick={() => handleParticipantSelect(participant, 1)}
-                                  className="w-full px-3 py-2 text-left hover:bg-gray-100"
-                                >
-                                  <div className="font-medium text-sm truncate">{participant.fullName}</div>
-                                  <div className="text-xs text-gray-500 truncate">{participant.email}</div>
-                                </button>
-                              ))
+                              .map((participant) => {
+                                const fullName = participant.fullName;
+                                const showTooltip = fullName && fullName.length > 25;
+                                return (
+                                  <button
+                                    key={participant.id}
+                                    onClick={() => handleParticipantSelect(participant, 1)}
+                                    onMouseEnter={(e) => showTooltip && handleTooltipHover(e, fullName)}
+                                    onMouseLeave={handleTooltipLeave}
+                                    className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                                  >
+                                    <div className="font-medium text-sm truncate">{truncateText(fullName, 25)}</div>
+                                    <div className="text-xs text-gray-500 truncate">{truncateText(participant.email, 30)}</div>
+                                  </button>
+                                )
+                              })
                           ) : (
                             <div className="p-3 text-center text-gray-500 text-sm">
                               {participantSearch ? "Tidak ada hasil pencarian" : "Tidak ada partisipan ditemukan"}
@@ -442,8 +577,8 @@ const ScheduleFormFields = ({
             >
               <option value="">Pilih Lokasi</option>
               {getAvailableLocations().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+                <option key={option.value} value={option.value} title={option.label}>
+                  {truncateText(option.label, 30)}
                 </option>
               ))}
             </select>
@@ -608,6 +743,15 @@ const ScheduleFormFields = ({
           </div>
         </div>
       </div>
+
+      {/* Tooltip */}
+      <TruncateTooltip
+        text={hoveredTooltip?.text}
+        x={hoveredTooltip?.x}
+        y={hoveredTooltip?.y}
+        position={hoveredTooltip?.position}
+        show={!!hoveredTooltip}
+      />
     </>
   )
 }
