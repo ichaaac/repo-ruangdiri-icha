@@ -35,16 +35,15 @@ const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, lo
     removeAttachment,
     handleParticipantSelect,
     removeParticipant,
-    removeDateSlot,
     updateAdditionalDate,
     validateForm,
     hasUnsavedChanges,
     parseErrorMessage,
     uploadAttachmentsMutation,
-    setUploadingAttachments, // Declare the variable here
+    setUploadingAttachments,
   } = useScheduleForm("create", initialData, isOpen)
 
-const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting); // <-- TAMBAH DI SINI
+const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting);
 
 // CreateScheduleModal.jsx
 
@@ -203,7 +202,6 @@ const handleSubmit = async () => {
               removeAttachment={removeAttachment}
               handleParticipantSelect={handleParticipantSelect}
               removeParticipant={removeParticipant}
-              removeDateSlot={removeDateSlot}
               updateAdditionalDate={updateAdditionalDate}
               setParticipantSearch={setParticipantSearch}
               setPreviewAttachment={setPreviewAttachment}
