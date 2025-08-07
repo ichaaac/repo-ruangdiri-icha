@@ -7,6 +7,32 @@ const BookingPage = ({ userType = "student", onMethodSelect }) => {
   const navigate = useNavigate()
   const { counselingMethods, loading, errors } = useBooking(userType)
 
+  // Function to get the appropriate image based on method type
+  const getMethodImage = (method) => {
+    // Map method names/types to specific images
+    const methodName = method.name?.toLowerCase() || method.type?.toLowerCase() || ""
+    
+    if (methodName.includes("luring") || methodName.includes("tatap muka") || methodName.includes("offline")) {
+      return "/booking-luring.png"
+    } else if (methodName.includes("daring") || methodName.includes("online") || methodName.includes("video")) {
+      return "/booking-daring.png"
+    } else if (methodName.includes("chat") || methodName.includes("pesan") || methodName.includes("text")) {
+      return "/booking-chat.png"
+    }
+    
+    // Fallback: use method.id or index to determine image
+    if (method.id === 1 || method.id === "luring") {
+      return "/booking-luring.png"
+    } else if (method.id === 2 || method.id === "daring") {
+      return "/booking-daring.png"
+    } else if (method.id === 3 || method.id === "chat") {
+      return "/booking-chat.png"
+    }
+    
+    // Default fallback
+    return "/booking-luring.png"
+  }
+
   const handleCardClick = (method) => {
     console.log("Method selected:", method)
     console.log("User type:", userType)
@@ -157,20 +183,29 @@ const BookingPage = ({ userType = "student", onMethodSelect }) => {
           <div
             key={method.id}
             onClick={() => handleCardClick(method)}
-            className="w-72 h-80 bg-gradient-to-b from-sky-100 to-white rounded-2xl shadow-[0px_5px_11px_0px_rgba(0,0,0,0.07)] shadow-[0px_20px_20px_0px_rgba(0,0,0,0.06)] shadow-[0px_46px_27px_0px_rgba(0,0,0,0.04)] shadow-[0px_81px_32px_0px_rgba(0,0,0,0.01)] shadow-[0px_127px_35px_0px_rgba(0,0,0,0.00)] inline-flex flex-col justify-start items-center gap-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300 max-md:w-full max-md:max-w-md"
+            className="w-72 h-80 bg-gradient-to-b from-sky-100 to-white rounded-2xl shadow-[0px_5px_11px_0px_rgba(0,0,0,0.07)] shadow-[0px_20px_20px_0px_rgba(0,0,0,0.06)] shadow-[0px_46px_27px_0px_rgba(0,0,0,0.04)] shadow-[0px_81px_32px_0px_rgba(0,0,0,0.01)] shadow-[0px_127px_35px_0px_rgba(0,0,0,0.00)] flex flex-col cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-300 max-md:w-full max-md:max-w-md overflow-hidden"
           >
-            <div className="w-72 flex flex-col justify-start items-center gap-6 max-md:w-full">
+            {/* Image Section */}
+            <div className="w-full">
               <img
-                className="w-72 h-48 rounded-tl-2xl rounded-tr-2xl object-cover max-md:w-full"
-                src={method.image || "/placeholder.svg?height=192&width=288"}
+                className="w-full h-48 rounded-tl-2xl rounded-tr-2xl object-cover"
+                src={getMethodImage(method)}
                 alt={`${method.name} counseling`}
+                onError={(e) => {
+                  // Fallback if image fails to load
+                  e.target.src = "/placeholder.svg?height=192&width=288"
+                }}
               />
             </div>
-            <div className="self-stretch text-center justify-start text-[#488BBA] text-base font-bold font-['Public_Sans']">
-              {method.name}
-            </div>
-            <div className="w-56 justify-start text-neutral-600 text-sm font-normal font-['Public_Sans'] leading-tight px-4 text-center max-md:w-full max-md:px-6">
-              {method.description}
+            
+            {/* Content Section */}
+            <div className="flex-1 flex flex-col justify-center items-center px-4 py-4">
+              <div className="text-center text-[#488BBA] text-base font-bold font-['Public_Sans'] mb-3">
+                {method.name}
+              </div>
+              <div className="text-neutral-600 text-sm font-normal font-['Public_Sans'] leading-tight text-center">
+                {method.description}
+              </div>
             </div>
           </div>
         ))}

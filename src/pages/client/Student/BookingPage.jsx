@@ -101,7 +101,7 @@ const BookingPage = () => {
             
             {/* Counseling Type Section */}
             <div className="flex items-start gap-5">
-               <img src="https://placehold.co/160x160/e2e8f0/e2e8f0" alt="Counseling Type" className="rounded-full w-24 h-24 md:w-40 md:h-40 object-cover" />
+               <img src="/booking-daring.png" alt="Counseling Type" className="rounded-full w-24 h-24 md:w-40 md:h-40 object-cover" />
               <div className="flex-1">
                 <h2 className="text-TEXT-NEW text-sm font-semibold">Konseling Daring (Zoom)</h2>
                 <p className="text-TEXT-NEW text-xs mt-1">
