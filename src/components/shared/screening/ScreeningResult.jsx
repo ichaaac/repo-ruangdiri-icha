@@ -1,4 +1,5 @@
-"use client"
+// src/components/shared/screening/ScreeningResult.jsx
+
 import { motion } from "framer-motion"
 
 const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
@@ -77,7 +78,7 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
 
   return (
     <div className="w-full h-screen relative bg-white overflow-hidden">
-      {/* Background and content container - following same pattern as ScreeningAssessment */}
+      {/* Background and content container */}
       <div className="absolute left-[20px] right-[20px] top-[127px] h-[658px] rounded-[10px] overflow-hidden max-md:left-[20px] max-md:right-[20px] max-md:h-[calc(100vh-8rem)]">
         
         {/* Background container - matches Figma slice */}
@@ -86,9 +87,9 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
         {/* Gradient background for top section */}
         <div className="absolute left-[29px] right-[29px] top-0 h-80 bg-gradient-to-r from-emerald-400 to-green-400 rounded-tl-[10px] rounded-tr-[10px] max-md:left-[0px] max-md:right-[0px]" />
         
-        {/* Background image - adjusted for 2682x656 dimensions */}
+        {/* Background image - FIXED positioning and sizing */}
         <img 
-          className="absolute left-[29px] top-[-40px] w-[calc(100%-58px)] h-[400px] object-cover object-center max-md:left-[0px] max-md:w-full max-md:h-[320px] max-md:top-[-20px]" 
+          className="absolute left-[29px] right-[29px] top-0 w-[calc(100%-58px)] h-80 object-cover object-center rounded-tl-[10px] rounded-tr-[10px] max-md:left-[0px] max-md:right-[0px] max-md:w-full max-md:h-64" 
           src="/screening-result.png" 
           alt="Screening result background"
           style={{
@@ -96,15 +97,18 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
           }}
         />
         
-        {/* Dynamic overlay filter - positioned to match image dimensions */}
+        {/* Dynamic overlay filter - FIXED to match exact image position and size */}
         <div 
-          className="absolute left-[29px] right-[29px] top-[-35px] w-[calc(100%-28px)] h-96 shadow-[0px_4px_4px_0px_rgba(0,0,0,0.25)] max-md:left-[0px] max-md:w-full max-md:h-80 max-md:top-[-15px]"
-          style={{ backgroundColor: statusInfo.imageFilter }}
+          className="absolute left-[29px] right-[29px] top-0 h-80 rounded-tl-[10px] rounded-tr-[10px] max-md:left-[0px] max-md:right-[0px] max-md:h-64"
+          style={{ 
+            backgroundColor: statusInfo.imageFilter,
+            mixBlendMode: 'multiply'
+          }}
         />
 
-        {/* Main content - positioned inside the container */}
+        {/* Main content - positioned below the image/filter area */}
         <motion.div
-          className="absolute left-[207px] right-[207px] top-[376px] inline-flex flex-col justify-start items-center gap-12 max-md:left-[20px] max-md:right-[20px] max-md:top-[320px] max-md:gap-8"
+          className="absolute left-[89px] right-[89px] top-[320px] inline-flex flex-col justify-start items-center gap-8 max-md:left-[40px] max-md:right-[40px] max-md:top-[280px] max-md:gap-6"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}

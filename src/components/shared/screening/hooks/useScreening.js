@@ -1,22 +1,21 @@
-"use client"
+// src/components/shared/screening/hooks/useScreening.js
 
-// src/components/screening/hooks/useScreening.js
+"use client"
 
 import { useState, useCallback, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { screeningApi, screeningHelpers } from "../lib/screeningApi"
 
-// LocalStorage keys
+// LocalStorage keys - HANYA untuk session info, TIDAK untuk answers
 const STORAGE_KEYS = {
-  ANSWERS: "screening_answers",
-  CURRENT_QUESTION: "screening_current_question",
   SESSION_ID: "screening_session_id",
   START_TIME: "screening_start_time",
 }
 
 /**
- * Custom hook for managing screening functionality with localStorage
+ * Custom hook for managing screening functionality WITHOUT localStorage for answers
+ * Data tidak disimpan ke localStorage untuk screening answers
  */
 export const useScreening = () => {
   const queryClient = useQueryClient()
@@ -53,71 +52,17 @@ export const useScreening = () => {
   const submitScreeningMutation = useMutation({
     mutationFn: ({ answers, notes }) => screeningApi.submitScreening(answers, notes),
     onSuccess: (data) => {
-      // Invalidate and refetch screening history
       queryClient.invalidateQueries({ queryKey: ["myScreenings"] })
       return data
     },
     onError: (error) => {
-      console.error("Screening submission failed:", error)
       toast.error("Gagal menyimpan hasil screening", {
         description: "Terjadi kesalahan saat mengirim data. Silakan coba lagi.",
       })
     },
   })
 
-  // Load saved progress from localStorage
-  const loadSavedProgress = useCallback(() => {
-    try {
-      const savedAnswers = localStorage.getItem(STORAGE_KEYS.ANSWERS)
-      const savedQuestion = localStorage.getItem(STORAGE_KEYS.CURRENT_QUESTION)
-
-      if (savedAnswers && savedQuestion) {
-        const parsedAnswers = JSON.parse(savedAnswers)
-        const parsedQuestion = Number.parseInt(savedQuestion, 10)
-
-        if (Array.isArray(parsedAnswers) && parsedAnswers.length === 21) {
-          // Ensure all answers are integers or null
-          const validAnswers = parsedAnswers.map((answer) => {
-            if (answer === null || answer === undefined) return null
-            const parsed = Number.parseInt(answer, 10)
-            return parsed >= 0 && parsed <= 3 ? parsed : null
-          })
-
-          setAnswers(validAnswers)
-          setCurrentQuestion(Math.max(0, Math.min(20, parsedQuestion)))
-
-          return true
-        }
-      }
-    } catch (error) {
-      console.error("Error loading saved progress:", error)
-      clearScreeningStorage()
-    }
-
-    return false
-  }, [])
-
-  // Save progress to localStorage
-  const saveProgress = useCallback((newAnswers, questionIndex) => {
-    try {
-      // Ensure all answers are integers or null before saving
-      const validAnswers = newAnswers.map((answer) => {
-        if (answer === null || answer === undefined) return null
-        const parsed = Number.parseInt(answer, 10)
-        return parsed >= 0 && parsed <= 3 ? parsed : null
-      })
-
-      localStorage.setItem(STORAGE_KEYS.ANSWERS, JSON.stringify(validAnswers))
-      localStorage.setItem(STORAGE_KEYS.CURRENT_QUESTION, questionIndex.toString())
-    } catch (error) {
-      console.error("Error saving progress:", error)
-      toast.error("Gagal menyimpan progress", {
-        description: "Pastikan browser mendukung penyimpanan lokal.",
-      })
-    }
-  }, [])
-
-  // Clear localStorage
+  // Clear localStorage - hanya clear session info
   const clearScreeningStorage = useCallback(() => {
     try {
       Object.values(STORAGE_KEYS).forEach((key) => {
@@ -138,16 +83,11 @@ export const useScreening = () => {
       throw new Error("Invalid questions data - expected 21 questions")
     }
 
-    // Try to load saved progress first
-    const hasProgress = loadSavedProgress()
+    // Selalu fresh start, tidak load progress dari localStorage
+    setCurrentQuestion(0)
+    setAnswers(new Array(21).fill(null))
 
-    if (!hasProgress) {
-      // Fresh start
-      setCurrentQuestion(0)
-      setAnswers(new Array(21).fill(null))
-    }
-
-    // Create session ID and start time
+    // Create session ID and start time - hanya ini yang disimpan
     const sessionId = `screening_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const startTime = new Date().toISOString()
 
@@ -159,7 +99,7 @@ export const useScreening = () => {
     }
 
     setIsInitialized(true)
-  }, [questionsData, loadSavedProgress])
+  }, [questionsData])
 
   // Update answer for specific question
   const updateAnswer = useCallback(
@@ -177,43 +117,23 @@ export const useScreening = () => {
       setAnswers((prev) => {
         const newAnswers = [...prev]
         newAnswers[questionIndex] = intValue
-
-        // Save to localStorage
-        saveProgress(newAnswers, questionIndex)
-
         return newAnswers
       })
     },
-    [saveProgress],
+    [],
   )
 
   // Navigate to next question
   const nextQuestion = useCallback(() => {
     if (currentQuestion < 20) {
-      const nextQ = currentQuestion + 1
-      setCurrentQuestion(nextQ)
-
-      // Save current question to localStorage
-      try {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_QUESTION, nextQ.toString())
-      } catch (error) {
-        console.error("Error saving current question:", error)
-      }
+      setCurrentQuestion(currentQuestion + 1)
     }
   }, [currentQuestion])
 
-  // Navigate to previous question
+  // Navigate to previous question  
   const previousQuestion = useCallback(() => {
     if (currentQuestion > 0) {
-      const prevQ = currentQuestion - 1
-      setCurrentQuestion(prevQ)
-
-      // Save current question to localStorage
-      try {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_QUESTION, prevQ.toString())
-      } catch (error) {
-        console.error("Error saving current question:", error)
-      }
+      setCurrentQuestion(currentQuestion - 1)
     }
   }, [currentQuestion])
 
@@ -221,12 +141,6 @@ export const useScreening = () => {
   const goToQuestion = useCallback((questionIndex) => {
     if (questionIndex >= 0 && questionIndex < 21) {
       setCurrentQuestion(questionIndex)
-
-      try {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_QUESTION, questionIndex.toString())
-      } catch (error) {
-        console.error("Error saving current question:", error)
-      }
     }
   }, [])
 
@@ -259,8 +173,6 @@ export const useScreening = () => {
   const submitScreening = useCallback(
     async (notes = "") => {
       try {
-        console.log("useScreening: Starting submission with answers:", answers)
-        
         // Ensure all answers are integers
         const validatedAnswers = answers.map((answer) => {
           const intAnswer = Number.parseInt(answer, 10)
@@ -269,8 +181,6 @@ export const useScreening = () => {
           }
           return intAnswer
         })
-
-        console.log("useScreening: Validated answers:", validatedAnswers)
 
         // Validate answers using helper
         screeningHelpers.validateAnswers(validatedAnswers)
@@ -293,25 +203,19 @@ export const useScreening = () => {
           finalNotes = `${notes}\n\nSession ID: ${sessionId}\nDuration: ${sessionDuration}s`.trim()
         }
 
-        console.log("useScreening: Submitting to API...")
-
-        // Submit to API - backend returns full result including ID
+        // Submit to API
         const result = await submitScreeningMutation.mutateAsync({
           answers: validatedAnswers,
           notes: finalNotes,
         })
 
-        console.log("useScreening: API response received:", result)
-
         // Clear localStorage and reset state on successful submission
         clearScreeningStorage()
         resetScreening()
 
-        // Return the complete result from backend (no additional formatting needed)
-        console.log("useScreening: Returning result data:", result.data)
+        // Return the complete result from backend
         return result.data
       } catch (error) {
-        console.error("useScreening: Submission error:", error)
         throw error
       }
     },
@@ -380,13 +284,6 @@ export const useScreening = () => {
     }
   }, [getAnsweredCount])
 
-  // Auto-load progress on component mount
-  useEffect(() => {
-    if (questionsData && !isInitialized) {
-      loadSavedProgress()
-    }
-  }, [questionsData, isInitialized, loadSavedProgress])
-
   return {
     // State
     currentQuestion,
@@ -434,7 +331,6 @@ export const useScreening = () => {
     submitScreening,
     resetScreening,
     refetchHistory,
-    loadSavedProgress,
     clearScreeningStorage,
 
     // Session info

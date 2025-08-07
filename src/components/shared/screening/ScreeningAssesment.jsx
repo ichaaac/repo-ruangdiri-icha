@@ -1,8 +1,9 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import { useOutletContext } from "react-router-dom"
 import { useScreening } from "./hooks/useScreening"
+import ExitConfirmationPopup from "./ExitConfirmationPopUp"
 
 // Question Card Component
 const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOptions, currentQuestion }) => {
@@ -242,6 +243,48 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
   // Get sidebar state from context
   const { sidebarExpanded } = useOutletContext() || { sidebarExpanded: false }
 
+  // Exit confirmation popup state
+  const [showExitPopup, setShowExitPopup] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(null)
+
+  // Enhanced navigation protection with popup
+  useEffect(() => {
+    // Handle browser navigation attempts
+    const handlePopState = (e) => {
+      e.preventDefault()
+      setShowExitPopup(true)
+      setPendingNavigation(() => () => window.history.back())
+      // Push state again to handle next back button press
+      window.history.pushState(null, "", window.location.pathname)
+    }
+
+    // Handle tab visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        setShowExitPopup(true)
+      }
+    }
+
+    // Handle page unload attempts (disable browser default)
+    const handleBeforeUnload = (e) => {
+      // Don't show browser default dialog
+      return undefined
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    
+    // Push initial state for back button handling
+    window.history.pushState(null, "", window.location.pathname)
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+    }
+  }, [])
+
   // Handle answer selection
   const handleAnswerSelect = (value) => {
     updateAnswer(currentQuestion, value)
@@ -330,6 +373,40 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     window.location.reload()
   }
 
+  // Handle exit button click
+  const handleExitButtonClick = () => {
+    setShowExitPopup(true)
+  }
+
+  // Handle exit confirmation
+  const handleExitConfirm = () => {
+    setShowExitPopup(false)
+    
+    // Clear any temporary data
+    localStorage.removeItem("screening_answers")
+    localStorage.removeItem("screening_current_question")
+    
+    toast.info("Screening dibatalkan", {
+      description: "Progress screening tidak tersimpan.",
+    })
+    
+    if (pendingNavigation) {
+      pendingNavigation()
+      setPendingNavigation(null)
+    } else {
+      onExit?.()
+    }
+  }
+
+  // Handle exit cancel
+  const handleExitCancel = () => {
+    setShowExitPopup(false)
+    setPendingNavigation(null)
+    
+    // Push state again for next navigation attempt
+    window.history.pushState(null, "", window.location.pathname)
+  }
+
   // Load saved progress on mount
   useEffect(() => {
     const savedAnswers = localStorage.getItem("screening_answers")
@@ -363,6 +440,15 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
         >
           {/* Content positioned inside background with padding */}
           <div className="relative w-full h-full p-[54px] flex flex-col justify-start items-center gap-7 max-md:p-6">
+            
+            {/* Exit button */}
+            <button
+              onClick={handleExitButtonClick}
+              className="absolute top-4 right-4 p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+            >
+              <span className="material-icons">close</span>
+            </button>
+
             {/* Question Card */}
             <AnimatePresence mode="wait">
               <motion.div
@@ -398,6 +484,13 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
           </div>
         </div>
       </div>
+
+      {/* Exit Confirmation Popup */}
+      <ExitConfirmationPopup
+        isOpen={showExitPopup}
+        onCancel={handleExitCancel}
+        onConfirm={handleExitConfirm}
+      />
     </div>
   )
 }
