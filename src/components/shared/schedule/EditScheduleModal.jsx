@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/schedule/EditScheduleModal.jsx
 import { toast } from "sonner"
 import { useScheduleForm } from "./hooks/useScheduleForm"
 import ScheduleFormFields from "./ScheduleFormFields"
@@ -10,7 +10,8 @@ const EditScheduleModal = ({
   onSubmit,
   initialData = null,
   loading = false,
-  onCancelReturnToView, // New prop for returning to view modal
+  onCancelReturnToView,
+  organizationType = "school",
 }) => {
   const {
     formData,
@@ -42,14 +43,13 @@ const EditScheduleModal = ({
     removeAttachment,
     handleParticipantSelect,
     removeParticipant,
-    removeDateSlot,
     updateAdditionalDate,
     validateForm,
     hasUnsavedChanges,
     parseErrorMessage,
     uploadAttachmentsMutation,
     setUploadingAttachments,
-  } = useScheduleForm("edit", initialData, isOpen)
+} = useScheduleForm("create", initialData, isOpen, organizationType)
 
   // FIXED: Check if schedule is in the past (cannot edit)
   const isScheduleInPast = () => {
@@ -162,6 +162,7 @@ const handleSubmit = async () => {
     }
 
     // FIXED: Get new attachments to upload
+    const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting)
 
     try {
       console.log("=== EditScheduleModal handleSubmit ===")
@@ -173,12 +174,15 @@ const handleSubmit = async () => {
       const result = await onSubmit(submitData)
       console.log("Schedule update result:", result)
 
-      // Step 2 - Show success toast immediately after schedule update
-      if (newAttachmentsToUpload.length === 0) {
-        toast.success("Jadwal berhasil diperbarui")
-      } else {
-        toast.success("Jadwal berhasil diperbarui, sedang mengunggah lampiran...")
-      }
+      // FIXED: Flag to prevent duplicate toasts
+      let hasShownSuccessToast = false
+
+      // // Step 2 - Handle success notification based on attachments
+      // if (newAttachmentsToUpload.length === 0) {
+      //   // No attachments - show success immediately
+      //   toast.success("Jadwal berhasil diperbarui")
+      //   hasShownSuccessToast = true
+      // }
 
       // Step 3 - Upload attachments in background AFTER schedule is updated
       if (result?.data && newAttachmentsToUpload.length > 0) {
@@ -187,41 +191,43 @@ const handleSubmit = async () => {
         // Run attachment upload in background without blocking UI
         setTimeout(async () => {
           try {
-            // For edit mode, we usually have a single schedule ID
             const scheduleIds = initialData?.id ? [initialData.id] : []
 
-            console.log("Extracted schedule IDs for attachment upload:", scheduleIds)
-
             if (scheduleIds.length > 0) {
-              console.log(
-                `Uploading ${newAttachmentsToUpload.length} attachments to ${scheduleIds.length} schedule(s)...`,
-              )
-
-              // FIXED: Upload attachments using correct bulk endpoint
               await uploadAttachmentsMutation.mutateAsync({
                 scheduleIds,
                 files: newAttachmentsToUpload.map((a) => a.file),
               })
 
               console.log("Attachments uploaded successfully")
-              toast.success(`${newAttachmentsToUpload.length} lampiran berhasil diunggah`)
+              
+              // FIXED: Only show toast if we haven't shown it already
+              if (!hasShownSuccessToast) {
+                toast.success("Jadwal dan lampiran berhasil diperbarui")
+              }
             } else {
               console.warn("No schedule IDs found for attachment upload")
-              toast.warning("Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan")
+              
+              // Show warning only if main success toast wasn't shown
+              if (!hasShownSuccessToast) {
+                toast.warning("Lampiran tidak dapat diunggah karena ID jadwal tidak ditemukan")
+              }
             }
           } catch (attachmentError) {
             console.error("Background attachment upload error:", attachmentError)
 
             const errorMessage =
-              attachmentError?.response?.data?.message || attachmentError?.message || "Unknown attachment upload error"
+              attachmentError?.response?.data?.message ||
+              attachmentError?.message ||
+              "Unknown attachment upload error"
 
-            // Show error toast
+            // Show error toast regardless
             toast.error("Gagal mengunggah lampiran", {
               description: `Error: ${errorMessage}. Silakan edit jadwal untuk menambahkan lampiran.`,
               duration: 8000,
             })
           }
-        }, 100) // Small delay to ensure UI updates first
+        }, 100)
       }
 
       // Modal will be closed by parent component on successful onSubmit
@@ -341,7 +347,6 @@ const handleSubmit = async () => {
               removeAttachment={removeAttachment}
               handleParticipantSelect={handleParticipantSelect}
               removeParticipant={removeParticipant}
-              removeDateSlot={removeDateSlot}
               updateAdditionalDate={updateAdditionalDate}
               setParticipantSearch={setParticipantSearch}
               setPreviewAttachment={setPreviewAttachment}

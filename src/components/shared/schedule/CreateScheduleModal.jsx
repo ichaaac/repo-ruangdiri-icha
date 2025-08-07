@@ -4,8 +4,7 @@ import { useScheduleForm } from "./hooks/useScheduleForm"
 import ScheduleFormFields from "./ScheduleFormFields"
 import AttachmentPreviewModal from "./AttachmentPreviewModal"
 
-const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, loading = false }) => {
-  const {
+const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, loading = false, organizationType = "school" }) => {  const {
     formData,
     dropdowns,
     attachments,
@@ -41,7 +40,7 @@ const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, lo
     parseErrorMessage,
     uploadAttachmentsMutation,
     setUploadingAttachments,
-  } = useScheduleForm("create", initialData, isOpen)
+} = useScheduleForm("create", initialData, isOpen, organizationType)
 
 const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting);
 

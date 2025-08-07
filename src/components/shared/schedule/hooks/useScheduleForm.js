@@ -15,8 +15,8 @@ const formatDateLocal = (date) => {
   return `${year}-${month}-${day}`
 }
 
-export const useScheduleForm = (mode = "create", initialData = null, isOpen = false) => {
-  const [formData, setFormData] = useState(() => ({
+export const useScheduleForm = (mode = "create", initialData = null, isOpen = false, organizationType = "school") => {
+    const [formData, setFormData] = useState(() => ({
     agenda: "",
     type: "counseling",
     dates: [
@@ -275,12 +275,12 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   }, [isOpen, mode, initialData])
 
   // Event types and options
-  const eventTypes = [
-    { label: "Konseling", value: "counseling", textColor: "#9986FF" },
-    { label: "Kelas", value: "class", textColor: "#3CE69E" },
-    { label: "Seminar", value: "seminar", textColor: "#FF886D" },
-    { label: "Lainnya", value: "others", textColor: "#979797" },
-  ]
+const eventTypes = [
+  { label: "Konseling", value: "counseling", textColor: "#9986FF" },
+  ...(organizationType === "school" ? [{ label: "Kelas", value: "class", textColor: "#3CE69E" }] : []),
+  { label: "Seminar", value: "seminar", textColor: "#FF886D" },
+  { label: "Lainnya", value: "others", textColor: "#979797" },
+]
 
   const notificationOptions = [
     { label: "1 jam", value: 60 },
@@ -298,7 +298,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   const fixedLocationOptions = [
     { label: "Online", value: "online" },
     { label: "Offline", value: "offline" },
-    { label: "Seed-in", value: "organization" },
+    { label: "Sit-in", value: "organization" },
   ]
 
   // Generate time options
@@ -568,6 +568,34 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       return
     }
 
+    if (field === "multipleDate") {
+      if (value) {
+        // When enabling multiple date, create 2 dates with 1-day interval
+        const firstDate = formData.dates[0]
+        const nextDay = new Date(firstDate.date)
+        nextDay.setDate(nextDay.getDate() + 1)
+        
+        const secondDate = {
+          ...firstDate,
+          date: formatDateLocal(nextDay)
+        }
+        
+        setFormData((prev) => ({
+          ...prev,
+          multipleDate: true,
+          dates: [firstDate, secondDate]
+        }))
+      } else {
+        // When disabling multiple date, keep only first date
+        setFormData((prev) => ({
+          ...prev,
+          multipleDate: false,
+          dates: [prev.dates[0]]
+        }))
+      }
+      return
+    }
+
     if (field === "dates") {
       const updatedDates = value.map((date) => {
         const startIndex = timeOptions.indexOf(date.startTime)
@@ -817,15 +845,6 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   }
 
   // Date handlers
-  const removeDateSlot = (index) => {
-    const newDates = formData.dates.filter((_, i) => i !== index)
-    handleInputChange("dates", newDates)
-
-    if (newDates.length <= 1) {
-      handleInputChange("multipleDate", false)
-    }
-  }
-
   const updateAdditionalDate = (index, field, value) => {
     const newDates = [...formData.dates]
     newDates[index] = { ...newDates[index], [field]: value }
@@ -938,7 +957,6 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     removeAttachment,
     handleParticipantSelect,
     removeParticipant,
-    removeDateSlot,
     updateAdditionalDate,
 
     // Validation and utilities

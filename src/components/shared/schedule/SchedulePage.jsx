@@ -1,4 +1,4 @@
-"use client"
+// src/components/shared/schedule/SchedulePage.jsx
 
 import { useState, useEffect, useCallback } from "react"
 import { useOutletContext } from "react-router-dom"
@@ -399,22 +399,24 @@ const SchedulePage = ({ type = "school" }) => {
         </div>
       </div>
 
-      {/* Create Schedule Modal */}
-      <CreateScheduleModal
-        isOpen={isCreateModalOpen}
-        onClose={handleCreateModalClose}
-        onSubmit={handleCreateSubmit}
-        initialData={createModalData}
-        loading={loading.submit}
-      />
+<CreateScheduleModal
+  isOpen={isCreateModalOpen}
+  onClose={handleCreateModalClose}
+  onSubmit={handleCreateSubmit}
+  initialData={createModalData}
+  loading={loading.submit}
+  organizationType={type}
+/>
+
 
       {/* Edit Schedule Modal */}
       <EditScheduleModal
-        isOpen={isEditModalOpen}
-        onClose={handleEditModalClose}
-        onSubmit={handleEditSubmit}
-        initialData={editModalData}
-        loading={loading.submit}
+  isOpen={isEditModalOpen}
+  onClose={handleEditModalClose}
+  onSubmit={handleEditSubmit}
+  initialData={editModalData}
+  loading={loading.submit}
+  organizationType={type}
         onCancelReturnToView={
           editFromViewModal
             ? () => {
@@ -435,6 +437,7 @@ const SchedulePage = ({ type = "school" }) => {
         onDelete={handleDeleteFromViewModal}
         scheduleData={viewScheduleData}
         loading={loading.submit}
+  organizationType={type}
       />
     </div>
   )

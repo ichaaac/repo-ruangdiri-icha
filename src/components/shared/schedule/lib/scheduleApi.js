@@ -45,7 +45,7 @@ export const createScheduleApi = (organizationType = "school") => {
       } else if (location === "offline") {
         return "Offline";
       } else if (location === "organization" || location === "seed-in") {
-        return "Seed-in";
+        return "Sit-in";
       } else if (location) {
         return location;
       }

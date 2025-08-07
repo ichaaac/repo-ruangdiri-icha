@@ -124,7 +124,7 @@ const ScheduleGrid = ({
     } else if (location === "offline") {
       return "Offline"
     } else if (location === "organization" || location === "seed-in") {
-      return "Seed-in"
+      return "Sit-in"
     } else if (location) {
       return location
     } else {
@@ -358,13 +358,13 @@ const ScheduleGrid = ({
     return heights
   }, [processedSchedules, days])
 
-  // FIXED: Auto-scroll to current day when current date is selected AND no specific dates are selected
+// FIXED: Auto-scroll to current day when today is in selected week
   useEffect(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    // Only auto-scroll if no specific dates are selected by the user (i.e., it's the default week view)
-    if (selectedDates.length === 0 && viewportRef.current) {
+    // Auto-scroll if today is part of the selected week
+    if (isCurrentDateInSelectedWeek && viewportRef.current) {
       const currentDayIndex = (today.getDay() + 6) % 7 // Monday = 0
 
       let dayTop = 0
@@ -374,12 +374,12 @@ const ScheduleGrid = ({
       }
 
       const scrollContainer = viewportRef.current
-      const containerHeight = scrollContainer.clientHeight
-      const targetScrollTop = Math.max(0, dayTop - containerHeight / 3) // Scroll to show current day in view
+      // Position current day at the top of viewport (with small offset for better UX)
+      const targetScrollTop = Math.max(0, dayTop - 10)
 
       scrollContainer.scrollTop = targetScrollTop
     }
-  }, [selectedDates, days]) // Depend on selectedDates to re-evaluate when it changes
+  }, [isCurrentDateInSelectedWeek, days, dayRowHeights]) // Depend on proper conditions
 
   const calculateEventWidth = useCallback(
     (startHour, startMinute, endHour, endMinute) => {

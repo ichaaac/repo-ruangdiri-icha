@@ -95,12 +95,12 @@ const ViewScheduleModal = ({
   if (!isOpen || !scheduleData) return null
 
   // Event types with colors
-  const eventTypes = [
-    { label: "Konseling", value: "counseling", textColor: "#9986FF" },
-    { label: "Kelas", value: "class", textColor: "#3CE69E" },
-    { label: "Seminar", value: "seminar", textColor: "#FF886D" },
-    { label: "Lainnya", value: "others", textColor: "#979797" },
-  ]
+const eventTypes = [
+  { label: "Konseling", value: "counseling", textColor: "#9986FF" },
+  ...(organizationType === "school" ? [{ label: "Kelas", value: "class", textColor: "#3CE69E" }] : []),
+  { label: "Seminar", value: "seminar", textColor: "#FF886D" },
+  { label: "Lainnya", value: "others", textColor: "#979797" },
+]
   const selectedEventType = eventTypes.find((type) => type.value === scheduleData.type) || eventTypes[0]
 
   // Better date handling for multiple dates
@@ -200,7 +200,7 @@ const ViewScheduleModal = ({
       } else if (location === "offline") {
         return "Offline"
       } else if (location === "organization" || location === "seed-in") {
-        return "Seed-in"
+        return "Sit-in"
       } else if (location) {
         return location
       }
