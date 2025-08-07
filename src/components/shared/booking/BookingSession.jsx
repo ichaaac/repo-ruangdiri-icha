@@ -1,6 +1,6 @@
 // src/components/shared/booking/BookingSession.jsx
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useBooking } from "./hooks/useBooking"
 import { useAuth } from "../../../hooks/useAuth"
@@ -16,26 +16,45 @@ const BackArrow = ({ onClick }) => (
   </button>
 )
 
-// Calendar Component - FIXED
-const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onClose }) => {
+// Calendar Component - FIXED for better positioning
+const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onClose, triggerRef }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [position, setPosition] = useState({ top: true, left: 0 })
+  const calendarRef = useRef(null)
 
   const monthNames = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ]
 
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
+
+  // Calculate position when opening
+  useEffect(() => {
+    if (isOpen && triggerRef?.current) {
+      const triggerRect = triggerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const viewportWidth = window.innerWidth
+      const calendarHeight = 400 // approximate calendar height
+      const calendarWidth = 320
+
+      // Check if calendar fits below
+      const spaceBelow = viewportHeight - triggerRect.bottom
+      const spaceAbove = triggerRect.top
+      const showAbove = spaceBelow < calendarHeight && spaceAbove > calendarHeight
+
+      // Check horizontal position
+      let leftOffset = 0
+      if (triggerRect.left + calendarWidth > viewportWidth) {
+        leftOffset = viewportWidth - triggerRect.left - calendarWidth - 20
+      }
+
+      setPosition({
+        top: !showAbove,
+        left: leftOffset
+      })
+    }
+  }, [isOpen, triggerRef])
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear()
@@ -89,8 +108,24 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
 
   if (!isOpen) return null
 
+  const positionClasses = position.top 
+    ? "top-full mt-1" 
+    : "bottom-full mb-1"
+
   return (
-    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-4 w-80 max-h-96 overflow-hidden">
+    <div 
+      ref={calendarRef}
+      className={`fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-4 w-80 max-h-96 overflow-hidden ${positionClasses}`}
+      style={{ 
+        left: triggerRef?.current ? triggerRef.current.getBoundingClientRect().left + position.left : 0,
+        [position.top ? 'top' : 'bottom']: triggerRef?.current 
+          ? (position.top 
+              ? triggerRef.current.getBoundingClientRect().bottom + 4
+              : window.innerHeight - triggerRef.current.getBoundingClientRect().top + 4
+            )
+          : 0
+      }}
+    >
       {/* Calendar Header */}
       <div className="flex justify-between items-center mb-4">
         <button
@@ -219,6 +254,9 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [showMethodDropdown, setShowMethodDropdown] = useState(false)  
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
+  
+  // Refs for positioning
+  const datePickerRef = useRef(null)
 
   // Get selected method from props or location state
   const methodFromProps = selectedMethod
@@ -231,6 +269,18 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
       handleMethodSelection(initialMethod)
     }
   }, [initialMethod, handleMethodSelection, loading.methods])
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showCalendar && !event.target.closest('.calendar-container')) {
+        setShowCalendar(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCalendar])
 
   // Generate available dates (next 30 days, excluding weekends for demo)
   const getAvailableDates = () => {
@@ -379,10 +429,10 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
       {/* Form Section */}
       <div className="absolute left-[59px] right-[59px] top-[329px] flex flex-col gap-5 max-md:left-[30px] max-md:right-[30px] max-md:top-[290px]">
-        {/* Method Selection Row */}
+        {/* Method Selection Row - FIXED: Consistent sizing */}
         <div className="flex gap-5 max-md:flex-col max-md:gap-4">
-          {/* Method Selection - Fixed height to match other fields */}
-          <div className="flex-1 flex flex-col gap-3.5">
+          {/* Method Selection - Fixed width to maintain consistency */}
+          <div className="w-1/2 max-md:w-full flex flex-col gap-3.5">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Jenis Konseling</div>
             <div
               className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
@@ -419,9 +469,9 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Location Selection for Offline */}
+          {/* Location Selection for Offline - Fixed width to match method field */}
           {currentSelectedMethod?.id === "offline" && (
-            <div className="flex-1 flex flex-col gap-3.5">
+            <div className="w-1/2 max-md:w-full flex flex-col gap-3.5">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Lokasi Konseling</div>
               <div
                 className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
@@ -473,26 +523,30 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                 {/* Date Label */}
                 <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tanggal</div>
 
-                {/* Date Picker */}
-                <div
-                  className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-neutral-600 flex justify-between items-center relative cursor-pointer"
-                  onClick={() => setShowCalendar(!showCalendar)}
-                >
-                  <div className="text-center justify-center">
-                    <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
-                    <span className="text-neutral-600 text-sm font-normal font-['Public_Sans']">
-                      {selectedDateObject?.label || "Pilih Tanggal"}
-                    </span>
+                {/* Date Picker - FIXED: Better positioning */}
+                <div className="calendar-container relative">
+                  <div
+                    ref={datePickerRef}
+                    className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-neutral-600 flex justify-between items-center cursor-pointer"
+                    onClick={() => setShowCalendar(!showCalendar)}
+                  >
+                    <div className="text-center justify-center">
+                      <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
+                      <span className="text-neutral-600 text-sm font-normal font-['Public_Sans']">
+                        {selectedDateObject?.label || "Pilih Tanggal"}
+                      </span>
+                    </div>
+                    <span className="material-icons text-gray-600">calendar_today</span>
                   </div>
-                  <span className="material-icons text-gray-600">calendar_today</span>
 
-                  {/* Calendar */}
+                  {/* Calendar - FIXED: Better responsive positioning */}
                   <Calendar
                     selectedDate={selectedDate}
                     onDateSelect={handleDateSelection}
                     availableDates={availableDates}
                     isOpen={showCalendar}
                     onClose={() => setShowCalendar(false)}
+                    triggerRef={datePickerRef}
                   />
                 </div>
               </div>
