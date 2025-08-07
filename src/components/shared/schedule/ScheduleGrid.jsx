@@ -560,8 +560,18 @@ const ScheduleGrid = ({
     [isDragging, dragStartPos, days.length, getTimeFromPosition],
   )
 
-  const handleMouseUp = useCallback(() => {
+const handleMouseUp = useCallback(() => {
     if (!isDragging || !selectedArea || !dragStartPos) return
+
+    // FIXED: Prevent creating schedules when no dates are selected
+    if (!selectedDates || selectedDates.length === 0) {
+      toast.error("Pilih minggu di kalender terlebih dahulu untuk membuat jadwal.")
+      setIsDragging(false)
+      setSelectedArea(null)
+      setDragStartPos(null)
+      setDragTimeTooltip(null)
+      return
+    }
 
     const isClick =
       selectedArea.startDay === selectedArea.endDay &&
@@ -662,7 +672,7 @@ const ScheduleGrid = ({
     setSelectedArea(null)
     setDragStartPos(null)
     setDragTimeTooltip(null)
-  }, [isDragging, selectedArea, dragStartPos, days, getDateFromDayIndex, onTimeSlotSelect])
+  }, [isDragging, selectedArea, dragStartPos, days, getDateFromDayIndex, onTimeSlotSelect, selectedDates])
 
   const totalGridHeight = useMemo(() => {
     return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0)
@@ -1147,9 +1157,9 @@ const ScheduleGrid = ({
                     zIndex: Z_INDICES.BACKGROUND + 1,
                   }}
                 >
-                  <div className="text-gray-400 text-sm font-medium bg-gray-50 px-4 py-2 rounded-md">
+                  {/* <div className="text-gray-400 text-sm font-medium bg-gray-50 px-4 py-2 rounded-md">
                     Pilih minggu di kalender untuk melihat jadwal
-                  </div>
+                  </div> */}
                 </div>
               )}
 

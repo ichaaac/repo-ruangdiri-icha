@@ -349,7 +349,7 @@ const EmployeeProfileEditModal = ({ employeeData, onClose, onSuccess, updateEmpl
 
           {/* Row 2: Employee ID | Kontak */}
           <div className="grid grid-cols-2 gap-6">
-            <FormField 
+            {/* <FormField 
               label="ID Karyawan"
               error={errors.employeeId}
               required
@@ -362,7 +362,7 @@ const EmployeeProfileEditModal = ({ employeeData, onClose, onSuccess, updateEmpl
                 )}
                 placeholder="ID Karyawan"
               />
-            </FormField>
+            </FormField> */}
 
             <FormField 
               label="Kontak"
