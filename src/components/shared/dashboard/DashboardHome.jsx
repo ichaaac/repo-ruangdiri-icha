@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/DashboardHome.jsx - UPDATED with PDF download support
+// src/components/shared/dashboard/DashboardHome.jsx - UPDATED with "All" option support
 
 import { useCallback, useState, useEffect, useRef, useMemo } from "react"
 import {
@@ -68,18 +68,18 @@ const DashboardHome = ({
 
   const HOVER_DELAY = 25
 
-  // FIXED: Initialize filters only once to prevent multiple fetches
+  // UPDATED: Initialize filters with "All" as default to prevent multiple fetches
   useEffect(() => {
     if (type === "student") {
       if (!barChartClassroom && options?.classrooms?.length > 0) {
-        setBarChartClassroom(options.classrooms[0] || "X")
+        setBarChartClassroom("All") // Default to "All" for student classroom
       }
       if (!barChartGrade && options?.grades?.length > 0) {
-        setBarChartGrade(options.grades[0] || "A")
+        setBarChartGrade("All") // Default to "All" for student grade
       }
     } else {
       if (!barChartClassroom && options?.departments?.length > 0) {
-        setBarChartClassroom(options.departments[0] || "Finance")
+        setBarChartClassroom("All") // Default to "All" for employee department
       }
     }
   }, [options, type, barChartClassroom, barChartGrade])
@@ -98,21 +98,21 @@ const DashboardHome = ({
 
   const { user: authUser } = useAuth?.() || { user: {} }
 
-  // FIXED: Create stable yearly stats filters to prevent multiple fetches
+  // UPDATED: Create stable yearly stats filters to prevent multiple fetches, handle "All" option
   const yearlyStatsFilters = useMemo(() => {
     const filters = { year: "2025" }
     
     if (type === "student") {
-      filters.classroom = barChartClassroom || "X"
-      filters.grade = barChartGrade || "A"
+      filters.classroom = barChartClassroom === "All" ? "All" : (barChartClassroom || "All")
+      filters.grade = barChartGrade === "All" ? "All" : (barChartGrade || "All")
     } else {
-      filters.department = barChartClassroom || "Finance"
+      filters.department = barChartClassroom === "All" ? "All" : (barChartClassroom || "All")
     }
     
     return filters
   }, [type, barChartClassroom, barChartGrade])
 
-  // FIXED: Only fetch yearly stats when we have stable filters
+  // UPDATED: Only fetch yearly stats when we have stable filters (including "All")
   const shouldFetchYearlyStats = Boolean(
     type === "student" 
       ? (barChartClassroom && barChartGrade)
@@ -128,9 +128,11 @@ const DashboardHome = ({
       if (classroom !== barChartClassroom) {
         setBarChartClassroom(classroom)
         if (type === "student" && options?.grades?.length > 0) {
-          // Keep existing grade if it exists, otherwise use first available
-          if (!barChartGrade) {
-            setBarChartGrade(options.grades[0] || "A")
+          // If "All" is selected, reset grade to "All", otherwise keep existing grade
+          if (classroom === "All" && barChartGrade !== "All") {
+            setBarChartGrade("All")
+          } else if (!barChartGrade) {
+            setBarChartGrade("All") // Default to "All"
           }
         }
       }
@@ -196,19 +198,35 @@ const DashboardHome = ({
 
   const getOverallPieData = useCallback(() => {
     const overall = metrics?.mentalHealth?.overall || {}
-    return [
+    const data = [
       { name: "Berisiko", value: overall.atRisk || 0, color: "#ED8768" },
       { name: "Pengawasan", value: overall.monitored || 0, color: "#FCBC03" },
-      { name: "Aman", value: overall.stable || 0, color: "#9BCA61" },
+      { name: "Stabil", value: overall.stable || 0, color: "#9BCA61" },
     ]
+    
+    // If all values are 0, return single gray segment
+    const hasData = data.some(item => item.value > 0)
+    if (!hasData) {
+      return [{ name: "Tidak ada data", value: 1, color: "#D9D9D9" }]
+    }
+    
+    return data
   }, [metrics?.mentalHealth?.overall])
 
   const getScreeningData = useCallback(() => {
     const screening = metrics?.status?.screening || {}
-    return [
+    const data = [
       { name: "Belum Skrining", value: screening.notCompleted || 0, color: "#6DC4C6" },
       { name: "Sudah Skrining", value: screening.completed || 0, color: "#E284B3" },
     ]
+    
+    // If all values are 0, return single gray segment
+    const hasData = data.some(item => item.value > 0)
+    if (!hasData) {
+      return [{ name: "Tidak ada data", value: 1, color: "#535353" }]
+    }
+    
+    return data
   }, [metrics?.status?.screening])
 
   const getCounselingData = useCallback(() => {
@@ -485,7 +503,7 @@ const DashboardHome = ({
                   </div>
                   <div className="flex items-center gap-1">
                     <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
-                    <p className="text-xs sm:text-sm">Aman</p>
+                    <p className="text-xs sm:text-sm">Stabil</p>
                   </div>
                 </div>
               </div>
@@ -504,8 +522,8 @@ const DashboardHome = ({
                     Status Kesehatan Mental{" "}
                     <span className="font-extrabold">
                       {config.entityName} {type === "student" ? "Kelas " : ""}
-                      {barChartClassroom}
-                      {type === "student" && barChartGrade ? ` ${barChartGrade}` : ""}
+                      {barChartClassroom === "All" ? "Semua" : barChartClassroom}
+                      {type === "student" && barChartGrade && barChartGrade !== "All" ? ` ${barChartGrade}` : ""}
                     </span>
                   </p>
                   <div className="flex gap-2 flex-shrink-0" style={{ position: "relative", zIndex: 99999 }}>
@@ -518,18 +536,39 @@ const DashboardHome = ({
                           onGradeSelect={handleBarChartGradeChange}
                           classrooms={options?.classrooms || []}
                           grades={options?.grades || []}
+                          showAllOption={true}
                         />
                       </div>
                     ) : (
                       <Menu as="div" className="relative" style={{ zIndex: 99999 }}>
                         <Menu.Button className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer text-gray-700">
-                          <span className="self-stretch my-auto">{barChartClassroom || config.filterLabel}</span>
+                          <span className="self-stretch my-auto">
+                            {barChartClassroom === "All" ? "Semua" : (barChartClassroom || config.filterLabel)}
+                          </span>
                           <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
                         </Menu.Button>
                         <Menu.Items
                           className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                           style={{ zIndex: 99999 }}
                         >
+                          {/* Add "All" option first */}
+                          <Menu.Item key="All">
+                            {({ active }) => (
+                              <div
+                                className={`w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors ${
+                                  barChartClassroom === "All"
+                                    ? "bg-[#3399E9] text-white font-semibold"
+                                    : active
+                                      ? "bg-[#E2F9FF] text-gray-900"
+                                      : "text-gray-700 hover:bg-gray-50"
+                                }`}
+                                onClick={() => handleBarChartDepartmentChange("All")}
+                              >
+                                Semua
+                              </div>
+                            )}
+                          </Menu.Item>
+                          {/* Existing departments */}
                           {(options?.departments || []).map((department) => (
                             <Menu.Item key={department}>
                               {({ active }) => (
@@ -578,7 +617,7 @@ const DashboardHome = ({
                         />
                         <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="stable" fill="#9BCA61" name="Aman" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="stable" fill="#9BCA61" name="Stabil" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

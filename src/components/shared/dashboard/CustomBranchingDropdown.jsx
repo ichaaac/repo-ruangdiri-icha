@@ -1,4 +1,4 @@
-// src/components/shared/dashboard/CustomBranchingDropdown.jsx - Fixed interactions (click-based, not hover)
+// src/components/shared/dashboard/CustomBranchingDropdown.jsx - Added "All" option support
 
 import { useState, useRef, useEffect } from "react"
 
@@ -9,6 +9,7 @@ const CustomBranchingDropdown = ({
   onGradeSelect,
   classrooms = [],
   grades = [],
+  showAllOption = false, // New prop to show "All" option
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [showGrades, setShowGrades] = useState(false)
@@ -38,6 +39,9 @@ const CustomBranchingDropdown = ({
     }
   }, [isOpen])
 
+  // Prepare classroom options with "All" option if enabled
+  const classroomOptions = showAllOption ? ["All", ...classrooms] : classrooms
+
   // Smart positioning calculation
   const calculateDropdownPosition = () => {
     if (!triggerRef.current) return
@@ -50,7 +54,7 @@ const CustomBranchingDropdown = ({
     const classroomWidth = 80
     const gradeWidth = 96
     const totalWidth = classroomWidth + gradeWidth
-    const dropdownHeight = classrooms.length * 40
+    const dropdownHeight = classroomOptions.length * 40
     
     // Check horizontal space
     const spaceRight = viewportWidth - triggerRect.right
@@ -73,14 +77,19 @@ const CustomBranchingDropdown = ({
       onClassroomSelect(classroom)
     }
     
-    // Show grades if available
-    if (grades.length > 0) {
+    // Show grades if available and not "All" option
+    if (classroom !== "All" && grades.length > 0) {
       setShowGrades(true)
     } else {
-      // If no grades, close dropdown
+      // If "All" or no grades, close dropdown
       setIsOpen(false)
       setShowGrades(false)
       setSelectedClassroomIndex(-1)
+      
+      // If "All" is selected and there's a grade callback, reset to "All" too
+      if (classroom === "All" && onGradeSelect) {
+        onGradeSelect("All")
+      }
     }
   }
 
@@ -158,6 +167,19 @@ const CustomBranchingDropdown = ({
     return baseStyle
   }
 
+  // Format display text
+  const getDisplayText = () => {
+    if (selectedClassroom === "All") {
+      return "Semua"
+    }
+    
+    if (selectedClassroom && selectedGrade && selectedGrade !== "All") {
+      return `${selectedClassroom} - ${selectedGrade}`
+    }
+    
+    return selectedClassroom || "Kelas"
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Main Trigger */}
@@ -167,9 +189,7 @@ const CustomBranchingDropdown = ({
         className="relative z-0 flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
       >
         <span className="self-stretch my-auto text-gray-700">
-          {selectedClassroom && selectedGrade
-            ? `${selectedClassroom} - ${selectedGrade}`
-            : selectedClassroom || "Kelas"}
+          {getDisplayText()}
         </span>
         <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
       </div>
@@ -191,13 +211,13 @@ const CustomBranchingDropdown = ({
               order: dropdownPosition.alignRight ? 1 : 0
             }}
           >
-            {classrooms.map((classroom, index) => (
+            {classroomOptions.map((classroom, index) => (
               <div
                 key={classroom}
                 className={`w-full text-center px-3 py-2 text-sm transition-colors cursor-pointer h-10 flex items-center justify-center ${
                   index === 0 ? (dropdownPosition.alignRight ? 'rounded-tr-md' : 'rounded-tl-md') : ''
                 } ${
-                  index === classrooms.length - 1 ? (dropdownPosition.alignRight ? 'rounded-br-md' : 'rounded-bl-md') : ''
+                  index === classroomOptions.length - 1 ? (dropdownPosition.alignRight ? 'rounded-br-md' : 'rounded-bl-md') : ''
                 } ${
                   selectedClassroom === classroom 
                     ? "bg-[#3399E9] text-white font-semibold" 
@@ -207,13 +227,13 @@ const CustomBranchingDropdown = ({
                 }`}
                 onClick={() => handleClassroomClick(classroom, index)}
               >
-                {classroom}
+                {classroom === "All" ? "Semua" : classroom}
               </div>
             ))}
           </div>
 
-          {/* Grade Dropdown - Only shows on CLICK, not hover */}
-          {showGrades && grades.length > 0 && selectedClassroomIndex !== -1 && (
+          {/* Grade Dropdown - Only shows on CLICK, not hover, and not when "All" is selected */}
+          {showGrades && grades.length > 0 && selectedClassroomIndex !== -1 && classroomOptions[selectedClassroomIndex] !== "All" && (
             <div
               className={`w-24 bg-white border-l-0 border border-gray-200 shadow-lg max-h-48 overflow-y-auto ${
                 dropdownPosition.alignRight ? 'rounded-l-md' : 'rounded-r-md'

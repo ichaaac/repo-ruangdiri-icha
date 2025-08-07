@@ -1,4 +1,4 @@
-// src/hooks/useDashboardMetrics.js (UPDATED - Added PDF Download Support)
+// src/hooks/useDashboardMetrics.js (UPDATED - Added "All" Option Support)
 
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
@@ -74,12 +74,12 @@ export const useDashboardMetrics = (type = "student") => {
 
 /**
  * Hook for fetching yearly stats for bar chart.
- * FIXED: Stable dependencies to prevent multiple fetches.
+ * UPDATED: Handle "All" option - don't send classroom/department filters when "All" is selected.
  */
 export const useYearlyStats = (type = "student", filters = {}) => {
   const currentDate = getCurrentDateInfo()
   
-  // FIXED: Create stable filter values with defaults
+  // UPDATED: Create stable filter values with "All" handling
   const stableFilters = useMemo(() => {
     const baseFilters = {
       year: currentDate.year,
@@ -89,13 +89,13 @@ export const useYearlyStats = (type = "student", filters = {}) => {
     if (type === "student") {
       return {
         ...baseFilters,
-        classroom: filters.classroom || "X",
-        grade: filters.grade || "A"
+        classroom: filters.classroom === "All" ? undefined : (filters.classroom || "X"),
+        grade: filters.grade === "All" ? undefined : (filters.grade || "A")
       }
     } else {
       return {
         ...baseFilters,
-        department: filters.department || "Finance"
+        department: filters.department === "All" ? undefined : (filters.department || "Finance")
       }
     }
   }, [type, filters.year, filters.classroom, filters.grade, filters.department, currentDate.year])
@@ -107,11 +107,18 @@ export const useYearlyStats = (type = "student", filters = {}) => {
       params.append("year", stableFilters.year)
       const endpointPath = type === "student" ? "/students/metrics/yearly-stats" : "/employees/metrics/yearly-stats"
 
+      // UPDATED: Only add classroom/department params if they're not "All"
       if (type === "student") {
-        params.append("classroom", stableFilters.classroom)
-        params.append("grade", stableFilters.grade)
+        if (stableFilters.classroom) {
+          params.append("classroom", stableFilters.classroom)
+        }
+        if (stableFilters.grade) {
+          params.append("grade", stableFilters.grade)
+        }
       } else {
-        params.append("department", stableFilters.department)
+        if (stableFilters.department) {
+          params.append("department", stableFilters.department)
+        }
       }
 
       try {
@@ -130,7 +137,7 @@ export const useYearlyStats = (type = "student", filters = {}) => {
     refetchOnWindowFocus: false,
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    // FIXED: Only refetch when filters actually change
+    // UPDATED: Enable query even when filters are "All"
     enabled: true,
   })
 }
@@ -261,11 +268,18 @@ export const usePdfReport = () => {
         queryParams.append("counselingStatus", "0")
       }
 
+      // UPDATED: Don't add classroom/department if they're "All"
       if (type === "student") {
-        if (params.classroom) queryParams.append("classroom", params.classroom)
-        if (params.grade) queryParams.append("grade", params.grade)
+        if (params.classroom && params.classroom !== "All") {
+          queryParams.append("classroom", params.classroom)
+        }
+        if (params.grade && params.grade !== "All") {
+          queryParams.append("grade", params.grade)
+        }
       } else {
-        if (params.department) queryParams.append("department", params.department)
+        if (params.department && params.department !== "All") {
+          queryParams.append("department", params.department)
+        }
       }
 
       const response = await apiClient.get(`${baseEndpoint}?${queryParams}`, {
