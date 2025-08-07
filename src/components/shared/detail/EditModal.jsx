@@ -308,9 +308,9 @@ const EditModal = ({ data, type, onClose, onSuccess, updateMutation }) => {
                 <input {...register("fullName")} className={clsx("w-full rounded-md h-10 border px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors", errors.fullName ? "border-red-500" : "border-gray-300")} placeholder="Nama lengkap" />
               </FormField>
 
-              <FormField label={type === "student" ? "NIS" : "ID Karyawan"} error={type === "student" ? errors.nis : errors.employeeId} required>
+              {/* <FormField label={type === "student" ? "NIS" : "ID Karyawan"} error={type === "student" ? errors.nis : errors.employeeId} required>
                 <input {...register(type === "student" ? "nis" : "employeeId")} className={clsx("w-full rounded-md h-10 border px-3 text-sm focus:outline-none focus:border-[#488BBE] transition-colors", (type === "student" ? errors.nis : errors.employeeId) ? "border-red-500" : "border-gray-300")} placeholder={type === "student" ? "NIS" : "ID Karyawan"} />
-              </FormField>
+              </FormField> */}
 
               {type === "student" ? (
                 <FormField label="Kelas" error={errors.classroom || errors.grade} required>
