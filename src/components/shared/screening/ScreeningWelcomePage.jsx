@@ -1,11 +1,12 @@
 // src/components/shared/screening/ScreeningWelcomePage.jsx
 
-import React, { useState } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import { useScreening } from "./hooks/useScreening"
 import ScreeningAssessment from "./ScreeningAssesment"
 import ScreeningResult from "./ScreeningResult"
+import ExitConfirmationPopup from "./ExitConfirmationPopUp"
 import { useOutletContext } from "react-router-dom"
 
 // Stage 1 Content Component
@@ -13,32 +14,32 @@ const Stage1Content = ({ onScrollDown }) => {
   return (
     <motion.div
       className="w-96 inline-flex flex-col justify-center items-end gap-7 pr-8 pb-5 max-md:w-[calc(100%-40px)] max-md:left-[20px] max-md:right-[20px] max-md:items-center"
-      initial={{ opacity: 0, x: 50 }}
+      initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
     >
       {/* Selamat Datang Header */}
       <motion.div
         className="self-stretch justify-start text-white text-3xl font-bold leading-tight mb-2 max-md:text-2xl"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.6 }}
+        transition={{ delay: 0.1, duration: 0.3 }}
       >
         Selamat Datang
       </motion.div>
       {/* Divider */}
       <motion.div
         className="self-stretch h-[1px] bg-white bg-opacity-50 mb-5"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.6 }}
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ delay: 0.15, duration: 0.3 }}
       />
 
       <motion.div
         className="self-stretch justify-start text-white text-lg font-medium leading-tight"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.6 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
       >
         Kamu akan memulai proses skrining status kesehatan mental. Skrining ini dapat membantu kamu untuk mengetahui
         gambaran besar mengenai status kesehatan mental kamu. Terdapat 21 pertanyaan dengan pilihan jawaban yang harus
@@ -54,18 +55,14 @@ const Stage1Content = ({ onScrollDown }) => {
       <motion.button
         onClick={onScrollDown}
         className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity duration-300"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.6 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        transition={{ delay: 0.25, duration: 0.3 }}
       >
-        <motion.img
+        <img
           src="/icon/scroll-down.svg"
           alt="Scroll down"
           className="w-10 h-12 object-contain"
-          animate={{ y: [0, 5, 0] }}
-          transition={{ repeat: Number.POSITIVE_INFINITY, duration: 2, ease: "easeInOut" }}
         />
         <span className="text-white text-sm font-medium text-center">Scroll{"\n"}Down</span>
       </motion.button>
@@ -78,15 +75,15 @@ const Stage2Content = ({ isAgreed, onAgreementChange, onStart, isLoading }) => {
   return (
     <motion.div
       className="w-96 inline-flex flex-col justify-center items-end gap-7 pr-8 pb-5 max-md:w-[calc(100%-40px)] max-md:left-[20px] max-md:right-[20px] max-md:items-center"
-      initial={{ opacity: 0 }}
+      initial={{ opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
     >
       <motion.div
         className="self-stretch justify-start text-white text-lg font-medium leading-tight"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.6 }}
+        transition={{ delay: 0.1, duration: 0.3 }}
       >
         Hasil skrining kamu tidak dapat menjadi acuan diagnosis utama. Penegakkan diagnosis hanya didapatkan dari
         profesional. Jawaban kamu akan kami gunakan secara kolektif dan anonim untuk pengembangan alat tes dan platform
@@ -97,11 +94,9 @@ const Stage2Content = ({ isAgreed, onAgreementChange, onStart, isLoading }) => {
       <motion.div
         className="self-stretch inline-flex justify-start items-center gap-3.5 cursor-pointer"
         onClick={onAgreementChange}
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.6 }}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        transition={{ delay: 0.15, duration: 0.3 }}
       >
         <div className="w-[21px] h-[21px] flex items-center justify-center">
           <span className="material-icons text-white text-xl">
@@ -119,11 +114,9 @@ const Stage2Content = ({ isAgreed, onAgreementChange, onStart, isLoading }) => {
             ? "bg-white cursor-pointer hover:bg-gray-50"
             : "bg-gray-300 cursor-not-allowed opacity-60"
         }`}
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7, duration: 0.6 }}
-        whileHover={isAgreed && !isLoading ? { scale: 1.05 } : {}}
-        whileTap={isAgreed && !isLoading ? { scale: 0.95 } : {}}
+        transition={{ delay: 0.2, duration: 0.3 }}
       >
         <div
           className={`text-center justify-start text-base font-bold leading-[74px] ${
@@ -144,16 +137,72 @@ const Stage2Content = ({ isAgreed, onAgreementChange, onStart, isLoading }) => {
   )
 }
 
-// Welcome View Component
+// Welcome View Component with Scroll Functionality
 const WelcomeView = ({ onStart, onExit }) => {
   const [currentStage, setCurrentStage] = useState(1)
   const [isAgreed, setIsAgreed] = useState(false)
   const { initializeScreening, isLoading } = useScreening()
   const { sidebarExpanded } = useOutletContext() || { sidebarExpanded: false }
+  
+  // Scroll functionality
+  const containerRef = useRef(null)
+  const [isScrolling, setIsScrolling] = useState(false)
 
   const handleScrollDown = () => {
     setCurrentStage(2)
   }
+
+  const handleScrollUp = () => {
+    setCurrentStage(1)
+  }
+
+  // Handle scroll events
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (isScrolling) return
+
+      e.preventDefault()
+      setIsScrolling(true)
+
+      if (e.deltaY > 0 && currentStage === 1) {
+        // Scroll down to stage 2
+        setCurrentStage(2)
+      } else if (e.deltaY < 0 && currentStage === 2) {
+        // Scroll up to stage 1
+        setCurrentStage(1)
+      }
+
+      // Reset scrolling flag after animation
+      setTimeout(() => setIsScrolling(false), 500)
+    }
+
+    const handleKeyDown = (e) => {
+      if (isScrolling) return
+
+      if ((e.key === 'ArrowDown' || e.key === 'PageDown') && currentStage === 1) {
+        setCurrentStage(2)
+        setIsScrolling(true)
+        setTimeout(() => setIsScrolling(false), 500)
+      } else if ((e.key === 'ArrowUp' || e.key === 'PageUp') && currentStage === 2) {
+        setCurrentStage(1)
+        setIsScrolling(true)
+        setTimeout(() => setIsScrolling(false), 500)
+      }
+    }
+
+    const container = containerRef.current
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false })
+      window.addEventListener('keydown', handleKeyDown)
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('wheel', handleWheel)
+      }
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentStage, isScrolling])
 
   const handleAgreementChange = () => {
     setIsAgreed(!isAgreed)
@@ -175,7 +224,11 @@ const WelcomeView = ({ onStart, onExit }) => {
   }
 
   return (
-    <div className="w-full h-screen relative bg-white overflow-hidden">
+    <div 
+      ref={containerRef}
+      className="w-full h-screen relative bg-white overflow-hidden focus:outline-none" 
+      tabIndex={0}
+    >
       {/* Main image container */}
       <div className="absolute left-[20px] right-[20px] top-[127px] h-[658px] rounded-[10px] overflow-hidden max-md:left-[20px] max-md:right-[20px] max-md:h-[calc(100vh-8rem)]">
         {/* Main background image */}
@@ -194,13 +247,18 @@ const WelcomeView = ({ onStart, onExit }) => {
         />
       </div>
 
+      {/* Scroll indicator */}
+      <div className="absolute top-4 right-4 text-white text-sm font-medium opacity-70 max-md:hidden">
+        {currentStage === 1 ? "Scroll ↓ untuk lanjut" : "Scroll ↑ untuk kembali"}
+      </div>
+
       {/* Content - Stage based */}
       <AnimatePresence mode="wait">
         {currentStage === 1 ? (
           <motion.div
             key="stage1"
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3 }}
             className="absolute right-[80px] top-[190px] max-md:top-[140px]"
           >
             <Stage1Content onScrollDown={handleScrollDown} />
@@ -208,9 +266,9 @@ const WelcomeView = ({ onStart, onExit }) => {
         ) : (
           <motion.div
             key="stage2"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.3 }}
             className="absolute right-[80px] top-[250px] max-md:top-[180px]"
           >
             <Stage2Content
@@ -230,29 +288,50 @@ const WelcomeView = ({ onStart, onExit }) => {
 const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   const [currentView, setCurrentView] = useState("welcome") // 'welcome', 'assessment', 'result'
   const [screeningResult, setScreeningResult] = useState(null)
+  const [showExitPopup, setShowExitPopup] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState(null)
 
-  // Handle page refresh/close warning
+  // Enhanced navigation protection with popup
   React.useEffect(() => {
-    const handleBeforeUnload = (e) => {
+    // Handle browser navigation attempts
+    const handlePopState = (e) => {
       if (currentView === "assessment") {
         e.preventDefault()
-        e.returnValue = "Apakah kamu yakin ingin meninggalkan halaman ini? Progress screening akan hilang."
-        return e.returnValue
+        setShowExitPopup(true)
+        setPendingNavigation(() => () => window.history.back())
+        // Push state again to handle next back button press
+        window.history.pushState(null, "", window.location.pathname)
       }
     }
 
+    // Handle tab visibility changes
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && currentView === "assessment") {
-        // Optional: Add warning about leaving page
+        setShowExitPopup(true)
       }
     }
 
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
+    // Handle page unload attempts (disable browser default)
+    const handleBeforeUnload = (e) => {
+      if (currentView === "assessment") {
+        // Don't show browser default dialog
+        return undefined
+      }
+    }
+
+    if (currentView === "assessment") {
+      window.addEventListener("popstate", handlePopState)
+      document.addEventListener("visibilitychange", handleVisibilityChange)
+      window.addEventListener("beforeunload", handleBeforeUnload)
+      
+      // Push initial state for back button handling
+      window.history.pushState(null, "", window.location.pathname)
+    }
 
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("popstate", handlePopState)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("beforeunload", handleBeforeUnload)
     }
   }, [currentView])
 
@@ -278,11 +357,32 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   }
 
   const handleAssessmentExit = () => {
+    setShowExitPopup(true)
+  }
+
+  const handleExitConfirm = () => {
+    setShowExitPopup(false)
     toast.info("Screening dibatalkan", {
       description: "Progress screening tidak tersimpan.",
     })
-    setCurrentView("welcome")
-    onExit?.()
+    
+    if (pendingNavigation) {
+      pendingNavigation()
+      setPendingNavigation(null)
+    } else {
+      setCurrentView("welcome")
+      onExit?.()
+    }
+  }
+
+  const handleExitCancel = () => {
+    setShowExitPopup(false)
+    setPendingNavigation(null)
+    
+    // Push state again for next navigation attempt
+    if (currentView === "assessment") {
+      window.history.pushState(null, "", window.location.pathname)
+    }
   }
 
   const handleResultBackToHome = () => {
@@ -306,8 +406,8 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
         return (
           <motion.div 
             key="welcome" 
-            exit={{ opacity: 0, scale: 0.95 }} 
-            transition={{ duration: 0.5 }}
+            exit={{ opacity: 0, scale: 0.98 }} 
+            transition={{ duration: 0.3 }}
           >
             <WelcomeView onStart={handleStartAssessment} onExit={onExit} />
           </motion.div>
@@ -317,10 +417,10 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
         return (
           <motion.div
             key="assessment"
-            initial={{ opacity: 0, scale: 1.05 }}
+            initial={{ opacity: 0, scale: 1.02 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.5 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.3 }}
           >
             <ScreeningAssessment onComplete={handleAssessmentComplete} onExit={handleAssessmentExit} />
           </motion.div>
@@ -337,9 +437,9 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
         return (
           <motion.div
             key="result"
-            initial={{ opacity: 0, scale: 1.05 }}
+            initial={{ opacity: 0, scale: 1.02 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.3 }}
           >
             <ScreeningResult
               result={screeningResult}
@@ -362,6 +462,13 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   return (
     <div className="w-full h-screen">
       <AnimatePresence mode="wait">{renderCurrentView()}</AnimatePresence>
+      
+      {/* Exit Confirmation Popup */}
+      <ExitConfirmationPopup
+        isOpen={showExitPopup}
+        onCancel={handleExitCancel}
+        onConfirm={handleExitConfirm}
+      />
     </div>
   )
 }

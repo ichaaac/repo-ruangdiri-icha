@@ -35,24 +35,15 @@ dayjs.updateLocale("id", {
 })
 
 /**
- * 🔥 FIXED: Backend kirim GMT+7 tapi masih pakai format 'Z' (UTC)
- * Kita treat timestamp 'Z' sebagai sudah GMT+7, bukan UTC
- * @param {string} timestamp - ISO timestamp dari backend (GMT+7 dalam format UTC)
+ * 🔥 UPDATED: Parse timestamp apa adanya tanpa timezone adjustment
+ * @param {string} timestamp - ISO timestamp dari backend
  * @returns {dayjs.Dayjs} - dayjs object
  */
 export const parseNotificationTime = (timestamp) => {
   if (!timestamp) return null;
   
   try {
-    // 🔥 FIXED: Backend kirim GMT+7 tapi pakai format Z
-    // Kita hilangkan Z dan parse sebagai local time (GMT+7)
-    if (timestamp.endsWith('Z')) {
-      // Remove Z dan parse sebagai local time
-      const localTimestamp = timestamp.slice(0, -1);
-      return dayjs(localTimestamp);
-    }
-    
-    // Kalau tidak ada Z, parse biasa
+    // 🔥 UPDATED: Parse timestamp apa adanya tanpa adjustment timezone
     return dayjs(timestamp);
   } catch (error) {
     console.error('❌ Error parsing timestamp:', timestamp, error);
@@ -69,9 +60,9 @@ export const getCurrentTime = () => {
 };
 
 /**
- * 🔥 FORMAT UNTUK DROPDOWN - Simple format (jam lalu, menit lalu, baru saja)
+ * 🔥 UPDATED FORMAT UNTUK DROPDOWN - dengan format hari setelah 24 jam
  * @param {string} timestamp - ISO timestamp
- * @returns {string} - Simple time format
+ * @returns {string} - Simple time format with days
  */
 export const formatTimeAgoDropdown = (timestamp) => {
   if (!timestamp) return "";
@@ -104,7 +95,14 @@ export const formatTimeAgoDropdown = (timestamp) => {
     return `${diffMinutes} menit lalu`;
   }
 
-  const diffHours = now.diff(notificationTime, 'hour');
+  // 🔥 UPDATED: Setelah 24 jam (1440 menit) langsung tampilkan hari
+  if (diffMinutes >= 1440) { // 24 jam = 1440 menit
+    const diffDays = Math.floor(diffMinutes / 1440);
+    return `${diffDays} hari lalu`;
+  }
+
+  // 🔥 Untuk kurang dari 24 jam, tampilkan jam
+  const diffHours = Math.floor(diffMinutes / 60);
   return `${diffHours} jam lalu`;
 };
 
@@ -139,7 +137,7 @@ export const formatTimeAgoDetailed = (timestamp) => {
     return "Baru saja";
   }
 
-  // 🔥 FIXED: Format waktu yang benar
+  // 🔥 Format waktu yang benar
   const timeFormat = notificationTime.format('HH:mm');
 
   if (diffMinutes < 60) {
