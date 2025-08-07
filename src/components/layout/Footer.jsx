@@ -35,10 +35,10 @@ const Footer = () => {
           {/* Social Media Icon */}
           <div className="ml-auto pr-14 max-md:pr-0 max-sm:mt-5">
             <a 
-              href="https://www.instagram.com/performaplus.sdm" 
+              href="https://www.instagram.com/ruangdiri_official" 
               target="_blank" 
               rel="noopener noreferrer"
-              aria-label="Instagram @performaplus.sdm"
+              aria-label="Instagram ruang diri"
             >
               <img 
                 src="/logo/instagram-logo.png" 
