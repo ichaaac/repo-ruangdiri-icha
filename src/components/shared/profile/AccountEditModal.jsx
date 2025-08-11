@@ -34,7 +34,7 @@ const PasswordField = ({ label, name, register, error, placeholder, showForgotLi
       <div className="relative">
         <input
           type={showPassword ? "text" : "password"}
-          {...register(name)}
+          {...register(name)}s
           className={clsx(
             "w-full rounded-md h-12 border-[1.5px] px-4 pr-10 focus:outline-none focus:border-primary",
             error ? "border-red-500" : "border-gray-300"

@@ -10,7 +10,7 @@ const ProfilePictureUpload = ({ currentProfilePicture }) => {
   const [uploadError, setUploadError] = useState(null);
   const queryClient = useQueryClient();
   useEffect(() => {
-    setPreviewImage(currentProfilePicture);
+setPreviewImage(currentProfilePicture);
   }, [currentProfilePicture]);
 
   // Upload profile picture mutation

@@ -21,7 +21,6 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
   // Get status info based on overallRisk from API response
   const getStatusInfo = () => {
     const overallRisk = result.overallRisk || result.assessment?.overallRisk || "Stabil"
-    const recommendedAction = result.recommendedAction || result.assessment?.recommendedAction || ""
 
     console.log("Determining status for overallRisk:", overallRisk)
 
@@ -31,28 +30,32 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
           status: "SANGAT MENGKHAWATIRKAN",
           textColor: "#E82B00",
           imageFilter: "#AA000099",
-          message: recommendedAction
+          mainMessage: "Saat ini kondisi mental kamu SANGAT MENGKHAWATIRKAN. Jika kamu merasa kesulitan untuk mengatur perasaan dan respon terhadap situasi tersebut, silahkan berkonsultasi dengan tenaga ahli yang sudah kami sediakan. Kamu bisa menyampaikan keluh kesah dan menceritakan masalah yang kamu hadapi akhir-akhir ini.",
+          closingMessage: "Kami sangat menyarankan kamu untuk menangani permasalahan yang kamu rasakan secara komprehensif dan terstruktur dengan klik"
         }
       case "Mengkhawatirkan":
         return {
           status: "MENGKHAWATIRKAN", 
           textColor: "#E82B00",
           imageFilter: "#AA000099",
-          message: recommendedAction
+          mainMessage: "Saat ini kondisi mental kamu MENGKHAWATIRKAN. Usahakan selalu mengonsumsi air putih dalam jumlah yang cukup, jaga pola makan kamu, dan pastikan kamu mendapatkan durasi tidur yang cukup. Jangan terlalu memaksakan diri, dan dapatkan bantuan dari tenaga ahli. Ceritakan kondisi yang mungkin membuat kamu tertekan.",
+          closingMessage: "Kami sangat menyarankan kamu untuk menangani permasalahan yang kamu rasakan secara komprehensif dan terstruktur dengan klik"
         }
       case "Sedang":
         return {
           status: "SEDANG",
           textColor: "#F94B00", 
           imageFilter: "#BE954899",
-          message: recommendedAction
+          mainMessage: "Saat ini kondisi mental kamu berada dalam kategori SEDANG. Namun, ada beberapa hal yang dapat kamu lakukan untuk meringankan hal tersebut. Misalnya, banyak mengonsumsi air putih, melakukan olahraga ringan, mengatur pola makan, dan mengatur pola tidur. Jangan sampai terlalu lelah dalam bekerja, sisihkan waktu untuk beristirahat dan lakukanlah hal yang kamu sukai. Kamu juga bisa berbagi cerita dengan orang-orang disekitar kamu, atau melakukan relaksasi untuk beberapa saat.",
+          closingMessage: "Tetapi apabila kamu merasa hal-hal tersebut belum cukup, kamu bisa mendapatkan bantuan yang lebih komprehensif dan terstruktur dengan klik"
         }
       case "Ringan":
         return {
           status: "RINGAN",
           textColor: "#F3AA00",
           imageFilter: "#BEB94899", 
-          message: recommendedAction
+          mainMessage: "Saat ini kondisi kesehatan mental kamu berada dalam kategori RINGAN. Namun, kamu tidak perlu khawatir, dengan melakukan beberapa hal sederhana, kamu dapat mengurangi gejala stres tersebut. Misalnya, banyak mengonsumsi air putih, melakukan olahraga ringan, mengatur pola makan, dan mengatur pola tidur.",
+          closingMessage: "Kamu tetap dapat mendaftarkan sesi konseling apabila kamu ingin mengembangkan diri atau memiliki permasalahan yang ingin diselesaikan dengan klik"
         }
       case "Stabil":
       default:
@@ -60,7 +63,8 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
           status: "STABIL",
           textColor: "#9BCA61",
           imageFilter: "#48BE4E99",
-          message: recommendedAction
+          mainMessage: "Saat ini kamu dalam kondisi STABIL dan tidak terdeteksi mengalami gangguan depresi, kecemasan, maupun stres. Tetap jaga kondisi kamu dengan cara mengatur pola makan, melakukan olahraga ringan, dan pastikan kamu mendapatkan tidur yang cukup. Lakukanlah hal-hal yang kamu sukai, dan jangan lupa beristirahat.",
+          closingMessage: "Kamu tetap dapat mendaftarkan sesi konseling apabila kamu ingin mengembangkan diri atau memiliki permasalahan yang ingin diselesaikan dengan klik"
         }
     }
   }
@@ -108,37 +112,40 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
 
         {/* Main content - positioned below the image/filter area */}
         <motion.div
-          className="absolute left-[89px] right-[89px] top-[320px] inline-flex flex-col justify-start items-center gap-8 max-md:left-[40px] max-md:right-[40px] max-md:top-[280px] max-md:gap-6"
+          className="absolute left-[89px] right-[89px] top-[360px] inline-flex flex-col justify-start items-center gap-8 max-md:left-[40px] max-md:right-[40px] max-md:top-[280px] max-md:gap-6"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
           {/* Status message */}
           <motion.div
-            className="self-stretch justify-start text-base font-normal leading-relaxed text-center max-md:text-sm"
+            className="self-stretch justify-start text-base font-normal leading-relaxed text-left max-md:text-sm"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            <span className="text-gray-700 font-['Public_Sans']">
-              Saat ini kamu dalam kondisi{" "}
-            </span>
-            <span 
-              className="text-base font-bold font-['Public_Sans'] max-md:text-sm"
-              style={{ color: statusInfo.textColor }}
-            >
-              {statusInfo.status}
-            </span>
-            <span className="text-gray-700 font-['Public_Sans']">
-              {statusInfo.message ? `. ${statusInfo.message}` : ""}
-              {" "}Kamu tetap dapat mendaftarkan sesi konseling apabila kamu ingin mengembangkan diri atau memiliki permasalahan yang ingin diselesaikan dengan klik{" "}
-            </span>
-            <span className="text-[#488BBE] font-normal font-['Public_Sans']">
-              booking sesi
-            </span>
-            <span className="text-gray-700 font-normal font-['Public_Sans']">
+            <div className="text-gray-700 font-['Public_Sans'] mb-4">
+              {statusInfo.mainMessage.split(statusInfo.status).map((part, index) => (
+                <span key={index}>
+                  {part}
+                  {index < statusInfo.mainMessage.split(statusInfo.status).length - 1 && (
+                    <span 
+                      className="font-bold"
+                      style={{ color: statusInfo.textColor }}
+                    >
+                      {statusInfo.status}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+            <div className="text-gray-700 font-['Public_Sans']">
+              {statusInfo.closingMessage}{" "}
+              <span className="text-[#488BBE] font-normal font-['Public_Sans']">
+                booking sesi
+              </span>
               {" "}untuk memulai konseling dengan profesional dari Ruang Diri.
-            </span>
+            </div>
           </motion.div>
 
           {/* Action buttons */}
@@ -176,7 +183,7 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
       </div>
 
       {/* Optional: Debug info for development */}
-      {process.env.NODE_ENV === 'development' && result.assessment && (
+      {/* {process.env.NODE_ENV === 'development' && result.assessment && (
         <motion.div
           className="absolute top-4 right-4 bg-white/90 rounded-lg p-4 shadow-lg max-w-xs max-md:top-2 max-md:right-2 max-md:p-2 max-md:text-xs"
           initial={{ opacity: 0, x: 20 }}
@@ -190,7 +197,7 @@ const ScreeningResult = ({ result, onBackToHome, onBookingSession }) => {
             <div>Total Score: {result.assessment?.totalScore || result.totalScore}</div>
           </div>
         </motion.div>
-      )}
+      )} */}
     </div>
   )
 }

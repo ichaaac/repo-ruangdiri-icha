@@ -141,6 +141,8 @@ const CompanySidebar = ({ expanded, setExpanded, onHoverChange }) => {
       initial={{ width: expanded ? expandedWidth : collapsedWidth }}
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
+      onMouseEnter={() => (document.body.style.overflow = "hidden")}
+      onMouseLeave={() => (document.body.style.overflow = "")}
     >
       {/* Logo */}
       <div className="p-4 flex justify-center items-center relative">

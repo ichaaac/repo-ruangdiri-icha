@@ -46,6 +46,8 @@ const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting);
 
 // CreateScheduleModal.jsx
 
+// CreateScheduleModal.jsx
+
 const handleSubmit = async () => {
     if (!validateForm()) {
       return
@@ -72,8 +74,7 @@ const handleSubmit = async () => {
       if (isStandardLocation) {
         submitData.location = formData.location
       } else {
-        submitData.location = "offline"
-        submitData.actualLocationName = formData.location
+        submitData.location = formData.location // FIXED: Send actual location, not "offline" + actualLocationName
       }
 
     } else {
@@ -89,35 +90,83 @@ const handleSubmit = async () => {
       console.log("Submit data:", submitData)
       console.log("Attachments to upload:", newAttachmentsToUpload)
 
-      // Step 1: Create the schedule
+      // Step 1: Create the schedule FIRST
+      console.log("Step 1: Creating schedule...")
       const result = await onSubmit(submitData)
+      console.log("Schedule creation result:", result)
       
-      // Step 2: Show success toast
-      if (newAttachmentsToUpload.length === 0) {
-        toast.success("Jadwal berhasil dibuat")
-      } else {
-        toast.success("Jadwal dibuat, sedang mengunggah lampiran...")
+      // Step 2: Extract schedule ID from successful creation with better validation
+      let scheduleIds = []
+      console.log("Extracting schedule IDs from result...")
+      
+      if (result?.data?.data) {
+        const createdSchedule = Array.isArray(result.data.data) ? result.data.data : [result.data.data];
+        console.log("Created schedule data:", createdSchedule)
+        
+        scheduleIds = createdSchedule
+          .map(s => {
+            const id = s?.id || s?.scheduleId || s?.Id;
+            console.log("Processing schedule object:", s, "Extracted ID:", id);
+            return id;
+          })
+          .filter(Boolean);
+          
+        console.log("Final extracted schedule IDs:", scheduleIds)
+      } else if (result?.data?.id) {
+        // Handle single schedule creation with direct ID
+        scheduleIds = [result.data.id];
+        console.log("Single schedule ID extracted:", scheduleIds)
+      } else if (result?.id) {
+        // Handle direct ID response
+        scheduleIds = [result.id];
+        console.log("Direct ID extracted:", scheduleIds)
       }
 
-      // Step 3: Upload attachments in the background
-      if (result?.data?.data && newAttachmentsToUpload.length > 0) {
-        const createdSchedule = Array.isArray(result.data.data) ? result.data.data : [result.data.data];
-        const scheduleIds = createdSchedule.map(s => s.id).filter(Boolean);
-
-        if (scheduleIds.length > 0) {
-           setTimeout(async () => {
-            try {
-              await uploadAttachmentsMutation.mutateAsync({
-                scheduleIds,
-                files: newAttachmentsToUpload.map((a) => a.file),
-              })
-              toast.success(`${newAttachmentsToUpload.length} lampiran berhasil diunggah.`)
-            } catch (attachmentError) {
-              const errorMessage = attachmentError?.response?.data?.message || attachmentError.message
-              toast.error("Gagal mengunggah lampiran", { description: errorMessage })
-            }
-          }, 100)
+      // Step 3: Handle attachments ONLY AFTER successful schedule creation
+      if (newAttachmentsToUpload.length === 0) {
+        // No attachments to upload
+        toast.success("Jadwal berhasil dibuat")
+      } else {
+        // Validate we have schedule IDs before uploading
+        if (scheduleIds.length === 0) {
+          console.error("No schedule IDs found for attachment upload. Full result:", result)
+          toast.warning("Jadwal berhasil dibuat, tetapi lampiran tidak dapat diunggah", {
+            description: "ID jadwal tidak ditemukan dari response server.",
+            duration: 8000
+          })
+          return
         }
+        
+        // Upload attachments immediately with proper schedule IDs
+        toast.success("Jadwal berhasil dibuat, sedang mengunggah lampiran...")
+        
+        const uploadAttachments = async () => {
+          try {
+            console.log("Uploading attachments with schedule IDs:", scheduleIds)
+            await uploadAttachmentsMutation.mutateAsync({
+              scheduleIds,
+              files: newAttachmentsToUpload.map((a) => a.file),
+            })
+            toast.success(`Jadwal dan ${newAttachmentsToUpload.length} lampiran berhasil dibuat`)
+          } catch (attachmentError) {
+            console.error("Attachment upload error:", attachmentError)
+            const errorMessage = attachmentError?.response?.data?.message || attachmentError.message || "Upload gagal"
+            
+            // Toast with retry button
+            toast.error("Gagal mengunggah lampiran", {
+              description: `${errorMessage}. Jadwal sudah dibuat.`,
+              duration: 10000,
+              action: {
+                label: "Coba Lagi",
+                onClick: () => uploadAttachments(), // Retry function
+                className: "!bg-[#488BBA] hover:!bg-blue-600 !text-white !border-[#488BBA] hover:!border-blue-600 !ml-auto"
+              }
+            })
+          }
+        }
+        
+        // Execute upload immediately
+        await uploadAttachments()
       }
       
     } catch (error) {

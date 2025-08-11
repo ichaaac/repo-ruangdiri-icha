@@ -13,7 +13,7 @@ const EditScheduleModal = ({
   onCancelReturnToView,
   organizationType = "school",
 }) => {
-  const {
+const {
     formData,
     dropdowns,
     attachments,
@@ -49,7 +49,7 @@ const EditScheduleModal = ({
     parseErrorMessage,
     uploadAttachmentsMutation,
     setUploadingAttachments,
-} = useScheduleForm("create", initialData, isOpen, organizationType)
+} = useScheduleForm("edit", initialData, isOpen, organizationType)
 
   // FIXED: Check if schedule is in the past (cannot edit)
   const isScheduleInPast = () => {
