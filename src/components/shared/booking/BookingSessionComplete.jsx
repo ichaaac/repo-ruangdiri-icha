@@ -69,9 +69,9 @@ const BookingSessionComplete = () => {
     // Navigate based on user type
     const userRole = user?.role
     if (userRole === "student") {
-      navigate("/user/student/dashboard")
+      navigate("/user/student/screening")
     } else if (userRole === "employee") {
-      navigate("/user/employee/dashboard")
+      navigate("/user/employee/screening")
     } else {
       navigate("/")
     }
