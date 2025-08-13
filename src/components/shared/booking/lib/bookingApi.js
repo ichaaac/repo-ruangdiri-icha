@@ -1,4 +1,4 @@
-// src/components/shared/booking/lib/bookingApi.js
+// src/components/shared/booking/lib/bookingApi.js - Updated with Chat Integration
 
 import { apiClient } from "../../../../lib/api.js";
 
@@ -95,6 +95,33 @@ export const createBookingApi = (userType = "student") => {
       };
     } catch (error) {
       return { date: 'TBD', time: 'TBD' };
+    }
+  };
+
+  // Create counseling chat session (helper function)
+  const createCounselingChatSession = async (counselingId, psychologistId, scheduledAt) => {
+    try {
+      console.log('Creating counseling chat session...');
+      console.log('Counseling ID:', counselingId);
+      console.log('Psychologist ID:', psychologistId);
+      console.log('Scheduled At:', scheduledAt);
+
+      const payload = {
+        counselingId,
+        scheduledAt: scheduledAt.toISOString()
+      };
+
+      const response = await apiClient.post('/chat/sessions/counseling', payload);
+      
+      if (response.data && response.data.status === 'success') {
+        console.log('Chat session created successfully:', response.data);
+        return response.data.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to create chat session');
+    } catch (error) {
+      console.error('Error creating counseling chat session:', error);
+      throw error;
     }
   };
 
@@ -299,7 +326,7 @@ export const createBookingApi = (userType = "student") => {
       }
     },
 
-    // Create booking appointment - MAIN ENDPOINT
+    // Create booking appointment - MAIN ENDPOINT WITH CHAT INTEGRATION
     createBooking: async (bookingData) => {
       try {
         console.log('=== createBooking API call ===');
@@ -342,6 +369,30 @@ export const createBookingApi = (userType = "student") => {
               response.data.data.endTime
             )
           };
+
+          // 🔥 CREATE CHAT SESSION FOR CHAT BOOKINGS
+          if (bookingData.method === 'chat') {
+            try {
+              console.log('🚀 Creating chat session for chat booking...');
+              
+              // Create counseling chat session
+              const chatSession = await createCounselingChatSession(
+                response.data.data.id, // counselingId from booking response
+                bookingData.psychologistId,
+                new Date(bookingData.date + 'T' + bookingData.startTime)
+              );
+              
+              console.log('✅ Chat session created successfully:', chatSession);
+              bookingResult.chatSessionCreated = true;
+              bookingResult.chatSessionId = chatSession.sessionId;
+              
+            } catch (chatError) {
+              console.error('❌ Failed to create chat session:', chatError);
+              // Don't fail the booking, just log the error
+              bookingResult.chatSessionCreated = false;
+              bookingResult.chatSessionError = chatError.message;
+            }
+          }
 
           return {
             ...response,
@@ -409,7 +460,8 @@ export const createBookingApi = (userType = "student") => {
     getCounselingMethodDisplay: getCounselingMethodDisplay,
     getCounselingMethodDescription: getCounselingMethodDescription,
     formatBookingDateTime: formatBookingDateTime,
-    getAvailableMethods: getAvailableMethods
+    getAvailableMethods: getAvailableMethods,
+    createCounselingChatSession: createCounselingChatSession
   };
 };
 
