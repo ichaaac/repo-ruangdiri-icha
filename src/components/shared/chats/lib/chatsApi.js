@@ -1,9 +1,9 @@
-// src/components/shared/chats/lib/chatsApi.js - Clean API Layer
+// src/components/shared/chats/lib/chatsApi.js - With Tim RuangDiri Logic and FAQ Responses
 
 import { apiClient } from "../../../../lib/api.js";
 
 export const chatsApi = {
-  // Get active chat sessions
+  // Get active chat sessions - supports both regular users and psychologists
   async getActiveSessions() {
     try {
       const response = await apiClient.get('/chat/sessions/active');
@@ -12,10 +12,10 @@ export const chatsApi = {
         const sessions = response.data.data.map(session => ({
           id: session.id,
           sessionId: session.id,
-          name: session.psychologist?.fullName || 'Chat Session',
-          avatar: '/empty-profile.svg',
-          lastMessage: 'Tap to start chatting',
-          time: new Date(session.scheduledAt || session.createdAt).toLocaleTimeString("id-ID", {
+          name: session.psychologist?.fullName || session.client?.fullName || session.clientName || 'Chat Session',
+          avatar: session.psychologist?.profilePicture || session.client?.profilePicture || '/empty-profile.svg',
+          lastMessage: session.lastMessage || 'Tap to start chatting',
+          time: new Date(session.scheduledAt || session.updatedAt || session.createdAt).toLocaleTimeString("id-ID", {
             hour: '2-digit',
             minute: '2-digit'
           }),
@@ -24,24 +24,32 @@ export const chatsApi = {
           isOnline: session.isActive && session.isChatEnabled,
           status: session.status,
           psychologist: session.psychologist,
+          client: session.client,
           clientId: session.clientId,
           psychologistId: session.psychologistId,
-          counselingId: session.counselingId
+          counselingId: session.counselingId,
+          scheduledAt: session.scheduledAt,
+          isTeamChat: false,
+          userRole: session.client?.role || 'user'
         }));
 
-        // Add Team Ruang Diri session first
+        // Always add Team RuangDiri session first (AI integrated helper)
         const teamSession = {
           id: 'team-ruangdiri',
           sessionId: 'team-ruangdiri',
-          name: 'Team Ruang Diri',
+          name: 'Team RuangDiri',
           avatar: null,
-          lastMessage: 'You : Chat with Team Ruang Diri',
-          time: '09:00',
+          lastMessage: 'AI Assistant - Always available',
+          time: new Date().toLocaleTimeString("id-ID", {
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
           isActive: true,
           isChatEnabled: true,
           isTeamChat: true,
           isOnline: true,
-          status: 'active'
+          status: 'active',
+          isAIAssistant: true
         };
 
         return [teamSession, ...sessions];
@@ -51,42 +59,50 @@ export const chatsApi = {
     } catch (error) {
       console.error('Error fetching active sessions:', error);
       
-      // Return team session as fallback
+      // Always return team session as fallback
       return [{
         id: 'team-ruangdiri',
         sessionId: 'team-ruangdiri',
-        name: 'Team Ruang Diri',
+        name: 'Team RuangDiri',
         avatar: null,
-        lastMessage: 'You : Chat with Team Ruang Diri',
-        time: '09:00',
+        lastMessage: 'AI Assistant - Always available',
+        time: new Date().toLocaleTimeString("id-ID", {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
         isActive: true,
         isChatEnabled: true,
         isTeamChat: true,
         isOnline: true,
-        status: 'active'
+        status: 'active',
+        isAIAssistant: true
       }];
     }
   },
 
-  // Get chat history
+  // Get chat history with AI assistant support
   async getMessages(sessionId) {
     try {
-      // Handle team session with automated message
+      // Handle AI Team RuangDiri session with welcome message and options
       if (sessionId === 'team-ruangdiri') {
         return [
           {
             id: '1',
-            text: "Hi There! i'm your assistant\nWhat would you like to discuss?",
-            time: '09:20',
+            text: "Hello, roomies!\n\nSelamat datang di Ruang Bantu.\nApakah ada yang bisa kami bantu?\nUntuk mempermudah keperluan roomies,\nkamu dapat memilih tiga opsi di bawah ini:",
+            time: new Date().toLocaleTimeString("id-ID", {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
             timestamp: new Date().toISOString(),
             isUser: false,
             sender: {
-              id: 'team',
-              name: 'Team Ruang Diri',
-              role: 'team'
+              id: 'team-ai',
+              name: 'Team RuangDiri',
+              role: 'ai_assistant'
             },
-            messageType: 'automated',
-            showOptions: true
+            messageType: 'ai_welcome',
+            showOptions: true,
+            isAIMessage: true
           }
         ];
       }
@@ -108,7 +124,7 @@ export const chatsApi = {
             minute: '2-digit'
           }),
           timestamp: msg.createdAt,
-          isUser: msg.sender?.role !== 'psychologist',
+          isUser: msg.sender?.role !== 'psychologist' && msg.sender?.role !== 'ai_assistant',
           sender: {
             id: msg.sender?.id || msg.senderId,
             name: msg.sender?.fullName || 'Unknown',
@@ -128,12 +144,12 @@ export const chatsApi = {
     }
   },
 
-  // Send message
+  // Send message with AI assistant support
   async sendMessage(sessionId, content) {
     try {
-      // Handle team session
+      // Handle AI Team RuangDiri session
       if (sessionId === 'team-ruangdiri') {
-        return {
+        const userMessage = {
           id: Date.now().toString(),
           text: content,
           time: new Date().toLocaleTimeString("id-ID", {
@@ -149,6 +165,8 @@ export const chatsApi = {
           },
           messageType: 'text'
         };
+
+        return userMessage;
       }
 
       const response = await apiClient.post('/chat/messages', {
@@ -184,9 +202,81 @@ export const chatsApi = {
     }
   },
 
-  // Get Ably token
+  // Generate AI response based on user input
+  generateAIResponse(userInput) {
+    const input = userInput.toLowerCase();
+    
+    // AI response patterns for Tim RuangDiri
+    if (input.includes('halo') || input.includes('hai') || input.includes('hello') || input.includes('hi')) {
+      return "Halo! Selamat datang di RuangDiri. Saya Tim RuangDiri AI Assistant, siap membantu Anda hari ini. Apa yang bisa saya bantu? 😊";
+    }
+    
+    if (input.includes('konseling') || input.includes('booking') || input.includes('sesi')) {
+      return "Untuk booking sesi konseling, saya bisa membantu mengarahkan Anda ke sistem booking kami. Anda bisa memilih antara sesi online (video call/chat) atau offline (tatap muka). Apakah Anda ingin saya buatkan link booking untuk Anda?";
+    }
+    
+    if (input.includes('stress') || input.includes('cemas') || input.includes('anxiety') || input.includes('depresi') || input.includes('sedih')) {
+      return "Saya memahami Anda sedang mengalami kondisi yang tidak mudah. Perasaan seperti itu adalah hal yang wajar dan banyak orang mengalaminya. RuangDiri memiliki konselor profesional yang siap membantu. Apakah Anda ingin saya hubungkan dengan konselor atau memberikan tips coping yang bisa dilakukan sekarang?";
+    }
+    
+    if (input.includes('help') || input.includes('bantuan') || input.includes('tolong')) {
+      return "Tentu! Saya di sini untuk membantu. Silakan ceritakan apa yang sedang Anda alami atau pilih opsi bantuan yang tersedia di atas. Saya bisa membantu dengan informasi layanan, booking konseling, atau menjawab pertanyaan umum.";
+    }
+    
+    if (input.includes('faq') || input.includes('pertanyaan') || input.includes('tanya')) {
+      return {
+        text: "Berikut adalah pertanyaan yang sering ditanyakan oleh pengguna RuangDiri:",
+        messageType: 'faq_response'
+      };
+    }
+    
+    if (input.includes('biaya') || input.includes('harga') || input.includes('tarif')) {
+      return "Untuk informasi biaya layanan konseling:\n\n• Konseling individual: Mulai dari Rp 150.000/sesi\n• Konseling online: Mulai dari Rp 100.000/sesi\n• Konseling chat: Mulai dari Rp 75.000/sesi\n\nBiaya dapat berbeda tergantung psikolog dan durasi sesi. Untuk info lengkap, silakan hubungi tim support kami.";
+    }
+    
+    if (input.includes('pembayaran') || input.includes('bayar') || input.includes('transfer')) {
+      return "Metode pembayaran yang tersedia:\n\n• Transfer Bank (BNI, BCA, Mandiri)\n• E-wallet (GoPay, OVO, DANA)\n• QRIS\n• Kartu Kredit/Debit\n\nPembayaran dilakukan setelah konfirmasi booking dan sebelum sesi dimulai.";
+    }
+    
+    if (input.includes('jadwal') || input.includes('waktu') || input.includes('jam')) {
+      return "Jadwal layanan RuangDiri:\n\n• Senin - Jumat: 08.00 - 21.00 WIB\n• Sabtu - Minggu: 09.00 - 18.00 WIB\n\nUntuk konseling chat 24/7 dengan tim support. Apakah Anda ingin booking jadwal konseling?";
+    }
+    
+    if (input.includes('psikolog') || input.includes('konselor') || input.includes('therapist')) {
+      return "Tim psikolog RuangDiri terdiri dari profesional berlisensi dengan berbagai spesialisasi:\n\n• Psikolog klinis\n• Psikolog pendidikan\n• Konselor pernikahan\n• Psikolog anak dan remaja\n\nSemua psikolog kami telah tersertifikasi dan berpengalaman. Apakah Anda ingin melihat profil psikolog yang tersedia?";
+    }
+    
+    // Default friendly AI response
+    return "Terima kasih sudah bercerita dengan Tim RuangDiri! Sebagai AI assistant, saya siap mendengarkan dan membantu mengarahkan Anda ke solusi yang tepat. Jika Anda membutuhkan bantuan lebih lanjut atau ingin berbicara dengan konselor profesional, saya bisa membantu mengatur sesi konseling. Apa lagi yang bisa saya bantu? 😊";
+  },
+
+  // Handle AI service selection with detailed responses
+  async handleAIServiceSelection(option) {
+    const responses = {
+      'Ruang Cerita': {
+        message: "🌟 Ruang Cerita adalah fitur komunitas untuk berbagi pengalaman dan saling mendukung.\n\nSaat ini fitur ini sedang dalam pengembangan final. Fitur yang akan tersedia:\n\n• Sharing story anonim\n• Support group virtual\n• Peer counseling\n• Community challenges\n\nApakah Anda ingin saya hubungkan dengan konselor untuk sesi individu sementara waktu?",
+        actions: ['Book Konseling Individual', 'Info Lebih Lanjut', 'Kembali ke Menu']
+      },
+      'Booking Sesi Konseling': {
+        message: "📅 Saya akan membantu Anda booking sesi konseling!\n\nPilihan sesi yang tersedia:\n\n• 💻 Online Video Call - Tatap muka virtual dengan psikolog\n• 💬 Online Chat - Konseling melalui chat real-time\n• 🏢 Offline - Tatap muka langsung di klinik\n\nMana yang Anda preferensikan?",
+        actions: ['Online - Video Call', 'Online - Chat', 'Offline - Tatap Muka', 'Tanya Dulu']
+      },
+      'FAQ (Frequently Asked Questions)': {
+        message: "❓ Berikut adalah informasi yang sering ditanyakan pengguna RuangDiri.",
+        messageType: 'faq_response',
+        actions: ['Tanya Langsung', 'Hubungi Support', 'Kembali ke Menu']
+      }
+    };
+
+    return responses[option] || {
+      message: "Terima kasih sudah memilih layanan kami. Tim RuangDiri akan membantu Anda sebaik mungkin. Ada yang bisa saya bantu lagi?",
+      actions: ['Kembali ke Menu', 'Hubungi Support']
+    };
+  },
+
+  // Get Ably token for real-time messaging
   async getAblyToken(sessionId) {
-    if (sessionId === 'team-ruangdiri') return null;
+    if (sessionId === 'team-ruangdiri') return null; // AI session doesn't need real-time
 
     try {
       const response = await apiClient.get('/chat/ably-token', {
@@ -207,14 +297,63 @@ export const chatsApi = {
     }
   },
 
-  // Mark as read
+  // Send typing indicator
+  async sendTypingIndicator(sessionId, isTyping) {
+    if (sessionId === 'team-ruangdiri') return; // AI doesn't need typing indicators
+
+    try {
+      await apiClient.post('/chat/typing', {
+        sessionId,
+        isTyping
+      });
+    } catch (error) {
+      console.error('Error sending typing indicator:', error);
+    }
+  },
+
+  // Mark messages as read
   async markAsRead(sessionId) {
-    if (sessionId === 'team-ruangdiri') return;
+    if (sessionId === 'team-ruangdiri') return; // AI messages don't need read status
 
     try {
       await apiClient.put(`/chat/sessions/${sessionId}/read`);
     } catch (error) {
       console.error('Error marking as read:', error);
+    }
+  },
+
+  // Book counseling with chat method
+  async bookCounselingWithChat(booking) {
+    try {
+      const response = await apiClient.post('/counselings/book', {
+        ...booking,
+        method: 'chat'
+      });
+      
+      if (response.data?.status === 'success') {
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to book counseling');
+    } catch (error) {
+      console.error('Error booking counseling with chat:', error);
+      throw error;
+    }
+  },
+
+  // Get user's counseling sessions
+  async getUserCounselingSessions() {
+    try {
+      const response = await apiClient.get('/counselings/user-sessions');
+      
+      if (response.data?.status === 'success') {
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to fetch counseling sessions');
+    } catch (error) {
+      console.error('Error fetching counseling sessions:', error);
+      throw error;
     }
   }
 };

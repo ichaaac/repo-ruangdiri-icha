@@ -67,7 +67,7 @@ const ChatWidget = ({
   ];
 
   // Only show for company and school organizations
-  const shouldShowChat = organizationType === 'company' || organizationType === 'school';
+  const shouldShowChat = true;
 
   // Initial welcome message
   useEffect(() => {
@@ -481,7 +481,7 @@ const ChatWidget = ({
             </motion.span>
           )}
         </AnimatePresence>
-        
+      
         {/* Notification Badge */}
         {/* {!isOpen && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#EE4266] rounded-full flex items-center justify-center">

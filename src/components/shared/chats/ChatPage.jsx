@@ -1,4 +1,4 @@
-// src/pages/user/shared/ChatPage.jsx - Full Screen Responsive dengan Scroll Terisolasi
+// src/pages/user/shared/ChatPage.jsx - Fixed Layout Full Screen Responsive
 
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -52,8 +52,8 @@ const ChatPage = () => {
   // Loading state for sessions
   if (isLoadingSessions) {
     return (
-      <div className="w-full h-screen bg-white flex overflow-hidden">
-        <div className="w-96 bg-white border-r-[0.25px] border-zinc-500 flex items-center justify-center flex-shrink-0">
+      <div className="w-full h-screen bg-white flex">
+        <div className="w-96 py-6 bg-white border-r border-gray-200 flex items-center justify-center">
           <div className="flex items-center gap-3">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#488BBE]"></div>
             <span className="text-[#488BBE] text-lg">
@@ -61,7 +61,7 @@ const ChatPage = () => {
             </span>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center bg-zinc-100">
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
           <div className="text-gray-500">Loading...</div>
         </div>
       </div>
@@ -71,14 +71,14 @@ const ChatPage = () => {
   // Error state for sessions
   if (sessionsError && isEmpty) {
     return (
-      <div className="w-full h-screen bg-white flex overflow-hidden">
-        <div className="w-96 bg-white border-r-[0.25px] border-zinc-500 flex items-center justify-center flex-shrink-0">
+      <div className="w-full h-screen bg-white flex">
+        <div className="w-96 py-6 bg-white border-r border-gray-200 flex items-center justify-center">
           <div className="text-center p-4">
             <div className="text-red-500 text-lg mb-2">⚠️</div>
             <p className="text-sm text-gray-600">Failed to load sessions</p>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center bg-zinc-100">
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
           <div className="text-center max-w-md p-8">
             <div className="text-6xl mb-4">💬</div>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
@@ -104,11 +104,11 @@ const ChatPage = () => {
     );
   }
 
-  // Main chat interface - Full screen responsive
+  // Main chat interface - Full screen responsive like screening
   return (
-    <div className="w-full h-screen pt-[90px] bg-white flex relative overflow-hidden">
-      {/* Chat Sidebar - Fixed width dengan scroll terisolasi */}
-      <div className="w-96 flex-shrink-0 overflow-hidden">
+    <div className="w-full h-screen bg-white flex relative">
+      {/* Chat Sidebar - Fixed width */}
+      <div className="w-96 flex-shrink-0">
         <ChatSidebar
           conversations={sessions}
           selectedConversation={selectedSession}
@@ -116,11 +116,10 @@ const ChatPage = () => {
           loading={isLoadingSessions}
           userDisplayData={userDisplayData}
           isPsychologist={isPsychologist}
-          containerWidth={384} // w-96 = 384px
         />
       </div>
 
-      {/* Chat Main Area - Take remaining space dengan scroll terisolasi */}
+      {/* Chat Main Area - Take remaining space */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ChatMain
           selectedConversation={selectedSession}
@@ -137,11 +136,10 @@ const ChatPage = () => {
           onBookingClick={handleBookingClick}
           userType={userType}
           isPsychologist={isPsychologist}
-          containerWidth={window.innerWidth - 384} // Dynamic width - sidebar width
         />
       </div>
 
-      {/* Connection Status Indicator - Fixed position, tidak affect scroll */}
+      {/* Connection Status Indicator - Fixed position */}
       {selectedSession && !selectedSession.isTeamChat && (
         <div className="fixed top-4 right-4 z-50">
           <div className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
@@ -163,15 +161,15 @@ const ChatPage = () => {
       )}
 
       {/* AI Assistant Indicator */}
-      {/* {selectedSession?.isTeamChat && (
+      {selectedSession?.isTeamChat && (
         <div className="fixed top-4 right-4 z-50">
           <div className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             🤖 AI Assistant Active
           </div>
         </div>
-      )} */}
+      )}
 
-      {/* Error Messages - Fixed position, tidak affect scroll */}
+      {/* Error Messages - Fixed position */}
       {(messagesError || sendError) && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg">
@@ -194,34 +192,7 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* Session Status Notifications - tidak affect scroll */}
-      {selectedSession && !selectedSession.isTeamChat && getSessionStatus() === 'chat_disabled' && (
-        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-2 rounded-lg shadow-lg">
-            <div className="flex items-center gap-2">
-              <span>⏳</span>
-              <span className="text-sm font-medium">
-                Chat akan aktif ketika sesi dimulai
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedSession && !selectedSession.isTeamChat && getSessionStatus() === 'session_ended' && (
-        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-2 rounded-lg shadow-lg">
-            <div className="flex items-center gap-2">
-              <span>✅</span>
-              <span className="text-sm font-medium">
-                Sesi chat telah berakhir
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Psychologist Session Controls - tidak affect scroll */}
+      {/* Psychologist Session Controls */}
       {isPsychologist && selectedSession && !selectedSession.isTeamChat && (
         <div className="fixed bottom-4 right-4 z-50">
           <div className="flex gap-2">
@@ -251,71 +222,6 @@ const ChatPage = () => {
           </div>
         </div>
       )}
-
-      {/* Responsive CSS untuk berbagai resolusi */}
-      <style jsx>{`
-        /* Responsive untuk tablet dan mobile */
-        @media (max-width: 1024px) {
-          .chat-sidebar {
-            width: 320px;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .chat-sidebar {
-            width: 280px;
-          }
-        }
-        
-        @media (max-width: 640px) {
-          .chat-sidebar {
-            width: 100%;
-            position: absolute;
-            z-index: 50;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-          }
-          
-          .chat-sidebar.open {
-            transform: translateX(0);
-          }
-        }
-        
-        /* Custom scrollbar untuk sidebar dan chat */
-        .chat-sidebar::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .chat-sidebar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-        }
-        
-        .chat-sidebar::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        .chat-sidebar::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-        
-        .chat-messages::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .chat-messages::-webkit-scrollbar-track {
-          background: #f1f1f1;
-        }
-        
-        .chat-messages::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        .chat-messages::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-      `}</style>
     </div>
   );
 };

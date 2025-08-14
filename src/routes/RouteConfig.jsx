@@ -2,6 +2,7 @@
 
 import { Navigate } from "react-router-dom"
 import ProtectedRoute from "../components/auth/ProtectedRoute"
+import { useAuth } from "@/hooks/useAuth"
 
 // === LAYOUTS ===
 import CompanyLayout from "../components/organization/company/layout/CompanyLayout"
@@ -101,6 +102,20 @@ const PsychologistComingSoon = () => (
   </div>
 )
 
+const RoleBasedNotificationsRedirect = () => {
+  const { getUserRole, getOrganizationType } = useAuth()
+  const role = getUserRole()
+  const org = getOrganizationType()
+
+  if (role === "student") return <Navigate to="/user/student/notifications" replace />
+  if (role === "employee") return <Navigate to="/user/employee/notifications" replace />
+  if (role === "psychologist") return <Navigate to="/user/psychologist/notifications" replace />
+  if (org === "school") return <Navigate to="/organization/school/notifications" replace />
+  if (org === "company") return <Navigate to="/organization/company/notifications" replace />
+  return <Navigate to="/" replace />
+}
+
+
 // === MAIN ROUTES CONFIGURATION ===
 const routes = [
   // ==========================================
@@ -154,6 +169,17 @@ const routes = [
       </ProtectedRoute>
     ),
   },
+
+{
+  path: "/notifications",
+  element: (
+    <ProtectedRoute>
+      <RoleBasedNotificationsRedirect />
+    </ProtectedRoute>
+  ),
+},
+
+
 
   // ==========================================
   // STUDENT ROUTES - UPDATED WITHOUT BOOKING IN LAYOUT
