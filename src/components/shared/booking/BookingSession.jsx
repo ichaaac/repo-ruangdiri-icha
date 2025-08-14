@@ -184,7 +184,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
           } else if (isPast) {
             dayClasses += "text-gray-300 cursor-not-allowed"
           } else {
-            dayClasses += "text-gray-400 cursor-not-allowed"
+            dayClasses += "text-gray-300 cursor-not-allowed"
           }
 
           return (
@@ -287,7 +287,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     const dates = []
     const today = new Date()
 
-    for (let i = 1; i <= 30; i++) {
+    for (let i = 0; i <= 30; i++) {
       const date = new Date(today)
       date.setDate(today.getDate() + i)
 
@@ -580,7 +580,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                         <button
                           key={index}
                           className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 ${
-                            slot.available ? "hover:bg-gray-100 text-gray-900" : "text-gray-400 cursor-not-allowed"
+                            slot.available ? "hover:bg-gray-100 text-gray-900" : "text-gray-300 cursor-not-allowed"
                           }`}
                           onClick={(e) => {
                             e.stopPropagation()
