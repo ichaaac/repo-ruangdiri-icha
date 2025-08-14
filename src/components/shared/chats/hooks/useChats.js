@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - Complete Main Chat Hook
+// src/components/shared/chats/hooks/useChats.js - Fixed Timezone
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -6,6 +6,13 @@ import { useAuth } from '../../../../hooks/useAuth';
 import { chatsApi } from '../lib/chatsApi';
 import { useAbly } from './useAbly';
 import { useMessages } from './useMessage';
+
+// Fix timezone: Extract time directly from ISO string
+const extractTimeFromISO = (isoString) => {
+  if (!isoString) return new Date().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' });
+  const timePart = isoString.split('T')[1];
+  return timePart.substring(0, 5);
+};
 
 export const useChats = () => {
   const { user } = useAuth();
@@ -108,10 +115,7 @@ export const useChats = () => {
       const transformedMessage = {
         id: messageData.id || Date.now().toString(),
         text: messageData.message || messageData.text,
-        time: new Date().toLocaleTimeString("id-ID", {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
+        time: extractTimeFromISO(messageData.createdAt), // Fix timezone
         createdAt: messageData.createdAt || new Date().toISOString(),
         isUser: messageData.sender?.role !== 'psychologist',
         sender: messageData.sender || {

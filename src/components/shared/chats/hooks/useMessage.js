@@ -1,8 +1,17 @@
-// src/components/shared/chats/hooks/useMessages.js - Complete Messages Hook with AI Support
+// src/components/shared/chats/hooks/useMessages.js - Fixed Timezone
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
+
+// Fix timezone: Get current time in HH:mm format
+const getCurrentTime = () => {
+  const now = new Date();
+  return now.toLocaleTimeString("id-ID", {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
 export const useMessages = (sessionId) => {
   const queryClient = useQueryClient();
@@ -40,10 +49,7 @@ export const useMessages = (sessionId) => {
       const optimisticMessage = {
         id: `temp-${Date.now()}`,
         text: content,
-        time: new Date().toLocaleTimeString("id-ID", {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
+        time: getCurrentTime(), // Use fixed time
         timestamp: new Date().toISOString(),
         isUser: true,
         sender: {
@@ -66,10 +72,7 @@ export const useMessages = (sessionId) => {
           const aiResponse = {
             id: `ai-temp-${Date.now()}`,
             text: chatsApi.generateAIResponse(content),
-            time: new Date().toLocaleTimeString("id-ID", {
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
+            time: getCurrentTime(), // Use fixed time
             timestamp: new Date().toISOString(),
             isUser: false,
             sender: {
@@ -183,10 +186,7 @@ export const useMessages = (sessionId) => {
     const userMessage = {
       id: `selection-${Date.now()}`,
       text: option,
-      time: new Date().toLocaleTimeString("id-ID", {
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
+      time: getCurrentTime(), // Use fixed time
       timestamp: new Date().toISOString(),
       isUser: true,
       sender: {
@@ -207,10 +207,7 @@ export const useMessages = (sessionId) => {
         const responseMessage = {
           id: `ai-response-${Date.now()}`,
           text: aiResponse.message,
-          time: new Date().toLocaleTimeString("id-ID", {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          time: getCurrentTime(), // Use fixed time
           timestamp: new Date().toISOString(),
           isUser: false,
           sender: {

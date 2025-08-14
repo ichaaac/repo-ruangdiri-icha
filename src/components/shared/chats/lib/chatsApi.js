@@ -1,6 +1,14 @@
-// src/components/shared/chats/lib/chatsApi.js - With Tim RuangDiri Logic and FAQ Responses
+// src/components/shared/chats/lib/chatsApi.js - With Fixed Timezone Handling
 
 import { apiClient } from "../../../../lib/api.js";
+
+// Fix timezone: Extract time directly from ISO string tanpa konversi
+const extractTimeFromISO = (isoString) => {
+  // Ambil jam:menit langsung dari string "2025-08-12T15:52:33.572Z"
+  const timePart = isoString.split('T')[1]; // "15:52:33.572Z"
+  const hourMinute = timePart.substring(0, 5); // "15:52"
+  return hourMinute;
+};
 
 export const chatsApi = {
   // Get active chat sessions - supports both regular users and psychologists
@@ -15,10 +23,7 @@ export const chatsApi = {
           name: session.psychologist?.fullName || session.client?.fullName || session.clientName || 'Chat Session',
           avatar: session.psychologist?.profilePicture || session.client?.profilePicture || '/empty-profile.svg',
           lastMessage: session.lastMessage || 'Tap to start chatting',
-          time: new Date(session.scheduledAt || session.updatedAt || session.createdAt).toLocaleTimeString("id-ID", {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          time: extractTimeFromISO(session.scheduledAt || session.updatedAt || session.createdAt),
           isActive: session.isActive,
           isChatEnabled: session.isChatEnabled,
           isOnline: session.isActive && session.isChatEnabled,
@@ -119,10 +124,7 @@ export const chatsApi = {
           id: msg.id,
           sessionId: msg.sessionId,
           text: msg.message,
-          time: new Date(msg.createdAt).toLocaleTimeString("id-ID", {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          time: extractTimeFromISO(msg.createdAt),
           timestamp: msg.createdAt,
           isUser: msg.sender?.role !== 'psychologist' && msg.sender?.role !== 'ai_assistant',
           sender: {
@@ -180,10 +182,7 @@ export const chatsApi = {
         return {
           id: msg.id,
           text: msg.message,
-          time: new Date(msg.createdAt).toLocaleTimeString("id-ID", {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          time: extractTimeFromISO(msg.createdAt),
           timestamp: msg.createdAt,
           isUser: msg.sender?.role !== 'psychologist',
           sender: {
