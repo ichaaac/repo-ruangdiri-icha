@@ -84,7 +84,7 @@ const ChatSidebar = ({
   if (loading) {
     return (
       <div 
-        className="h-full bg-white border-r-[0.25px] border-zinc-500 flex items-center justify-center"
+        className="h-full bg-white border-r-[0.25px] border-[#8B8B8B]flex items-center justify-center"
         style={{ width: `${containerWidth}px` }}
       >
         <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ const ChatSidebar = ({
       style={{ width: `${containerWidth}px` }}
     >
       {/* Header Section dengan border seperti ChatMain */}
-      <div className="flex-shrink-0 bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[70px] px-5 flex flex-col justify-center">
+      <div className="flex-shrink-0 bg-white border-t-[0.25px] border-zinc-500 h-[70px] px-5 flex flex-col justify-center">
         {/* Title - Sejajar dengan foto profil ChatMain */}
         <h1 className="text-xl font-bold text-blue-500 mb-1">
           {isPsychologist ? 'Chat Klien' : 'Pesan'}
