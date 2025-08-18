@@ -1,30 +1,45 @@
-// src/components/shared/chats/ChatSidebar.jsx - Presisi Layout dengan Border & Selected State
+// src/components/shared/chats/ChatSidebar.jsx - Responsive Design
 
 import React, { useState } from 'react';
 
-// Individual message item dengan selected background
-const MessageItem = ({ avatar, name, time, preview, isActive = false, isTeamChat = false, onClick }) => {
+// Individual message item - Responsive
+const MessageItem = ({ 
+  avatar, 
+  name, 
+  time, 
+  preview, 
+  isActive = false, 
+  isTeamChat = false, 
+  onClick, 
+  containerWidth = 384, 
+  unreadCount = 0, 
+  hasUnread = false 
+}) => {
   return (
     <div 
       className={`relative cursor-pointer transition-colors ${isActive ? '' : 'hover:bg-gray-50'}`}
       onClick={onClick}
-      style={{ height: '57px' }} // Fixed height untuk selected background
+      style={{ minHeight: '57px' }} // Minimum height untuk selected background
     >
-      {/* Selected Background - Full width dari sidebar ke chatmain */}
+      {/* Selected Background - Full width dengan overflow handling */}
       {isActive && (
         <div 
           className="absolute inset-0 bg-[#E2F2FF]"
-          style={{ width: '384px' }} // Full width background w-96
+          style={{ 
+            width: `${containerWidth}px`,
+            maxWidth: '100%',
+            overflow: 'hidden'
+          }}
         />
       )}
       
       {/* Content */}
       <div className="relative p-2.5">
         <div className="flex gap-2.5 items-center px-1.5 py-0">
-          <div className="w-[37px] h-[37px] rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
+          <div className="w-[32px] h-[32px] sm:w-[37px] sm:h-[37px] rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
             {isTeamChat ? (
               <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
-                <span className="text-white text-lg">👥</span>
+                <span className="text-white text-sm sm:text-lg">👥</span>
               </div>
             ) : avatar ? (
               <img
@@ -35,25 +50,50 @@ const MessageItem = ({ avatar, name, time, preview, isActive = false, isTeamChat
                   e.target.style.display = 'none';
                   e.target.parentNode.innerHTML = `
                     <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                      <span class="text-white text-lg">👤</span>
+                      <span class="text-white text-sm sm:text-lg">👤</span>
                     </div>
                   `;
                 }}
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600"></div>
+              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                <span className="text-white text-sm sm:text-lg">👤</span>
+              </div>
             )}
           </div>
           <div className="flex flex-col flex-1 gap-2 min-w-0">
-            <div className="flex justify-between items-end">
-              <h3 className="text-base font-bold text-neutral-600 max-sm:text-sm truncate">
+            <div className="flex justify-between items-end gap-2">
+              {/* NAME - WhatsApp behavior: Bold kalau unread */}
+              <h3 className={`text-sm sm:text-base truncate ${
+                hasUnread 
+                  ? 'font-bold text-neutral-700' // Bold kalau unread
+                  : 'font-bold text-neutral-600' // Normal kalau read
+              }`}>
                 {name}
               </h3>
-              <time className="text-xs font-light text-zinc-500 flex-shrink-0">
-                {time}
-              </time>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* TIME - WhatsApp behavior: Green kalau unread */}
+                <time className={`text-xs font-light ${
+                  hasUnread 
+                    ? 'font-semibold text-blue-600' // Biru kalau unread
+                    : 'text-zinc-500' // Abu kalau read
+                }`}>
+                  {time}
+                </time>
+                {/* UNREAD BADGE - WhatsApp style */}
+                {hasUnread && unreadCount > 0 && (
+                  <div className="bg-blue-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-xs font-light text-zinc-500 max-sm:text-xs truncate">
+            {/* PREVIEW - WhatsApp behavior: Bold kalau unread */}
+            <p className={`text-xs truncate ${
+              hasUnread 
+                ? 'font-medium text-zinc-700' // Medium kalau unread  
+                : 'font-light text-zinc-500' // Light kalau read
+            }`}>
               {preview}
             </p>
           </div>
@@ -63,7 +103,7 @@ const MessageItem = ({ avatar, name, time, preview, isActive = false, isTeamChat
   );
 };
 
-// Chat sidebar dengan header border dan positioning presisi
+// Chat sidebar - Responsive
 const ChatSidebar = ({
   conversations = [],
   selectedConversation,
@@ -71,7 +111,7 @@ const ChatSidebar = ({
   loading = false,
   userDisplayData = {},
   isPsychologist = false,
-  containerWidth = 384 // w-96 = 384px
+  containerWidth = 384 // Flexible width
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -81,10 +121,15 @@ const ChatSidebar = ({
     return conversation.name.toLowerCase().includes(searchLower);
   });
 
+  // Calculate total unread - WhatsApp behavior
+  const totalUnreadCount = conversations.reduce((total, conv) => {
+    return total + (conv.unreadCount || 0);
+  }, 0);
+
   if (loading) {
     return (
       <div 
-        className="h-full bg-white border-r-[0.25px] border-[#8B8B8B]flex items-center justify-center"
+        className="h-full bg-white border-r-[0.25px] border-[#8B8B8B] flex items-center justify-center"
         style={{ width: `${containerWidth}px` }}
       >
         <div className="flex items-center gap-2">
@@ -98,21 +143,31 @@ const ChatSidebar = ({
   return (
     <div 
       className="h-full bg-white border-r-[0.25px] border-zinc-500 flex flex-col"
-      style={{ width: `${containerWidth}px` }}
+      style={{ 
+        width: `${containerWidth}px`,
+        minWidth: '280px',
+        maxWidth: '100%'
+      }}
     >
-      {/* Header Section dengan border seperti ChatMain */}
-      <div className="flex-shrink-0 bg-white border-t-[0.25px] border-zinc-500 h-[70px] px-5 flex flex-col justify-center">
-        {/* Title - Sejajar dengan foto profil ChatMain */}
-        <h1 className="text-xl font-bold text-blue-500 mb-1">
+      {/* Header Section - Responsive */}
+      <div className="flex-shrink-0 bg-white border-t-[0.25px] border-zinc-500 h-[60px] sm:h-[70px] px-4 sm:px-5 flex flex-col justify-center">
+        {/* Title */}
+        <h1 className="text-lg sm:text-xl font-bold text-blue-500 mb-1">
           {isPsychologist ? 'Chat Klien' : 'Pesan'}
         </h1>
+        {/* Unread count */}
+        {totalUnreadCount > 0 && (
+          <p className="text-xs text-blue-500 font-medium">
+            {totalUnreadCount} pesan belum dibaca
+          </p>
+        )}
       </div>
       
-      {/* Search Bar Section */}
-      <div className="flex-shrink-0 px-5 pt-4 pb-2">
+      {/* Search Bar Section - Responsive */}
+      <div className="flex-shrink-0 px-4 sm:px-5 pt-4 pb-2">
         <div 
-          className="flex gap-2 items-center px-3.5 py-px bg-white rounded-md border-solid border-[0.5px] border-zinc-500"
-          style={{ width: '308px', height: '31px' }}
+          className="flex gap-2 items-center px-3.5 py-px bg-white rounded-md border-solid border-[0.5px] border-zinc-500 w-full"
+          style={{ height: '31px' }}
         >
           <span className="material-icons text-zinc-500 text-sm">search</span>
           <input
@@ -120,12 +175,12 @@ const ChatSidebar = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari....."
-            className="text-xs font-thin leading-5 text-zinc-500 bg-transparent border-none outline-none flex-1"
+            className="text-xs font-thin leading-5 text-zinc-500 bg-transparent border-none outline-none flex-1 w-full"
           />
         </div>
       </div>
 
-      {/* Conversations List - Scrollable dengan scrollbar visible */}
+      {/* Conversations List - Scrollable */}
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
         {filteredConversations.length > 0 ? (
           filteredConversations.map((conversation) => (
@@ -138,11 +193,14 @@ const ChatSidebar = ({
               isActive={selectedConversation?.sessionId === conversation.sessionId || selectedConversation?.id === conversation.id}
               isTeamChat={conversation.isTeamChat}
               onClick={() => onConversationSelect(conversation)}
+              containerWidth={containerWidth}
+              unreadCount={conversation.unreadCount || 0}
+              hasUnread={conversation.hasUnread || false}
             />
           ))
         ) : (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <div className="text-gray-400 text-4xl mb-2">💬</div>
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+            <div className="text-gray-400 text-3xl sm:text-4xl mb-2">💬</div>
             <p className="text-gray-500 text-sm">
               {searchQuery ? 'No conversations found' : 'No conversations yet'}
             </p>

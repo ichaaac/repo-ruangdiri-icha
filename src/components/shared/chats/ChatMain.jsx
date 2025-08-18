@@ -1,8 +1,8 @@
-// src/components/shared/chats/ChatMain.jsx - Presisi Layout dengan Scroll Terisolasi
+// src/components/shared/chats/ChatMain.jsx - Responsive Design
 
 import React, { useEffect, useRef, useState } from 'react';
 
-// Upload dropdown component
+// Upload dropdown component - ORIGINAL
 const UploadDropdown = ({ isOpen, onClose }) => {
   const dropdownRef = useRef(null);
 
@@ -45,14 +45,14 @@ const UploadDropdown = ({ isOpen, onClose }) => {
   );
 };
 
-// Individual message bubble - padding 19px presisi
+// Individual message bubble - Responsive
 const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOptionClick, actions }) => {
   return (
-    <div className="w-full" style={{ paddingLeft: '19px', paddingRight: '19px' }}>
+    <div className="w-full px-4 sm:px-5">
       <div className={`flex flex-col gap-2.5 ${isOwn ? 'items-end' : 'items-start'}`}>
-        <div className={`flex gap-2 items-start ${isOwn ? 'flex-row-reverse' : ''}`}>
+        <div className={`flex gap-2 items-start w-full ${isOwn ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
           {!isOwn && (
-            <div className="w-[27px] h-[54px] flex items-center">
+            <div className="w-[27px] h-[54px] flex items-center flex-shrink-0">
               <div className="w-[27px] h-[27px] rounded-full overflow-hidden">
                 {sender?.role === 'ai_assistant' ? (
                   <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
@@ -64,18 +64,18 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
               </div>
           </div>
           )}
-          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end' : 'items-start'} max-w-[454px]`}>
+          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end' : 'items-start'} max-w-[80%] sm:max-w-[454px] min-w-0`}>
             <p className={`text-xs font-light text-zinc-500 ${isOwn ? 'text-right' : ''}`}>
               {isOwn ? 'You' : (sender?.name || 'Unknown')}
             </p>
             <div className={`
-              flex flex-col items-start px-4 py-3 min-h-[47px]
+              flex flex-col items-start px-4 py-3 min-h-[47px] w-full
               ${isOwn
                 ? 'bg-sky-100 rounded-xl'
                 : 'bg-white rounded-3xl'
               }
             `}>
-              <p className="text-sm leading-5 text-neutral-600 whitespace-pre-wrap">
+              <p className="text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full">
                 {message}
               </p>
 
@@ -126,25 +126,23 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
   );
 };
 
-// Chat header - padding 20px untuk close button
-const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, isPsychologist }) => {
+// Chat header - Responsive
+const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, isPsychologist, onEndSession, isEndingSession }) => {
   return (
-    <div className="flex-shrink-0 flex justify-between items-center px-[30px] bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[70px]"
-     style={{ paddingRight: '20px' }}
-     >
-      <div className="flex gap-5 items-center">
+    <div className="flex-shrink-0 flex justify-between items-center px-4 sm:px-[30px] bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[70px]">
+      <div className="flex gap-3 sm:gap-5 items-center min-w-0 flex-1">
         <button
           onClick={onToggleSidebar}
-          className="sm:hidden p-2 text-gray-500 hover:text-gray-700"
+          className="md:hidden p-2 text-gray-500 hover:text-gray-700 flex-shrink-0"
           aria-label="Open sidebar"
         >
           <span className="material-icons">menu</span>
         </button>
         
-        <div className="w-[45px] h-[45px] rounded-full overflow-hidden flex-shrink-0">
+        <div className="w-[35px] h-[35px] sm:w-[45px] sm:h-[45px] rounded-full overflow-hidden flex-shrink-0">
           {selectedConversation?.isTeamChat ? (
             <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
-              <span className="text-white text-xl">🤖</span>
+              <span className="text-white text-lg sm:text-xl">🤖</span>
             </div>
           ) : selectedConversation?.avatar ? (
             <img
@@ -161,12 +159,14 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
               }}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600"></div>
+            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+              <span className="text-white text-lg sm:text-xl">👤</span>
+            </div>
           )}
         </div>
         
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold text-blue-500">
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <h2 className="text-lg sm:text-xl font-bold text-blue-500 truncate">
             {selectedConversation?.name || 'Unknown'}
           </h2>
           
@@ -187,9 +187,9 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
                 <>
                   <span className="text-gray-400">•</span>
                   <span className={`text-xs font-medium ${
-                    selectedConversation.userRole === 'student' ? 'text-blue-600' : 'text-green-600'
+                    selectedConversation.userRole === 'client' ? 'text-blue-600' : 'text-green-600'
                   }`}>
-                    {selectedConversation.userRole === 'student' ? 'Student' : 'Employee'}
+                    {selectedConversation.userRole === 'client' ? 'Client' : 'Other'}
                   </span>
                 </>
               )}
@@ -199,21 +199,35 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
       </div>
 
       {/* Actions */}
-      <div className="flex justify-start items-center gap-[5px]">
+      <div className="flex justify-start items-center gap-1 sm:gap-[5px] flex-shrink-0">
+        {/* END SESSION BUTTON - HANYA UNTUK PSYCHOLOGIST */}
+        {isPsychologist && !selectedConversation?.isTeamChat && selectedConversation?.isActive && (
+          <button 
+            className="px-2 sm:px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mr-1 sm:mr-2" 
+            title="End Session"
+            onClick={() => onEndSession && onEndSession(selectedConversation.sessionId)}
+            disabled={isEndingSession}
+          >
+            {isEndingSession ? (
+              <div className="flex items-center gap-1">
+                <div className="animate-spin rounded-full h-3 w-3 border-b border-white"></div>
+                <span className="hidden sm:inline">Ending...</span>
+              </div>
+            ) : (
+              <span className="hidden sm:inline">End Session</span>
+            )}
+            <span className="sm:hidden material-icons text-sm">stop</span>
+          </button>
+        )}
+
         {/* Psychologist Controls */}
         {isPsychologist && !selectedConversation?.isTeamChat && (
-          <div className="flex items-center gap-2 mr-4">
+          <div className="flex items-center gap-1 sm:gap-2 mr-2 sm:mr-4">
             <button 
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors" 
               title="Session Notes"
             >
-              <span className="material-icons text-gray-600">note_add</span>
-            </button>
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors" 
-              title="End Session"
-            >
-              <span className="material-icons text-red-600">call_end</span>
+              <span className="material-icons text-gray-600 text-lg sm:text-xl">note_add</span>
             </button>
           </div>
         )}
@@ -229,20 +243,19 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
   );
 };
 
-// Chat messages area - infinite scroll terisolasi (reverse)
+// Chat messages area - Responsive
 const ChatMessages = ({ 
   messages = [], 
   isTyping, 
   selectedConversation, 
   getSessionStatus, 
   onAIServiceSelection,
-  messagesEndRef,
-  containerWidth
+  messagesEndRef
 }) => {
   const sessionStatus = getSessionStatus?.() || 'ready';
   const messagesContainerRef = useRef(null);
 
-  // Auto scroll to bottom when new messages arrive (tidak affect page scroll)
+  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -258,14 +271,14 @@ const ChatMessages = ({
         scrollBehavior: 'smooth'
       }}
     >
-      <div className="flex flex-col gap-2.5 items-center px-5 py-4 min-h-full">
+      <div className="flex flex-col gap-2.5 items-center py-4 min-h-full">
         <time className="mb-4 text-xs font-light leading-5 text-center text-zinc-500">
           Hari ini
         </time>
 
         {/* Session Status Warning */}
         {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 max-w-md">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md">
             <div className="flex items-center gap-2 text-center">
               <span className="text-yellow-600">⚠️</span>
               <div className="text-sm text-yellow-800">
@@ -294,7 +307,7 @@ const ChatMessages = ({
 
           {/* Typing Indicator */}
           {isTyping && !selectedConversation?.isTeamChat && (
-            <div className="w-full" style={{ paddingLeft: '19px', paddingRight: '9px' }}>
+            <div className="w-full px-4 sm:px-5">
               <div className="flex gap-2 items-start">
                 <div className="w-[27px] h-[54px] flex items-center">
                   <div className="w-[27px] h-[27px] rounded-full bg-[#1E5A89] flex items-center justify-center">
@@ -325,7 +338,7 @@ const ChatMessages = ({
   );
 };
 
-// Chat input area - padding 14px untuk send button
+// Chat input area - Responsive
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
@@ -338,15 +351,7 @@ const ChatInput = ({
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-2.5 bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[127px]" 
-         style={{ paddingTop: '19px', paddingBottom: '19px', paddingLeft: '19px', paddingRight: '14px' }}>
-      {/* Status Message - Only show for non-AI sessions */}
-      {!canSendMessage && !isAIChat && (
-        <div className="text-center text-xs text-orange-600 bg-orange-50 p-2 rounded w-full">
-          Chat belum dapat digunakan. Tunggu sampai sesi dimulai.
-        </div>
-      )}
-
+    <div className="flex-shrink-0 flex flex-col gap-2.5 bg-white border-solid border-y-[0.25px] border-y-zinc-500 min-h-[100px] sm:h-[127px] px-4 sm:px-[19px] py-4 sm:py-[19px]">
       <div className="flex flex-col justify-between flex-1">
         <textarea
           value={messageText}
@@ -359,13 +364,13 @@ const ChatInput = ({
               ? 'Chat tidak tersedia...' 
               : 'Type a message here....'
           }
-          className="text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1"
+          className="text-sm sm:text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1 w-full"
           rows="2"
           disabled={!canSendMessage && !isAIChat}
         />
         
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4 relative">
+        <div className="flex justify-between items-center mt-2">
+          <div className="flex gap-2 sm:gap-4 relative">
             <div className="relative">
               <button 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
@@ -373,7 +378,7 @@ const ChatInput = ({
                 disabled={!canSendMessage && !isAIChat}
                 onClick={() => setShowUploadDropdown(!showUploadDropdown)}
               >
-                <span className="material-icons text-zinc-500">add_circle_outline</span>
+                <span className="material-icons text-zinc-500 text-lg sm:text-xl">add_circle_outline</span>
               </button>
               <UploadDropdown 
                 isOpen={showUploadDropdown} 
@@ -385,7 +390,7 @@ const ChatInput = ({
               aria-label="Add emoji"
               disabled={!canSendMessage && !isAIChat}
             >
-              <span className="material-icons text-zinc-500">sentiment_satisfied_alt</span>
+              <span className="material-icons text-zinc-500 text-lg sm:text-xl">sentiment_satisfied_alt</span>
             </button>
           </div>
           
@@ -398,7 +403,7 @@ const ChatInput = ({
             {isSending ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBE]"></div>
             ) : (
-              <span className="material-icons text-[#488BBE]">send</span>
+              <span className="material-icons text-[#488BBE] text-lg sm:text-xl">send</span>
             )}
           </button>
         </div>
@@ -407,7 +412,7 @@ const ChatInput = ({
   );
 };
 
-// Main chat component dengan scroll terisolasi
+// Main chat component - Responsive
 const ChatMain = ({
   selectedConversation,
   messages = [],
@@ -422,9 +427,10 @@ const ChatMain = ({
   getSessionStatus,
   onBookingClick,
   onToggleSidebar,
+  onEndSession,
   userType,
   isPsychologist = false,
-  containerWidth = 1026
+  isEndingSession = false
 }) => {
   const messagesEndRef = useRef(null);
 
@@ -438,35 +444,35 @@ const ChatMain = ({
     }
   };
 
-  // Empty state when no conversation selected
+  // Empty state when no conversation selected - Work with UserLayout space
   if (!selectedConversation) {
     return (
-      <div className="h-full flex items-center justify-center bg-zinc-100" style={{ width: `${containerWidth}px` }}>
-        <div className="text-center max-w-md p-8">
-          <div className="text-6xl mb-4">💬</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+      <div className="h-full flex items-center justify-center bg-zinc-100 w-full overflow-hidden">
+        <div className="text-center max-w-md p-4 sm:p-8 mx-4">
+          <div className="text-4xl sm:text-6xl mb-4">💬</div>
+          <h2 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-4">
             {isPsychologist ? 'Selamat datang, Dokter' : 'Selamat datang di RuangDiri Chat'}
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-6 text-sm sm:text-base">
             {isPsychologist 
               ? 'Pilih klien dari sidebar untuk memulai sesi konseling.'
               : 'Pilih percakapan dari sidebar untuk memulai chat dengan konselor atau tim kami.'
             }
           </p>
           
-          <div className="bg-white rounded-lg p-6 shadow-sm border">
+          <div className="bg-white rounded-lg p-4 sm:p-6 shadow-sm border">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-green-500">🔒</span>
-              <span className="font-medium text-gray-800">End-to-end encrypted</span>
+              <span className="font-medium text-gray-800 text-sm sm:text-base">End-to-end encrypted</span>
             </div>
-            <p className="text-sm text-gray-600 leading-relaxed mb-4">
+            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-4">
               Pesan Anda dilindungi dengan enkripsi end-to-end.
             </p>
             
             {onBookingClick && !isPsychologist && (
               <button 
                 onClick={onBookingClick}
-                className="w-full bg-[#488BBA] text-white py-2 px-4 rounded-lg hover:bg-[#3a7399] transition-colors"
+                className="w-full bg-[#488BBA] text-white py-2 px-4 rounded-lg hover:bg-[#3a7399] transition-colors text-sm sm:text-base"
               >
                 Booking Sesi Chat
               </button>
@@ -480,16 +486,18 @@ const ChatMain = ({
   const isAIChat = selectedConversation.isTeamChat || getSessionStatus?.() === 'ai_chat';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ width: `${containerWidth}px` }}>
+    <div className="h-full flex flex-col overflow-hidden w-full">
       {/* Header */}
       <ChatHeader 
         selectedConversation={selectedConversation}
         onToggleSidebar={onToggleSidebar}
         connectionStatus={connectionStatus}
         isPsychologist={isPsychologist}
+        onEndSession={onEndSession}
+        isEndingSession={isEndingSession}
       />
 
-      {/* Messages Area - Scrollable dengan scroll terisolasi */}
+      {/* Messages Area - Scrollable */}
       <ChatMessages 
         messages={messages}
         isTyping={isTyping}
@@ -497,7 +505,6 @@ const ChatMain = ({
         getSessionStatus={getSessionStatus}
         onAIServiceSelection={onAIServiceSelection}
         messagesEndRef={messagesEndRef}
-        containerWidth={containerWidth}
       />
 
       {/* Input Area - Fixed */}
