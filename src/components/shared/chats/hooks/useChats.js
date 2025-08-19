@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - FIXED: Infinite Rendering
+// src/components/shared/chats/hooks/useChats.js - FIXED: Socket Events & Message Status
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -16,7 +16,7 @@ export const useChats = () => {
   const ably = useAbly();
   const messages = useMessages(selectedSession?.sessionId, ably);
 
-  // ✅ FIXED: Memoize user ID to prevent re-renders
+  // Memoize user ID to prevent re-renders
   const userId = useMemo(() => user?.id, [user?.id]);
 
   // Store user data for API access
@@ -62,7 +62,7 @@ export const useChats = () => {
     refetchOnMount: true
   });
 
-  // ✅ FIXED: Memoize filtered sessions to prevent re-renders
+  // Memoize filtered sessions to prevent re-renders
   const filteredSessions = useMemo(() => {
     return (sessionsQuery.data || []).filter(session => {
       const userRole = user?.role;
@@ -79,9 +79,9 @@ export const useChats = () => {
     });
   }, [sessionsQuery.data, user?.role, userId]);
 
-  // ✅ FIXED: Memoize notification handlers to prevent re-registration
+  // ✅ FIXED: Enhanced Socket.io event handlers
   const handleChatEnableDisable = useCallback((payload) => {
-    console.log('🔄 Chat enable/disable event:', payload);
+    console.log('🔄 Socket: chat:enable-chat event:', payload);
     
     // Update selected session if it matches
     setSelectedSession(prev => {
@@ -96,24 +96,27 @@ export const useChats = () => {
       return prev;
     });
     
-    // Refetch sessions to update sidebar
+    // ✅ ALWAYS refetch sessions to update sidebar
+    console.log('🔄 Refetching sessions due to enable-chat event');
     sessionsQuery.refetch();
   }, [sessionsQuery]);
 
   const handleInitialMessage = useCallback((payload) => {
-    console.log('📨 Initial message event:', payload);
+    console.log('📨 Socket: chat:initial-message event:', payload);
     
-    // Refetch sessions to update last message in sidebar
+    // ✅ ALWAYS refetch sessions to update last message and unread count in sidebar  
+    console.log('🔄 Refetching sessions due to initial-message event');
     sessionsQuery.refetch();
     
-    // If the message is for current session, refetch messages
+    // If the message is for current session, refetch messages too
     if (selectedSession && payload.sessionId === selectedSession.sessionId) {
+      console.log('🔄 Refetching messages for current session');
       messages.refetch();
     }
   }, [sessionsQuery, selectedSession?.sessionId, messages]);
 
   const handleChatInvalidate = useCallback((payload) => {
-    console.log('🔄 Chat invalidate event:', payload);
+    console.log('🔄 Socket: chat:invalidate event:', payload);
     sessionsQuery.refetch();
     
     if (selectedSession && payload.sessionId === selectedSession.sessionId) {
@@ -121,8 +124,10 @@ export const useChats = () => {
     }
   }, [sessionsQuery, selectedSession?.sessionId, messages]);
 
-  // ✅ FIXED: Setup Socket.io invalidation with memoized handlers
+  // ✅ ENHANCED: Setup Socket.io with proper event listening
   useEffect(() => {
+    console.log('🔌 Setting up Socket.io event listeners...');
+    
     if (!notificationSocket.isSocketConnected()) {
       console.log('📡 Connecting notification socket...');
       notificationSocket.connect().catch(err => {
@@ -130,12 +135,20 @@ export const useChats = () => {
       });
     }
 
-    // Register event listeners
+    // ✅ Remove existing listeners to prevent duplicates
+    notificationSocket.off('chat:enable-chat');
+    notificationSocket.off('chat:initial-message'); 
+    notificationSocket.off('chat:invalidate');
+
+    // ✅ Register event listeners
     notificationSocket.on('chat:enable-chat', handleChatEnableDisable);
     notificationSocket.on('chat:initial-message', handleInitialMessage);
     notificationSocket.on('chat:invalidate', handleChatInvalidate);
 
+    console.log('✅ Socket.io event listeners registered');
+
     return () => {
+      console.log('🔌 Cleaning up Socket.io event listeners...');
       notificationSocket.off('chat:enable-chat', handleChatEnableDisable);
       notificationSocket.off('chat:initial-message', handleInitialMessage);
       notificationSocket.off('chat:invalidate', handleChatInvalidate);
@@ -162,6 +175,7 @@ export const useChats = () => {
         session.hasUnread = false;
         session.unreadCount = 0;
         
+        // ✅ REDUCED: Only refetch after marking as read, not on every action
         setTimeout(() => {
           sessionsQuery.refetch();
         }, 500);
@@ -171,6 +185,9 @@ export const useChats = () => {
         console.error('❌ Failed to mark as read:', error);
       }
     }
+    
+    // Clear typing users when switching sessions
+    setTypingUsers({});
     
     // Disconnect previous session
     if (selectedSession?.sessionId !== session.sessionId) {
@@ -205,13 +222,14 @@ export const useChats = () => {
     }
   }, [filteredSessions, selectedSession, selectSession]);
 
-  // ✅ FIXED: Memoize Ably callbacks to prevent re-registration
+  // ✅ FIXED: Enhanced message transformation to handle sender data properly
   const handleAblyMessage = useCallback((messageData) => {
-    console.log('📨 Real-time message:', messageData);
+    console.log('📨 Ably: Real-time message received:', messageData);
     
+    // ✅ ENHANCED: Better message transformation with proper sender handling
     const transformedMessage = {
-      id: messageData.id || Date.now().toString(),
-      text: messageData.message || messageData.text,
+      id: messageData.id || `realtime-${Date.now()}`,
+      text: messageData.message || messageData.text || '',
       time: messageData.time || new Date().toLocaleTimeString("id-ID", {
         hour: '2-digit',
         minute: '2-digit',
@@ -220,29 +238,35 @@ export const useChats = () => {
       createdAt: messageData.createdAt || new Date().toISOString(),
       isUser: messageData.senderId === userId,
       sender: {
-        id: messageData.sender?.id || messageData.senderId,
-        name: messageData.senderId === userId ? 'You' : (messageData.sender?.fullName || messageData.senderName || 'Unknown'),
-        role: messageData.sender?.role || messageData.senderRole || 'user',
-        profilePicture: messageData.sender?.profilePicture
+        id: messageData.senderId || messageData.sender?.id || 'unknown',
+        name: messageData.senderId === userId 
+          ? 'You' 
+          : (messageData.senderName || messageData.sender?.fullName || messageData.sender?.name || 'Unknown User'),
+        role: messageData.senderRole || messageData.sender?.role || 'user',
+        profilePicture: messageData.senderProfilePicture || messageData.sender?.profilePicture || null
       },
       messageType: messageData.messageType || 'text',
-      isRead: messageData.isRead,
-      attachmentUrl: messageData.attachmentUrl,
-      attachmentType: messageData.attachmentType,
-      attachmentName: messageData.attachmentName,
-      attachmentSize: messageData.attachmentSize
+      isRead: messageData.isRead !== undefined ? messageData.isRead : false, // ✅ HANDLE isRead properly
+      attachmentUrl: messageData.attachmentUrl || null,
+      attachmentType: messageData.attachmentType || null,
+      attachmentName: messageData.attachmentName || null,
+      attachmentSize: messageData.attachmentSize || null
     };
     
-    messages.addMessage(transformedMessage);
-    
-    // Refetch sessions to update sidebar last message
-    setTimeout(() => {
-      sessionsQuery.refetch();
-    }, 500);
-  }, [userId, messages, sessionsQuery]);
+    // ✅ FILTER: Only add non-empty messages with actual content
+    if (transformedMessage.text?.trim() || transformedMessage.attachmentUrl) {
+      console.log('✅ Adding valid realtime message:', transformedMessage);
+      messages.addMessage(transformedMessage);
+      
+      // ✅ REMOVED: Don't refetch sessions here, let socket events handle it
+      // setTimeout(() => { sessionsQuery.refetch(); }, 500);
+    } else {
+      console.warn('⚠️ Skipping empty message:', messageData);
+    }
+  }, [userId, messages]);
 
   const handleAblySessionStatus = useCallback((statusData) => {
-    console.log('📊 Session status change:', statusData);
+    console.log('📊 Ably: Session status change:', statusData);
     
     setSelectedSession(prev => {
       if (prev && statusData.sessionId === prev.sessionId) {
@@ -256,26 +280,33 @@ export const useChats = () => {
       return prev;
     });
     
-    sessionsQuery.refetch();
-  }, [sessionsQuery]);
+    // ✅ REMOVED: Don't refetch here, let socket events handle it
+    // sessionsQuery.refetch();
+  }, []);
 
+  // ✅ ENHANCED: Typing handler with better user info and framer-motion support
   const handleAblyTyping = useCallback((typingData) => {
-    console.log('⌨️ Typing indicator:', typingData);
+    console.log('⌨️ Ably: Typing indicator received:', typingData);
     
-    const { userId: typingUserId, isTyping, sessionId } = typingData;
+    const { userId: typingUserId, isTyping, sessionId, userName, senderName } = typingData;
     
+    // Only handle typing for current session and not from current user
     if (typingUserId !== userId && sessionId === selectedSession?.sessionId) {
+      const displayName = userName || senderName || 'Someone';
+      
       setTypingUsers(prev => {
         if (isTyping) {
+          console.log(`✅ ${displayName} started typing`);
           return {
             ...prev,
             [typingUserId]: {
-              isTyping,
+              isTyping: true,
               timestamp: Date.now(),
-              userName: typingData.userName || 'Someone'
+              userName: displayName
             }
           };
         } else {
+          console.log(`✅ ${displayName} stopped typing`);
           const newTypingUsers = { ...prev };
           delete newTypingUsers[typingUserId];
           return newTypingUsers;
@@ -287,7 +318,10 @@ export const useChats = () => {
         setTimeout(() => {
           setTypingUsers(prev => {
             const newTypingUsers = { ...prev };
-            delete newTypingUsers[typingUserId];
+            if (newTypingUsers[typingUserId]) {
+              console.log(`⏰ Auto-clearing typing for ${displayName}`);
+              delete newTypingUsers[typingUserId];
+            }
             return newTypingUsers;
           });
         }, 5000);
@@ -295,9 +329,13 @@ export const useChats = () => {
     }
   }, [userId, selectedSession?.sessionId]);
 
+  // ✅ ENHANCED: Unread count handler with proper invalidation
   const handleAblyUnreadCount = useCallback((unreadData) => {
-    console.log('🔢 Unread count update:', unreadData);
-    sessionsQuery.refetch();
+    console.log('🔢 Ably: Unread count update:', unreadData);
+    
+    // ✅ ONLY invalidate, don't refetch immediately
+    console.log('🔄 Invalidating sessions due to unread count update');
+    sessionsQuery.invalidateQueries();
   }, [sessionsQuery]);
 
   // Setup Ably callbacks with memoized handlers
@@ -313,7 +351,7 @@ export const useChats = () => {
 
   }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount]);
 
-  // ✅ FIXED: Memoize typing handler to prevent re-renders
+  // Memoize typing handler to prevent re-renders
   const handleTyping = useCallback((text) => {
     messages.setMessageText(text);
     
@@ -322,7 +360,7 @@ export const useChats = () => {
     }
   }, [selectedSession?.sessionId, userId, ably, messages.setMessageText]);
 
-  // Send message
+  // ✅ FIXED: Send message without refetching - let socket events handle updates
   const sendCurrentMessage = useCallback(async () => {
     if (!selectedSession || !messages.canSendMessage(selectedSession)) {
       console.warn('Cannot send message');
@@ -331,19 +369,18 @@ export const useChats = () => {
 
     try {
       await messages.sendCurrentMessage();
-      console.log('✅ Message sent');
+      console.log('✅ Message sent successfully');
       
-      setTimeout(() => {
-        sessionsQuery.refetch();
-      }, 1000);
+      // ✅ REMOVED: Don't refetch here, socket events will handle updates
+      // setTimeout(() => { sessionsQuery.refetch(); }, 1000);
       
     } catch (error) {
       console.error('❌ Failed to send message:', error);
       throw error;
     }
-  }, [selectedSession, messages, sessionsQuery]);
+  }, [selectedSession, messages]);
 
-  // Send file
+  // ✅ FIXED: Send file without refetching - let socket events handle updates
   const sendFile = useCallback(async (file, fileType) => {
     if (!selectedSession || !messages.canSendFile(selectedSession)) {
       console.warn('Cannot send file');
@@ -352,17 +389,16 @@ export const useChats = () => {
 
     try {
       await messages.sendFile(file, fileType);
-      console.log('✅ File sent');
+      console.log('✅ File sent successfully');
       
-      setTimeout(() => {
-        sessionsQuery.refetch();
-      }, 1000);
+      // ✅ REMOVED: Don't refetch here, socket events will handle updates
+      // setTimeout(() => { sessionsQuery.refetch(); }, 1000);
       
     } catch (error) {
       console.error('❌ Failed to send file:', error);
       throw error;
     }
-  }, [selectedSession, messages, sessionsQuery]);
+  }, [selectedSession, messages]);
 
   // Handle AI service selection
   const handleAIServiceSelection = useCallback(async (option) => {
@@ -386,7 +422,7 @@ export const useChats = () => {
     return messages.canSendMessageWithText(selectedSession);
   }, [selectedSession, messages.canSendMessageWithText]);
 
-  // ✅ FIXED: Memoize typing status to prevent re-renders
+  // ✅ ENHANCED: Typing status with framer-motion support
   const getTypingStatus = useCallback(() => {
     const typingUsersList = Object.values(typingUsers).filter(user => user.isTyping);
     
@@ -395,10 +431,10 @@ export const useChats = () => {
     }
     
     if (typingUsersList.length === 1) {
-      return `${typingUsersList[0].userName} is typing...`;
+      return `${typingUsersList[0].userName} sedang mengetik...`;
     }
     
-    return `${typingUsersList.length} people are typing...`;
+    return `${typingUsersList.length} orang sedang mengetik...`;
   }, [typingUsers]);
 
   // Handle booking
@@ -423,7 +459,7 @@ export const useChats = () => {
       ably.disconnect();
       setTypingUsers({});
     };
-  }, []); // ✅ FIXED: Empty dependency array
+  }, []); // Empty dependency array
 
   // User display data
   const getUserDisplayData = useCallback(() => {
@@ -442,7 +478,29 @@ export const useChats = () => {
     };
   }, [user?.role]);
 
-  // ✅ FIXED: Memoize return object to prevent re-renders
+  // ✅ DEBUG: Enhanced debug info
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.selectedSession = selectedSession;
+      window.debugChat = {
+        selectedSession,
+        messageText: messages.messageText,
+        canSendMessage: canSendMessage(),
+        canSendMessageWithText: canSendMessageWithText(),
+        connectionStatus: ably.connectionStatus,
+        sessionsCount: filteredSessions.length,
+        typingUsers,
+        typingStatus: getTypingStatus(),
+        socketConnected: notificationSocket.isSocketConnected(),
+        ablyCallbacks: {
+          hasMessageCallback: !!ably.onMessageRef?.current,
+          hasTypingCallback: !!ably.onTypingRef?.current
+        }
+      };
+    }
+  }, [selectedSession, messages.messageText, canSendMessage, canSendMessageWithText, ably.connectionStatus, filteredSessions.length, typingUsers, getTypingStatus]);
+
+  // Memoize return object to prevent re-renders
   return useMemo(() => ({
     // Data
     sessions: filteredSessions,
@@ -462,7 +520,7 @@ export const useChats = () => {
     isAISession: ably.isAISession,
     isTyping: ably.isTyping,
     
-    // NEW: Typing status for header
+    // Typing status for header
     typingStatus: getTypingStatus(),
     
     // Errors
@@ -483,6 +541,10 @@ export const useChats = () => {
     getSessionStatus,
     refetchSessions: refreshSessions,
     
+    // ✅ NEW: Infinite scroll support
+    loadMoreMessages: messages.loadMoreMessages,
+    hasMoreMessages: messages.hasMore,
+    
     // User data
     userDisplayData: getUserDisplayData(),
     
@@ -500,6 +562,8 @@ export const useChats = () => {
     messages.isSending,
     messages.isUploadingFile,
     messages.error,
+    messages.loadMoreMessages,
+    messages.hasMore,
     sessionsQuery.isLoading,
     sessionsQuery.error,
     ably.connectionStatus,

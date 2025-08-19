@@ -1,4 +1,4 @@
-// src/components/shared/chats/lib/chatsApi.js - FIXED: Real API Integration
+// src/components/shared/chats/lib/chatsApi.js - FIXED: Unread Count API
 
 import { apiClient } from "../../../../lib/api.js";
 import { formatChatTime, getCurrentTime, getCurrentTimestamp, isMoreRecent } from "../utils/dateUtils";
@@ -13,10 +13,23 @@ const getCurrentUser = () => {
 };
 
 export const chatsApi = {
-  // ✅ FIXED: Get chat histories (for sidebar) - proper lastMessage rendering
+  // ✅ FIXED: Get chat histories with total unread count
   async getChatHistories() {
     try {
       console.log('📋 getChatHistories - Starting request...');
+      
+      // ✅ NEW: Get total unread counts first
+      let totalUnreadData = {};
+      try {
+        const unreadResponse = await apiClient.get('/chat/unread-count/total');
+        if (unreadResponse.data?.status === 'success') {
+          totalUnreadData = unreadResponse.data.data;
+          console.log('📋 Total unread data:', totalUnreadData);
+        }
+      } catch (error) {
+        console.warn('Failed to get total unread count:', error);
+      }
+      
       const response = await apiClient.get('/chat/histories');
       console.log('📋 getChatHistories - Response received:', response.data);
       
@@ -26,15 +39,15 @@ export const chatsApi = {
         
         console.log('📋 getChatHistories - Current user:', { currentUser, currentUserId });
         
-        // ✅ FIXED: Access correct nested data structure
+        // Access correct nested data structure
         const sessionsData = response.data.data.data || [];
         console.log('📋 getChatHistories - Sessions data:', sessionsData);
         
-        const sessions = await Promise.all(sessionsData.map(async (session) => {
+        const sessions = sessionsData.map((session) => {
           const lastMessage = session.lastMessage;
           let displayName, displayAvatar;
           
-          // ✅ FIXED: Determine display name based on current user ID
+          // Determine display name based on current user ID
           if (currentUserId === session.clientId) {
             // Current user is client, show psychologist info
             displayName = session.psychologist?.fullName || `Psychologist ${session.psychologistId?.slice(-8) || 'Unknown'}`;
@@ -49,24 +62,16 @@ export const chatsApi = {
             displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
           }
 
-          // ✅ FIXED: Get real unread count from API
-          let unreadCount = 0;
-          try {
-            const unreadResponse = await chatsApi.getUnreadCount(session.sessionId);
-            unreadCount = parseInt(unreadResponse?.unreadCount || '0');
-          } catch (error) {
-            console.warn('Failed to get unread count for session:', session.sessionId, error);
-            // Fallback to session unreadCount if available
-            unreadCount = parseInt(session.unreadCount || '0');
-          }
+          // ✅ FIXED: Get unread count from total API data
+          const unreadCount = parseInt(totalUnreadData.sessionUnreadCounts?.[session.sessionId] || '0');
 
-          // ✅ FIXED: Check unread messages properly
+          // Check unread messages properly
           const hasUnreadMessage = lastMessage && 
             lastMessage.message && 
             lastMessage.senderId !== currentUserId && 
             unreadCount > 0;
 
-          // ✅ FIXED: Render REAL last message instead of generic text
+          // ✅ FIXED: Render REAL last message with sender name
           let lastMessageText = 'No messages yet';
           if (lastMessage && lastMessage.message) {
             // Show who sent the message for clarity
@@ -85,7 +90,7 @@ export const chatsApi = {
             status: session.status
           });
 
-          // ✅ Use formatChatTime for proper time display
+          // Use formatChatTime for proper time display
           const timeToDisplay = lastMessage?.createdAt ? 
             formatChatTime(lastMessage.createdAt) : 
             formatChatTime(session.createdAt);
@@ -95,21 +100,21 @@ export const chatsApi = {
             sessionId: session.sessionId,
             name: displayName,
             avatar: displayAvatar,
-            lastMessage: lastMessageText, // ✅ FIXED: Real last message
+            lastMessage: lastMessageText, // Real last message
             time: timeToDisplay,
             isActive: session.isActive,
             isChatEnabled: session.status === 'active' || session.status === 'pending',
             status: session.status,
             isTeamChat: false,
-            unreadCount: unreadCount, // ✅ FIXED: Real unread count
-            hasUnread: hasUnreadMessage, // ✅ FIXED: Proper unread logic
+            unreadCount: unreadCount, // From total API
+            hasUnread: hasUnreadMessage, // Proper unread logic
             // Store IDs for reference
             clientId: session.clientId,
             psychologistId: session.psychologistId,
-            // ✅ Store last message details for future use
+            // Store last message details for future use
             lastMessageData: lastMessage
           };
-        }));
+        });
 
         console.log('📋 Processed sessions:', sessions);
 
@@ -158,29 +163,31 @@ export const chatsApi = {
     }
   },
 
-  // ✅ NEW: Get unread count for specific session
-  async getUnreadCount(sessionId) {
+  // ✅ NEW: Get total unread count
+  async getTotalUnreadCount() {
     try {
-      if (sessionId === 'team-ruangdiri') {
-        return { unreadCount: '0' };
-      }
-
-      console.log('🔢 Getting unread count for session:', sessionId);
-      const response = await apiClient.get(`/chat/sessions/${sessionId}/unread-count`);
+      console.log('🔢 Getting total unread count...');
+      const response = await apiClient.get('/chat/unread-count/total');
       
       if (response.data?.status === 'success') {
-        console.log('✅ Unread count response:', response.data);
+        console.log('✅ Total unread count response:', response.data);
         return response.data.data;
       }
       
-      throw new Error(response.data?.message || 'Failed to get unread count');
+      throw new Error(response.data?.message || 'Failed to get total unread count');
     } catch (error) {
-      console.error('❌ Error getting unread count:', error);
-      return { unreadCount: '0' };
+      console.error('❌ Error getting total unread count:', error);
+      return { 
+        totalUnread: '0', 
+        sessionUnreadCounts: {} 
+      };
     }
   },
 
-  // ✅ FIXED: Get active sessions - don't override lastMessage
+  // ✅ REMOVED: Individual session unread count (using total now)
+  // async getUnreadCount(sessionId) - DEPRECATED
+
+  // Get active sessions - don't override lastMessage
   async getActiveSessions() {
     try {
       console.log('🔄 Getting active sessions...');
@@ -193,7 +200,7 @@ export const chatsApi = {
         console.log('✅ Active sessions response:', response.data);
         
         return response.data.data.map(session => {
-          // ✅ FIXED: Determine display info based on current user
+          // Determine display info based on current user
           let displayName, displayAvatar;
           
           if (currentUserId === session.client?.id) {
@@ -215,7 +222,7 @@ export const chatsApi = {
             sessionId: session.id,
             name: displayName,
             avatar: displayAvatar,
-            lastMessage: 'Active session ready', // ✅ FIXED: Don't override with generic message
+            lastMessage: 'Active session ready', // Don't override with generic message
             time: formatChatTime(session.updatedAt || session.createdAt),
             isActive: session.isActive,
             isChatEnabled: session.status === 'active' && session.isActive,
@@ -239,7 +246,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ FIXED: Get messages (for chat main) - correct endpoint with sessionId
+  // Get messages (for chat main) - correct endpoint with sessionId
   async getMessages(sessionId, cursor = null, limit = 10) {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -304,7 +311,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ Send message - text only
+  // Send message - text only
   async sendMessage(sessionId, content, messageType = 'text') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -363,7 +370,40 @@ export const chatsApi = {
     }
   },
 
-  // ✅ Send file/image message
+  // ✅ NEW: Upload file first (separate from sending message)
+  async uploadFile(file) {
+    try {
+      // Validate file
+      this.validateFile(file);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      console.log('📤 Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+
+      const response = await apiClient.post('/chat/upload-file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data?.status === 'success') {
+        console.log('✅ File uploaded successfully:', response.data);
+        return response.data.data; // Return file URL and metadata
+      }
+      
+      throw new Error(response.data?.message || 'Failed to upload file');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  },
+
+  // Send file/image message
   async sendFileMessage(sessionId, file, messageType = 'file') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -423,7 +463,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ Mark as read
+  // Mark as read
   async markAsRead(sessionId) {
     if (sessionId === 'team-ruangdiri') return;
 
@@ -442,7 +482,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ End session
+  // End session
   async endSession(sessionId) {
     try {
       const response = await apiClient.put(`/chat/sessions/${sessionId}/end`);
@@ -458,7 +498,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ Get Ably token
+  // Get Ably token
   async getAblyToken(sessionId) {
     if (sessionId === 'team-ruangdiri') return null;
 
@@ -499,7 +539,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ Send typing indicator  
+  // Send typing indicator  
   async sendTypingIndicator(sessionId, isTyping) {
     if (sessionId === 'team-ruangdiri') return;
 
@@ -513,7 +553,7 @@ export const chatsApi = {
     }
   },
 
-  // ✅ AI response generator
+  // AI response generator
   generateAIResponse(userInput) {
     const input = userInput.toLowerCase();
     
@@ -528,7 +568,7 @@ export const chatsApi = {
     return "Terima kasih sudah bercerita! Ada yang bisa saya bantu lagi? 😊";
   },
 
-  // ✅ Handle AI service selection
+  // Handle AI service selection
   async handleAIServiceSelection(option) {
     const responses = {
       'Ruang Cerita': {
@@ -551,39 +591,53 @@ export const chatsApi = {
     };
   },
 
-  // ✅ Helper: Validate file for upload
+  // ✅ ENHANCED: Validate file for upload with 15MB limit
   validateFile(file) {
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 15 * 1024 * 1024; // 15MB
     const allowedTypes = [
+      // Images
       'image/jpeg',
+      'image/jpg', 
       'image/png',
       'image/gif',
       'image/webp',
+      'image/svg+xml',
+      // Documents
       'application/pdf',
       'text/plain',
       'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Archives
+      'application/zip',
+      'application/x-rar-compressed',
+      'application/x-7z-compressed'
     ];
 
     if (file.size > maxSize) {
-      throw new Error('File size must be less than 10MB');
+      throw new Error('File size must be less than 15MB');
     }
 
     if (!allowedTypes.includes(file.type)) {
-      throw new Error('File type not supported');
+      throw new Error('File type not supported. Supported types: Images, PDF, DOC, XLS, PPT, ZIP, RAR');
     }
 
     return true;
   },
 
-  // ✅ Helper: Get file type category
+  // Helper: Get file type category
   getFileTypeCategory(file) {
     if (file.type.startsWith('image/')) {
       return 'image';
     } else if (file.type === 'application/pdf') {
       return 'document';
-    } else if (file.type.includes('word') || file.type === 'text/plain') {
+    } else if (file.type.includes('word') || file.type.includes('excel') || file.type.includes('powerpoint') || file.type === 'text/plain') {
       return 'document';
+    } else if (file.type.includes('zip') || file.type.includes('rar') || file.type.includes('7z')) {
+      return 'archive';
     }
     return 'file';
   }

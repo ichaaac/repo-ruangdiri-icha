@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useMessages.js - FIXED: Infinite Rendering
+// src/components/shared/chats/hooks/useMessages.js - FIXED: Infinite Scroll & Message Status
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,11 +19,32 @@ export const useMessages = (sessionId, ably = null) => {
   const queryClient = useQueryClient();
   const [messageText, setMessageText] = useState('');
   const [cursor, setCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(true); // ✅ NEW: Track if more messages available
 
-  // Get messages query
+  // ✅ ENHANCED: Get messages query with infinite scroll support
   const messagesQuery = useQuery({
     queryKey: ['chat-messages', sessionId],
-    queryFn: () => chatsApi.getMessages(sessionId, cursor, 10),
+    queryFn: async () => {
+      const response = await chatsApi.getMessages(sessionId, null, 20); // Start with more messages
+      
+      // ✅ HANDLE: Response structure from your backend
+      if (Array.isArray(response)) {
+        return response;
+      } else if (response.data) {
+        // Handle paginated response
+        const { data: messages, metadata } = response;
+        
+        // ✅ SET: hasMore based on backend response
+        if (metadata) {
+          setHasMore(metadata.hasNextPage || false);
+          setCursor(metadata.nextCursor || null);
+        }
+        
+        return messages || [];
+      }
+      
+      return response;
+    },
     enabled: !!sessionId,
     staleTime: 30000,
     cacheTime: 300000,
@@ -82,7 +103,8 @@ export const useMessages = (sessionId, ably = null) => {
         },
         messageType: 'text',
         isOptimistic: true,
-        isRead: true
+        isRead: false, // ✅ NEW: Start as unread, will be updated by backend response
+        isSending: true // ✅ NEW: Show sending state
       };
 
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
@@ -128,22 +150,33 @@ export const useMessages = (sessionId, ably = null) => {
       console.error('Failed to send message:', err);
     },
     onSuccess: (newMessage, { sessionId }) => {
+      // ✅ ENHANCED: Handle backend response with proper status
+      console.log('✅ Message sent successfully, backend response:', newMessage);
+      
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         const withoutOptimistic = old.filter(msg => !msg.isOptimistic);
         const exists = withoutOptimistic.some(msg => msg.id === newMessage.id);
         
         if (!exists) {
-          return [...withoutOptimistic, newMessage];
+          // ✅ UPDATE: Mark message as sent successfully
+          const finalMessage = {
+            ...newMessage,
+            isSending: false,
+            isSent: true
+          };
+          return [...withoutOptimistic, finalMessage];
         }
         
         return withoutOptimistic;
       });
       
       setMessageText('');
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
+      // ✅ REMOVED: Don't invalidate here, let socket events handle it
+      // queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
+      // ✅ REMOVED: Don't invalidate here, let socket events handle it
+      // queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
     }
   });
 
@@ -171,8 +204,8 @@ export const useMessages = (sessionId, ably = null) => {
         },
         messageType: messageType,
         isOptimistic: true,
-        isRead: true,
-        isUploading: true
+        isRead: false,
+        isUploading: true // ✅ NEW: Show uploading state
       };
 
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
@@ -188,21 +221,30 @@ export const useMessages = (sessionId, ably = null) => {
       console.error('Failed to send file:', err);
     },
     onSuccess: (newMessage, { sessionId }) => {
+      console.log('✅ File sent successfully, backend response:', newMessage);
+      
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         const withoutOptimistic = old.filter(msg => !msg.isOptimistic);
         const exists = withoutOptimistic.some(msg => msg.id === newMessage.id);
         
         if (!exists) {
-          return [...withoutOptimistic, newMessage];
+          const finalMessage = {
+            ...newMessage,
+            isUploading: false,
+            isSent: true
+          };
+          return [...withoutOptimistic, finalMessage];
         }
         
         return withoutOptimistic;
       });
       
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
+      // ✅ REMOVED: Don't invalidate here, let socket events handle it
+      // queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
+      // ✅ REMOVED: Don't invalidate here, let socket events handle it
+      // queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
     }
   });
 
@@ -210,17 +252,18 @@ export const useMessages = (sessionId, ably = null) => {
   const markAsReadMutation = useMutation({
     mutationFn: (sessionId) => chatsApi.markAsRead(sessionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
+      // ✅ REMOVED: Don't invalidate here, let socket events handle it
+      // queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     },
     onError: (error) => {
       console.error('Failed to mark as read:', error);
     }
   });
 
-  // ✅ FIXED: Memoize current messages to prevent re-renders
+  // Memoize current messages to prevent re-renders
   const currentMessages = useMemo(() => messagesQuery.data || [], [messagesQuery.data]);
 
-  // ✅ FIXED: Memoize send message function
+  // Memoize send message function
   const sendMessage = useCallback(async (content) => {
     if (!sessionId || !content?.trim()) {
       console.warn('Cannot send message: missing sessionId or content');
@@ -238,7 +281,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, sendMutation.mutateAsync]);
 
-  // ✅ FIXED: Memoize send file function
+  // Memoize send file function
   const sendFile = useCallback(async (file, fileType = 'file') => {
     if (!sessionId || !file) {
       console.warn('Cannot send file: missing sessionId or file');
@@ -264,7 +307,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, sendFileMutation.mutateAsync]);
 
-  // ✅ FIXED: Memoize send current message function
+  // Memoize send current message function
   const sendCurrentMessage = useCallback(async () => {
     if (!messageText.trim()) {
       console.warn('Cannot send empty message');
@@ -275,13 +318,13 @@ export const useMessages = (sessionId, ably = null) => {
     await sendMessage(currentMessage);
   }, [messageText, sendMessage]);
 
-  // ✅ FIXED: Memoize mark as read function
+  // Memoize mark as read function
   const markAsRead = useCallback(() => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
     markAsReadMutation.mutate(sessionId);
   }, [sessionId, markAsReadMutation.mutate]);
 
-  // ✅ FIXED: Memoize add message function
+  // Memoize add message function
   const addMessage = useCallback((message) => {
     if (!sessionId) return;
 
@@ -292,7 +335,7 @@ export const useMessages = (sessionId, ably = null) => {
     });
   }, [sessionId, queryClient]);
 
-  // ✅ FIXED: Memoize AI service selection handler
+  // Memoize AI service selection handler
   const handleAIServiceSelection = useCallback(async (option) => {
     if (sessionId !== 'team-ruangdiri') return;
 
@@ -343,7 +386,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, addMessage]);
 
-  // ✅ FIXED: Memoize canSendMessage function
+  // Memoize canSendMessage function
   const canSendMessage = useCallback((session) => {
     if (!sessionId) {
       console.log('❌ No sessionId');
@@ -383,7 +426,7 @@ export const useMessages = (sessionId, ably = null) => {
     return false;
   }, [sessionId]);
 
-  // ✅ FIXED: Memoize canSendFile function
+  // Memoize canSendFile function
   const canSendFile = useCallback((session) => {
     if (!sessionId) return false;
     if (sessionId === 'team-ruangdiri') return false; // AI doesn't support files
@@ -392,7 +435,7 @@ export const useMessages = (sessionId, ably = null) => {
     return canSendMessage(session);
   }, [sessionId, canSendMessage]);
 
-  // ✅ FIXED: Memoize canSendMessageWithText function
+  // Memoize canSendMessageWithText function
   const canSendMessageWithText = useCallback((session) => {
     const hasText = !!messageText?.trim();
     const canSend = canSendMessage(session);
@@ -407,7 +450,7 @@ export const useMessages = (sessionId, ably = null) => {
     return hasText && canSend;
   }, [messageText, canSendMessage]);
 
-  // ✅ FIXED: Memoize getSessionStatus function
+  // Memoize getSessionStatus function
   const getSessionStatus = useCallback((session) => {
     if (!sessionId) return 'no_session';
     if (sessionId === 'team-ruangdiri') return 'ai_chat';
@@ -423,33 +466,58 @@ export const useMessages = (sessionId, ably = null) => {
     return 'chat_disabled';
   }, [sessionId]);
 
-  // ✅ FIXED: Memoize loadMoreMessages function
+  // ✅ ENHANCED: Load more messages with infinite scroll
   const loadMoreMessages = useCallback(async () => {
-    if (!sessionId || sessionId === 'team-ruangdiri') return;
+    if (!sessionId || sessionId === 'team-ruangdiri' || !hasMore || messagesQuery.isLoading) {
+      console.log('Cannot load more:', { sessionId, hasMore, isLoading: messagesQuery.isLoading });
+      return;
+    }
     
     try {
-      if (currentMessages.length === 0) return;
+      console.log('📜 Loading more messages...', { cursor, hasMore });
       
-      const firstMessage = currentMessages[0];
-      const newCursor = firstMessage.timestamp;
+      const response = await chatsApi.getMessages(sessionId, cursor, 20);
       
-      const olderMessages = await chatsApi.getMessages(sessionId, newCursor, 10);
+      let olderMessages = [];
+      let newCursor = null;
+      let hasNextPage = false;
+      
+      // ✅ HANDLE: Different response formats
+      if (Array.isArray(response)) {
+        olderMessages = response;
+      } else if (response.data) {
+        olderMessages = response.data || [];
+        const metadata = response.metadata || {};
+        hasNextPage = metadata.hasNextPage || false;
+        newCursor = metadata.nextCursor || null;
+      }
+      
+      console.log('📜 Loaded older messages:', {
+        count: olderMessages.length,
+        hasNextPage,
+        newCursor
+      });
       
       if (olderMessages.length > 0) {
         queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
           const existingIds = new Set(old.map(msg => msg.id));
           const newMessages = olderMessages.filter(msg => !existingIds.has(msg.id));
-          return [...newMessages, ...old];
+          return [...newMessages, ...old]; // Prepend older messages
         });
         
         setCursor(newCursor);
+        setHasMore(hasNextPage);
+      } else {
+        // No more messages
+        setHasMore(false);
+        setCursor(null);
       }
     } catch (error) {
       console.error('Failed to load more messages:', error);
     }
-  }, [sessionId, currentMessages, queryClient]);
+  }, [sessionId, cursor, hasMore, messagesQuery.isLoading, queryClient]);
 
-  // ✅ FIXED: Memoize return object to prevent re-renders
+  // Memoize return object to prevent re-renders
   return useMemo(() => ({
     messages: currentMessages,
     messageText,
@@ -464,13 +532,14 @@ export const useMessages = (sessionId, ably = null) => {
     canSendFile,
     canSendMessageWithText,
     getSessionStatus,
-    loadMoreMessages,
+    loadMoreMessages, // ✅ NEW: Infinite scroll function
     isLoading: messagesQuery.isLoading,
     isSending: sendMutation.isPending || sendFileMutation.isPending,
     isUploadingFile: sendFileMutation.isPending,
     error: messagesQuery.error || sendMutation.error || sendFileMutation.error,
     refetch: messagesQuery.refetch,
-    hasMore: cursor !== null
+    hasMore, // ✅ NEW: Has more messages flag
+    isLoadingMore: false // ✅ TODO: Add loading more state if needed
   }), [
     currentMessages,
     messageText,
@@ -492,6 +561,6 @@ export const useMessages = (sessionId, ably = null) => {
     sendMutation.error,
     sendFileMutation.isPending,
     sendFileMutation.error,
-    cursor
+    hasMore
   ]);
 };

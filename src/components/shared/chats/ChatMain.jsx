@@ -1,10 +1,12 @@
-// src/components/shared/chats/ChatMain.jsx - FIXED: Typing indicator in header
+// src/components/shared/chats/Main.jsx - FIXED: Message Status & Infinite Scroll
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatChatDateHeader } from './utils/dateUtils';
+import MediaUploadPreview from './MediaUploadPreview';
 
-// Upload dropdown component (unchanged)
-const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
+// ✅ ENHANCED: Upload dropdown with better file handling
+const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
   const dropdownRef = useRef(null);
   const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -36,46 +38,17 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
   };
 
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!validImageTypes.includes(file.type)) {
-        alert('Please select a valid image file (JPEG, PNG, GIF, WebP)');
-        return;
-      }
-      
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
-        return;
-      }
-      
-      onFileSelect(file, 'image');
+    const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length > 0) {
+      onFilesSelect(selectedFiles, 'image');
     }
     e.target.value = '';
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const validFileTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain',
-        'text/csv'
-      ];
-      
-      if (!validFileTypes.includes(file.type)) {
-        alert('Please select a valid document file (PDF, DOC, DOCX, TXT, CSV)');
-        return;
-      }
-      
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
-        return;
-      }
-      
-      onFileSelect(file, 'file');
+    const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length > 0) {
+      onFilesSelect(selectedFiles, 'file');
     }
     e.target.value = '';
   };
@@ -90,14 +63,16 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
       <input
         ref={imageInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
+        accept="image/*"
+        multiple
         onChange={handleImageChange}
         className="hidden"
       />
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.txt,.csv"
+        accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
+        multiple
         onChange={handleFileChange}
         className="hidden"
       />
@@ -107,14 +82,14 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
       >
         <span className="material-icons text-gray-600 text-sm">image</span>
-        Upload Image
+        Upload Images (Max 15MB)
       </button>
       <button 
         onClick={handleFileSelect}
         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
       >
         <span className="material-icons text-gray-600 text-sm">attach_file</span>
-        Upload Document
+        Upload Documents (Max 15MB)
       </button>
     </div>
   );
@@ -123,7 +98,67 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
 // Generate date header for messages
 const generateDateHeader = formatChatDateHeader;
 
-// Message bubble component (unchanged)
+// ✅ NEW: Message Status Component (WhatsApp-like read indicators)
+const MessageStatus = ({ message, isOwn }) => {
+  if (!isOwn) return null; // Only show for own messages
+  
+  const getStatusIcon = () => {
+    if (message.isSending) {
+      return (
+        <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
+      );
+    }
+    
+    if (message.isUploading) {
+      return (
+        <div className="animate-spin rounded-full h-3 w-3 border border-blue-400 border-t-transparent"></div>
+      );
+    }
+    
+    // ✅ DOUBLE CHECK: Read status
+    const isRead = message.isRead === true;
+    const checkColor = isRead ? '#488BBA' : '#9CA3AF'; // Blue if read, gray if unread
+    
+    return (
+      <div className="flex items-center">
+        {/* Double check marks */}
+        <svg 
+          width="12" 
+          height="8" 
+          viewBox="0 0 12 8" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+          className="relative"
+        >
+          {/* First check */}
+          <path 
+            d="M1 4L3.5 6.5L7 3" 
+            stroke={checkColor} 
+            strokeWidth="1.2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          />
+          {/* Second check (offset) */}
+          <path 
+            d="M4 4L6.5 6.5L10 3" 
+            stroke={checkColor} 
+            strokeWidth="1.2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    );
+  };
+  
+  return (
+    <div className="flex items-center justify-end mt-1">
+      {getStatusIcon()}
+    </div>
+  );
+};
+
+// ✅ ENHANCED: Message bubble with read status
 const MessageBubble = ({ 
   message, 
   isOwn = false, 
@@ -155,7 +190,12 @@ const MessageBubble = ({
   const isDocument = attachmentType?.includes('pdf') || attachmentType?.includes('word') || attachmentType?.includes('text');
 
   return (
-    <div className="w-full px-4 sm:px-5">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="w-full px-4 sm:px-5"
+    >
       <div className={`flex flex-col gap-2.5 ${isOwn ? 'items-end' : 'items-start'}`}>
         <div className={`flex gap-2 items-start w-full ${isOwn ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
           {!isOwn && (
@@ -278,18 +318,24 @@ const MessageBubble = ({
                   ))}
                 </div>
               )}
+              
+              {/* ✅ NEW: Message Status for own messages */}
+              <MessageStatus message={message} isOwn={isOwn} />
             </div>
-            <time className="text-xs font-light text-zinc-500">
-              {time}
-            </time>
+            
+            <div className="flex items-center gap-2">
+              <time className="text-xs font-light text-zinc-500">
+                {time}
+              </time>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
-// ✅ FIXED: Chat header with typing indicator
+// ✅ FIXED: Chat header with proper typing indicator display
 const ChatHeader = ({ 
   selectedConversation, 
   onToggleSidebar, 
@@ -297,7 +343,7 @@ const ChatHeader = ({
   isPsychologist, 
   onEndSession, 
   isEndingSession,
-  typingStatus // ✅ NEW: Typing status from realtime
+  typingStatus
 }) => {
   return (
     <div className="flex-shrink-0 flex justify-between items-center px-4 sm:px-[30px] bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[70px]">
@@ -338,25 +384,41 @@ const ChatHeader = ({
             {selectedConversation?.name || 'Unknown'}
           </h2>
           
-          {/* ✅ FIXED: Status with typing indicator priority */}
+          {/* ✅ ENHANCED: Typing indicator with framer-motion */}
           {selectedConversation?.isTeamChat ? (
             <p className="text-xs font-light" style={{ color: '#488BBA' }}>
               🤖 AI Assistant - Always Available
             </p>
           ) : typingStatus ? (
-            // ✅ NEW: Show typing status if someone is typing
-            <div className="flex items-center gap-2">
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="flex items-center gap-2"
+            >
               <div className="flex gap-1">
-                <div className="w-1 h-1 bg-[#488BBA] rounded-full animate-bounce"></div>
-                <div className="w-1 h-1 bg-[#488BBA] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-1 h-1 bg-[#488BBA] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <motion.div 
+                  className="w-1 h-1 bg-[#488BBA] rounded-full"
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                />
+                <motion.div 
+                  className="w-1 h-1 bg-[#488BBA] rounded-full"
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.1 }}
+                />
+                <motion.div 
+                  className="w-1 h-1 bg-[#488BBA] rounded-full"
+                  animate={{ y: [0, -3, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                />
               </div>
               <span className="text-xs font-light text-[#488BBA]">
                 {typingStatus}
               </span>
-            </div>
+            </motion.div>
           ) : (
-            // Regular status when no one is typing
+            // Regular connection status when no one is typing
             <div className="flex items-center gap-2">
               <p className={`text-xs font-light ${
                 connectionStatus === 'connected' ? 'text-green-500' : 'text-gray-500'
@@ -426,14 +488,20 @@ const ChatHeader = ({
   );
 };
 
-// ✅ REMOVED: Typing indicator from messages area - now only in header
+// ✅ ENHANCED: Chat messages with infinite scroll
 const ChatMessages = ({ 
   messages = [], 
   selectedConversation, 
   getSessionStatus, 
   onAIServiceSelection,
-  messagesEndRef
+  messagesEndRef,
+  onLoadMore,
+  hasMoreMessages,
+  isLoadingMore
 }) => {
+  const messagesContainerRef = useRef(null);
+  const [isNearTop, setIsNearTop] = useState(false);
+
   const sessionStatus = getSessionStatus?.() || 'ready';
 
   const getDateHeader = () => {
@@ -443,9 +511,37 @@ const ChatMessages = ({
     return 'Hari ini';
   };
 
+  // ✅ ENHANCED: Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    if (!messagesContainerRef.current || !hasMoreMessages || isLoadingMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const scrollFromBottom = scrollHeight - scrollTop - clientHeight;
+    
+    // Check if near top (for loading more messages)
+    const nearTop = scrollTop < 100;
+    setIsNearTop(nearTop);
+    
+    // Load more messages when near top
+    if (nearTop && hasMoreMessages && !isLoadingMore) {
+      console.log('📜 Loading more messages due to scroll');
+      onLoadMore?.();
+    }
+  }, [hasMoreMessages, isLoadingMore, onLoadMore]);
+
+  // Attach scroll listener
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
   return (
     <div className="flex-1 relative bg-zinc-100">
       <div 
+        ref={messagesContainerRef}
         className="absolute inset-0 overflow-y-auto messages-scroll"
         style={{
           scrollbarWidth: 'auto',
@@ -453,6 +549,27 @@ const ChatMessages = ({
         }}
       >
         <div className="flex flex-col gap-2.5 items-center py-4 min-h-full">
+          {/* ✅ NEW: Load More Button/Indicator */}
+          {hasMoreMessages && (
+            <div className="w-full flex justify-center py-4">
+              {isLoadingMore ? (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500"></div>
+                  <span className="text-sm">Loading older messages...</span>
+                </div>
+              ) : isNearTop ? (
+                <motion.button
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={onLoadMore}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  Load older messages
+                </motion.button>
+              ) : null}
+            </div>
+          )}
+
           <time className="mb-4 text-xs font-light leading-5 text-center text-zinc-500">
             {getDateHeader()}
           </time>
@@ -472,25 +589,25 @@ const ChatMessages = ({
 
           {/* Messages Container */}
           <div className="flex flex-col gap-4 w-full max-w-full pb-4">
-            {messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message.text}
-                isOwn={message.isUser}
-                sender={message.sender}
-                time={message.time}
-                showOptions={message.showOptions}
-                actions={message.actions}
-                onOptionClick={onAIServiceSelection}
-                attachmentUrl={message.attachmentUrl}
-                attachmentType={message.attachmentType}
-                attachmentName={message.attachmentName}
-                attachmentSize={message.attachmentSize}
-              />
-            ))}
+            <AnimatePresence>
+              {messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message.text}
+                  isOwn={message.isUser}
+                  sender={message.sender}
+                  time={message.time}
+                  showOptions={message.showOptions}
+                  actions={message.actions}
+                  onOptionClick={onAIServiceSelection}
+                  attachmentUrl={message.attachmentUrl}
+                  attachmentType={message.attachmentType}
+                  attachmentName={message.attachmentName}
+                  attachmentSize={message.attachmentSize}
+                />
+              ))}
+            </AnimatePresence>
 
-            {/* ✅ REMOVED: Typing indicator from here - now in header only */}
-            
             {/* Auto-scroll anchor */}
             <div ref={messagesEndRef} style={{ height: '1px', visibility: 'hidden' }} />
           </div>
@@ -525,7 +642,7 @@ const ChatMessages = ({
   );
 };
 
-// Chat input component (unchanged)
+// ✅ ENHANCED: Chat input with media upload preview
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
@@ -539,103 +656,195 @@ const ChatInput = ({
   selectedConversation
 }) => {
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [showMediaPreview, setShowMediaPreview] = useState(false);
+  const [mediaPreviewText, setMediaPreviewText] = useState('');
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
 
-  const handleFileSelect = async (file, fileType) => {
+  // Handle file selection with preview
+  const handleFilesSelect = (files, fileType) => {
+    const validFiles = [];
+    
+    files.forEach(file => {
+      try {
+        import('./lib/chatsApi').then(({ chatsApi }) => {
+          chatsApi.validateFile(file);
+        });
+        
+        // Create preview URL for images
+        const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
+        
+        validFiles.push({
+          id: Date.now() + Math.random(),
+          file,
+          preview,
+          fileType
+        });
+      } catch (error) {
+        alert(`${file.name}: ${error.message}`);
+      }
+    });
+    
+    if (validFiles.length > 0) {
+      setPendingFiles(validFiles);
+      setShowMediaPreview(true);
+      setMediaPreviewText(messageText);
+    }
+  };
+
+  // Remove file from preview
+  const handleRemoveFile = (fileId) => {
+    setPendingFiles(prev => {
+      const updated = prev.filter(f => f.id !== fileId);
+      
+      // Clean up object URLs
+      const fileToRemove = prev.find(f => f.id === fileId);
+      if (fileToRemove?.preview) {
+        URL.revokeObjectURL(fileToRemove.preview);
+      }
+      
+      return updated;
+    });
+  };
+
+  // Send media files
+  const handleSendMedia = async () => {
+    if (pendingFiles.length === 0 || isUploadingMedia) return;
+    
     try {
-      setUploadingFile(true);
-      await onFileUpload(file, fileType);
+      setIsUploadingMedia(true);
+      
+      // Upload files one by one
+      for (const fileItem of pendingFiles) {
+        await onFileUpload(fileItem.file, fileItem.fileType);
+      }
+      
+      // Send caption message if exists
+      if (mediaPreviewText.trim()) {
+        onMessageChange(mediaPreviewText);
+        setTimeout(() => {
+          onSendMessage();
+        }, 100);
+      }
+      
+      // Cleanup
+      handleCloseMediaPreview();
       
     } catch (error) {
-      console.error('File upload error:', error);
-      alert(error.message || 'Failed to upload file');
+      console.error('Media upload error:', error);
+      alert(error.message || 'Failed to upload media');
     } finally {
-      setUploadingFile(false);
+      setIsUploadingMedia(false);
     }
+  };
+
+  // Close media preview
+  const handleCloseMediaPreview = () => {
+    // Clean up object URLs
+    pendingFiles.forEach(fileItem => {
+      if (fileItem.preview) {
+        URL.revokeObjectURL(fileItem.preview);
+      }
+    });
+    
+    setPendingFiles([]);
+    setShowMediaPreview(false);
+    setMediaPreviewText('');
   };
 
   const canUploadFiles = !isAIChat && (typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage);
   const canSendWithText = typeof canSendMessageWithText === 'function' ? canSendMessageWithText() : canSendMessageWithText;
 
   return (
-    <div className="flex-shrink-0 flex flex-col gap-2.5 bg-white border-solid border-y-[0.25px] border-y-zinc-500 min-h-[100px] sm:h-[127px] px-4 sm:px-[19px] py-4 sm:py-[19px]">
-      <div className="flex flex-col justify-between flex-1">
-        <textarea
-          value={messageText}
-          onChange={(e) => onMessageChange(e.target.value)}
-          onKeyPress={onKeyPress}
-          placeholder={
-            isAIChat
-              ? 'Type a message here....' 
-              : !(typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage)
-              ? 'Chat tidak tersedia...' 
-              : 'Type a message here....'
-          }
-          className="text-sm sm:text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1 w-full disabled:opacity-50 disabled:cursor-not-allowed"
-          rows="2"
-          disabled={(!canSendMessage && !isAIChat) || uploadingFile}
-        />
-        
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex gap-2 sm:gap-4 relative">
-            <div className="relative">
+    <>
+      {/* Media Upload Preview */}
+      <MediaUploadPreview
+        isOpen={showMediaPreview}
+        files={pendingFiles}
+        onClose={handleCloseMediaPreview}
+        onSend={handleSendMedia}
+        onRemoveFile={handleRemoveFile}
+        messageText={mediaPreviewText}
+        onMessageChange={setMediaPreviewText}
+        isUploading={isUploadingMedia}
+      />
+
+      {/* Chat Input */}
+      <div className="flex-shrink-0 flex flex-col gap-2.5 bg-white border-solid border-y-[0.25px] border-y-zinc-500 min-h-[100px] sm:h-[127px] px-4 sm:px-[19px] py-4 sm:py-[19px]">
+        <div className="flex flex-col justify-between flex-1">
+          <textarea
+            value={messageText}
+            onChange={(e) => onMessageChange(e.target.value)}
+            onKeyPress={onKeyPress}
+            placeholder={
+              isAIChat
+                ? 'Type a message here....' 
+                : !(typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage)
+                ? 'Chat tidak tersedia...' 
+                : 'Type a message here....'
+            }
+            className="text-sm sm:text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            rows="2"
+            disabled={(!canSendMessage && !isAIChat) || isUploadingMedia}
+          />
+          
+          <div className="flex justify-between items-center mt-2">
+            <div className="flex gap-2 sm:gap-4 relative">
+              <div className="relative">
+                <button 
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
+                  aria-label="Add attachment"
+                  disabled={!canUploadFiles || isUploadingMedia}
+                  onClick={() => setShowUploadDropdown(!showUploadDropdown)}
+                  title={!canUploadFiles ? (isAIChat ? "File upload not supported for AI assistant" : "Cannot upload files in current session") : "Upload files (Max 15MB)"}
+                >
+                  <span className="material-icons text-zinc-500 text-lg sm:text-xl">add_circle_outline</span>
+                </button>
+                <UploadDropdown 
+                  isOpen={showUploadDropdown && !isUploadingMedia && canUploadFiles} 
+                  onClose={() => setShowUploadDropdown(false)}
+                  onFilesSelect={handleFilesSelect}
+                />
+              </div>
+              
               <button 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
-                aria-label="Add attachment"
-                disabled={!canUploadFiles || uploadingFile}
-                onClick={() => setShowUploadDropdown(!showUploadDropdown)}
-                title={!canUploadFiles ? (isAIChat ? "File upload not supported for AI assistant" : "Cannot upload files in current session") : "Upload file"}
+                aria-label="Add emoji"
+                disabled={(!(typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage) && !isAIChat) || isUploadingMedia}
               >
-                {uploadingFile ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
-                ) : (
-                  <span className="material-icons text-zinc-500 text-lg sm:text-xl">add_circle_outline</span>
-                )}
+                <span className="material-icons text-zinc-500 text-lg sm:text-xl">sentiment_satisfied_alt</span>
               </button>
-              <UploadDropdown 
-                isOpen={showUploadDropdown && !uploadingFile && canUploadFiles} 
-                onClose={() => setShowUploadDropdown(false)}
-                onFileSelect={handleFileSelect}
-              />
             </div>
             
             <button 
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
-              aria-label="Add emoji"
-              disabled={(!(typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage) && !isAIChat) || uploadingFile}
+              onClick={onSendMessage}
+              disabled={!canSendWithText || isSending || isUploadingMedia}
+              className="p-2 disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors" 
+              aria-label="Send message"
+              title={!canSendWithText ? "Cannot send message" : "Send message"}
             >
-              <span className="material-icons text-zinc-500 text-lg sm:text-xl">sentiment_satisfied_alt</span>
+              {isSending || isUploadingMedia ? (
+                <div 
+                  className="animate-spin rounded-full h-5 w-5 border-b-2"
+                  style={{ borderColor: '#488BBA' }}
+                ></div>
+              ) : (
+                <span 
+                  className="material-icons text-lg sm:text-xl"
+                  style={{ color: canSendWithText ? '#488BBA' : '#999' }}
+                >
+                  send
+                </span>
+              )}
             </button>
           </div>
-          
-          <button 
-            onClick={onSendMessage}
-            disabled={!canSendWithText || isSending || uploadingFile}
-            className="p-2 disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors" 
-            aria-label="Send message"
-            title={!canSendWithText ? "Cannot send message" : "Send message"}
-          >
-            {isSending || uploadingFile ? (
-              <div 
-                className="animate-spin rounded-full h-5 w-5 border-b-2"
-                style={{ borderColor: '#488BBA' }}
-              ></div>
-            ) : (
-              <span 
-                className="material-icons text-lg sm:text-xl"
-                style={{ color: canSendWithText ? '#488BBA' : '#999' }}
-              >
-                send
-              </span>
-            )}
-          </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
-// ✅ UPDATED: Main chat component with typing status prop
+// ✅ UPDATED: Main chat component with infinite scroll and message status
 const ChatMain = ({
   selectedConversation,
   messages = [],
@@ -655,7 +864,11 @@ const ChatMain = ({
   isPsychologist = false,
   isEndingSession = false,
   onFileUpload,
-  typingStatus // ✅ NEW: Typing status prop
+  typingStatus,
+  // ✅ NEW: Infinite scroll props
+  onLoadMoreMessages,
+  hasMoreMessages,
+  isLoadingMoreMessages
 }) => {
   const messagesEndRef = useRef(null);
 
@@ -718,7 +931,7 @@ const ChatMain = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden w-full">
-      {/* ✅ UPDATED: Header with typing status */}
+      {/* Header with typing status */}
       <ChatHeader 
         selectedConversation={selectedConversation}
         onToggleSidebar={onToggleSidebar}
@@ -726,19 +939,22 @@ const ChatMain = ({
         isPsychologist={isPsychologist}
         onEndSession={onEndSession}
         isEndingSession={isEndingSession}
-        typingStatus={typingStatus} // ✅ NEW: Pass typing status
+        typingStatus={typingStatus}
       />
 
-      {/* Messages Area */}
+      {/* ✅ ENHANCED: Messages Area with infinite scroll */}
       <ChatMessages 
         messages={messages}
         selectedConversation={selectedConversation}
         getSessionStatus={getSessionStatus}
         onAIServiceSelection={onAIServiceSelection}
         messagesEndRef={messagesEndRef}
+        onLoadMore={onLoadMoreMessages}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingMore={isLoadingMoreMessages}
       />
 
-      {/* Input Area */}
+      {/* Enhanced Input Area with media upload */}
       <ChatInput 
         messageText={messageText}
         onMessageChange={onMessageChange}
