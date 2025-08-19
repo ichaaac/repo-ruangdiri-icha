@@ -1,4 +1,4 @@
-// src/pages/user/shared/ChatPage.jsx - Updated with Mark as Read Logic
+// src/pages/user/shared/ChatPage.jsx - FIXED: Missing props and function calls
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,6 @@ const ChatPage = () => {
   const [isEndingSession, setIsEndingSession] = useState(false);
 
   // Main chat hook
-// Main chat hook
   const {
     sessions,
     selectedSession,
@@ -25,7 +24,7 @@ const ChatPage = () => {
     isLoadingSessions,
     isLoadingMessages,
     isSendingMessage,
-    isUploadingFile, // ✅ NEW: File upload state
+    isUploadingFile,
     connectionStatus,
     isConnected,
     isAISession,
@@ -35,17 +34,19 @@ const ChatPage = () => {
     sendError,
     selectSession,
     sendCurrentMessage,
-    sendFile, // ✅ NEW: File upload function
+    sendFile,
     handleTyping,
     handleAIServiceSelection,
     handleBookingClick,
     canSendMessage,
-    canSendFile, // ✅ NEW: Check if can send file
+    canSendMessageWithText, // ✅ FIXED: This exists in useChats
+    canSendFile,
     getSessionStatus,
     refetchSessions,
     userDisplayData,
     hasMessages,
     isEmpty,
+    typingStatus,
     isPsychologist
   } = useChats();
 
@@ -56,11 +57,10 @@ const ChatPage = () => {
     }
   }, [selectedSession?.isTeamChat, handleAIServiceSelection]);
 
-  // ✅ Updated: Handle conversation selection dengan mark as read logic
+  // Handle conversation selection dengan mark as read logic
   const handleConversationSelect = useCallback(async (conversation) => {
     console.log('🔄 Selecting conversation:', conversation.name, 'hasUnread:', conversation.hasUnread);
     
-    // ✅ Gunakan selectSession yang sudah include mark as read logic
     await selectSession(conversation, true); // shouldMarkAsRead = true
     
     // Close sidebar on mobile
@@ -137,7 +137,7 @@ const ChatPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ✅ Auto mark as read ketika user focus ke window dan ada selected session
+  // Auto mark as read ketika user focus ke window dan ada selected session
   useEffect(() => {
     const handleWindowFocus = async () => {
       if (selectedSession && !selectedSession.isTeamChat && selectedSession.hasUnread) {
@@ -280,15 +280,17 @@ const ChatPage = () => {
             onAIServiceSelection={handleAIService}
             onToggleSidebar={toggleSidebar}
             onEndSession={handleEndSession}
-            canSendMessage={canSendMessage()}
+            canSendMessage={canSendMessage}
+            canSendMessageWithText={canSendMessageWithText}
             isSending={isSendingMessage}
-            isTyping={isTyping}
             connectionStatus={connectionStatus}
             getSessionStatus={getSessionStatus}
             onBookingClick={handleBookingClick}
             userType={userType}
             isPsychologist={isPsychologist}
             isEndingSession={isEndingSession}
+            onFileUpload={sendFile}
+            typingStatus={typingStatus} // ✅ NEW: Pass typing status
           />
         </div>
       </div>

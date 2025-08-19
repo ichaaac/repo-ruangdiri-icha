@@ -1,10 +1,9 @@
-// src/components/shared/chats/ChatMain.jsx - Updated with File Upload Support
+// src/components/shared/chats/ChatMain.jsx - FIXED: Typing indicator in header
 
 import React, { useEffect, useRef, useState } from 'react';
 import { formatChatDateHeader } from './utils/dateUtils';
-import { chatsApi } from './lib/chatsApi';
 
-// ✅ Updated Upload dropdown component with actual functionality
+// Upload dropdown component (unchanged)
 const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
   const dropdownRef = useRef(null);
   const imageInputRef = useRef(null);
@@ -39,17 +38,46 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validImageTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, WebP)');
+        return;
+      }
+      
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      
       onFileSelect(file, 'image');
     }
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const validFileTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'text/csv'
+      ];
+      
+      if (!validFileTypes.includes(file.type)) {
+        alert('Please select a valid document file (PDF, DOC, DOCX, TXT, CSV)');
+        return;
+      }
+      
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      
       onFileSelect(file, 'file');
     }
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   };
 
   if (!isOpen) return null;
@@ -59,23 +87,21 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
       ref={dropdownRef}
       className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-48 z-50"
     >
-      {/* Hidden file inputs */}
       <input
         ref={imageInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/gif,image/webp"
         onChange={handleImageChange}
         className="hidden"
       />
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.txt"
+        accept=".pdf,.doc,.docx,.txt,.csv"
         onChange={handleFileChange}
         className="hidden"
       />
       
-      {/* Menu options */}
       <button 
         onClick={handleImageSelect}
         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
@@ -88,16 +114,16 @@ const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
       >
         <span className="material-icons text-gray-600 text-sm">attach_file</span>
-        Upload File
+        Upload Document
       </button>
     </div>
   );
 };
 
-// Generate date header for messages using centralized utility
+// Generate date header for messages
 const generateDateHeader = formatChatDateHeader;
 
-// ✅ Updated Message bubble with attachment support
+// Message bubble component (unchanged)
 const MessageBubble = ({ 
   message, 
   isOwn = false, 
@@ -139,9 +165,9 @@ const MessageBubble = ({
                   <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
                     <span className="text-white text-xs">🤖</span>
                   </div>
-                ) : sender?.avatar ? (
+                ) : sender?.profilePicture ? (
                   <img
-                    src={sender.avatar}
+                    src={sender.profilePicture}
                     alt={sender.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -169,14 +195,12 @@ const MessageBubble = ({
                 : 'bg-white rounded-3xl'
               }
             `}>
-              {/* ✅ Text message */}
               {message && (
                 <p className="text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full">
                   {message}
                 </p>
               )}
 
-              {/* ✅ Image attachment */}
               {isImage && attachmentUrl && (
                 <div className="mt-2 w-full">
                   <img
@@ -191,7 +215,6 @@ const MessageBubble = ({
                 </div>
               )}
 
-              {/* ✅ Document/File attachment */}
               {!isImage && attachmentUrl && (
                 <div 
                   className="mt-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-full"
@@ -216,7 +239,6 @@ const MessageBubble = ({
                 </div>
               )}
 
-              {/* AI Service Options */}
               {showOptions && !isOwn && (
                 <div className="mt-3 w-full border-t border-gray-200 pt-3">
                   <div className="space-y-1">
@@ -239,7 +261,6 @@ const MessageBubble = ({
                 </div>
               )}
 
-              {/* AI Action Buttons */}
               {actions && actions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {actions.map((action, index) => (
@@ -268,8 +289,16 @@ const MessageBubble = ({
   );
 };
 
-// Chat header
-const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, isPsychologist, onEndSession, isEndingSession }) => {
+// ✅ FIXED: Chat header with typing indicator
+const ChatHeader = ({ 
+  selectedConversation, 
+  onToggleSidebar, 
+  connectionStatus, 
+  isPsychologist, 
+  onEndSession, 
+  isEndingSession,
+  typingStatus // ✅ NEW: Typing status from realtime
+}) => {
   return (
     <div className="flex-shrink-0 flex justify-between items-center px-4 sm:px-[30px] bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[70px]">
       <div className="flex gap-3 sm:gap-5 items-center min-w-0 flex-1">
@@ -309,29 +338,39 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
             {selectedConversation?.name || 'Unknown'}
           </h2>
           
-          {/* Status */}
+          {/* ✅ FIXED: Status with typing indicator priority */}
           {selectedConversation?.isTeamChat ? (
             <p className="text-xs font-light" style={{ color: '#488BBA' }}>
               🤖 AI Assistant - Always Available
             </p>
+          ) : typingStatus ? (
+            // ✅ NEW: Show typing status if someone is typing
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                <div className="w-1 h-1 bg-[#488BBA] rounded-full animate-bounce"></div>
+                <div className="w-1 h-1 bg-[#488BBA] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-1 h-1 bg-[#488BBA] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              </div>
+              <span className="text-xs font-light text-[#488BBA]">
+                {typingStatus}
+              </span>
+            </div>
           ) : (
+            // Regular status when no one is typing
             <div className="flex items-center gap-2">
               <p className={`text-xs font-light ${
                 connectionStatus === 'connected' ? 'text-green-500' : 'text-gray-500'
               }`}>
-                {connectionStatus === 'connected' ? 'Online' : 'Offline'}
+                {connectionStatus === 'connected' ? '🟢 Online' : '🔴 Offline'}
               </p>
               
-              {isPsychologist && selectedConversation?.userRole && (
+              {selectedConversation?.status && (
                 <>
                   <span className="text-gray-400">•</span>
                   <span className={`text-xs font-medium ${
-                    selectedConversation.userRole === 'client' ? 'text-green-600' : 'text-green-600'
-                  }`}
-                  style={{ 
-                    color: selectedConversation.userRole === 'client' ? '#488BBA' : '#10B981' 
-                  }}>
-                    {selectedConversation.userRole === 'client' ? 'Client' : 'Other'}
+                    selectedConversation.status === 'active' ? 'text-green-600' : 'text-yellow-600'
+                  }`}>
+                    {selectedConversation.status === 'active' ? 'Active Session' : selectedConversation.status}
                   </span>
                 </>
               )}
@@ -342,7 +381,7 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
 
       {/* Actions */}
       <div className="flex justify-start items-center gap-1 sm:gap-[5px] flex-shrink-0">
-        {/* END SESSION BUTTON - HANYA UNTUK PSYCHOLOGIST */}
+        {/* END SESSION BUTTON - ONLY FOR PSYCHOLOGIST */}
         {isPsychologist && !selectedConversation?.isTeamChat && selectedConversation?.isActive && (
           <button 
             className="px-2 sm:px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mr-1 sm:mr-2" 
@@ -356,9 +395,11 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
                 <span className="hidden sm:inline">Ending...</span>
               </div>
             ) : (
-              <span className="hidden sm:inline">End Session</span>
+              <>
+                <span className="hidden sm:inline">End Session</span>
+                <span className="sm:hidden material-icons text-sm">stop</span>
+              </>
             )}
-            <span className="sm:hidden material-icons text-sm">stop</span>
           </button>
         )}
 
@@ -385,10 +426,9 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
   );
 };
 
-// Chat messages area - Independent scroll
+// ✅ REMOVED: Typing indicator from messages area - now only in header
 const ChatMessages = ({ 
   messages = [], 
-  isTyping, 
   selectedConversation, 
   getSessionStatus, 
   onAIServiceSelection,
@@ -396,13 +436,11 @@ const ChatMessages = ({
 }) => {
   const sessionStatus = getSessionStatus?.() || 'ready';
 
-  // ✅ Generate dynamic date header based on first message
   const getDateHeader = () => {
     if (messages.length > 0) {
-      // Use the first message's timestamp for date header
       return generateDateHeader(messages[0]?.timestamp);
     }
-    return 'Hari ini'; // Default to today
+    return 'Hari ini';
   };
 
   return (
@@ -415,20 +453,18 @@ const ChatMessages = ({
         }}
       >
         <div className="flex flex-col gap-2.5 items-center py-4 min-h-full">
-          {/* ✅ Dynamic Date Header */}
           <time className="mb-4 text-xs font-light leading-5 text-center text-zinc-500">
             {getDateHeader()}
           </time>
 
-          {/* Session Status Warning */}
           {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md">
               <div className="flex items-center gap-2 text-center">
                 <span className="text-yellow-600">⚠️</span>
                 <div className="text-sm text-yellow-800">
-                  {sessionStatus === 'chat_disabled' && 'Chat akan aktif ketika sesi dimulai'}
-                  {sessionStatus === 'session_ended' && 'Chat tidak tersedia'}
-                  {sessionStatus === 'no_session' && 'Tidak ada sesi yang dipilih'}
+                  {sessionStatus === 'chat_disabled' && 'Chat will be enabled when session starts'}
+                  {sessionStatus === 'session_ended' && 'Chat session has ended'}
+                  {sessionStatus === 'no_session' && 'No session selected'}
                 </div>
               </div>
             </div>
@@ -453,53 +489,14 @@ const ChatMessages = ({
               />
             ))}
 
-            {/* Typing Indicator */}
-            {isTyping && !selectedConversation?.isTeamChat && (
-              <div className="w-full px-4 sm:px-5">
-                <div className="flex gap-2 items-start">
-                  <div className="w-[27px] h-[54px] flex items-center">
-                    <div className="w-[27px] h-[27px] rounded-full overflow-hidden">
-                      {selectedConversation?.avatar ? (
-                        <img
-                          src={selectedConversation.avatar}
-                          alt={selectedConversation.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = '/empty-profile.svg';
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src="/empty-profile.svg"
-                          alt="Profile"
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1.5 items-start">
-                    <p className="text-xs font-light text-zinc-500">
-                      {selectedConversation?.name || 'Unknown'}
-                    </p>
-                    <div className="bg-white rounded-3xl px-4 py-3 min-h-[47px] flex items-center">
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
+            {/* ✅ REMOVED: Typing indicator from here - now in header only */}
+            
             {/* Auto-scroll anchor */}
             <div ref={messagesEndRef} style={{ height: '1px', visibility: 'hidden' }} />
           </div>
         </div>
       </div>
       
-      {/* Messages Scrollbar Styles */}
       <style jsx>{`
         .messages-scroll::-webkit-scrollbar {
           width: 14px;
@@ -528,26 +525,24 @@ const ChatMessages = ({
   );
 };
 
-// ✅ Updated Chat input area with file upload support
+// Chat input component (unchanged)
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
   onSendMessage, 
   canSendMessage, 
+  canSendMessageWithText,
   isSending,
   isAIChat,
   onKeyPress,
-  onFileUpload
+  onFileUpload,
+  selectedConversation
 }) => {
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
 
-  // ✅ Handle file selection
   const handleFileSelect = async (file, fileType) => {
     try {
-      // Validate file
-      chatsApi.validateFile(file);
-      
       setUploadingFile(true);
       await onFileUpload(file, fileType);
       
@@ -559,6 +554,9 @@ const ChatInput = ({
     }
   };
 
+  const canUploadFiles = !isAIChat && (typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage);
+  const canSendWithText = typeof canSendMessageWithText === 'function' ? canSendMessageWithText() : canSendMessageWithText;
+
   return (
     <div className="flex-shrink-0 flex flex-col gap-2.5 bg-white border-solid border-y-[0.25px] border-y-zinc-500 min-h-[100px] sm:h-[127px] px-4 sm:px-[19px] py-4 sm:py-[19px]">
       <div className="flex flex-col justify-between flex-1">
@@ -569,7 +567,7 @@ const ChatInput = ({
           placeholder={
             isAIChat
               ? 'Type a message here....' 
-              : !canSendMessage 
+              : !(typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage)
               ? 'Chat tidak tersedia...' 
               : 'Type a message here....'
           }
@@ -584,8 +582,9 @@ const ChatInput = ({
               <button 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
                 aria-label="Add attachment"
-                disabled={(!canSendMessage && !isAIChat) || uploadingFile}
+                disabled={!canUploadFiles || uploadingFile}
                 onClick={() => setShowUploadDropdown(!showUploadDropdown)}
+                title={!canUploadFiles ? (isAIChat ? "File upload not supported for AI assistant" : "Cannot upload files in current session") : "Upload file"}
               >
                 {uploadingFile ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
@@ -594,15 +593,16 @@ const ChatInput = ({
                 )}
               </button>
               <UploadDropdown 
-                isOpen={showUploadDropdown && !uploadingFile} 
+                isOpen={showUploadDropdown && !uploadingFile && canUploadFiles} 
                 onClose={() => setShowUploadDropdown(false)}
                 onFileSelect={handleFileSelect}
               />
             </div>
+            
             <button 
               className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
               aria-label="Add emoji"
-              disabled={(!canSendMessage && !isAIChat) || uploadingFile}
+              disabled={(!(typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage) && !isAIChat) || uploadingFile}
             >
               <span className="material-icons text-zinc-500 text-lg sm:text-xl">sentiment_satisfied_alt</span>
             </button>
@@ -610,9 +610,10 @@ const ChatInput = ({
           
           <button 
             onClick={onSendMessage}
-            disabled={(!canSendMessage && !isAIChat) || !messageText.trim() || isSending || uploadingFile}
+            disabled={!canSendWithText || isSending || uploadingFile}
             className="p-2 disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors" 
             aria-label="Send message"
+            title={!canSendWithText ? "Cannot send message" : "Send message"}
           >
             {isSending || uploadingFile ? (
               <div 
@@ -622,7 +623,7 @@ const ChatInput = ({
             ) : (
               <span 
                 className="material-icons text-lg sm:text-xl"
-                style={{ color: '#488BBA' }}
+                style={{ color: canSendWithText ? '#488BBA' : '#999' }}
               >
                 send
               </span>
@@ -634,7 +635,7 @@ const ChatInput = ({
   );
 };
 
-// ✅ Updated Main chat component with file upload support
+// ✅ UPDATED: Main chat component with typing status prop
 const ChatMain = ({
   selectedConversation,
   messages = [],
@@ -642,9 +643,9 @@ const ChatMain = ({
   onMessageChange,
   onSendMessage,
   onAIServiceSelection,
-  canSendMessage = false,
+  canSendMessage,
+  canSendMessageWithText,
   isSending = false,
-  isTyping = false,
   connectionStatus = 'disconnected',
   getSessionStatus,
   onBookingClick,
@@ -653,28 +654,27 @@ const ChatMain = ({
   userType,
   isPsychologist = false,
   isEndingSession = false,
-  onFileUpload // ✅ New prop for file upload
+  onFileUpload,
+  typingStatus // ✅ NEW: Typing status prop
 }) => {
   const messagesEndRef = useRef(null);
 
-  // Handle key press for sending messages
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (messageText.trim() && (canSendMessage || selectedConversation?.isTeamChat)) {
+      const canSendWithText = typeof canSendMessageWithText === 'function' ? canSendMessageWithText() : canSendMessageWithText;
+      if (canSendWithText) {
         onSendMessage();
       }
     }
   };
 
-  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
 
-  // Empty state when no conversation selected
   if (!selectedConversation) {
     return (
       <div className="h-full flex items-center justify-center bg-zinc-100 w-full overflow-hidden">
@@ -692,7 +692,7 @@ const ChatMain = ({
           
           <div className="bg-white rounded-lg p-4 sm:p-6 shadow-sm border">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-green-500">🔒</span>
+              <span className="text-green-500">🔐</span>
               <span className="font-medium text-gray-800 text-sm sm:text-base">End-to-end encrypted</span>
             </div>
             <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-4">
@@ -714,11 +714,11 @@ const ChatMain = ({
     );
   }
 
-  const isAIChat = selectedConversation.isTeamChat || getSessionStatus?.() === 'ai_chat';
+  const isAIChat = selectedConversation?.isTeamChat || (getSessionStatus && getSessionStatus() === 'ai_chat');
 
   return (
     <div className="h-full flex flex-col overflow-hidden w-full">
-      {/* Header - Fixed */}
+      {/* ✅ UPDATED: Header with typing status */}
       <ChatHeader 
         selectedConversation={selectedConversation}
         onToggleSidebar={onToggleSidebar}
@@ -726,28 +726,30 @@ const ChatMain = ({
         isPsychologist={isPsychologist}
         onEndSession={onEndSession}
         isEndingSession={isEndingSession}
+        typingStatus={typingStatus} // ✅ NEW: Pass typing status
       />
 
-      {/* Messages Area - Independent Scrollable */}
+      {/* Messages Area */}
       <ChatMessages 
         messages={messages}
-        isTyping={isTyping}
         selectedConversation={selectedConversation}
         getSessionStatus={getSessionStatus}
         onAIServiceSelection={onAIServiceSelection}
         messagesEndRef={messagesEndRef}
       />
 
-      {/* Input Area - Fixed */}
+      {/* Input Area */}
       <ChatInput 
         messageText={messageText}
         onMessageChange={onMessageChange}
         onSendMessage={onSendMessage}
         canSendMessage={canSendMessage}
+        canSendMessageWithText={canSendMessageWithText}
         isSending={isSending}
         isAIChat={isAIChat}
         onKeyPress={handleKeyPress}
         onFileUpload={onFileUpload}
+        selectedConversation={selectedConversation}
       />
     </div>
   );

@@ -1,11 +1,11 @@
-// src/components/shared/chats/hooks/useMessages.js - Updated with File Upload Support
+// src/components/shared/chats/hooks/useMessages.js - FIXED: Infinite Rendering
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
 import { getCurrentTime, getCurrentTimestamp } from '../utils/dateUtils';
 
-// Get current user ID from useAuth context
+// Get current user ID
 const getCurrentUserId = () => {
   try {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -15,13 +15,12 @@ const getCurrentUserId = () => {
   }
 };
 
-// ✅ NEW: Accept ably instance for real-time messaging
 export const useMessages = (sessionId, ably = null) => {
   const queryClient = useQueryClient();
   const [messageText, setMessageText] = useState('');
   const [cursor, setCursor] = useState(null);
 
-  // ✅ Updated: Get messages with cursor pagination
+  // Get messages query
   const messagesQuery = useQuery({
     queryKey: ['chat-messages', sessionId],
     queryFn: () => chatsApi.getMessages(sessionId, cursor, 10),
@@ -38,10 +37,10 @@ export const useMessages = (sessionId, ably = null) => {
     refetchOnMount: true
   });
 
-  // ✅ UPDATED: Send text message mutation with Ably support
+  // Send text message mutation
   const sendMutation = useMutation({
     mutationFn: async ({ sessionId, content }) => {
-      // ✅ Try sending via Ably first for real-time delivery
+      // Try broadcasting via Ably first
       if (ably && sessionId !== 'team-ruangdiri') {
         const currentUserId = getCurrentUserId();
         const messageData = {
@@ -52,14 +51,16 @@ export const useMessages = (sessionId, ably = null) => {
           timestamp: new Date().toISOString()
         };
         
-        // Try Ably first
-        const sentViaAbly = await ably.sendMessageViaAbly(sessionId, messageData);
-        if (sentViaAbly) {
-          console.log('📤 Message sent via Ably');
+        try {
+          const sentViaAbly = await ably.sendMessageViaAbly(sessionId, messageData);
+          if (sentViaAbly) {
+            console.log('📤 Message broadcasted via Ably');
+          }
+        } catch (error) {
+          console.warn('⚠️ Ably broadcast failed, API will handle:', error);
         }
       }
       
-      // Always send via API for persistence 
       return chatsApi.sendMessage(sessionId, content);
     },
     onMutate: async ({ sessionId, content }) => {
@@ -146,10 +147,9 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // ✅ UPDATED: Send file message mutation with Ably support
+  // Send file mutation
   const sendFileMutation = useMutation({
     mutationFn: async ({ sessionId, file, messageType }) => {
-      // ✅ For files, we only use API since Ably doesn't handle file uploads
       return chatsApi.sendFileMessage(sessionId, file, messageType);
     },
     onMutate: async ({ sessionId, file, messageType }) => {
@@ -217,7 +217,10 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // Send text message function
+  // ✅ FIXED: Memoize current messages to prevent re-renders
+  const currentMessages = useMemo(() => messagesQuery.data || [], [messagesQuery.data]);
+
+  // ✅ FIXED: Memoize send message function
   const sendMessage = useCallback(async (content) => {
     if (!sessionId || !content?.trim()) {
       console.warn('Cannot send message: missing sessionId or content');
@@ -233,9 +236,9 @@ export const useMessages = (sessionId, ably = null) => {
       console.error('Send message failed:', error);
       throw error;
     }
-  }, [sessionId, sendMutation]);
+  }, [sessionId, sendMutation.mutateAsync]);
 
-  // ✅ NEW: Send file function
+  // ✅ FIXED: Memoize send file function
   const sendFile = useCallback(async (file, fileType = 'file') => {
     if (!sessionId || !file) {
       console.warn('Cannot send file: missing sessionId or file');
@@ -247,10 +250,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
 
     try {
-      // Validate file first
       chatsApi.validateFile(file);
-      
-      // Determine message type based on file
       const messageType = chatsApi.getFileTypeCategory(file);
       
       await sendFileMutation.mutateAsync({ 
@@ -262,9 +262,9 @@ export const useMessages = (sessionId, ably = null) => {
       console.error('Send file failed:', error);
       throw error;
     }
-  }, [sessionId, sendFileMutation]);
+  }, [sessionId, sendFileMutation.mutateAsync]);
 
-  // Send current message
+  // ✅ FIXED: Memoize send current message function
   const sendCurrentMessage = useCallback(async () => {
     if (!messageText.trim()) {
       console.warn('Cannot send empty message');
@@ -275,26 +275,24 @@ export const useMessages = (sessionId, ably = null) => {
     await sendMessage(currentMessage);
   }, [messageText, sendMessage]);
 
-  // Mark as read
+  // ✅ FIXED: Memoize mark as read function
   const markAsRead = useCallback(() => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
-    
     markAsReadMutation.mutate(sessionId);
-  }, [sessionId, markAsReadMutation]);
+  }, [sessionId, markAsReadMutation.mutate]);
 
-  // Add real-time message
+  // ✅ FIXED: Memoize add message function
   const addMessage = useCallback((message) => {
     if (!sessionId) return;
 
     queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
       const exists = old.some(msg => msg.id === message.id);
       if (exists) return old;
-      
       return [...old, message];
     });
   }, [sessionId, queryClient]);
 
-  // Handle AI service selection
+  // ✅ FIXED: Memoize AI service selection handler
   const handleAIServiceSelection = useCallback(async (option) => {
     if (sessionId !== 'team-ruangdiri') return;
 
@@ -345,60 +343,91 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, addMessage]);
 
-  // ✅ Updated: Check if can send message based on session status
+  // ✅ FIXED: Memoize canSendMessage function
   const canSendMessage = useCallback((session) => {
-    if (!sessionId || !messageText.trim()) return false;
+    if (!sessionId) {
+      console.log('❌ No sessionId');
+      return false;
+    }
     
     // AI Team RuangDiri always available
-    if (sessionId === 'team-ruangdiri') return true;
-    
-    // For counseling sessions - check status properly
-    if (session) {
-      if (session.status === 'completed') return false;
-      if (session.status === 'active' && session.isActive) return true;
-      return false;
+    if (sessionId === 'team-ruangdiri') {
+      console.log('✅ Team RuangDiri - always available');
+      return true;
     }
     
-    return false;
-  }, [sessionId, messageText]);
-
-  // ✅ Check if can send file
-  const canSendFile = useCallback((session) => {
-    if (!sessionId) return false;
-    
-    // AI Team RuangDiri doesn't support files
-    if (sessionId === 'team-ruangdiri') return false;
-    
-    // For counseling sessions - check status properly
+    // For counseling sessions
     if (session) {
-      if (session.status === 'completed') return false;
-      if (session.status === 'active' && session.isActive) return true;
-      return false;
+      // Better status validation
+      const isActiveSession = session.status === 'active' && session.isActive === true;
+      const isChatEnabled = session.isChatEnabled === true;
+      const isReadyStatus = session.status === 'active' || session.status === 'ready';
+      
+      const canSend = isActiveSession || isChatEnabled || isReadyStatus;
+      
+      console.log('🔍 Session check:', {
+        sessionId: session.sessionId,
+        status: session.status,
+        isActive: session.isActive,
+        isChatEnabled: session.isChatEnabled,
+        isActiveSession,
+        isChatEnabled: isChatEnabled,
+        isReadyStatus,
+        result: canSend
+      });
+      
+      return canSend;
     }
     
+    console.log('❌ No session data');
     return false;
   }, [sessionId]);
 
-  // ✅ Updated: Get session status based on backend response
+  // ✅ FIXED: Memoize canSendFile function
+  const canSendFile = useCallback((session) => {
+    if (!sessionId) return false;
+    if (sessionId === 'team-ruangdiri') return false; // AI doesn't support files
+    
+    // Use same logic as canSendMessage for file uploads
+    return canSendMessage(session);
+  }, [sessionId, canSendMessage]);
+
+  // ✅ FIXED: Memoize canSendMessageWithText function
+  const canSendMessageWithText = useCallback((session) => {
+    const hasText = !!messageText?.trim();
+    const canSend = canSendMessage(session);
+    
+    console.log('🔍 canSendMessageWithText:', {
+      hasText,
+      canSend,
+      messageTextLength: messageText?.length || 0,
+      result: hasText && canSend
+    });
+    
+    return hasText && canSend;
+  }, [messageText, canSendMessage]);
+
+  // ✅ FIXED: Memoize getSessionStatus function
   const getSessionStatus = useCallback((session) => {
     if (!sessionId) return 'no_session';
     if (sessionId === 'team-ruangdiri') return 'ai_chat';
     if (!session) return 'no_session';
     
+    // Better status mapping
     if (session.status === 'completed') return 'session_ended';
-    if (session.status === 'pending' && !session.isActive) return 'chat_disabled';
-    if (session.status === 'active' && session.isActive) return 'ready';
-    if (session.status === 'active' && !session.isActive) return 'chat_disabled';
+    if (session.status === 'active' && session.isActive === true) return 'ready';
+    if (session.isChatEnabled === true) return 'ready'; 
+    if (session.status === 'pending') return 'chat_disabled';
+    if (session.status === 'ready') return 'ready';
     
     return 'chat_disabled';
   }, [sessionId]);
 
-  // ✅ Load more messages function
+  // ✅ FIXED: Memoize loadMoreMessages function
   const loadMoreMessages = useCallback(async () => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
     
     try {
-      const currentMessages = messagesQuery.data || [];
       if (currentMessages.length === 0) return;
       
       const firstMessage = currentMessages[0];
@@ -418,36 +447,32 @@ export const useMessages = (sessionId, ably = null) => {
     } catch (error) {
       console.error('Failed to load more messages:', error);
     }
-  }, [sessionId, messagesQuery.data, queryClient]);
+  }, [sessionId, currentMessages, queryClient]);
 
-  // Memoized messages
-  const messages = useMemo(() => {
-    return messagesQuery.data || [];
-  }, [messagesQuery.data]);
-
-  // Return memoized object
+  // ✅ FIXED: Memoize return object to prevent re-renders
   return useMemo(() => ({
-    messages,
+    messages: currentMessages,
     messageText,
     setMessageText,
     sendMessage,
-    sendFile, // ✅ NEW: File upload function
+    sendFile,
     sendCurrentMessage,
     markAsRead,
     addMessage,
     handleAIServiceSelection,
     canSendMessage,
-    canSendFile, // ✅ NEW: Check if can send file
+    canSendFile,
+    canSendMessageWithText,
     getSessionStatus,
     loadMoreMessages,
     isLoading: messagesQuery.isLoading,
-    isSending: sendMutation.isPending || sendFileMutation.isPending, // ✅ Include file sending state
-    isUploadingFile: sendFileMutation.isPending, // ✅ NEW: Specific file upload state
+    isSending: sendMutation.isPending || sendFileMutation.isPending,
+    isUploadingFile: sendFileMutation.isPending,
     error: messagesQuery.error || sendMutation.error || sendFileMutation.error,
     refetch: messagesQuery.refetch,
     hasMore: cursor !== null
   }), [
-    messages,
+    currentMessages,
     messageText,
     sendMessage,
     sendFile,
@@ -457,15 +482,16 @@ export const useMessages = (sessionId, ably = null) => {
     handleAIServiceSelection,
     canSendMessage,
     canSendFile,
+    canSendMessageWithText,
     getSessionStatus,
     loadMoreMessages,
     messagesQuery.isLoading,
     messagesQuery.error,
+    messagesQuery.refetch,
     sendMutation.isPending,
     sendMutation.error,
     sendFileMutation.isPending,
     sendFileMutation.error,
-    messagesQuery.refetch,
     cursor
   ]);
 };
