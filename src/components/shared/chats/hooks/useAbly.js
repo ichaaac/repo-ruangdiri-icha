@@ -1,7 +1,6 @@
-// src/components/shared/chats/hooks/useAbly.js - Complete Ably Hook with AI Support
+// src/components/shared/chats/hooks/useAbly.js - Fixed for Completed Sessions
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import Ably from 'ably';
 import { chatsApi } from '../lib/chatsApi';
 
 export const useAbly = () => {
@@ -48,7 +47,13 @@ export const useAbly = () => {
       }
 
       const tokenData = await chatsApi.getAblyToken(sessionId);
-      if (!tokenData) throw new Error('No Ably token received');
+      
+      // ✅ Handle case where token is null (completed/inactive sessions)
+      if (!tokenData) {
+        console.log('🔒 No Ably token available (session may be completed/inactive), setting disconnected state');
+        setConnectionStatus('disconnected');
+        return false;
+      }
 
       const ably = new Ably.Realtime({
         authCallback: (tokenParams, callback) => {

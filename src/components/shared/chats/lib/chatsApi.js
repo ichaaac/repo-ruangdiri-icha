@@ -1,104 +1,196 @@
-// src/components/shared/chats/lib/chatsApi.js - With Fixed Timezone Handling
+// src/components/shared/chats/lib/chatsApi.js - Updated for Backend Integration with dayjs
 
 import { apiClient } from "../../../../lib/api.js";
+import { formatChatTime, getCurrentTime, getCurrentTimestamp, isMoreRecent } from "../utils/dateUtils";
 
-// Fix timezone: Extract time directly from ISO string tanpa konversi
-const extractTimeFromISO = (isoString) => {
-  // Ambil jam:menit langsung dari string "2025-08-12T15:52:33.572Z"
-  const timePart = isoString.split('T')[1]; // "15:52:33.572Z"
-  const hourMinute = timePart.substring(0, 5); // "15:52"
-  return hourMinute;
+// Get current user safely
+const getCurrentUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
 };
 
 export const chatsApi = {
-  // Get active chat sessions - supports both regular users and psychologists
-  async getActiveSessions() {
+  // Get chat histories (for sidebar) - Fixed duplicate sessions
+  async getChatHistories() {
     try {
-      const response = await apiClient.get('/chat/sessions/active');
+      console.log('📋 getChatHistories - Starting request...');
+      const response = await apiClient.get('/chat/histories');
+      console.log('📋 getChatHistories - Response received:', response.data);
       
       if (response.data?.status === 'success') {
-        const sessions = response.data.data.map(session => ({
-          id: session.id,
-          sessionId: session.id,
-          name: session.psychologist?.fullName || session.client?.fullName || session.clientName || 'Chat Session',
-          avatar: session.psychologist?.profilePicture || session.client?.profilePicture || '/empty-profile.svg',
-          lastMessage: session.lastMessage || 'Tap to start chatting',
-          time: extractTimeFromISO(session.scheduledAt || session.updatedAt || session.createdAt),
-          isActive: session.isActive,
-          isChatEnabled: session.isChatEnabled,
-          isOnline: session.isActive && session.isChatEnabled,
-          status: session.status,
-          psychologist: session.psychologist,
-          client: session.client,
-          clientId: session.clientId,
-          psychologistId: session.psychologistId,
-          counselingId: session.counselingId,
-          scheduledAt: session.scheduledAt,
-          isTeamChat: false,
-          userRole: session.client?.role || 'user'
-        }));
+        const currentUser = getCurrentUser();
+        const userRole = currentUser?.role;
+        const currentUserId = currentUser?.id;
+        
+        console.log('📋 getChatHistories - Current user:', { currentUser, userRole, currentUserId });
+        console.log('📋 getChatHistories - Raw data:', response.data.data);
+        
+        // ✅ Group by sessionId and get latest message
+        const sessionMap = new Map();
+        
+        response.data.data.forEach((item, index) => {
+          const sessionId = item.sessionId;
+          const lastMessage = item.lastMessage;
+          
+          console.log(`📋 Processing item ${index}:`, {
+            sessionId,
+            lastMessage: lastMessage?.message || 'null',
+            createdAt: lastMessage?.createdAt || item.createdAt
+          });
+          
+          if (!sessionMap.has(sessionId)) {
+            sessionMap.set(sessionId, item);
+          } else {
+            // Compare and keep the latest
+            const existing = sessionMap.get(sessionId);
+            const existingTime = existing.lastMessage?.createdAt || existing.createdAt;
+            const currentTime = lastMessage?.createdAt || item.createdAt;
+            
+            // ✅ Only update if we have a valid time comparison
+            if (existingTime && currentTime && isMoreRecent(currentTime, existingTime)) {
+              sessionMap.set(sessionId, item);
+            } else if (!existingTime && currentTime) {
+              // If existing has no time but current has time, prefer current
+              sessionMap.set(sessionId, item);
+            } else if (lastMessage?.message && !existing.lastMessage?.message) {
+              // If current has message but existing doesn't, prefer current
+              sessionMap.set(sessionId, item);
+            }
+          }
+        });
+        
+        console.log('📋 Unique sessions after grouping:', sessionMap.size);
+        
+        const sessions = Array.from(sessionMap.values()).map(session => {
+          const lastMessage = session.lastMessage;
+          let displayName, displayAvatar;
+          
+          // ✅ Handle case where backend doesn't return client/psychologist objects
+          if (lastMessage && lastMessage.senderFullName) {
+            // Use lastMessage sender info if available
+            displayName = lastMessage.senderFullName;
+            displayAvatar = lastMessage.senderProfilePicture;
+          } else {
+            // ✅ Fallback for sessions without lastMessage (pending sessions)
+            if (userRole === 'psychologist') {
+              // Psychologist sees client, but we don't have client object from backend
+              displayName = `Client ${session.clientId.slice(-8)}`; // Show last 8 chars of client ID
+              displayAvatar = null;
+            } else {
+              // ✅ Client sees psychologist, but we don't have psychologist object from backend  
+              // For client view, we want to show psychologist name, not client name
+              displayName = `Psychologist ${session.psychologistId.slice(-8)}`; // Show last 8 chars of psychologist ID
+              displayAvatar = null;
+            }
+          }
 
-        // Always add Team RuangDiri session first (AI integrated helper)
+          console.log(`📋 Session ${session.sessionId}:`, {
+            displayName,
+            userRole,
+            lastMessageSender: lastMessage?.senderFullName,
+            status: session.status
+          });
+
+          // ✅ Check unread messages - handle null lastMessage and don't count own messages as unread
+          const hasUnreadMessage = lastMessage && 
+            lastMessage.message && 
+            lastMessage.senderId !== currentUserId && // ✅ Not from current user
+            (!lastMessage.isRead || lastMessage.isRead === false); // ✅ Explicitly check isRead
+
+          console.log(`📋 Unread check for ${session.sessionId}:`, {
+            hasLastMessage: !!lastMessage,
+            hasMessage: !!lastMessage?.message,
+            isNotFromMe: lastMessage?.senderId !== currentUserId,
+            isUnread: !lastMessage?.isRead || lastMessage?.isRead === false,
+            finalResult: hasUnreadMessage
+          });
+
+          // ✅ Use formatChatTime for proper time display
+          const timeToDisplay = lastMessage?.createdAt ? 
+            formatChatTime(lastMessage.createdAt) : 
+            formatChatTime(session.createdAt);
+
+          return {
+            id: session.sessionId,
+            sessionId: session.sessionId,
+            name: displayName,
+            avatar: displayAvatar,
+            lastMessage: lastMessage?.message || (session.status === 'pending' ? 'Waiting for session to start...' : 'Tap to start chatting'),
+            time: timeToDisplay,
+            isActive: session.isActive,
+            isChatEnabled: session.status === 'active' || session.status === 'pending',
+            status: session.status,
+            isTeamChat: false,
+            unreadCount: hasUnreadMessage ? 1 : 0,
+            hasUnread: hasUnreadMessage,
+            // ✅ Store IDs for reference
+            clientId: session.clientId,
+            psychologistId: session.psychologistId
+          };
+        });
+
+        console.log('📋 Processed sessions:', sessions);
+
+        // Add Team RuangDiri session
         const teamSession = {
           id: 'team-ruangdiri',
           sessionId: 'team-ruangdiri',
           name: 'Team RuangDiri',
           avatar: null,
           lastMessage: 'AI Assistant - Always available',
-          time: new Date().toLocaleTimeString("id-ID", {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
+          time: getCurrentTime(),
           isActive: true,
           isChatEnabled: true,
           isTeamChat: true,
-          isOnline: true,
           status: 'active',
-          isAIAssistant: true
+          unreadCount: 0,
+          hasUnread: false
         };
 
-        return [teamSession, ...sessions];
+        const finalResult = [teamSession, ...sessions];
+        console.log('📋 Final result with team session:', finalResult);
+        
+        return finalResult;
       }
       
-      throw new Error(response.data?.message || 'Failed to fetch sessions');
+      console.log('❌ getChatHistories - Response status not success:', response.data);
+      throw new Error(response.data?.message || 'Failed to fetch chat histories');
     } catch (error) {
-      console.error('Error fetching active sessions:', error);
+      console.error('Error fetching chat histories:', error);
       
-      // Always return team session as fallback
+      // Return at least team session on error
       return [{
         id: 'team-ruangdiri',
         sessionId: 'team-ruangdiri',
         name: 'Team RuangDiri',
         avatar: null,
         lastMessage: 'AI Assistant - Always available',
-        time: new Date().toLocaleTimeString("id-ID", {
-          hour: '2-digit',
-          minute: '2-digit'
-        }),
+        time: getCurrentTime(),
         isActive: true,
         isChatEnabled: true,
         isTeamChat: true,
         isOnline: true,
         status: 'active',
-        isAIAssistant: true
+        isAIAssistant: true,
+        unreadCount: 0,
+        hasUnread: false
       }];
     }
   },
 
-  // Get chat history with AI assistant support
-  async getMessages(sessionId) {
+  // Get messages (for chat main) - Fixed time format
+  async getMessages(sessionId, cursor = null, limit = 10) {
     try {
-      // Handle AI Team RuangDiri session with welcome message and options
       if (sessionId === 'team-ruangdiri') {
         return [
           {
             id: '1',
             text: "Hello, roomies!\n\nSelamat datang di Ruang Bantu.\nApakah ada yang bisa kami bantu?\nUntuk mempermudah keperluan roomies,\nkamu dapat memilih tiga opsi di bawah ini:",
-            time: new Date().toLocaleTimeString("id-ID", {
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            timestamp: new Date().toISOString(),
+            time: getCurrentTime(),
+            timestamp: getCurrentTimestamp(),
             isUser: false,
             sender: {
               id: 'team-ai',
@@ -106,36 +198,36 @@ export const chatsApi = {
               role: 'ai_assistant'
             },
             messageType: 'ai_welcome',
-            showOptions: true,
-            isAIMessage: true
+            showOptions: true
           }
         ];
       }
 
-      const response = await apiClient.get('/chat/history', {
-        params: {
-          sessionId,
-          limit: 50
-        }
-      });
+      const params = { sessionId, limit };
+      if (cursor) params.cursor = cursor;
+
+      const response = await apiClient.get('/chat/history', { params });
       
       if (response.data?.status === 'success') {
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
         return response.data.data.map(msg => ({
           id: msg.id,
           sessionId: msg.sessionId,
           text: msg.message,
-          time: extractTimeFromISO(msg.createdAt),
-          timestamp: msg.createdAt,
-          isUser: msg.sender?.role !== 'psychologist' && msg.sender?.role !== 'ai_assistant',
+          time: formatChatTime(msg.createdAt), // ✅ Use formatChatTime for consistent display
+          timestamp: msg.createdAt, // ✅ Keep original timestamp from backend
+          isUser: msg.senderId === currentUserId,
           sender: {
             id: msg.sender?.id || msg.senderId,
-            name: msg.sender?.fullName || 'Unknown',
-            role: msg.sender?.role || 'user'
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            role: msg.sender?.role || 'user',
+            profilePicture: msg.sender?.profilePicture
           },
           senderId: msg.senderId,
-          messageType: msg.messageType,
-          isRead: msg.isRead,
-          isAutomated: msg.messageType === 'automated'
+          messageType: msg.messageType || 'text',
+          isRead: msg.isRead
         }));
       }
       
@@ -146,19 +238,15 @@ export const chatsApi = {
     }
   },
 
-  // Send message with AI assistant support
+  // Send message
   async sendMessage(sessionId, content) {
     try {
-      // Handle AI Team RuangDiri session
       if (sessionId === 'team-ruangdiri') {
-        const userMessage = {
+        return {
           id: Date.now().toString(),
           text: content,
-          time: new Date().toLocaleTimeString("id-ID", {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          timestamp: new Date().toISOString(),
+          time: getCurrentTime(),
+          timestamp: getCurrentTimestamp(),
           isUser: true,
           sender: {
             id: 'current-user',
@@ -167,8 +255,6 @@ export const chatsApi = {
           },
           messageType: 'text'
         };
-
-        return userMessage;
       }
 
       const response = await apiClient.post('/chat/messages', {
@@ -179,18 +265,23 @@ export const chatsApi = {
       
       if (response.data?.status === 'success') {
         const msg = response.data.data;
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
         return {
           id: msg.id,
           text: msg.message,
-          time: extractTimeFromISO(msg.createdAt),
-          timestamp: msg.createdAt,
-          isUser: msg.sender?.role !== 'psychologist',
+          time: formatChatTime(msg.createdAt), // ✅ Use formatChatTime
+          timestamp: msg.createdAt, // ✅ Keep original backend timestamp
+          isUser: msg.senderId === currentUserId,
           sender: {
             id: msg.sender?.id || msg.senderId,
-            name: msg.sender?.fullName || 'You',
-            role: msg.sender?.role || 'user'
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            role: msg.sender?.role || 'user',
+            profilePicture: msg.sender?.profilePicture
           },
-          messageType: msg.messageType
+          messageType: msg.messageType || 'text',
+          isRead: msg.isRead
         };
       }
       
@@ -201,81 +292,88 @@ export const chatsApi = {
     }
   },
 
-  // Generate AI response based on user input
+  // ✅ Mark as read - Updated endpoint
+  async markAsRead(sessionId) {
+    if (sessionId === 'team-ruangdiri') return;
+
+    try {
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/read`);
+      
+      if (response.data?.status === 'success') {
+        console.log('✅ Marked session as read:', sessionId);
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to mark as read');
+    } catch (error) {
+      console.error('❌ Error marking as read:', error);
+      throw error;
+    }
+  },
+
+  // Get active sessions - DEPRECATED, use getChatHistories instead
+  async getActiveSessions() {
+    console.warn('⚠️ getActiveSessions is deprecated, use getChatHistories instead');
+    return this.getChatHistories();
+  },
+
+  // End session
+  async endSession(sessionId) {
+    try {
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/end`);
+      
+      if (response.data?.status === 'success') {
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to end session');
+    } catch (error) {
+      console.error('Error ending session:', error);
+      throw error;
+    }
+  },
+
+  // AI response generator
   generateAIResponse(userInput) {
     const input = userInput.toLowerCase();
     
-    // AI response patterns for Tim RuangDiri
-    if (input.includes('halo') || input.includes('hai') || input.includes('hello') || input.includes('hi')) {
-      return "Halo! Selamat datang di RuangDiri. Saya Tim RuangDiri AI Assistant, siap membantu Anda hari ini. Apa yang bisa saya bantu? 😊";
+    if (input.includes('halo') || input.includes('hai')) {
+      return "Halo! Selamat datang di RuangDiri. Ada yang bisa saya bantu? 😊";
     }
     
-    if (input.includes('konseling') || input.includes('booking') || input.includes('sesi')) {
-      return "Untuk booking sesi konseling, saya bisa membantu mengarahkan Anda ke sistem booking kami. Anda bisa memilih antara sesi online (video call/chat) atau offline (tatap muka). Apakah Anda ingin saya buatkan link booking untuk Anda?";
+    if (input.includes('konseling') || input.includes('booking')) {
+      return "Untuk booking sesi konseling, silakan pilih layanan yang sesuai dengan kebutuhan Anda.";
     }
     
-    if (input.includes('stress') || input.includes('cemas') || input.includes('anxiety') || input.includes('depresi') || input.includes('sedih')) {
-      return "Saya memahami Anda sedang mengalami kondisi yang tidak mudah. Perasaan seperti itu adalah hal yang wajar dan banyak orang mengalaminya. RuangDiri memiliki konselor profesional yang siap membantu. Apakah Anda ingin saya hubungkan dengan konselor atau memberikan tips coping yang bisa dilakukan sekarang?";
-    }
-    
-    if (input.includes('help') || input.includes('bantuan') || input.includes('tolong')) {
-      return "Tentu! Saya di sini untuk membantu. Silakan ceritakan apa yang sedang Anda alami atau pilih opsi bantuan yang tersedia di atas. Saya bisa membantu dengan informasi layanan, booking konseling, atau menjawab pertanyaan umum.";
-    }
-    
-    if (input.includes('faq') || input.includes('pertanyaan') || input.includes('tanya')) {
-      return {
-        text: "Berikut adalah pertanyaan yang sering ditanyakan oleh pengguna RuangDiri:",
-        messageType: 'faq_response'
-      };
-    }
-    
-    if (input.includes('biaya') || input.includes('harga') || input.includes('tarif')) {
-      return "Untuk informasi biaya layanan konseling:\n\n• Konseling individual: Mulai dari Rp 150.000/sesi\n• Konseling online: Mulai dari Rp 100.000/sesi\n• Konseling chat: Mulai dari Rp 75.000/sesi\n\nBiaya dapat berbeda tergantung psikolog dan durasi sesi. Untuk info lengkap, silakan hubungi tim support kami.";
-    }
-    
-    if (input.includes('pembayaran') || input.includes('bayar') || input.includes('transfer')) {
-      return "Metode pembayaran yang tersedia:\n\n• Transfer Bank (BNI, BCA, Mandiri)\n• E-wallet (GoPay, OVO, DANA)\n• QRIS\n• Kartu Kredit/Debit\n\nPembayaran dilakukan setelah konfirmasi booking dan sebelum sesi dimulai.";
-    }
-    
-    if (input.includes('jadwal') || input.includes('waktu') || input.includes('jam')) {
-      return "Jadwal layanan RuangDiri:\n\n• Senin - Jumat: 08.00 - 21.00 WIB\n• Sabtu - Minggu: 09.00 - 18.00 WIB\n\nUntuk konseling chat 24/7 dengan tim support. Apakah Anda ingin booking jadwal konseling?";
-    }
-    
-    if (input.includes('psikolog') || input.includes('konselor') || input.includes('therapist')) {
-      return "Tim psikolog RuangDiri terdiri dari profesional berlisensi dengan berbagai spesialisasi:\n\n• Psikolog klinis\n• Psikolog pendidikan\n• Konselor pernikahan\n• Psikolog anak dan remaja\n\nSemua psikolog kami telah tersertifikasi dan berpengalaman. Apakah Anda ingin melihat profil psikolog yang tersedia?";
-    }
-    
-    // Default friendly AI response
-    return "Terima kasih sudah bercerita dengan Tim RuangDiri! Sebagai AI assistant, saya siap mendengarkan dan membantu mengarahkan Anda ke solusi yang tepat. Jika Anda membutuhkan bantuan lebih lanjut atau ingin berbicara dengan konselor profesional, saya bisa membantu mengatur sesi konseling. Apa lagi yang bisa saya bantu? 😊";
+    return "Terima kasih sudah bercerita! Ada yang bisa saya bantu lagi? 😊";
   },
 
-  // Handle AI service selection with detailed responses
+  // Handle AI service selection
   async handleAIServiceSelection(option) {
     const responses = {
       'Ruang Cerita': {
-        message: "🌟 Ruang Cerita adalah fitur komunitas untuk berbagi pengalaman dan saling mendukung.\n\nSaat ini fitur ini sedang dalam pengembangan final. Fitur yang akan tersedia:\n\n• Sharing story anonim\n• Support group virtual\n• Peer counseling\n• Community challenges\n\nApakah Anda ingin saya hubungkan dengan konselor untuk sesi individu sementara waktu?",
-        actions: ['Book Konseling Individual', 'Info Lebih Lanjut', 'Kembali ke Menu']
+        message: "🌟 Ruang Cerita sedang dalam pengembangan. Fitur untuk berbagi cerita akan segera hadir!",
+        actions: ['Book Konseling', 'Info Lebih Lanjut']
       },
       'Booking Sesi Konseling': {
-        message: "📅 Saya akan membantu Anda booking sesi konseling!\n\nPilihan sesi yang tersedia:\n\n• 💻 Online Video Call - Tatap muka virtual dengan psikolog\n• 💬 Online Chat - Konseling melalui chat real-time\n• 🏢 Offline - Tatap muka langsung di klinik\n\nMana yang Anda preferensikan?",
-        actions: ['Online - Video Call', 'Online - Chat', 'Offline - Tatap Muka', 'Tanya Dulu']
+        message: "📅 Pilihan sesi konseling:\n\n• 💻 Online Video Call\n• 💬 Online Chat\n• 🏢 Offline",
+        actions: ['Video Call', 'Chat', 'Offline']
       },
       'FAQ (Frequently Asked Questions)': {
-        message: "❓ Berikut adalah informasi yang sering ditanyakan pengguna RuangDiri.",
-        messageType: 'faq_response',
-        actions: ['Tanya Langsung', 'Hubungi Support', 'Kembali ke Menu']
+        message: "❓ Pertanyaan yang sering ditanyakan telah tersedia.",
+        actions: ['Hubungi Support', 'Kembali']
       }
     };
 
     return responses[option] || {
-      message: "Terima kasih sudah memilih layanan kami. Tim RuangDiri akan membantu Anda sebaik mungkin. Ada yang bisa saya bantu lagi?",
-      actions: ['Kembali ke Menu', 'Hubungi Support']
+      message: "Terima kasih! Ada yang bisa saya bantu lagi?",
+      actions: ['Kembali ke Menu']
     };
   },
 
-  // Get Ably token for real-time messaging
+  // Get Ably token
   async getAblyToken(sessionId) {
-    if (sessionId === 'team-ruangdiri') return null; // AI session doesn't need real-time
+    if (sessionId === 'team-ruangdiri') return null;
 
     try {
       const response = await apiClient.get('/chat/ably-token', {
@@ -292,67 +390,34 @@ export const chatsApi = {
       throw new Error(response.data?.message || 'Failed to get Ably token');
     } catch (error) {
       console.error('Error getting Ably token:', error);
+      
+      // ✅ Handle specific cases where session cannot have Ably token
+      if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || '';
+        
+        if (errorMessage.includes('completed') || errorMessage.includes('ended')) {
+          console.log('🔒 Session is completed/ended, cannot generate Ably token');
+          return null; // Return null instead of throwing error
+        }
+        
+        if (errorMessage.includes('inactive') || errorMessage.includes('disabled')) {
+          console.log('⏸️ Session is inactive, cannot generate Ably token');
+          return null;
+        }
+      }
+      
       throw error;
     }
   },
 
   // Send typing indicator
   async sendTypingIndicator(sessionId, isTyping) {
-    if (sessionId === 'team-ruangdiri') return; // AI doesn't need typing indicators
+    if (sessionId === 'team-ruangdiri') return;
 
     try {
-      await apiClient.post('/chat/typing', {
-        sessionId,
-        isTyping
-      });
+      await apiClient.post('/chat/typing', { sessionId, isTyping });
     } catch (error) {
       console.error('Error sending typing indicator:', error);
-    }
-  },
-
-  // Mark messages as read
-  async markAsRead(sessionId) {
-    if (sessionId === 'team-ruangdiri') return; // AI messages don't need read status
-
-    try {
-      await apiClient.put(`/chat/sessions/${sessionId}/read`);
-    } catch (error) {
-      console.error('Error marking as read:', error);
-    }
-  },
-
-  // Book counseling with chat method
-  async bookCounselingWithChat(booking) {
-    try {
-      const response = await apiClient.post('/counselings/book', {
-        ...booking,
-        method: 'chat'
-      });
-      
-      if (response.data?.status === 'success') {
-        return response.data;
-      }
-      
-      throw new Error(response.data?.message || 'Failed to book counseling');
-    } catch (error) {
-      console.error('Error booking counseling with chat:', error);
-      throw error;
-    }
-  },
-
-  // Get user's counseling sessions
-  async getUserCounselingSessions() {
-    try {
-      const response = await apiClient.get('/counselings/user-sessions');
-      
-      if (response.data?.status === 'success') {
-        return response.data;
-      }
-      
-      throw new Error(response.data?.message || 'Failed to fetch counseling sessions');
-    } catch (error) {
-      console.error('Error fetching counseling sessions:', error);
-      throw error;
     }
   }
 };

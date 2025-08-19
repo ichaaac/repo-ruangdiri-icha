@@ -1,31 +1,33 @@
-// src/components/shared/chats/hooks/useMessages.js - Fixed Timezone
+// src/components/shared/chats/hooks/useMessages.js - Updated for Backend Format with dayjs
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
+import { getCurrentTime, getCurrentTimestamp } from '../utils/dateUtils';
 
-// Fix timezone: Get current time in HH:mm format
-const getCurrentTime = () => {
-  const now = new Date();
-  return now.toLocaleTimeString("id-ID", {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+// Get current user ID
+const getCurrentUserId = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.id;
+  } catch {
+    return null;
+  }
 };
 
 export const useMessages = (sessionId) => {
   const queryClient = useQueryClient();
   const [messageText, setMessageText] = useState('');
+  const [cursor, setCursor] = useState(null);
 
-  // Get messages with AI support
+  // ✅ Updated: Get messages with cursor pagination
   const messagesQuery = useQuery({
     queryKey: ['chat-messages', sessionId],
-    queryFn: () => chatsApi.getMessages(sessionId),
+    queryFn: () => chatsApi.getMessages(sessionId, cursor, 10), // Include cursor and limit
     enabled: !!sessionId,
-    staleTime: 30000, // 30 seconds
-    cacheTime: 300000, // 5 minutes
+    staleTime: 30000,
+    cacheTime: 300000,
     retry: (failureCount, error) => {
-      // Don't retry for auth errors
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return false;
       }
@@ -35,30 +37,33 @@ export const useMessages = (sessionId) => {
     refetchOnMount: true
   });
 
-  // Send message mutation with AI support
+  // Send message mutation
   const sendMutation = useMutation({
     mutationFn: ({ sessionId, content }) => chatsApi.sendMessage(sessionId, content),
     onMutate: async ({ sessionId, content }) => {
-      // Cancel any outgoing refetches
+      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['chat-messages', sessionId] });
 
-      // Snapshot the previous value
+      // Snapshot previous value
       const previousMessages = queryClient.getQueryData(['chat-messages', sessionId]);
 
-      // Create optimistic user message
+      // ✅ Updated: Optimistic user message dengan format yang tepat
+      const currentUserId = getCurrentUserId();
       const optimisticMessage = {
         id: `temp-${Date.now()}`,
         text: content,
-        time: getCurrentTime(), // Use fixed time
-        timestamp: new Date().toISOString(),
-        isUser: true,
+        time: getCurrentTime(),
+        timestamp: getCurrentTimestamp(), // ✅ Use centralized utility
+        isUser: true, // Always true for optimistic message
         sender: {
-          id: 'current-user',
-          name: 'You',
-          role: 'user'
+          id: currentUserId || 'current-user',
+          name: 'You', // Always show "You" for current user messages
+          role: 'user',
+          profilePicture: null
         },
         messageType: 'text',
-        isOptimistic: true
+        isOptimistic: true,
+        isRead: true // Assume sent messages are read
       };
 
       // Add optimistic message
@@ -66,54 +71,68 @@ export const useMessages = (sessionId) => {
         return [...old, optimisticMessage];
       });
 
-      // For AI sessions, add optimistic AI response
+      // AI response untuk team session
       if (sessionId === 'team-ruangdiri') {
         setTimeout(() => {
+          const aiResponseText = chatsApi.generateAIResponse(content);
+          const responseText = typeof aiResponseText === 'string' ? aiResponseText : aiResponseText.text;
+          
           const aiResponse = {
             id: `ai-temp-${Date.now()}`,
-            text: chatsApi.generateAIResponse(content),
-            time: getCurrentTime(), // Use fixed time
-            timestamp: new Date().toISOString(),
+            text: responseText,
+            time: getCurrentTime(),
+            timestamp: getCurrentTimestamp(), // ✅ Use centralized utility
             isUser: false,
             sender: {
               id: 'team-ai',
               name: 'Team RuangDiri',
-              role: 'ai_assistant'
+              role: 'ai_assistant',
+              profilePicture: null
             },
             messageType: 'ai_response',
             isAIMessage: true,
-            isOptimistic: true
+            isOptimistic: true,
+            isRead: true
           };
 
           queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
             return [...old, aiResponse];
           });
-        }, 1500); // Simulate AI processing time
+        }, 1500);
       }
 
       return { previousMessages };
     },
     onError: (err, { sessionId }, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      queryClient.setQueryData(['chat-messages', sessionId], context.previousMessages);
+      // Rollback on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['chat-messages', sessionId], context.previousMessages);
+      }
       console.error('Failed to send message:', err);
     },
     onSuccess: (newMessage, { sessionId }) => {
-      // Replace optimistic message with real message
+      // ✅ Updated: Replace optimistic dengan real message dari backend
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         const withoutOptimistic = old.filter(msg => !msg.isOptimistic);
+        
+        // Check if message already exists
         const exists = withoutOptimistic.some(msg => msg.id === newMessage.id);
-        return exists ? withoutOptimistic : [...withoutOptimistic, newMessage];
+        
+        if (!exists) {
+          return [...withoutOptimistic, newMessage];
+        }
+        
+        return withoutOptimistic;
       });
       
-      // Clear input text
+      // Clear input
       setMessageText('');
       
-      // Invalidate sessions to update last message
+      // Invalidate sessions untuk update lastMessage di sidebar
       queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     },
     onSettled: () => {
-      // Always refetch after error or success to ensure consistency
+      // Refetch untuk consistency
       queryClient.invalidateQueries({ queryKey: ['chat-messages', sessionId] });
     }
   });
@@ -147,7 +166,7 @@ export const useMessages = (sessionId) => {
     }
   }, [sessionId, sendMutation]);
 
-  // Send current message from input
+  // Send current message
   const sendCurrentMessage = useCallback(async () => {
     if (!messageText.trim()) {
       console.warn('Cannot send empty message');
@@ -158,14 +177,14 @@ export const useMessages = (sessionId) => {
     await sendMessage(currentMessage);
   }, [messageText, sendMessage]);
 
-  // Mark messages as read
+  // Mark as read
   const markAsRead = useCallback(() => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
     
     markAsReadMutation.mutate(sessionId);
   }, [sessionId, markAsReadMutation]);
 
-  // Add real-time message to cache
+  // Add real-time message
   const addMessage = useCallback((message) => {
     if (!sessionId) return;
 
@@ -186,20 +205,22 @@ export const useMessages = (sessionId) => {
     const userMessage = {
       id: `selection-${Date.now()}`,
       text: option,
-      time: getCurrentTime(), // Use fixed time
-      timestamp: new Date().toISOString(),
+      time: getCurrentTime(),
+      timestamp: getCurrentTimestamp(), // ✅ Use centralized utility
       isUser: true,
       sender: {
         id: 'current-user',
         name: 'You',
-        role: 'user'
+        role: 'user',
+        profilePicture: null
       },
-      messageType: 'service_selection'
+      messageType: 'service_selection',
+      isRead: true
     };
 
     addMessage(userMessage);
 
-    // Get AI response for the selection
+    // Get AI response
     try {
       const aiResponse = await chatsApi.handleAIServiceSelection(option);
       
@@ -207,17 +228,19 @@ export const useMessages = (sessionId) => {
         const responseMessage = {
           id: `ai-response-${Date.now()}`,
           text: aiResponse.message,
-          time: getCurrentTime(), // Use fixed time
-          timestamp: new Date().toISOString(),
+          time: getCurrentTime(),
+          timestamp: getCurrentTimestamp(), // ✅ Use centralized utility
           isUser: false,
           sender: {
             id: 'team-ai',
             name: 'Team RuangDiri',
-            role: 'ai_assistant'
+            role: 'ai_assistant',
+            profilePicture: null
           },
           messageType: 'ai_service_response',
           isAIMessage: true,
-          actions: aiResponse.actions
+          actions: aiResponse.actions,
+          isRead: true
         };
 
         addMessage(responseMessage);
@@ -227,38 +250,78 @@ export const useMessages = (sessionId) => {
     }
   }, [sessionId, addMessage]);
 
-  // Check if user can send messages
+  // ✅ Updated: Check if can send message based on session status
   const canSendMessage = useCallback((session) => {
     if (!sessionId || !messageText.trim()) return false;
     
-    // AI Team RuangDiri is always available
+    // AI Team RuangDiri selalu available
     if (sessionId === 'team-ruangdiri') return true;
     
-    // For counseling sessions, check if active and chat enabled
+    // ✅ For counseling sessions - check status properly
     if (session) {
-      return session.isActive && session.isChatEnabled;
+      // Cannot send if session is completed
+      if (session.status === 'completed') return false;
+      
+      // Can send if session is active
+      if (session.status === 'active' && session.isActive) return true;
+      
+      // Cannot send for pending or inactive sessions
+      return false;
     }
     
     return false;
   }, [sessionId, messageText]);
 
-  // Get session status for UI
+  // ✅ Updated: Get session status based on backend response
   const getSessionStatus = useCallback((session) => {
     if (!sessionId) return 'no_session';
     if (sessionId === 'team-ruangdiri') return 'ai_chat';
     if (!session) return 'no_session';
-    if (!session.isActive) return 'session_ended';
-    if (!session.isChatEnabled) return 'chat_disabled';
-    return 'ready';
+    
+    // ✅ Check backend session status dengan proper handling
+    if (session.status === 'completed') return 'session_ended';
+    if (session.status === 'pending' && !session.isActive) return 'chat_disabled';
+    if (session.status === 'active' && session.isActive) return 'ready';
+    if (session.status === 'active' && !session.isActive) return 'chat_disabled';
+    
+    return 'chat_disabled'; // Default to disabled for safety
   }, [sessionId]);
 
-  // Memoized messages to prevent unnecessary re-renders
+  // ✅ Load more messages function (untuk infinite scroll nanti)
+  const loadMoreMessages = useCallback(async () => {
+    if (!sessionId || sessionId === 'team-ruangdiri') return;
+    
+    try {
+      const currentMessages = messagesQuery.data || [];
+      if (currentMessages.length === 0) return;
+      
+      // Get first message as cursor
+      const firstMessage = currentMessages[0];
+      const newCursor = firstMessage.timestamp;
+      
+      const olderMessages = await chatsApi.getMessages(sessionId, newCursor, 10);
+      
+      if (olderMessages.length > 0) {
+        queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
+          const existingIds = new Set(old.map(msg => msg.id));
+          const newMessages = olderMessages.filter(msg => !existingIds.has(msg.id));
+          return [...newMessages, ...old];
+        });
+        
+        setCursor(newCursor);
+      }
+    } catch (error) {
+      console.error('Failed to load more messages:', error);
+    }
+  }, [sessionId, messagesQuery.data, queryClient]);
+
+  // Memoized messages
   const messages = useMemo(() => {
     return messagesQuery.data || [];
   }, [messagesQuery.data]);
 
-  // Memoized return object
-  const returnValue = useMemo(() => ({
+  // Return memoized object
+  return useMemo(() => ({
     messages,
     messageText,
     setMessageText,
@@ -269,10 +332,12 @@ export const useMessages = (sessionId) => {
     handleAIServiceSelection,
     canSendMessage,
     getSessionStatus,
+    loadMoreMessages, // ✅ Added for future infinite scroll
     isLoading: messagesQuery.isLoading,
     isSending: sendMutation.isPending,
     error: messagesQuery.error || sendMutation.error,
-    refetch: messagesQuery.refetch
+    refetch: messagesQuery.refetch,
+    hasMore: cursor !== null // ✅ Indicator for more messages
   }), [
     messages,
     messageText,
@@ -283,12 +348,12 @@ export const useMessages = (sessionId) => {
     handleAIServiceSelection,
     canSendMessage,
     getSessionStatus,
+    loadMoreMessages,
     messagesQuery.isLoading,
     messagesQuery.error,
     sendMutation.isPending,
     sendMutation.error,
-    messagesQuery.refetch
+    messagesQuery.refetch,
+    cursor
   ]);
-
-  return returnValue;
 };
