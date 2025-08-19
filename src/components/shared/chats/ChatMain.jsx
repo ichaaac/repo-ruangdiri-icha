@@ -1,8 +1,8 @@
-// src/components/shared/chats/ChatMain.jsx - Responsive Design
+// src/components/shared/chats/ChatMain.jsx - Independent Scroll Design with dayjs
 
 import React, { useEffect, useRef, useState } from 'react';
-
-// Upload dropdown component - ORIGINAL
+import { formatChatDateHeader } from './utils/dateUtils';
+// Upload dropdown component
 const UploadDropdown = ({ isOpen, onClose }) => {
   const dropdownRef = useRef(null);
 
@@ -37,15 +37,14 @@ const UploadDropdown = ({ isOpen, onClose }) => {
         <span className="material-icons text-gray-600 text-sm">attach_file</span>
         Upload File
       </button>
-      <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
-        <span className="material-icons text-gray-600 text-sm">videocam</span>
-        Upload Video
-      </button>
     </div>
   );
 };
 
-// Individual message bubble - Responsive
+// Generate date header for messages using centralized utility
+const generateDateHeader = formatChatDateHeader;
+
+// Individual message bubble
 const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOptionClick, actions }) => {
   return (
     <div className="w-full px-4 sm:px-5">
@@ -58,8 +57,21 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
                   <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
                     <span className="text-white text-xs">🤖</span>
                   </div>
+                ) : sender?.avatar ? (
+                  <img
+                    src={sender.avatar}
+                    alt={sender.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = '/empty-profile.svg';
+                    }}
+                  />
                 ) : (
-                  <div className="w-full h-full bg-[#1E5A89] flex-shrink-0"></div>
+                  <img
+                    src="/empty-profile.svg"
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </div>
           </div>
@@ -90,7 +102,8 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
                     ].map((option, index) => (
                       <button
                         key={index}
-                        className="w-full flex items-center gap-2 p-2 text-left text-blue-500 hover:bg-blue-50 rounded border-b border-gray-200 last:border-b-0 transition-colors"
+                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-gray-50 rounded border-b border-gray-200 last:border-b-0 transition-colors"
+                        style={{ color: '#488BBA' }}
                         onClick={() => onOptionClick && onOptionClick(option.text)}
                       >
                         <span className="material-icons text-sm">{option.icon}</span>
@@ -107,7 +120,11 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
                   {actions.map((action, index) => (
                     <button
                       key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full hover:bg-blue-200 transition-colors"
+                      className="px-3 py-1 text-xs rounded-full hover:opacity-80 transition-colors"
+                      style={{ 
+                        backgroundColor: '#488BBA20', 
+                        color: '#488BBA'
+                      }}
                       onClick={() => onOptionClick && onOptionClick(action)}
                     >
                       {action}
@@ -126,7 +143,7 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
   );
 };
 
-// Chat header - Responsive
+// Chat header
 const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, isPsychologist, onEndSession, isEndingSession }) => {
   return (
     <div className="flex-shrink-0 flex justify-between items-center px-4 sm:px-[30px] bg-white border-solid border-y-[0.25px] border-y-zinc-500 h-[70px]">
@@ -150,29 +167,26 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
               alt={selectedConversation.name}
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.parentNode.innerHTML = `
-                  <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                    <span class="text-white text-xl">👤</span>
-                  </div>
-                `;
+                e.target.src = '/empty-profile.svg';
               }}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-              <span className="text-white text-lg sm:text-xl">👤</span>
-            </div>
+            <img
+              src="/empty-profile.svg"
+              alt="Profile"
+              className="w-full h-full object-cover"
+            />
           )}
         </div>
         
         <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <h2 className="text-lg sm:text-xl font-bold text-blue-500 truncate">
+          <h2 className="text-lg sm:text-xl font-bold truncate" style={{ color: '#488BBA' }}>
             {selectedConversation?.name || 'Unknown'}
           </h2>
           
           {/* Status */}
           {selectedConversation?.isTeamChat ? (
-            <p className="text-xs font-light text-blue-600">
+            <p className="text-xs font-light" style={{ color: '#488BBA' }}>
               🤖 AI Assistant - Always Available
             </p>
           ) : (
@@ -187,8 +201,11 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
                 <>
                   <span className="text-gray-400">•</span>
                   <span className={`text-xs font-medium ${
-                    selectedConversation.userRole === 'client' ? 'text-blue-600' : 'text-green-600'
-                  }`}>
+                    selectedConversation.userRole === 'client' ? 'text-green-600' : 'text-green-600'
+                  }`}
+                  style={{ 
+                    color: selectedConversation.userRole === 'client' ? '#488BBA' : '#10B981' 
+                  }}>
                     {selectedConversation.userRole === 'client' ? 'Client' : 'Other'}
                   </span>
                 </>
@@ -243,7 +260,7 @@ const ChatHeader = ({ selectedConversation, onToggleSidebar, connectionStatus, i
   );
 };
 
-// Chat messages area - Responsive
+// Chat messages area - Independent scroll
 const ChatMessages = ({ 
   messages = [], 
   isTyping, 
@@ -253,92 +270,136 @@ const ChatMessages = ({
   messagesEndRef
 }) => {
   const sessionStatus = getSessionStatus?.() || 'ready';
-  const messagesContainerRef = useRef(null);
 
-  // Auto scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+  // ✅ Generate dynamic date header based on first message
+  const getDateHeader = () => {
+    if (messages.length > 0) {
+      // Use the first message's timestamp for date header
+      return generateDateHeader(messages[0]?.timestamp);
     }
-  }, [messages, isTyping]);
+    return 'Hari ini'; // Default to today
+  };
 
   return (
-    <div 
-      ref={messagesContainerRef}
-      className="flex-1 overflow-y-auto bg-zinc-100"
-      style={{ 
-        scrollbarWidth: 'thin',
-        scrollBehavior: 'smooth'
-      }}
-    >
-      <div className="flex flex-col gap-2.5 items-center py-4 min-h-full">
-        <time className="mb-4 text-xs font-light leading-5 text-center text-zinc-500">
-          Hari ini
-        </time>
+    <div className="flex-1 relative bg-zinc-100">
+      <div 
+        className="absolute inset-0 overflow-y-auto messages-scroll"
+        style={{
+          scrollbarWidth: 'auto',
+          scrollbarColor: '#6B7280 #E5E7EB'
+        }}
+      >
+        <div className="flex flex-col gap-2.5 items-center py-4 min-h-full">
+          {/* ✅ Dynamic Date Header */}
+          <time className="mb-4 text-xs font-light leading-5 text-center text-zinc-500">
+            {getDateHeader()}
+          </time>
 
-        {/* Session Status Warning */}
-        {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md">
-            <div className="flex items-center gap-2 text-center">
-              <span className="text-yellow-600">⚠️</span>
-              <div className="text-sm text-yellow-800">
-                {sessionStatus === 'chat_disabled' && 'Chat akan aktif ketika sesi dimulai'}
-                {sessionStatus === 'session_ended' && 'Sesi chat telah berakhir'}
-                {sessionStatus === 'no_session' && 'Tidak ada sesi yang dipilih'}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Messages Container */}
-        <div className="flex flex-col gap-4 w-full max-w-full">
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message.text}
-              isOwn={message.isUser}
-              sender={message.sender}
-              time={message.time}
-              showOptions={message.showOptions}
-              actions={message.actions}
-              onOptionClick={onAIServiceSelection}
-            />
-          ))}
-
-          {/* Typing Indicator */}
-          {isTyping && !selectedConversation?.isTeamChat && (
-            <div className="w-full px-4 sm:px-5">
-              <div className="flex gap-2 items-start">
-                <div className="w-[27px] h-[54px] flex items-center">
-                  <div className="w-[27px] h-[27px] rounded-full bg-[#1E5A89] flex items-center justify-center">
-                    <span className="text-white text-xs">👤</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5 items-start">
-                  <p className="text-xs font-light text-zinc-500">
-                    {selectedConversation?.name || 'Unknown'}
-                  </p>
-                  <div className="bg-white rounded-3xl px-4 py-3 min-h-[47px] flex items-center">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                  </div>
+          {/* Session Status Warning */}
+          {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md">
+              <div className="flex items-center gap-2 text-center">
+                <span className="text-yellow-600">⚠️</span>
+                <div className="text-sm text-yellow-800">
+                  {sessionStatus === 'chat_disabled' && 'Chat akan aktif ketika sesi dimulai'}
+                  {sessionStatus === 'session_ended' && 'Chat tidak tersedia'}
+                  {sessionStatus === 'no_session' && 'Tidak ada sesi yang dipilih'}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Auto-scroll anchor - hidden */}
-          <div ref={messagesEndRef} style={{ height: '1px', visibility: 'hidden' }} />
+          {/* Messages Container */}
+          <div className="flex flex-col gap-4 w-full max-w-full pb-4">
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message.text}
+                isOwn={message.isUser}
+                sender={message.sender}
+                time={message.time}
+                showOptions={message.showOptions}
+                actions={message.actions}
+                onOptionClick={onAIServiceSelection}
+              />
+            ))}
+
+            {/* Typing Indicator */}
+            {isTyping && !selectedConversation?.isTeamChat && (
+              <div className="w-full px-4 sm:px-5">
+                <div className="flex gap-2 items-start">
+                  <div className="w-[27px] h-[54px] flex items-center">
+                    <div className="w-[27px] h-[27px] rounded-full overflow-hidden">
+                      {selectedConversation?.avatar ? (
+                        <img
+                          src={selectedConversation.avatar}
+                          alt={selectedConversation.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = '/empty-profile.svg';
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src="/empty-profile.svg"
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5 items-start">
+                    <p className="text-xs font-light text-zinc-500">
+                      {selectedConversation?.name || 'Unknown'}
+                    </p>
+                    <div className="bg-white rounded-3xl px-4 py-3 min-h-[47px] flex items-center">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Auto-scroll anchor */}
+            <div ref={messagesEndRef} style={{ height: '1px', visibility: 'hidden' }} />
+          </div>
         </div>
       </div>
+      
+      {/* Messages Scrollbar Styles */}
+      <style jsx>{`
+        .messages-scroll::-webkit-scrollbar {
+          width: 14px;
+        }
+        
+        .messages-scroll::-webkit-scrollbar-track {
+          background: #E5E7EB;
+          border-radius: 7px;
+        }
+        
+        .messages-scroll::-webkit-scrollbar-thumb {
+          background: #6B7280;
+          border-radius: 7px;
+          border: 3px solid #E5E7EB;
+        }
+        
+        .messages-scroll::-webkit-scrollbar-thumb:hover {
+          background: #4B5563;
+        }
+        
+        .messages-scroll::-webkit-scrollbar-thumb:active {
+          background: #374151;
+        }
+      `}</style>
     </div>
   );
 };
 
-// Chat input area - Responsive
+// Chat input area
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
@@ -364,7 +425,7 @@ const ChatInput = ({
               ? 'Chat tidak tersedia...' 
               : 'Type a message here....'
           }
-          className="text-sm sm:text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1 w-full"
+          className="text-sm sm:text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1 w-full disabled:opacity-50 disabled:cursor-not-allowed"
           rows="2"
           disabled={!canSendMessage && !isAIChat}
         />
@@ -397,13 +458,21 @@ const ChatInput = ({
           <button 
             onClick={onSendMessage}
             disabled={(!canSendMessage && !isAIChat) || !messageText.trim() || isSending}
-            className="p-2 disabled:opacity-50 hover:bg-blue-100 rounded-full transition-colors" 
+            className="p-2 disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors" 
             aria-label="Send message"
           >
             {isSending ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#488BBE]"></div>
+              <div 
+                className="animate-spin rounded-full h-5 w-5 border-b-2"
+                style={{ borderColor: '#488BBA' }}
+              ></div>
             ) : (
-              <span className="material-icons text-[#488BBE] text-lg sm:text-xl">send</span>
+              <span 
+                className="material-icons text-lg sm:text-xl"
+                style={{ color: '#488BBA' }}
+              >
+                send
+              </span>
             )}
           </button>
         </div>
@@ -412,7 +481,7 @@ const ChatInput = ({
   );
 };
 
-// Main chat component - Responsive
+// Main chat component
 const ChatMain = ({
   selectedConversation,
   messages = [],
@@ -444,7 +513,14 @@ const ChatMain = ({
     }
   };
 
-  // Empty state when no conversation selected - Work with UserLayout space
+  // Auto scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // Empty state when no conversation selected
   if (!selectedConversation) {
     return (
       <div className="h-full flex items-center justify-center bg-zinc-100 w-full overflow-hidden">
@@ -472,7 +548,8 @@ const ChatMain = ({
             {onBookingClick && !isPsychologist && (
               <button 
                 onClick={onBookingClick}
-                className="w-full bg-[#488BBA] text-white py-2 px-4 rounded-lg hover:bg-[#3a7399] transition-colors text-sm sm:text-base"
+                className="w-full text-white py-2 px-4 rounded-lg hover:opacity-90 transition-colors text-sm sm:text-base"
+                style={{ backgroundColor: '#488BBA' }}
               >
                 Booking Sesi Chat
               </button>
@@ -487,7 +564,7 @@ const ChatMain = ({
 
   return (
     <div className="h-full flex flex-col overflow-hidden w-full">
-      {/* Header */}
+      {/* Header - Fixed */}
       <ChatHeader 
         selectedConversation={selectedConversation}
         onToggleSidebar={onToggleSidebar}
@@ -497,7 +574,7 @@ const ChatMain = ({
         isEndingSession={isEndingSession}
       />
 
-      {/* Messages Area - Scrollable */}
+      {/* Messages Area - Independent Scrollable */}
       <ChatMessages 
         messages={messages}
         isTyping={isTyping}

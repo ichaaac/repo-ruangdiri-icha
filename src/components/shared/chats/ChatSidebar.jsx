@@ -1,8 +1,8 @@
-// src/components/shared/chats/ChatSidebar.jsx - Responsive Design
+// src/components/shared/chats/ChatSidebar.jsx - Independent Scroll Design
 
 import React, { useState } from 'react';
 
-// Individual message item - Responsive
+// Individual message item - Simple design
 const MessageItem = ({ 
   avatar, 
   name, 
@@ -13,15 +13,15 @@ const MessageItem = ({
   onClick, 
   containerWidth = 384, 
   unreadCount = 0, 
-  hasUnread = false 
+  hasUnread = false
 }) => {
   return (
     <div 
       className={`relative cursor-pointer transition-colors ${isActive ? '' : 'hover:bg-gray-50'}`}
       onClick={onClick}
-      style={{ minHeight: '57px' }} // Minimum height untuk selected background
+      style={{ minHeight: '57px' }}
     >
-      {/* Selected Background - Full width dengan overflow handling */}
+      {/* Selected Background */}
       {isActive && (
         <div 
           className="absolute inset-0 bg-[#E2F2FF]"
@@ -39,7 +39,7 @@ const MessageItem = ({
           <div className="w-[32px] h-[32px] sm:w-[37px] sm:h-[37px] rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
             {isTeamChat ? (
               <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
-                <span className="text-white text-sm sm:text-lg">👥</span>
+                <span className="text-white text-sm sm:text-lg">💥</span>
               </div>
             ) : avatar ? (
               <img
@@ -47,52 +47,59 @@ const MessageItem = ({
                 alt={name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.parentNode.innerHTML = `
-                    <div class="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                      <span class="text-white text-sm sm:text-lg">👤</span>
-                    </div>
-                  `;
+                  e.target.src = '/empty-profile.svg';
                 }}
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-                <span className="text-white text-sm sm:text-lg">👤</span>
-              </div>
+              <img
+                src="/empty-profile.svg"
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
             )}
           </div>
+          
           <div className="flex flex-col flex-1 gap-2 min-w-0">
             <div className="flex justify-between items-end gap-2">
-              {/* NAME - WhatsApp behavior: Bold kalau unread */}
+              {/* NAME - Bold kalau unread */}
               <h3 className={`text-sm sm:text-base truncate ${
                 hasUnread 
-                  ? 'font-bold text-neutral-700' // Bold kalau unread
-                  : 'font-bold text-neutral-600' // Normal kalau read
+                  ? 'font-bold text-neutral-700'
+                  : 'font-bold text-neutral-600'
               }`}>
                 {name}
               </h3>
+              
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* TIME - WhatsApp behavior: Green kalau unread */}
+                {/* TIME - Blue kalau unread */}
                 <time className={`text-xs font-light ${
                   hasUnread 
-                    ? 'font-semibold text-blue-600' // Biru kalau unread
-                    : 'text-zinc-500' // Abu kalau read
-                }`}>
+                    ? 'font-semibold'
+                    : 'text-zinc-500'
+                }`}
+                style={{ 
+                  color: hasUnread ? '#488BBA' : undefined 
+                }}>
                   {time}
                 </time>
-                {/* UNREAD BADGE - WhatsApp style */}
+                
+                {/* UNREAD BADGE */}
                 {hasUnread && unreadCount > 0 && (
-                  <div className="bg-blue-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  <div 
+                    className="text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+                    style={{ backgroundColor: '#488BBA' }}
+                  >
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </div>
                 )}
               </div>
             </div>
-            {/* PREVIEW - WhatsApp behavior: Bold kalau unread */}
+            
+            {/* PREVIEW - Bold kalau unread */}
             <p className={`text-xs truncate ${
               hasUnread 
-                ? 'font-medium text-zinc-700' // Medium kalau unread  
-                : 'font-light text-zinc-500' // Light kalau read
+                ? 'font-medium text-zinc-700'
+                : 'font-light text-zinc-500'
             }`}>
               {preview}
             </p>
@@ -103,7 +110,7 @@ const MessageItem = ({
   );
 };
 
-// Chat sidebar - Responsive
+// Chat sidebar - Independent scroll container
 const ChatSidebar = ({
   conversations = [],
   selectedConversation,
@@ -111,7 +118,7 @@ const ChatSidebar = ({
   loading = false,
   userDisplayData = {},
   isPsychologist = false,
-  containerWidth = 384 // Flexible width
+  containerWidth = 384
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -121,11 +128,6 @@ const ChatSidebar = ({
     return conversation.name.toLowerCase().includes(searchLower);
   });
 
-  // Calculate total unread - WhatsApp behavior
-  const totalUnreadCount = conversations.reduce((total, conv) => {
-    return total + (conv.unreadCount || 0);
-  }, 0);
-
   if (loading) {
     return (
       <div 
@@ -133,8 +135,11 @@ const ChatSidebar = ({
         style={{ width: `${containerWidth}px` }}
       >
         <div className="flex items-center gap-2">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-          <span className="text-blue-500 text-sm">Loading sessions...</span>
+          <div 
+            className="animate-spin rounded-full h-6 w-6 border-b-2"
+            style={{ borderColor: '#488BBA' }}
+          ></div>
+          <span className="text-sm" style={{ color: '#488BBA' }}>Loading sessions...</span>
         </div>
       </div>
     );
@@ -149,21 +154,14 @@ const ChatSidebar = ({
         maxWidth: '100%'
       }}
     >
-      {/* Header Section - Responsive */}
+      {/* Header Section - Fixed */}
       <div className="flex-shrink-0 bg-white border-t-[0.25px] border-zinc-500 h-[60px] sm:h-[70px] px-4 sm:px-5 flex flex-col justify-center">
-        {/* Title */}
-        <h1 className="text-lg sm:text-xl font-bold text-blue-500 mb-1">
+        <h1 className="text-lg sm:text-xl font-bold" style={{ color: '#488BBA' }}>
           {isPsychologist ? 'Chat Klien' : 'Pesan'}
         </h1>
-        {/* Unread count */}
-        {totalUnreadCount > 0 && (
-          <p className="text-xs text-blue-500 font-medium">
-            {totalUnreadCount} pesan belum dibaca
-          </p>
-        )}
       </div>
       
-      {/* Search Bar Section - Responsive */}
+      {/* Search Bar Section - Fixed */}
       <div className="flex-shrink-0 px-4 sm:px-5 pt-4 pb-2">
         <div 
           className="flex gap-2 items-center px-3.5 py-px bg-white rounded-md border-solid border-[0.5px] border-zinc-500 w-full"
@@ -180,43 +178,79 @@ const ChatSidebar = ({
         </div>
       </div>
 
-      {/* Conversations List - Scrollable */}
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-        {filteredConversations.length > 0 ? (
-          filteredConversations.map((conversation) => (
-            <MessageItem
-              key={conversation.sessionId || conversation.id}
-              name={conversation.name}
-              time={conversation.time}
-              preview={conversation.lastMessage}
-              avatar={conversation.avatar}
-              isActive={selectedConversation?.sessionId === conversation.sessionId || selectedConversation?.id === conversation.id}
-              isTeamChat={conversation.isTeamChat}
-              onClick={() => onConversationSelect(conversation)}
-              containerWidth={containerWidth}
-              unreadCount={conversation.unreadCount || 0}
-              hasUnread={conversation.hasUnread || false}
-            />
-          ))
-        ) : (
-          <div className="flex flex-col items-center justify-center p-6 sm:p-8 text-center">
-            <div className="text-gray-400 text-3xl sm:text-4xl mb-2">💬</div>
-            <p className="text-gray-500 text-sm">
-              {searchQuery ? 'No conversations found' : 'No conversations yet'}
-            </p>
-            {!searchQuery && !isPsychologist && (
-              <p className="text-gray-400 text-xs mt-2">
-                Book a counseling session to start chatting
+      {/* Conversations List - Independent Scrollable Area */}
+      <div className="flex-1 relative">
+        <div 
+          className="absolute inset-0 overflow-y-auto sidebar-scroll"
+          style={{
+            scrollbarWidth: 'auto',
+            scrollbarColor: '#9CA3AF #F3F4F6'
+          }}
+        >
+          {filteredConversations.length > 0 ? (
+            <div className="pb-2">
+              {filteredConversations.map((conversation) => (
+                <MessageItem
+                  key={conversation.sessionId || conversation.id}
+                  name={conversation.name}
+                  time={conversation.time}
+                  preview={conversation.lastMessage}
+                  avatar={conversation.avatar}
+                  isActive={selectedConversation?.sessionId === conversation.sessionId || selectedConversation?.id === conversation.id}
+                  isTeamChat={conversation.isTeamChat}
+                  onClick={() => onConversationSelect(conversation)}
+                  containerWidth={containerWidth}
+                  unreadCount={conversation.unreadCount || 0}
+                  hasUnread={conversation.hasUnread || false}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-6 sm:p-8 text-center h-full">
+              <div className="text-gray-400 text-3xl sm:text-4xl mb-2">💬</div>
+              <p className="text-gray-500 text-sm">
+                {searchQuery ? 'No conversations found' : 'No conversations yet'}
               </p>
-            )}
-            {!searchQuery && isPsychologist && (
-              <p className="text-gray-400 text-xs mt-2">
-                Waiting for client sessions
-              </p>
-            )}
-          </div>
-        )}
+              {!searchQuery && !isPsychologist && (
+                <p className="text-gray-400 text-xs mt-2">
+                  Book a counseling session to start chatting
+                </p>
+              )}
+              {!searchQuery && isPsychologist && (
+                <p className="text-gray-400 text-xs mt-2">
+                  Waiting for client sessions
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Sidebar Scrollbar Styles */}
+      <style jsx>{`
+        .sidebar-scroll::-webkit-scrollbar {
+          width: 12px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-track {
+          background: #F3F4F6;
+          border-radius: 6px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+          background: #9CA3AF;
+          border-radius: 6px;
+          border: 2px solid #F3F4F6;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+          background: #6B7280;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb:active {
+          background: #4B5563;
+        }
+      `}</style>
     </div>
   );
 };
