@@ -1,10 +1,14 @@
-// src/components/shared/chats/ChatMain.jsx - Independent Scroll Design with dayjs
+// src/components/shared/chats/ChatMain.jsx - Updated with File Upload Support
 
 import React, { useEffect, useRef, useState } from 'react';
 import { formatChatDateHeader } from './utils/dateUtils';
-// Upload dropdown component
-const UploadDropdown = ({ isOpen, onClose }) => {
+import { chatsApi } from './lib/chatsApi';
+
+// ✅ Updated Upload dropdown component with actual functionality
+const UploadDropdown = ({ isOpen, onClose, onFileSelect }) => {
   const dropdownRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -22,6 +26,32 @@ const UploadDropdown = ({ isOpen, onClose }) => {
     };
   }, [isOpen, onClose]);
 
+  const handleImageSelect = () => {
+    imageInputRef.current?.click();
+    onClose();
+  };
+
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+    onClose();
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      onFileSelect(file, 'image');
+    }
+    e.target.value = ''; // Reset input
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      onFileSelect(file, 'file');
+    }
+    e.target.value = ''; // Reset input
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -29,11 +59,34 @@ const UploadDropdown = ({ isOpen, onClose }) => {
       ref={dropdownRef}
       className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-48 z-50"
     >
-      <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+      {/* Hidden file inputs */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageChange}
+        className="hidden"
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.txt"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      
+      {/* Menu options */}
+      <button 
+        onClick={handleImageSelect}
+        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+      >
         <span className="material-icons text-gray-600 text-sm">image</span>
         Upload Image
       </button>
-      <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
+      <button 
+        onClick={handleFileSelect}
+        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+      >
         <span className="material-icons text-gray-600 text-sm">attach_file</span>
         Upload File
       </button>
@@ -44,8 +97,37 @@ const UploadDropdown = ({ isOpen, onClose }) => {
 // Generate date header for messages using centralized utility
 const generateDateHeader = formatChatDateHeader;
 
-// Individual message bubble
-const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOptionClick, actions }) => {
+// ✅ Updated Message bubble with attachment support
+const MessageBubble = ({ 
+  message, 
+  isOwn = false, 
+  sender, 
+  time, 
+  showOptions, 
+  onOptionClick, 
+  actions,
+  attachmentUrl,
+  attachmentType,
+  attachmentName,
+  attachmentSize
+}) => {
+  const handleAttachmentClick = () => {
+    if (attachmentUrl) {
+      window.open(attachmentUrl, '_blank');
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 Byte';
+    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const isImage = attachmentType?.startsWith('image/');
+  const isDocument = attachmentType?.includes('pdf') || attachmentType?.includes('word') || attachmentType?.includes('text');
+
   return (
     <div className="w-full px-4 sm:px-5">
       <div className={`flex flex-col gap-2.5 ${isOwn ? 'items-end' : 'items-start'}`}>
@@ -87,9 +169,52 @@ const MessageBubble = ({ message, isOwn = false, sender, time, showOptions, onOp
                 : 'bg-white rounded-3xl'
               }
             `}>
-              <p className="text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full">
-                {message}
-              </p>
+              {/* ✅ Text message */}
+              {message && (
+                <p className="text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full">
+                  {message}
+                </p>
+              )}
+
+              {/* ✅ Image attachment */}
+              {isImage && attachmentUrl && (
+                <div className="mt-2 w-full">
+                  <img
+                    src={attachmentUrl}
+                    alt={attachmentName || 'Uploaded image'}
+                    className="max-w-full max-h-48 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={handleAttachmentClick}
+                  />
+                  {attachmentName && (
+                    <p className="text-xs text-gray-500 mt-1">{attachmentName}</p>
+                  )}
+                </div>
+              )}
+
+              {/* ✅ Document/File attachment */}
+              {!isImage && attachmentUrl && (
+                <div 
+                  className="mt-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-full"
+                  onClick={handleAttachmentClick}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="material-icons text-gray-600">
+                      {isDocument ? 'description' : 'attach_file'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {attachmentName || 'Uploaded file'}
+                      </p>
+                      {attachmentSize && (
+                        <p className="text-xs text-gray-500">
+                          {formatFileSize(attachmentSize)}
+                        </p>
+                      )}
+                    </div>
+                    <span className="material-icons text-gray-400 text-sm">download</span>
+                  </div>
+                </div>
+              )}
 
               {/* AI Service Options */}
               {showOptions && !isOwn && (
@@ -321,6 +446,10 @@ const ChatMessages = ({
                 showOptions={message.showOptions}
                 actions={message.actions}
                 onOptionClick={onAIServiceSelection}
+                attachmentUrl={message.attachmentUrl}
+                attachmentType={message.attachmentType}
+                attachmentName={message.attachmentName}
+                attachmentSize={message.attachmentSize}
               />
             ))}
 
@@ -399,7 +528,7 @@ const ChatMessages = ({
   );
 };
 
-// Chat input area
+// ✅ Updated Chat input area with file upload support
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
@@ -407,9 +536,28 @@ const ChatInput = ({
   canSendMessage, 
   isSending,
   isAIChat,
-  onKeyPress 
+  onKeyPress,
+  onFileUpload
 }) => {
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  // ✅ Handle file selection
+  const handleFileSelect = async (file, fileType) => {
+    try {
+      // Validate file
+      chatsApi.validateFile(file);
+      
+      setUploadingFile(true);
+      await onFileUpload(file, fileType);
+      
+    } catch (error) {
+      console.error('File upload error:', error);
+      alert(error.message || 'Failed to upload file');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
 
   return (
     <div className="flex-shrink-0 flex flex-col gap-2.5 bg-white border-solid border-y-[0.25px] border-y-zinc-500 min-h-[100px] sm:h-[127px] px-4 sm:px-[19px] py-4 sm:py-[19px]">
@@ -427,7 +575,7 @@ const ChatInput = ({
           }
           className="text-sm sm:text-base leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none flex-1 w-full disabled:opacity-50 disabled:cursor-not-allowed"
           rows="2"
-          disabled={!canSendMessage && !isAIChat}
+          disabled={(!canSendMessage && !isAIChat) || uploadingFile}
         />
         
         <div className="flex justify-between items-center mt-2">
@@ -436,20 +584,25 @@ const ChatInput = ({
               <button 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
                 aria-label="Add attachment"
-                disabled={!canSendMessage && !isAIChat}
+                disabled={(!canSendMessage && !isAIChat) || uploadingFile}
                 onClick={() => setShowUploadDropdown(!showUploadDropdown)}
               >
-                <span className="material-icons text-zinc-500 text-lg sm:text-xl">add_circle_outline</span>
+                {uploadingFile ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-500"></div>
+                ) : (
+                  <span className="material-icons text-zinc-500 text-lg sm:text-xl">add_circle_outline</span>
+                )}
               </button>
               <UploadDropdown 
-                isOpen={showUploadDropdown} 
-                onClose={() => setShowUploadDropdown(false)} 
+                isOpen={showUploadDropdown && !uploadingFile} 
+                onClose={() => setShowUploadDropdown(false)}
+                onFileSelect={handleFileSelect}
               />
             </div>
             <button 
               className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
               aria-label="Add emoji"
-              disabled={!canSendMessage && !isAIChat}
+              disabled={(!canSendMessage && !isAIChat) || uploadingFile}
             >
               <span className="material-icons text-zinc-500 text-lg sm:text-xl">sentiment_satisfied_alt</span>
             </button>
@@ -457,11 +610,11 @@ const ChatInput = ({
           
           <button 
             onClick={onSendMessage}
-            disabled={(!canSendMessage && !isAIChat) || !messageText.trim() || isSending}
+            disabled={(!canSendMessage && !isAIChat) || !messageText.trim() || isSending || uploadingFile}
             className="p-2 disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors" 
             aria-label="Send message"
           >
-            {isSending ? (
+            {isSending || uploadingFile ? (
               <div 
                 className="animate-spin rounded-full h-5 w-5 border-b-2"
                 style={{ borderColor: '#488BBA' }}
@@ -481,7 +634,7 @@ const ChatInput = ({
   );
 };
 
-// Main chat component
+// ✅ Updated Main chat component with file upload support
 const ChatMain = ({
   selectedConversation,
   messages = [],
@@ -499,7 +652,8 @@ const ChatMain = ({
   onEndSession,
   userType,
   isPsychologist = false,
-  isEndingSession = false
+  isEndingSession = false,
+  onFileUpload // ✅ New prop for file upload
 }) => {
   const messagesEndRef = useRef(null);
 
@@ -593,6 +747,7 @@ const ChatMain = ({
         isSending={isSending}
         isAIChat={isAIChat}
         onKeyPress={handleKeyPress}
+        onFileUpload={onFileUpload}
       />
     </div>
   );

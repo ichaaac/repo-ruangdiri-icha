@@ -207,12 +207,13 @@ const ChatWidget = ({
     navigate(`/user/${userType}/chat`);
   };
 
-  const formatCurrentDate = () => {
+const formatCurrentDate = () => {
     const options = { 
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric' 
+      day: 'numeric',
+      timeZone: 'Asia/Jakarta'
     };
     return new Date().toLocaleDateString('id-ID', options);
   };

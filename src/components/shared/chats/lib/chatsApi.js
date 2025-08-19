@@ -1,4 +1,4 @@
-// src/components/shared/chats/lib/chatsApi.js - Updated for Backend Integration with dayjs
+// src/components/shared/chats/lib/chatsApi.js - Fixed for Backend Integration with correct endpoints
 
 import { apiClient } from "../../../../lib/api.js";
 import { formatChatTime, getCurrentTime, getCurrentTimestamp, isMoreRecent } from "../utils/dateUtils";
@@ -13,7 +13,7 @@ const getCurrentUser = () => {
 };
 
 export const chatsApi = {
-  // Get chat histories (for sidebar) - Fixed duplicate sessions
+  // ✅ FIXED: Get chat histories (for sidebar) - correct endpoint and data structure
   async getChatHistories() {
     try {
       console.log('📋 getChatHistories - Starting request...');
@@ -26,85 +26,52 @@ export const chatsApi = {
         const currentUserId = currentUser?.id;
         
         console.log('📋 getChatHistories - Current user:', { currentUser, userRole, currentUserId });
-        console.log('📋 getChatHistories - Raw data:', response.data.data);
         
-        // ✅ Group by sessionId and get latest message
-        const sessionMap = new Map();
+        // ✅ FIXED: Access correct nested data structure
+        const sessionsData = response.data.data.data || [];
+        console.log('📋 getChatHistories - Sessions data:', sessionsData);
         
-        response.data.data.forEach((item, index) => {
-          const sessionId = item.sessionId;
-          const lastMessage = item.lastMessage;
-          
-          console.log(`📋 Processing item ${index}:`, {
-            sessionId,
-            lastMessage: lastMessage?.message || 'null',
-            createdAt: lastMessage?.createdAt || item.createdAt
-          });
-          
-          if (!sessionMap.has(sessionId)) {
-            sessionMap.set(sessionId, item);
-          } else {
-            // Compare and keep the latest
-            const existing = sessionMap.get(sessionId);
-            const existingTime = existing.lastMessage?.createdAt || existing.createdAt;
-            const currentTime = lastMessage?.createdAt || item.createdAt;
-            
-            // ✅ Only update if we have a valid time comparison
-            if (existingTime && currentTime && isMoreRecent(currentTime, existingTime)) {
-              sessionMap.set(sessionId, item);
-            } else if (!existingTime && currentTime) {
-              // If existing has no time but current has time, prefer current
-              sessionMap.set(sessionId, item);
-            } else if (lastMessage?.message && !existing.lastMessage?.message) {
-              // If current has message but existing doesn't, prefer current
-              sessionMap.set(sessionId, item);
-            }
-          }
-        });
-        
-        console.log('📋 Unique sessions after grouping:', sessionMap.size);
-        
-        const sessions = Array.from(sessionMap.values()).map(session => {
+        const sessions = sessionsData.map(session => {
           const lastMessage = session.lastMessage;
           let displayName, displayAvatar;
           
-          // ✅ Handle case where backend doesn't return client/psychologist objects
-          if (lastMessage && lastMessage.senderFullName) {
-            // Use lastMessage sender info if available
-            displayName = lastMessage.senderFullName;
-            displayAvatar = lastMessage.senderProfilePicture;
+          // ✅ FIXED: Determine display name based on current user ID, not role
+          if (currentUserId === session.clientId) {
+            // Current user is client, show psychologist info
+            displayName = session.psychologist?.fullName || `Psychologist ${session.psychologistId?.slice(-8) || 'Unknown'}`;
+            displayAvatar = session.psychologist?.profilePicture;
+          } else if (currentUserId === session.psychologistId) {
+            // Current user is psychologist, show client info  
+            displayName = session.client?.fullName || `Client ${session.clientId?.slice(-8) || 'Unknown'}`;
+            displayAvatar = session.client?.profilePicture;
           } else {
-            // ✅ Fallback for sessions without lastMessage (pending sessions)
-            if (userRole === 'psychologist') {
-              // Psychologist sees client, but we don't have client object from backend
-              displayName = `Client ${session.clientId.slice(-8)}`; // Show last 8 chars of client ID
-              displayAvatar = null;
-            } else {
-              // ✅ Client sees psychologist, but we don't have psychologist object from backend  
-              // For client view, we want to show psychologist name, not client name
-              displayName = `Psychologist ${session.psychologistId.slice(-8)}`; // Show last 8 chars of psychologist ID
-              displayAvatar = null;
-            }
+            // Fallback - shouldn't happen
+            displayName = session.client?.fullName || session.psychologist?.fullName || 'Unknown';
+            displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
           }
 
           console.log(`📋 Session ${session.sessionId}:`, {
             displayName,
-            userRole,
+            currentUserId,
+            clientId: session.clientId,
+            psychologistId: session.psychologistId,
             lastMessageSender: lastMessage?.senderFullName,
-            status: session.status
+            status: session.status,
+            unreadCount: session.unreadCount
           });
 
-          // ✅ Check unread messages - handle null lastMessage and don't count own messages as unread
+          // ✅ Check unread messages - don't count own messages as unread
+          const unreadCount = parseInt(session.unreadCount || '0');
           const hasUnreadMessage = lastMessage && 
             lastMessage.message && 
-            lastMessage.senderId !== currentUserId && // ✅ Not from current user
-            (!lastMessage.isRead || lastMessage.isRead === false); // ✅ Explicitly check isRead
+            lastMessage.senderId !== currentUserId && 
+            unreadCount > 0;
 
           console.log(`📋 Unread check for ${session.sessionId}:`, {
             hasLastMessage: !!lastMessage,
             hasMessage: !!lastMessage?.message,
             isNotFromMe: lastMessage?.senderId !== currentUserId,
-            isUnread: !lastMessage?.isRead || lastMessage?.isRead === false,
+            unreadCount,
             finalResult: hasUnreadMessage
           });
 
@@ -124,11 +91,13 @@ export const chatsApi = {
             isChatEnabled: session.status === 'active' || session.status === 'pending',
             status: session.status,
             isTeamChat: false,
-            unreadCount: hasUnreadMessage ? 1 : 0,
+            unreadCount: unreadCount,
             hasUnread: hasUnreadMessage,
             // ✅ Store IDs for reference
             clientId: session.clientId,
-            psychologistId: session.psychologistId
+            psychologistId: session.psychologistId,
+            // ✅ Store user role for display logic
+            userRole: userRole === 'psychologist' ? 'client' : 'psychologist'
           };
         });
 
@@ -181,7 +150,7 @@ export const chatsApi = {
     }
   },
 
-  // Get messages (for chat main) - Fixed time format
+  // ✅ FIXED: Get messages (for chat main) - correct endpoint with sessionId
   async getMessages(sessionId, cursor = null, limit = 10) {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -206,28 +175,36 @@ export const chatsApi = {
       const params = { sessionId, limit };
       if (cursor) params.cursor = cursor;
 
+      console.log('📨 Getting messages for session:', sessionId, 'with params:', params);
       const response = await apiClient.get('/chat/history', { params });
       
       if (response.data?.status === 'success') {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
+        console.log('📨 Messages response:', response.data);
+        
         return response.data.data.map(msg => ({
           id: msg.id,
           sessionId: msg.sessionId,
           text: msg.message,
-          time: formatChatTime(msg.createdAt), // ✅ Use formatChatTime for consistent display
-          timestamp: msg.createdAt, // ✅ Keep original timestamp from backend
-          isUser: msg.senderId === currentUserId,
+          time: formatChatTime(msg.createdAt),
+          timestamp: msg.createdAt,
+          isUser: msg.senderId === currentUserId, // ✅ FIXED: Compare with current user ID
           sender: {
             id: msg.sender?.id || msg.senderId,
-            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'), // ✅ FIXED: Show "You" for current user
             role: msg.sender?.role || 'user',
             profilePicture: msg.sender?.profilePicture
           },
           senderId: msg.senderId,
           messageType: msg.messageType || 'text',
-          isRead: msg.isRead
+          isRead: msg.isRead,
+          // ✅ Handle attachments
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize
         }));
       }
       
@@ -238,8 +215,8 @@ export const chatsApi = {
     }
   },
 
-  // Send message
-  async sendMessage(sessionId, content) {
+  // ✅ Send message - text only
+  async sendMessage(sessionId, content, messageType = 'text') {
     try {
       if (sessionId === 'team-ruangdiri') {
         return {
@@ -260,7 +237,7 @@ export const chatsApi = {
       const response = await apiClient.post('/chat/messages', {
         sessionId,
         message: content,
-        messageType: 'text'
+        messageType
       });
       
       if (response.data?.status === 'success') {
@@ -271,17 +248,22 @@ export const chatsApi = {
         return {
           id: msg.id,
           text: msg.message,
-          time: formatChatTime(msg.createdAt), // ✅ Use formatChatTime
-          timestamp: msg.createdAt, // ✅ Keep original backend timestamp
-          isUser: msg.senderId === currentUserId,
+          time: formatChatTime(msg.createdAt),
+          timestamp: msg.createdAt,
+          isUser: msg.senderId === currentUserId, // ✅ FIXED: Compare with current user ID
           sender: {
             id: msg.sender?.id || msg.senderId,
-            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'), // ✅ FIXED: Show "You" for current user
             role: msg.sender?.role || 'user',
             profilePicture: msg.sender?.profilePicture
           },
           messageType: msg.messageType || 'text',
-          isRead: msg.isRead
+          isRead: msg.isRead,
+          // ✅ Handle attachments
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize
         };
       }
       
@@ -292,7 +274,68 @@ export const chatsApi = {
     }
   },
 
-  // ✅ Mark as read - Updated endpoint
+  // ✅ NEW: Send file/image message
+  async sendFileMessage(sessionId, file, messageType = 'file') {
+    try {
+      if (sessionId === 'team-ruangdiri') {
+        // AI doesn't support file uploads
+        throw new Error('File upload not supported for AI assistant');
+      }
+
+      const formData = new FormData();
+      formData.append('sessionId', sessionId);
+      formData.append('message', file);
+      formData.append('messageType', messageType);
+
+      console.log('📤 Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sessionId,
+        messageType
+      });
+
+      const response = await apiClient.post('/chat/messages/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data?.status === 'success') {
+        const msg = response.data.data;
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        return {
+          id: msg.id,
+          text: msg.message || `Uploaded: ${file.name}`,
+          time: formatChatTime(msg.createdAt),
+          timestamp: msg.createdAt,
+          isUser: msg.senderId === currentUserId, // ✅ FIXED: Compare with current user ID
+          sender: {
+            id: msg.sender?.id || msg.senderId,
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'), // ✅ FIXED: Show "You" for current user
+            role: msg.sender?.role || 'user',
+            profilePicture: msg.sender?.profilePicture
+          },
+          messageType: msg.messageType || messageType,
+          isRead: msg.isRead,
+          // ✅ File attachment data
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize
+        };
+      }
+      
+      throw new Error(response.data?.message || 'Failed to upload file');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  },
+
+  // ✅ Mark as read
   async markAsRead(sessionId) {
     if (sessionId === 'team-ruangdiri') return;
 
@@ -311,13 +354,66 @@ export const chatsApi = {
     }
   },
 
-  // Get active sessions - DEPRECATED, use getChatHistories instead
+  // ✅ Get active sessions - Use correct endpoint
   async getActiveSessions() {
-    console.warn('⚠️ getActiveSessions is deprecated, use getChatHistories instead');
-    return this.getChatHistories();
+    try {
+      console.log('🔄 Getting active sessions...');
+      const response = await apiClient.get('/chat/sessions/active');
+      
+      if (response.data?.status === 'success') {
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        console.log('✅ Active sessions response:', response.data);
+        
+        return response.data.data.map(session => {
+          // ✅ FIXED: Determine display info based on current user
+          let displayName, displayAvatar;
+          
+          if (currentUserId === session.client?.id) {
+            // Current user is client, show psychologist info
+            displayName = session.psychologist?.fullName || 'Psychologist';
+            displayAvatar = session.psychologist?.profilePicture;
+          } else if (currentUserId === session.psychologist?.id) {
+            // Current user is psychologist, show client info  
+            displayName = session.client?.fullName || 'Client';
+            displayAvatar = session.client?.profilePicture;
+          } else {
+            // Fallback
+            displayName = session.client?.fullName || session.psychologist?.fullName || 'Unknown';
+            displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
+          }
+
+          return {
+            id: session.id,
+            sessionId: session.id,
+            name: displayName,
+            avatar: displayAvatar,
+            lastMessage: 'Active session - Start chatting',
+            time: formatChatTime(session.updatedAt || session.createdAt),
+            isActive: session.isActive,
+            isChatEnabled: session.status === 'active' && session.isActive, // ✅ FIXED: Both must be true
+            status: session.status,
+            isTeamChat: false,
+            unreadCount: 0, // Active sessions endpoint doesn't provide unread count
+            hasUnread: false,
+            // ✅ Store IDs for reference
+            clientId: session.client?.id,
+            psychologistId: session.psychologist?.id,
+            createdAt: session.createdAt,
+            updatedAt: session.updatedAt
+          };
+        });
+      }
+      
+      throw new Error(response.data?.message || 'Failed to fetch active sessions');
+    } catch (error) {
+      console.error('Error fetching active sessions:', error);
+      return [];
+    }
   },
 
-  // End session
+  // ✅ End session
   async endSession(sessionId) {
     try {
       const response = await apiClient.put(`/chat/sessions/${sessionId}/end`);
@@ -333,7 +429,7 @@ export const chatsApi = {
     }
   },
 
-  // AI response generator
+  // ✅ AI response generator
   generateAIResponse(userInput) {
     const input = userInput.toLowerCase();
     
@@ -348,7 +444,7 @@ export const chatsApi = {
     return "Terima kasih sudah bercerita! Ada yang bisa saya bantu lagi? 😊";
   },
 
-  // Handle AI service selection
+  // ✅ Handle AI service selection
   async handleAIServiceSelection(option) {
     const responses = {
       'Ruang Cerita': {
@@ -371,7 +467,7 @@ export const chatsApi = {
     };
   },
 
-  // Get Ably token
+  // ✅ Get Ably token
   async getAblyToken(sessionId) {
     if (sessionId === 'team-ruangdiri') return null;
 
@@ -383,7 +479,9 @@ export const chatsApi = {
       if (response.data?.status === 'success') {
         return {
           token: response.data.data.token,
-          channels: response.data.data.channels
+          channels: response.data.data.channels,
+          sessionId: response.data.data.sessionId,
+          expiresAt: response.data.data.expiresAt
         };
       }
       
@@ -397,7 +495,7 @@ export const chatsApi = {
         
         if (errorMessage.includes('completed') || errorMessage.includes('ended')) {
           console.log('🔒 Session is completed/ended, cannot generate Ably token');
-          return null; // Return null instead of throwing error
+          return null;
         }
         
         if (errorMessage.includes('inactive') || errorMessage.includes('disabled')) {
@@ -410,14 +508,54 @@ export const chatsApi = {
     }
   },
 
-  // Send typing indicator
+  // ✅ Send typing indicator
   async sendTypingIndicator(sessionId, isTyping) {
     if (sessionId === 'team-ruangdiri') return;
 
     try {
-      await apiClient.post('/chat/typing', { sessionId, isTyping });
+      await apiClient.post('/chat/typing', { 
+        sessionId, 
+        isTyping 
+      });
     } catch (error) {
       console.error('Error sending typing indicator:', error);
     }
+  },
+
+  // ✅ Helper: Validate file for upload
+  validateFile(file) {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    if (file.size > maxSize) {
+      throw new Error('File size must be less than 10MB');
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('File type not supported');
+    }
+
+    return true;
+  },
+
+  // ✅ Helper: Get file type category
+  getFileTypeCategory(file) {
+  if (file.type.startsWith('image/')) {
+      return 'image';
+    } else if (file.type === 'application/pdf') {
+      return 'document';
+    } else if (file.type.includes('word') || file.type === 'text/plain') {
+      return 'document';
+    }
+    return 'file';
   }
 };

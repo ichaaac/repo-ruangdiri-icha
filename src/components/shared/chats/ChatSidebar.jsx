@@ -1,4 +1,4 @@
-// src/components/shared/chats/ChatSidebar.jsx - Independent Scroll Design
+// src/components/shared/chats/ChatSidebar.jsx - Independent Scroll Design with Fixed "You" Logic
 
 import React, { useState } from 'react';
 
@@ -61,7 +61,7 @@ const MessageItem = ({
           
           <div className="flex flex-col flex-1 gap-2 min-w-0">
             <div className="flex justify-between items-end gap-2">
-              {/* NAME - Bold kalau unread */}
+              {/* NAME - Bold if unread */}
               <h3 className={`text-sm sm:text-base truncate ${
                 hasUnread 
                   ? 'font-bold text-neutral-700'
@@ -71,7 +71,7 @@ const MessageItem = ({
               </h3>
               
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* TIME - Blue kalau unread */}
+                {/* TIME - Blue if unread */}
                 <time className={`text-xs font-light ${
                   hasUnread 
                     ? 'font-semibold'
@@ -95,7 +95,7 @@ const MessageItem = ({
               </div>
             </div>
             
-            {/* PREVIEW - Bold kalau unread */}
+            {/* PREVIEW - Bold if unread */}
             <p className={`text-xs truncate ${
               hasUnread 
                 ? 'font-medium text-zinc-700'
@@ -162,7 +162,7 @@ const ChatSidebar = ({
       </div>
       
       {/* Search Bar Section - Fixed */}
-      <div className="flex-shrink-0 px-4 sm:px-5 pt-4 pb-2">
+      <div className="flex-shrink-0 px-4 sm:px-5 pb-2">
         <div 
           className="flex gap-2 items-center px-3.5 py-px bg-white rounded-md border-solid border-[0.5px] border-zinc-500 w-full"
           style={{ height: '31px' }}

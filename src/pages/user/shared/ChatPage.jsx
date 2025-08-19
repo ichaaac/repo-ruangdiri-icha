@@ -16,6 +16,7 @@ const ChatPage = () => {
   const [isEndingSession, setIsEndingSession] = useState(false);
 
   // Main chat hook
+// Main chat hook
   const {
     sessions,
     selectedSession,
@@ -24,6 +25,7 @@ const ChatPage = () => {
     isLoadingSessions,
     isLoadingMessages,
     isSendingMessage,
+    isUploadingFile, // ✅ NEW: File upload state
     connectionStatus,
     isConnected,
     isAISession,
@@ -33,10 +35,12 @@ const ChatPage = () => {
     sendError,
     selectSession,
     sendCurrentMessage,
+    sendFile, // ✅ NEW: File upload function
     handleTyping,
     handleAIServiceSelection,
     handleBookingClick,
     canSendMessage,
+    canSendFile, // ✅ NEW: Check if can send file
     getSessionStatus,
     refetchSessions,
     userDisplayData,

@@ -221,7 +221,7 @@ export const useChats = () => {
     }
   }, [selectedSession?.sessionId, user?.id, ably, messages]);
 
-  // Send message
+// Send message
   const sendCurrentMessage = useCallback(async () => {
     if (!selectedSession || !messages.canSendMessage(selectedSession)) {
       console.warn('Cannot send message');
@@ -232,7 +232,7 @@ export const useChats = () => {
       await messages.sendCurrentMessage();
       console.log('✅ Message sent');
       
-      // ✅ Refresh sessions untuk update lastMessage di sidebar
+      // ✅ Refresh sessions to update lastMessage in sidebar
       setTimeout(() => {
         sessionsQuery.refetch();
       }, 1000);
@@ -243,6 +243,27 @@ export const useChats = () => {
     }
   }, [selectedSession, messages, sessionsQuery]);
 
+  // ✅ NEW: Send file
+  const sendFile = useCallback(async (file, fileType) => {
+    if (!selectedSession || !messages.canSendFile(selectedSession)) {
+      console.warn('Cannot send file');
+      return;
+    }
+
+    try {
+      await messages.sendFile(file, fileType);
+      console.log('✅ File sent');
+      
+      // ✅ Refresh sessions to update lastMessage in sidebar
+      setTimeout(() => {
+        sessionsQuery.refetch();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('❌ Failed to send file:', error);
+      throw error;
+    }
+  }, [selectedSession, messages, sessionsQuery]);
   // Handle AI service selection
   const handleAIServiceSelection = useCallback(async (option) => {
     if (selectedSession?.isTeamChat) {

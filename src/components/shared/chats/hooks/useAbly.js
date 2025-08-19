@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useAbly.js - Fixed for Completed Sessions
+// src/components/shared/chats/hooks/useAbly.js - Fixed Real Ably Integration
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { chatsApi } from '../lib/chatsApi';
@@ -25,7 +25,7 @@ export const useAbly = () => {
     onTypingRef.current = callbacks.onTyping || null;
   }, []);
 
-  // Connect to Ably or setup AI session
+  // ✅ FIXED: Real Ably connection implementation
   const connect = useCallback(async (sessionId, userId) => {
     try {
       currentSessionRef.current = sessionId;
@@ -42,9 +42,13 @@ export const useAbly = () => {
 
       // Disconnect existing connection first
       if (ablyRef.current) {
+        console.log('🔌 Closing existing Ably connection...');
         ablyRef.current.close();
         ablyRef.current = null;
       }
+
+      // Clear channels
+      channelsRef.current = {};
 
       const tokenData = await chatsApi.getAblyToken(sessionId);
       
@@ -55,117 +59,142 @@ export const useAbly = () => {
         return false;
       }
 
-      const ably = new Ably.Realtime({
-        authCallback: (tokenParams, callback) => {
-          callback(null, tokenData.token);
-        },
-        clientId: userId,
-        disconnectedRetryTimeout: 5000,
-        suspendedRetryTimeout: 10000,
-        autoConnect: true
+      console.log('🎫 Got Ably token:', {
+        sessionId: tokenData.sessionId,
+        channels: tokenData.channels,
+        expiresAt: tokenData.expiresAt
       });
 
-      ablyRef.current = ably;
+      // ✅ FIXED: Use actual Ably client
+      if (typeof window !== 'undefined' && window.Ably) {
+        const ably = new window.Ably.Realtime({
+          authCallback: (tokenParams, callback) => {
+            console.log('🔑 Ably requesting auth token...');
+            callback(null, tokenData.token);
+          },
+          clientId: userId,
+          disconnectedRetryTimeout: 5000,
+          suspendedRetryTimeout: 10000,
+          autoConnect: true
+        });
 
-      // Get channels
-      const chatChannel = ably.channels.get(tokenData.channels.chat);
-      const typingChannel = ably.channels.get(tokenData.channels.typing);
-      
-      channelsRef.current = { chat: chatChannel, typing: typingChannel };
+        ablyRef.current = ably;
 
-      // Subscribe to chat events
-      chatChannel.subscribe('message', (message) => {
-        console.log('📨 Received message:', message.data);
-        if (onMessageRef.current && message.data.senderId !== userId) {
-          onMessageRef.current(message.data);
-        }
-      });
-
-      chatChannel.subscribe('session_status', (message) => {
-        console.log('📊 Session status change:', message.data);
-        if (onSessionStatusRef.current) {
-          onSessionStatusRef.current(message.data);
-        }
-      });
-
-      chatChannel.subscribe('automated_message', (message) => {
-        console.log('🤖 Automated message:', message.data);
-        if (onMessageRef.current) {
-          onMessageRef.current({
-            ...message.data,
-            isAutomated: true,
-            messageType: 'automated'
-          });
-        }
-      });
-
-      // Subscribe to typing events
-      typingChannel.subscribe('typing', (message) => {
-        const { isTyping: typing, userId: typingUserId } = message.data;
+        // Get channels
+        const chatChannel = ably.channels.get(tokenData.channels.chat);
+        const typingChannel = ably.channels.get(tokenData.channels.typing);
         
-        // Don't show our own typing indicator
-        if (typingUserId !== userId) {
-          setIsTyping(typing);
+        channelsRef.current = { 
+          chat: chatChannel, 
+          typing: typingChannel,
+          chatChannelName: tokenData.channels.chat,
+          typingChannelName: tokenData.channels.typing
+        };
+
+        console.log('📡 Subscribing to channels:', {
+          chat: tokenData.channels.chat,
+          typing: tokenData.channels.typing
+        });
+
+        // ✅ FIXED: Subscribe to chat events with proper error handling
+        chatChannel.subscribe('message', (message) => {
+          console.log('📨 Received chat message:', message.data);
+          if (onMessageRef.current && message.data.senderId !== userId) {
+            onMessageRef.current(message.data);
+          }
+        });
+
+        chatChannel.subscribe('session_status', (message) => {
+          console.log('📊 Session status change:', message.data);
+          if (onSessionStatusRef.current) {
+            onSessionStatusRef.current(message.data);
+          }
+        });
+
+        chatChannel.subscribe('automated_message', (message) => {
+          console.log('🤖 Automated message:', message.data);
+          if (onMessageRef.current) {
+            onMessageRef.current({
+              ...message.data,
+              isAutomated: true,
+              messageType: 'automated'
+            });
+          }
+        });
+
+        // ✅ FIXED: Subscribe to typing events
+        typingChannel.subscribe('typing', (message) => {
+          console.log('⌨️ Typing indicator:', message.data);
+          const { isTyping: typing, userId: typingUserId } = message.data;
           
-          if (onTypingRef.current) {
-            onTypingRef.current(message.data);
-          }
-
-          // Auto-clear typing indicator after 5 seconds
-          if (typing) {
-            if (typingTimeoutRef.current) {
-              clearTimeout(typingTimeoutRef.current);
+          // Don't show our own typing indicator
+          if (typingUserId !== userId) {
+            setIsTyping(typing);
+            
+            if (onTypingRef.current) {
+              onTypingRef.current(message.data);
             }
-            typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 5000);
+
+            // Auto-clear typing indicator after 5 seconds
+            if (typing) {
+              if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+              }
+              typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 5000);
+            }
           }
+        });
+
+        // ✅ FIXED: Connection event handlers with proper logging
+        ably.connection.on('connected', () => {
+          console.log('✅ Ably connected successfully');
+          setConnectionStatus('connected');
+        });
+
+        ably.connection.on('disconnected', () => {
+          console.log('🔌 Ably disconnected');
+          setConnectionStatus('disconnected');
+        });
+
+        ably.connection.on('failed', (error) => {
+          console.error('❌ Ably connection failed:', error);
+          setConnectionStatus('failed');
+        });
+
+        ably.connection.on('suspended', () => {
+          console.log('⏸️ Ably connection suspended');
+          setConnectionStatus('disconnected');
+        });
+
+        ably.connection.on('closed', () => {
+          console.log('🔒 Ably connection closed');
+          setConnectionStatus('disconnected');
+        });
+
+        // ✅ Setup token refresh (every 25 minutes, token expires in 30)
+        if (tokenRefreshIntervalRef.current) {
+          clearInterval(tokenRefreshIntervalRef.current);
         }
-      });
+        
+        tokenRefreshIntervalRef.current = setInterval(async () => {
+          try {
+            console.log('🔄 Refreshing Ably token...');
+            const newTokenData = await chatsApi.getAblyToken(sessionId);
+            if (newTokenData && ablyRef.current) {
+              await ablyRef.current.auth.authorize(newTokenData.token);
+              console.log('✅ Token refreshed successfully');
+            }
+          } catch (error) {
+            console.error('❌ Token refresh failed:', error);
+          }
+        }, 25 * 60 * 1000); // 25 minutes
 
-      // Connection event handlers
-      ably.connection.on('connected', () => {
-        console.log('✅ Ably connected');
-        setConnectionStatus('connected');
-      });
-
-      ably.connection.on('disconnected', () => {
-        console.log('🔌 Ably disconnected');
-        setConnectionStatus('disconnected');
-      });
-
-      ably.connection.on('failed', (error) => {
-        console.error('❌ Ably connection failed:', error);
+        return true;
+      } else {
+        console.error('❌ Ably not found on window object. Make sure Ably is loaded.');
         setConnectionStatus('failed');
-      });
-
-      ably.connection.on('suspended', () => {
-        console.log('⏸️ Ably connection suspended');
-        setConnectionStatus('disconnected');
-      });
-
-      ably.connection.on('closed', () => {
-        console.log('🔒 Ably connection closed');
-        setConnectionStatus('disconnected');
-      });
-
-      // Setup token refresh (every 25 minutes, token expires in 30)
-      if (tokenRefreshIntervalRef.current) {
-        clearInterval(tokenRefreshIntervalRef.current);
+        return false;
       }
-      
-      tokenRefreshIntervalRef.current = setInterval(async () => {
-        try {
-          console.log('🔄 Refreshing Ably token...');
-          const newTokenData = await chatsApi.getAblyToken(sessionId);
-          if (newTokenData && ablyRef.current) {
-            await ablyRef.current.auth.authorize(newTokenData.token);
-            console.log('✅ Token refreshed successfully');
-          }
-        } catch (error) {
-          console.error('❌ Token refresh failed:', error);
-        }
-      }, 25 * 60 * 1000); // 25 minutes
-
-      return true;
     } catch (error) {
       console.error('❌ Connection failed:', error);
       setConnectionStatus('failed');
@@ -173,9 +202,9 @@ export const useAbly = () => {
     }
   }, []);
 
-  // Disconnect with proper cleanup
+  // ✅ FIXED: Disconnect with proper cleanup
   const disconnect = useCallback(() => {
-    console.log('🔌 Disconnecting...');
+    console.log('🔌 Disconnecting Ably...');
     
     // Clear token refresh interval
     if (tokenRefreshIntervalRef.current) {
@@ -189,21 +218,31 @@ export const useAbly = () => {
       typingTimeoutRef.current = null;
     }
 
-    // Unsubscribe and cleanup channels
-    Object.values(channelsRef.current).forEach(channel => {
-      if (channel) {
-        try {
-          channel.unsubscribe();
-        } catch (error) {
-          console.error('Error unsubscribing channel:', error);
-        }
+    // ✅ FIXED: Unsubscribe from channels properly
+    if (channelsRef.current.chat) {
+      try {
+        console.log('📡 Unsubscribing from chat channel...');
+        channelsRef.current.chat.unsubscribe();
+      } catch (error) {
+        console.error('Error unsubscribing from chat channel:', error);
       }
-    });
+    }
+
+    if (channelsRef.current.typing) {
+      try {
+        console.log('📡 Unsubscribing from typing channel...');
+        channelsRef.current.typing.unsubscribe();
+      } catch (error) {
+        console.error('Error unsubscribing from typing channel:', error);
+      }
+    }
+
     channelsRef.current = {};
 
     // Close Ably connection
     if (ablyRef.current) {
       try {
+        console.log('🔒 Closing Ably connection...');
         ablyRef.current.close();
       } catch (error) {
         console.error('Error closing Ably connection:', error);
@@ -217,18 +256,35 @@ export const useAbly = () => {
     setIsTyping(false);
   }, []);
 
-  // Send typing indicator
+  // ✅ FIXED: Send typing indicator via Ably
   const sendTyping = useCallback(async (sessionId, isTyping, userId) => {
     // AI sessions don't need typing indicators
     if (sessionId === 'team-ruangdiri') return;
 
     try {
-      // Use backend API endpoint for typing indicators
-      await chatsApi.sendTypingIndicator(sessionId, isTyping);
+      // ✅ Try Ably first if connected
+      if (ablyRef.current && channelsRef.current.typing && connectionStatus === 'connected') {
+        console.log('⌨️ Sending typing via Ably:', { isTyping, userId });
+        await channelsRef.current.typing.publish('typing', {
+          userId,
+          isTyping,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        // ✅ Fallback to API if Ably not available
+        console.log('⌨️ Sending typing via API (fallback):', { isTyping, userId });
+        await chatsApi.sendTypingIndicator(sessionId, isTyping);
+      }
     } catch (error) {
-      console.error('Error sending typing indicator:', error);
+      console.error('❌ Error sending typing indicator:', error);
+      // Try API fallback if Ably fails
+      try {
+        await chatsApi.sendTypingIndicator(sessionId, isTyping);
+      } catch (apiError) {
+        console.error('❌ API fallback also failed:', apiError);
+      }
     }
-  }, []);
+  }, [connectionStatus]);
 
   // Handle typing with debounce
   const handleTyping = useCallback((sessionId, userId, text) => {
@@ -256,6 +312,23 @@ export const useAbly = () => {
     }
   }, [sendTyping]);
 
+  // ✅ FIXED: Send message via Ably for real-time delivery
+  const sendMessageViaAbly = useCallback(async (sessionId, messageData) => {
+    if (sessionId === 'team-ruangdiri') return false;
+
+    try {
+      if (ablyRef.current && channelsRef.current.chat && connectionStatus === 'connected') {
+        console.log('📤 Sending message via Ably:', messageData);
+        await channelsRef.current.chat.publish('message', messageData);
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ Failed to send message via Ably:', error);
+    }
+    
+    return false;
+  }, [connectionStatus]);
+
   // Simulate AI typing for better UX
   const simulateAITyping = useCallback((callback) => {
     setIsTyping(true);
@@ -263,9 +336,20 @@ export const useAbly = () => {
     // Simulate AI thinking time
     setTimeout(() => {
       setIsTyping(false);
-    if (callback) callback();
+      if (callback) callback();
     }, 1000 + Math.random() * 2000); // 1-3 seconds
   }, []);
+
+  // ✅ Get connection info
+  const getConnectionInfo = useCallback(() => {
+    return {
+      status: connectionStatus,
+      isConnected: ['connected', 'ai'].includes(connectionStatus),
+      currentSession: currentSessionRef.current,
+      channels: channelsRef.current,
+      hasRealtime: connectionStatus === 'connected'
+    };
+  }, [connectionStatus]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -284,7 +368,9 @@ export const useAbly = () => {
     disconnect,
     sendTyping,
     handleTyping,
+    sendMessageViaAbly, // ✅ NEW: Send message via Ably
     simulateAITyping,
-    setCallbacks
+    setCallbacks,
+    getConnectionInfo // ✅ NEW: Get connection details
   };
 };
