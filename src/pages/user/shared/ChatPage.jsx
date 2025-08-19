@@ -1,4 +1,4 @@
-// src/pages/user/shared/ChatPage.jsx - Work with Existing UserLayout
+// src/pages/user/shared/ChatPage.jsx - Updated with Mark as Read Logic
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -52,33 +52,18 @@ const ChatPage = () => {
     }
   }, [selectedSession?.isTeamChat, handleAIServiceSelection]);
 
-  // Handle conversation selection dengan mark as read
+  // ✅ Updated: Handle conversation selection dengan mark as read logic
   const handleConversationSelect = useCallback(async (conversation) => {
-    console.log('📄 Selecting conversation:', conversation.name, 'hasUnread:', conversation.hasUnread);
+    console.log('🔄 Selecting conversation:', conversation.name, 'hasUnread:', conversation.hasUnread);
     
-    // Mark as read SEBELUM select (kecuali AI)
-    if (!conversation.isTeamChat && conversation.hasUnread) {
-      try {
-        console.log('📖 Marking as read for session:', conversation.sessionId);
-        await chatsApi.markAsRead(conversation.sessionId);
-        
-        // Refresh sessions untuk update unread count
-        await refetchSessions();
-        
-        console.log('✅ Marked as read successfully');
-      } catch (error) {
-        console.error('❌ Failed to mark as read:', error);
-      }
-    }
-    
-    // Select session
-    selectSession(conversation);
+    // ✅ Gunakan selectSession yang sudah include mark as read logic
+    await selectSession(conversation, true); // shouldMarkAsRead = true
     
     // Close sidebar on mobile
     if (window.innerWidth < 768) {
       setSidebarVisible(false);
     }
-  }, [selectSession, refetchSessions]);
+  }, [selectSession]);
 
   // Handle end session untuk psychologist
   const handleEndSession = useCallback(async (sessionId) => {
@@ -119,7 +104,7 @@ const ChatPage = () => {
       if (selectedSession?.sessionId === sessionId) {
         const teamSession = sessions.find(s => s.isTeamChat);
         if (teamSession) {
-          selectSession(teamSession);
+          await selectSession(teamSession, false); // Don't mark as read for auto-select
         }
       }
       
@@ -148,13 +133,34 @@ const ChatPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // ✅ Auto mark as read ketika user focus ke window dan ada selected session
+  useEffect(() => {
+    const handleWindowFocus = async () => {
+      if (selectedSession && !selectedSession.isTeamChat && selectedSession.hasUnread) {
+        try {
+          console.log('👁️ Window focused, marking session as read...');
+          await chatsApi.markAsRead(selectedSession.sessionId);
+          await refetchSessions();
+        } catch (error) {
+          console.error('❌ Failed to mark as read on window focus:', error);
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [selectedSession, refetchSessions]);
+
   // Loading state
   if (isLoadingSessions) {
     return (
       <div className="w-full h-full pt-[90px] bg-white flex">
         <div className="w-full md:w-96 bg-white border-r border-gray-200 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#488BBE]"></div>
+            <div 
+              className="animate-spin rounded-full h-12 w-12 border-b-2"
+              style={{ borderColor: '#488BBA' }}
+            ></div>
             <div className="text-center">
               <h3 className="text-lg font-semibold text-gray-800">Loading Chats</h3>
               <p className="text-sm text-gray-600">
@@ -181,7 +187,8 @@ const ChatPage = () => {
             <p className="text-sm text-gray-600 mb-4">Failed to load chat sessions</p>
             <button 
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-[#488BBE] text-white text-sm rounded-lg hover:bg-[#3a7399] transition-colors"
+              className="px-4 py-2 text-white text-sm rounded-lg hover:opacity-90 transition-colors"
+              style={{ backgroundColor: '#488BBA' }}
             >
               Reload Page
             </button>
@@ -202,7 +209,8 @@ const ChatPage = () => {
             {!isPsychologist && (
               <button 
                 onClick={handleBookingClick}
-                className="bg-[#488BBE] text-white px-6 py-3 rounded-lg hover:bg-[#3a7399] transition-colors font-medium"
+                className="text-white px-6 py-3 rounded-lg hover:opacity-90 transition-colors font-medium"
+                style={{ backgroundColor: '#488BBA' }}
               >
                 Book Counseling Session
               </button>
@@ -225,16 +233,16 @@ const ChatPage = () => {
 
   return (
     <>
-      {/* Main Chat Container - Padding top untuk TopRightControl, full height sampai bawah */}
-      <div className="w-full h-full pt-[90px] bg-white flex relative overflow-hidden">
-        {/* Chat Sidebar */}
+      {/* Main Chat Container - Full height dengan independent scroll areas */}
+      <div className="w-full h-full pt-[90px] bg-white flex relative">
+        {/* Chat Sidebar - Independent scroll container */}
         <div 
           id="chat-sidebar"
           className={`
             ${sidebarVisible ? 'translate-x-0' : '-translate-x-full'}
             md:translate-x-0 transition-transform duration-300 ease-in-out
             fixed md:relative z-50 md:z-auto
-            h-full flex-shrink-0 overflow-hidden
+            h-full flex-shrink-0
           `}
           style={{ width: `${sidebarWidth}px` }}
         >
@@ -257,8 +265,8 @@ const ChatPage = () => {
           />
         )}
 
-        {/* Chat Main Area - Take remaining space */}
-        <div className="flex-1 overflow-hidden min-w-0">
+        {/* Chat Main Area - Independent scroll container */}
+        <div className="flex-1 h-full">
           <ChatMain
             selectedConversation={selectedSession}
             messages={messages}
@@ -307,68 +315,20 @@ const ChatPage = () => {
         </div>
       )}
 
-      {/* Session Status Notifications - Adjust untuk TopRightControl space */}
-      {selectedSession && !selectedSession.isTeamChat && getSessionStatus() === 'chat_disabled' && (
-        <div className="fixed top-[100px] left-4 right-4 md:left-1/2 md:right-auto md:transform md:-translate-x-1/2 z-50 max-w-md mx-auto">
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg shadow-lg">
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-sm">schedule</span>
-              <span className="text-sm font-medium">
-                Chat akan aktif ketika sesi dimulai
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedSession && !selectedSession.isTeamChat && getSessionStatus() === 'session_ended' && (
-        <div className="fixed top-[100px] left-4 right-4 md:left-1/2 md:right-auto md:transform md:-translate-x-1/2 z-50 max-w-md mx-auto">
-          <div className="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded-lg shadow-lg">
-            <div className="flex items-center gap-2">
-              <span className="material-icons text-sm">check_circle</span>
-              <span className="text-sm font-medium">
-                Sesi chat telah berakhir
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* End Session Loading Overlay */}
-      {isEndingSession && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-xl shadow-2xl max-w-sm mx-4">
-            <div className="flex flex-col items-center gap-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-500"></div>
-              <div className="text-center">
-                <h3 className="font-bold text-gray-800 text-lg">Ending Session</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Please wait while we end the session...
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Styles */}
+      {/* Custom Styles untuk independent scroll */}
       <style jsx>{`
-        /* Custom scrollbar */
-        :global(.overflow-y-auto::-webkit-scrollbar) {
-          width: 6px;
+        /* Ensure completely independent scroll areas */
+        #chat-sidebar {
+          contain: layout style;
         }
         
-        :global(.overflow-y-auto::-webkit-scrollbar-track) {
-          background: #f1f1f1;
+        .flex-1.h-full {
+          contain: layout style;
         }
         
-        :global(.overflow-y-auto::-webkit-scrollbar-thumb) {
-          background: #c1c1c1;
-          border-radius: 3px;
-        }
-        
-        :global(.overflow-y-auto::-webkit-scrollbar-thumb:hover) {
-          background: #a8a8a8;
+        /* Prevent any scroll interference */
+        body {
+          overflow: hidden;
         }
         
         /* Mobile optimizations */
