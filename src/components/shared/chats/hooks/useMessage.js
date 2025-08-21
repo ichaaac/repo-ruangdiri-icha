@@ -516,7 +516,6 @@ export const useMessages = (sessionId, ably = null) => {
       console.error('Failed to load more messages:', error);
     }
   }, [sessionId, cursor, hasMore, messagesQuery.isLoading, queryClient]);
-
   // Memoize return object to prevent re-renders
   return useMemo(() => ({
     messages: currentMessages,

@@ -98,7 +98,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
 // Generate date header for messages
 const generateDateHeader = formatChatDateHeader;
 
-// ✅ NEW: Message Status Component (WhatsApp-like read indicators)
+// ✅ ENHANCED: Message Status Component (WhatsApp-like read indicators)
 const MessageStatus = ({ message, isOwn }) => {
   if (!isOwn) return null; // Only show for own messages
   
@@ -115,12 +115,12 @@ const MessageStatus = ({ message, isOwn }) => {
       );
     }
     
-    // ✅ DOUBLE CHECK: Read status
+    // ✅ FIXED: Read status with proper blue color
     const isRead = message.isRead === true;
     const checkColor = isRead ? '#488BBA' : '#9CA3AF'; // Blue if read, gray if unread
     
     return (
-      <div className="flex items-center">
+      <div className="flex items-center ml-2">
         {/* Double check marks */}
         <svg 
           width="12" 
@@ -152,7 +152,7 @@ const MessageStatus = ({ message, isOwn }) => {
   };
   
   return (
-    <div className="flex items-center justify-end mt-1">
+    <div className="flex items-center justify-end">
       {getStatusIcon()}
     </div>
   );
@@ -868,7 +868,7 @@ const ChatMain = ({
   // ✅ NEW: Infinite scroll props
   onLoadMoreMessages,
   hasMoreMessages,
-  isLoadingMoreMessages
+  isLoadingMoreMessages,
 }) => {
   const messagesEndRef = useRef(null);
 

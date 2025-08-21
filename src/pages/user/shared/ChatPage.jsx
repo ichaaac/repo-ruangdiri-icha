@@ -49,7 +49,8 @@ const ChatPage = () => {
     isPsychologist,
     typingStatus,
     loadMoreMessages,
-    hasMoreMessages
+    hasMoreMessages,
+    typingUsers
   } = useChats();
 
   // Handle AI service selection
@@ -293,9 +294,10 @@ const ChatPage = () => {
             isEndingSession={isEndingSession}
             onFileUpload={sendFile}
             typingStatus={typingStatus}
-            onLoadMoreMessages={loadMoreMessages} // ✅ NEW: Infinite scroll
-            hasMoreMessages={hasMoreMessages} // ✅ NEW: Has more messages flag
-            isLoadingMoreMessages={false} // ✅ TODO: Add loading state if needed
+            typingUsers={typingUsers} // ✅ NEW: Pass typing users
+            onLoadMoreMessages={loadMoreMessages}
+            hasMoreMessages={hasMoreMessages}
+            isLoadingMoreMessages={false}
           />
         </div>
       </div>
