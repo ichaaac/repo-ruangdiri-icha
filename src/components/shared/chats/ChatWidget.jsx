@@ -1,6 +1,6 @@
-// src/components/shared/chats/ChatWidget.jsx - Preview Mode Only
+// src/components/shared/chats/ChatWidget.jsx - FIXED DRAGGABLE VERSION
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
@@ -18,10 +18,9 @@ const ChatWidget = ({
   const [expandedFAQ, setExpandedFAQ] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const chatRef = useRef(null);
 
-  const organizationType = getOrganizationType();
-  
   // FAQ Data
   const faqData = [
     {
@@ -66,7 +65,23 @@ const ChatWidget = ({
     }
   ];
 
-  // Only show for company and school organizations
+  // Get initial position classes
+  const getPositionClasses = () => {
+    switch (position) {
+      case 'bottom-left':
+        return 'fixed bottom-6 left-6 z-50';
+      case 'bottom-right':
+        return 'fixed bottom-6 right-6 z-50';
+      case 'top-left':
+        return 'fixed top-6 left-6 z-50';
+      case 'top-right':
+        return 'fixed top-6 right-6 z-50';
+      default:
+        return 'fixed bottom-6 right-6 z-50';
+    }
+  };
+
+  // Only show for authorized organization types
   const shouldShowChat = true;
 
   // Initial welcome message
@@ -100,23 +115,23 @@ const ChatWidget = ({
     };
   }, [isOpen]);
 
-  // Position classes
-  const getPositionClasses = () => {
-    switch (position) {
-      case 'bottom-left':
-        return 'fixed bottom-6 left-6 z-50';
-      case 'bottom-right':
-        return 'fixed bottom-6 right-6 z-50';
-      case 'top-left':
-        return 'fixed top-6 left-6 z-50';
-      case 'top-right':
-        return 'fixed top-6 right-6 z-50';
-      default:
-        return 'fixed bottom-6 right-6 z-50';
-    }
-  };
+  // Handle drag events
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true);
+  }, []);
 
-  const handleOptionClick = (option) => {
+  const handleDragEnd = useCallback(() => {
+    setTimeout(() => setIsDragging(false), 100);
+  }, []);
+
+  // Handle widget click (only when not dragging)
+  const handleWidgetClick = useCallback(() => {
+    if (!isDragging) {
+      setIsOpen(prev => !prev);
+    }
+  }, [isDragging]);
+
+  const handleOptionClick = useCallback((option) => {
     setSelectedOption(option);
     
     const userMessage = {
@@ -159,13 +174,13 @@ const ChatWidget = ({
         setMessages(prev => [...prev, botMessage]);
       }, 500);
     }
-  };
+  }, []);
 
-  const handleFAQClick = (index) => {
-    setExpandedFAQ(expandedFAQ === index ? null : index);
-  };
+  const handleFAQClick = useCallback((index) => {
+    setExpandedFAQ(prev => prev === index ? null : index);
+  }, []);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = useCallback(() => {
     if (inputMessage.trim()) {
       const newMessage = {
         id: Date.now(),
@@ -186,28 +201,28 @@ const ChatWidget = ({
         setMessages(prev => [...prev, botMessage]);
       }, 1000);
     }
-  };
+  }, [inputMessage]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter') {
       handleSendMessage();
     }
-  };
+  }, [handleSendMessage]);
 
-  const resetChat = () => {
+  const resetChat = useCallback(() => {
     setSelectedOption(null);
     setExpandedFAQ(null);
     setMessages([]);
     setInputMessage('');
-  };
+  }, []);
 
   // Handle expand to full ChatPage
-  const handleExpand = () => {
+  const handleExpand = useCallback(() => {
     setIsOpen(false);
     navigate(`/user/${userType}/chat`);
-  };
+  }, [navigate, userType]);
 
-const formatCurrentDate = () => {
+  const formatCurrentDate = useCallback(() => {
     const options = { 
       weekday: 'long', 
       year: 'numeric', 
@@ -216,9 +231,9 @@ const formatCurrentDate = () => {
       timeZone: 'Asia/Jakarta'
     };
     return new Date().toLocaleDateString('id-ID', options);
-  };
+  }, []);
 
-  const renderFAQAnswer = (answer) => {
+  const renderFAQAnswer = useCallback((answer) => {
     if (answer.includes('Kontak Kami')) {
       const parts = answer.split('Kontak Kami');
       return (
@@ -244,7 +259,7 @@ const formatCurrentDate = () => {
       );
     }
     return answer;
-  };
+  }, []);
 
   // Don't render if not authorized organization type
   if (!shouldShowChat) {
@@ -252,7 +267,25 @@ const formatCurrentDate = () => {
   }
 
   return (
-    <div className={`${getPositionClasses()} ${className}`} ref={chatRef}>
+    <motion.div
+      ref={chatRef}
+      drag
+      dragMomentum={false}
+      dragElastic={0.1}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      dragConstraints={{
+        left: 0,
+        right: window.innerWidth - 80,
+        top: 0,
+        bottom: window.innerHeight - 80
+      }}
+      className={`${getPositionClasses()} ${className}`}
+      style={{
+        cursor: isDragging ? 'grabbing' : 'grab'
+      }}
+    >
+      {/* Chat Popup */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -260,7 +293,14 @@ const formatCurrentDate = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute bottom-20 right-0 w-96 h-[520px] bg-zinc-100 rounded-2xl shadow-[0px_3px_8px_0px_rgba(0,0,0,0.07)] shadow-[0px_14px_14px_0px_rgba(0,0,0,0.06)] shadow-[0px_31px_19px_0px_rgba(0,0,0,0.04)] shadow-[0px_56px_22px_0px_rgba(0,0,0,0.01)] shadow-[0px_87px_24px_0px_rgba(0,0,0,0.00)]"
+            className="absolute bottom-20 right-0 w-96 h-[520px] bg-zinc-100 rounded-2xl shadow-2xl"
+            style={{
+              // Smart positioning to prevent going off-screen
+              right: position.includes('left') ? 'auto' : 0,
+              left: position.includes('left') ? 0 : 'auto',
+              bottom: position.includes('top') ? 'auto' : 80,
+              top: position.includes('top') ? 80 : 'auto'
+            }}
           >
             <div className="w-full h-full flex flex-col">
               {/* Header */}
@@ -274,7 +314,6 @@ const formatCurrentDate = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Expand Button */}
                   <button 
                     onClick={handleExpand}
                     className="text-white hover:text-gray-200 transition-colors p-1"
@@ -356,7 +395,6 @@ const formatCurrentDate = () => {
                                       <div className="max-h-60 overflow-y-auto">
                                         {faqData.map((faq, index) => (
                                           <div key={index}>
-                                            {/* Question */}
                                             <div className="p-2.5 border-b-[0.25px] border-gray-200">
                                               <button
                                                 onClick={() => handleFAQClick(index)}
@@ -376,7 +414,6 @@ const formatCurrentDate = () => {
                                               </button>
                                             </div>
                                             
-                                            {/* Answer */}
                                             {expandedFAQ === index && (
                                               <div className="p-2.5 border-b-[0.25px] border-gray-200 bg-gray-50">
                                                 <div className="text-xs text-gray-800 font-['Public_Sans'] leading-relaxed">
@@ -451,13 +488,13 @@ const formatCurrentDate = () => {
         )}
       </AnimatePresence>
 
-      {/* Floating Button */}
+      {/* Draggable Floating Button */}
       <motion.button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-16 h-16 bg-gradient-to-b from-[#488BBE] to-[#043C68] rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group relative"
+        onClick={handleWidgetClick}
+        className="w-16 h-16 bg-gradient-to-b from-[#488BBE] to-[#043C68] rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group relative select-none"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        title="Chat dengan Tim Ruang Diri"
+        title={isDragging ? "Dragging..." : "Drag to move • Click to chat"}
       >
         <AnimatePresence mode="wait">
           {isOpen ? (
@@ -466,7 +503,7 @@ const formatCurrentDate = () => {
               initial={{ opacity: 0, rotate: -90 }}
               animate={{ opacity: 1, rotate: 0 }}
               exit={{ opacity: 0, rotate: 90 }}
-              className="material-icons text-white text-2xl"
+              className="material-icons text-white text-2xl pointer-events-none"
             >
               close
             </motion.span>
@@ -476,21 +513,31 @@ const formatCurrentDate = () => {
               initial={{ opacity: 0, rotate: 90 }}
               animate={{ opacity: 1, rotate: 0 }}
               exit={{ opacity: 0, rotate: -90 }}
-              className="material-icons text-white text-2xl"
+              className="material-icons text-white text-2xl pointer-events-none"
             >
               sms
             </motion.span>
           )}
         </AnimatePresence>
       
-        {/* Notification Badge */}
-        {/* {!isOpen && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#EE4266] rounded-full flex items-center justify-center">
-            <span className="text-white text-xs font-bold">1</span>
-          </div>
-        )} */}
+        {/* Drag Indicator */}
+        <AnimatePresence>
+          {isDragging && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 text-white px-3 py-1 rounded-lg text-xs whitespace-nowrap pointer-events-none"
+            >
+              <div className="flex items-center gap-1">
+                <span className="material-icons text-xs">open_with</span>
+                Dragging...
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.button>
-    </div>
+    </motion.div>
   );
 };
 
