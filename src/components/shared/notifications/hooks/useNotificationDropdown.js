@@ -6,7 +6,7 @@ import notificationSocket from "../lib/socket";
 import { notificationsAPI } from "../lib/api";
 import { formatTimeAgoDropdown, isNotificationFromToday } from "../lib/timezoneUtils";
 
-export const useNotificationDropdown = (selectedTab = 'all') => {
+export const useNotificationDropdown = (selectedTab = 'all', enabled = true) => {
   const queryClient = useQueryClient();
 
   // --- (Query yang sudah ada, tidak perlu diubah) ---
