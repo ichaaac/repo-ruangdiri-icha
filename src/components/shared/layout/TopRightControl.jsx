@@ -103,7 +103,7 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       if (isComponentMounted) {
         const actualStatus = notificationSocket.isSocketConnected();
         if (actualStatus !== isSocketConnected) {
-          console.log('🔄 TopRightControl: Status sync - updating from', isSocketConnected, 'to', actualStatus);
+          // console.log('🔄 TopRightControl: Status sync - updating from', isSocketConnected, 'to', actualStatus);
           setIsSocketConnected(actualStatus);
         }
       }
@@ -216,19 +216,19 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
   const displayCount = formatBadgeCount(unreadCount)
 
   // 🔥 ORIGINAL LOGIC: UPDATED DEBUG LOGGING with clean structure
-  console.log('🎯 TopRightControl CLEAN DEBUG:', {
-    unreadCount: unreadCount,
-    generalCount: unreadData?.generalCount,
-    counselingCount: unreadData?.counselingCount,
-    displayCount,
-    isLoading,
-    isSocketConnected,
-    socketRetryCount,
-    queryData: unreadData,
-    unreadError: unreadError?.message || null,
-    socketStatus: notificationSocket.getConnectionStatus(),
-    hasToken: !!localStorage.getItem('token')
-  })
+  // console.log('🎯 TopRightControl CLEAN DEBUG:', {
+  //   unreadCount: unreadCount,
+  //   generalCount: unreadData?.generalCount,
+  //   counselingCount: unreadData?.counselingCount,
+  //   displayCount,
+  //   isLoading,
+  //   isSocketConnected,
+  //   socketRetryCount,
+  //   queryData: unreadData,
+  //   unreadError: unreadError?.message || null,
+  //   socketStatus: notificationSocket.getConnectionStatus(),
+  //   hasToken: !!localStorage.getItem('token')
+  // })
 
   // Close on outside click
   useEffect(() => {
