@@ -1,395 +1,644 @@
-// src/components/shared/chats/lib/chatsApi.js - Simplified Chat API Integration
+// src/components/shared/chats/lib/chatsApi.js - FIXED: Unread Count API
 
-import axios from "axios";
+import { apiClient } from "../../../../lib/api.js";
+import { formatChatTime, getCurrentTime, getCurrentTimestamp, isMoreRecent } from "../utils/dateUtils";
 
-// Configuration
-const CHAT_CONFIG = {
-  API_BASE_URL: import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1",
-  CHAT_ENDPOINT: "/chat",
-  POLLING_INTERVAL: 2000, // 2 seconds for session status polling
-};
-
-// Create axios instance for chat API
-const chatApiClient = axios.create({
-  baseURL: `${CHAT_CONFIG.API_BASE_URL}${CHAT_CONFIG.CHAT_ENDPOINT}`,
-  headers: {
-    "Content-Type": "application/json",
-    "ngrok-skip-browser-warning": "true",
-  },
-});
-
-// Request interceptor to add auth token
-chatApiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response interceptor for error handling
-chatApiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.error("Chat API: Unauthorized access");
-    }
-    return Promise.reject(error);
-  }
-);
-
-/**
- * Time formatting utilities (same as notifications)
- */
-export const timeUtils = {
-  formatTimeAgo: (timestamp) => {
-    const now = new Date();
-    const date = new Date(timestamp);
-    const diffInSeconds = Math.floor((now - date) / 1000);
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-
-    if (diffInSeconds < 60) {
-      return 'Baru saja';
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} menit yang lalu`;
-    } else if (diffInHours < 24) {
-      return `${diffInHours} jam yang lalu`;
-    } else if (diffInDays === 1) {
-      return 'Kemarin';
-    } else if (diffInDays < 7) {
-      return `${diffInDays} hari yang lalu`;
-    } else {
-      return date.toLocaleDateString('id-ID', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
-      });
-    }
-  },
-
-  formatMessageTime: (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('id-ID', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  },
-
-  formatDate: (timestamp) => {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Hari ini';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Kemarin';
-    } else {
-      return date.toLocaleDateString('id-ID', { 
-        weekday: 'long', 
-        day: 'numeric', 
-        month: 'long', 
-        year: 'numeric' 
-      });
-    }
-  },
-
-  getDateKey: (timestamp) => {
-    const date = new Date(timestamp);
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+// Get current user safely
+const getCurrentUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
   }
 };
 
-/**
- * Simple Chat API Service Class - Just hit endpoints
- */
-class ChatApiService {
-  constructor() {
-    this.baseUrl = `${CHAT_CONFIG.API_BASE_URL}${CHAT_CONFIG.CHAT_ENDPOINT}`;
-  }
-
-  /**
-   * Phase 2: Session Management
-   */
-
-  // 3. Create Chat Session → POST /api/v1/chat/sessions
-  async createSession(psychologistId) {
+export const chatsApi = {
+  // ✅ FIXED: Get chat histories with total unread count
+  async getChatHistories() {
     try {
-      const response = await chatApiClient.post("/sessions", {
-        psychologistId,
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Failed to create chat session:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  // 4. Poll for Session Status → GET /api/v1/chat/sessions/:sessionId
-  async getSessionStatus(sessionId) {
-    try {
-      const response = await chatApiClient.get(`/sessions/${sessionId}`);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to get session status:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  // 5. Accept Session (psychologist) → POST /api/v1/chat/sessions/:sessionId/accept
-  async acceptSession(sessionId) {
-    try {
-      const response = await chatApiClient.post(`/sessions/${sessionId}/accept`);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to accept chat session:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Phase 3: Real-time Communication
-   */
-
-  // 6. Get Ably Token → POST /api/v1/chat/sessions/:sessionId/token
-  async getAblyToken(sessionId) {
-    try {
-      const response = await chatApiClient.post(`/sessions/${sessionId}/token`);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to get Ably token:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  // 8. Send Messages → POST /api/v1/chat/sessions/:sessionId/messages
-  async sendMessage(sessionId, message, messageType = "text") {
-    try {
-      const response = await chatApiClient.post(`/sessions/${sessionId}/messages`, {
-        message,
-        messageType,
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Phase 4: Session Completion
-   */
-
-  // 10. End Session → POST /api/v1/chat/sessions/:sessionId/end
-  async endSession(sessionId) {
-    try {
-      const response = await chatApiClient.post(`/sessions/${sessionId}/end`);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to end chat session:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  // 11. Get Message History → GET /api/v1/chat/sessions/:sessionId/messages
-  async getMessageHistory(sessionId, cursor = null, limit = 20) {
-    try {
-      const params = { limit };
-      if (cursor) params.cursor = cursor;
-
-      const response = await chatApiClient.get(`/sessions/${sessionId}/messages`, { params });
-      return response.data;
-    } catch (error) {
-      console.error("Failed to get message history:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Additional helpful endpoints
-   */
-
-  // Get user's active chat sessions
-  async getActiveSessions() {
-    try {
-      const response = await chatApiClient.get("/sessions/active");
-      return response.data;
-    } catch (error) {
-      console.error("Failed to get active sessions:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  // Mark messages as read
-  async markMessagesAsRead(sessionId) {
-    try {
-      const response = await chatApiClient.put(`/sessions/${sessionId}/read`);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to mark messages as read:", error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Simple polling utility
-   */
-  startPolling(sessionId, onStatusChange, onError, interval = CHAT_CONFIG.POLLING_INTERVAL) {
-    let lastStatus = null;
-    let isPolling = true;
-    
-    const poll = async () => {
-      if (!isPolling) return;
+      console.log('📋 getChatHistories - Starting request...');
       
+      // ✅ NEW: Get total unread counts first
+      let totalUnreadData = {};
       try {
-        const response = await this.getSessionStatus(sessionId);
-        const currentStatus = response.data.status;
-        
-        if (currentStatus !== lastStatus) {
-          lastStatus = currentStatus;
-          onStatusChange?.(response.data);
+        const unreadResponse = await apiClient.get('/chat/unread-count/total');
+        if (unreadResponse.data?.status === 'success') {
+          totalUnreadData = unreadResponse.data.data;
+          console.log('📋 Total unread data:', totalUnreadData);
         }
       } catch (error) {
-        onError?.(error);
+        console.warn('Failed to get total unread count:', error);
       }
       
-      if (isPolling) {
-        setTimeout(poll, interval);
+      const response = await apiClient.get('/chat/histories');
+      console.log('📋 getChatHistories - Response received:', response.data);
+      
+      if (response.data?.status === 'success') {
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        console.log('📋 getChatHistories - Current user:', { currentUser, currentUserId });
+        
+        // Access correct nested data structure
+        const sessionsData = response.data.data.data || [];
+        console.log('📋 getChatHistories - Sessions data:', sessionsData);
+        
+        const sessions = sessionsData.map((session) => {
+          const lastMessage = session.lastMessage;
+          let displayName, displayAvatar;
+          
+          // Determine display name based on current user ID
+          if (currentUserId === session.clientId) {
+            // Current user is client, show psychologist info
+            displayName = session.psychologist?.fullName || `Psychologist ${session.psychologistId?.slice(-8) || 'Unknown'}`;
+            displayAvatar = session.psychologist?.profilePicture;
+          } else if (currentUserId === session.psychologistId) {
+            // Current user is psychologist, show client info  
+            displayName = session.client?.fullName || `Client ${session.clientId?.slice(-8) || 'Unknown'}`;
+            displayAvatar = session.client?.profilePicture;
+          } else {
+            // Fallback
+            displayName = session.client?.fullName || session.psychologist?.fullName || 'Unknown';
+            displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
+          }
+
+          // ✅ FIXED: Get unread count from total API data
+          const unreadCount = parseInt(totalUnreadData.sessionUnreadCounts?.[session.sessionId] || '0');
+
+          // Check unread messages properly
+          const hasUnreadMessage = lastMessage && 
+            lastMessage.message && 
+            lastMessage.senderId !== currentUserId && 
+            unreadCount > 0;
+
+          // ✅ FIXED: Render REAL last message with sender name
+          let lastMessageText = 'No messages yet';
+          if (lastMessage && lastMessage.message) {
+            // Show who sent the message for clarity
+            const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
+            lastMessageText = `${senderName}: ${lastMessage.message}`;
+          } else if (session.status === 'pending') {
+            lastMessageText = 'Waiting for session to start...';
+          }
+
+          console.log(`📋 Session ${session.sessionId}:`, {
+            displayName,
+            lastMessageText,
+            unreadCount,
+            hasUnread: hasUnreadMessage,
+            lastMessageSender: lastMessage?.senderFullName,
+            status: session.status
+          });
+
+          // Use formatChatTime for proper time display
+          const timeToDisplay = lastMessage?.createdAt ? 
+            formatChatTime(lastMessage.createdAt) : 
+            formatChatTime(session.createdAt);
+
+          return {
+            id: session.sessionId,
+            sessionId: session.sessionId,
+            name: displayName,
+            avatar: displayAvatar,
+            lastMessage: lastMessageText, // Real last message
+            time: timeToDisplay,
+            isActive: session.isActive,
+            isChatEnabled: session.status === 'active' || session.status === 'pending',
+            status: session.status,
+            isTeamChat: false,
+            unreadCount: unreadCount, // From total API
+            hasUnread: hasUnreadMessage, // Proper unread logic
+            // Store IDs for reference
+            clientId: session.clientId,
+            psychologistId: session.psychologistId,
+            // Store last message details for future use
+            lastMessageData: lastMessage
+          };
+        });
+
+        console.log('📋 Processed sessions:', sessions);
+
+        // Add Team RuangDiri session
+        const teamSession = {
+          id: 'team-ruangdiri',
+          sessionId: 'team-ruangdiri',
+          name: 'Team RuangDiri',
+          avatar: null,
+          lastMessage: 'AI Assistant - Always available',
+          time: getCurrentTime(),
+          isActive: true,
+          isChatEnabled: true,
+          isTeamChat: true,
+          status: 'active',
+          unreadCount: 0,
+          hasUnread: false
+        };
+
+        const finalResult = [teamSession, ...sessions];
+        console.log('📋 Final result with team session:', finalResult);
+        
+        return finalResult;
       }
-    };
-
-    // Start polling
-    poll();
-
-    // Return stop function
-    return () => {
-      isPolling = false;
-    };
-  }
-
-  /**
-   * Handle API errors consistently
-   */
-  handleError(error) {
-    if (error.response) {
-      const { status, data } = error.response;
-      return {
-        success: false,
-        message: data?.message || "An error occurred",
-        statusCode: status,
-        error: data?.error || "API_ERROR",
-      };
-    } else if (error.request) {
-      return {
-        success: false,
-        message: "Network error. Please check your connection.",
-        statusCode: 0,
-        error: "NETWORK_ERROR",
-      };
-    } else {
-      return {
-        success: false,
-        message: error.message || "An unexpected error occurred",
-        statusCode: 0,
-        error: "UNKNOWN_ERROR",
-      };
-    }
-  }
-}
-
-/**
- * Simple Session Manager - Just localStorage
- */
-class SessionManager {
-  constructor() {
-    this.storageKey = "currentChatSession";
-  }
-
-  setSession(sessionData) {
-    const session = {
-      sessionId: sessionData.sessionId || sessionData.id,
-      psychologistId: sessionData.psychologistId,
-      clientId: sessionData.clientId,
-      status: sessionData.status,
-      createdAt: sessionData.createdAt || new Date().toISOString(),
-      startedAt: sessionData.startedAt,
-      endedAt: sessionData.endedAt,
-      isActive: sessionData.isActive,
-      ...sessionData,
-    };
-
-    localStorage.setItem(this.storageKey, JSON.stringify(session));
-    return session;
-  }
-
-  getSession() {
-    try {
-      const stored = localStorage.getItem(this.storageKey);
-      return stored ? JSON.parse(stored) : null;
+      
+      console.log('❌ getChatHistories - Response status not success:', response.data);
+      throw new Error(response.data?.message || 'Failed to fetch chat histories');
     } catch (error) {
-      console.error("Failed to parse stored session:", error);
-      this.clearSession();
-      return null;
+      console.error('Error fetching chat histories:', error);
+      
+      // Return at least team session on error
+      return [{
+        id: 'team-ruangdiri',
+        sessionId: 'team-ruangdiri',
+        name: 'Team RuangDiri',
+        avatar: null,
+        lastMessage: 'AI Assistant - Always available',
+        time: getCurrentTime(),
+        isActive: true,
+        isChatEnabled: true,
+        isTeamChat: true,
+        status: 'active',
+        unreadCount: 0,
+        hasUnread: false
+      }];
     }
-  }
-
-  updateSession(updates) {
-    const current = this.getSession();
-    if (current) {
-      const updated = { ...current, ...updates };
-      localStorage.setItem(this.storageKey, JSON.stringify(updated));
-      return updated;
-    }
-    return null;
-  }
-
-  clearSession() {
-    localStorage.removeItem(this.storageKey);
-  }
-
-  hasActiveSession() {
-    const session = this.getSession();
-    return session && session.isActive && (session.status === "pending" || session.status === "active");
-  }
-}
-
-/**
- * Message grouping utilities
- */
-export const messageUtils = {
-  groupMessagesByDate: (messages = []) => {
-    const grouped = {};
-    
-    messages.forEach((message) => {
-      const dateKey = timeUtils.getDateKey(message.createdAt);
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-      }
-      grouped[dateKey].push(message);
-    });
-
-    // Sort messages within each group (oldest first for chat)
-    Object.keys(grouped).forEach(dateKey => {
-      grouped[dateKey].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-    });
-
-    return grouped;
   },
 
-  sortMessagesOldestFirst: (messages = []) => {
-    return [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  // ✅ NEW: Get total unread count
+  async getTotalUnreadCount() {
+    try {
+      console.log('🔢 Getting total unread count...');
+      const response = await apiClient.get('/chat/unread-count/total');
+      
+      if (response.data?.status === 'success') {
+        console.log('✅ Total unread count response:', response.data);
+        return response.data.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to get total unread count');
+    } catch (error) {
+      console.error('❌ Error getting total unread count:', error);
+      return { 
+        totalUnread: '0', 
+        sessionUnreadCounts: {} 
+      };
+    }
+  },
+
+  // ✅ REMOVED: Individual session unread count (using total now)
+  // async getUnreadCount(sessionId) - DEPRECATED
+
+  // Get active sessions - don't override lastMessage
+  async getActiveSessions() {
+    try {
+      console.log('🔄 Getting active sessions...');
+      const response = await apiClient.get('/chat/sessions/active');
+      
+      if (response.data?.status === 'success') {
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        console.log('✅ Active sessions response:', response.data);
+        
+        return response.data.data.map(session => {
+          // Determine display info based on current user
+          let displayName, displayAvatar;
+          
+          if (currentUserId === session.client?.id) {
+            // Current user is client, show psychologist info
+            displayName = session.psychologist?.fullName || 'Psychologist';
+            displayAvatar = session.psychologist?.profilePicture;
+          } else if (currentUserId === session.psychologist?.id) {
+            // Current user is psychologist, show client info  
+            displayName = session.client?.fullName || 'Client';
+            displayAvatar = session.client?.profilePicture;
+          } else {
+            // Fallback
+            displayName = session.client?.fullName || session.psychologist?.fullName || 'Unknown';
+            displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
+          }
+
+          return {
+            id: session.id,
+            sessionId: session.id,
+            name: displayName,
+            avatar: displayAvatar,
+            lastMessage: 'Active session ready', // Don't override with generic message
+            time: formatChatTime(session.updatedAt || session.createdAt),
+            isActive: session.isActive,
+            isChatEnabled: session.status === 'active' && session.isActive,
+            status: session.status,
+            isTeamChat: false,
+            unreadCount: 0, // Active sessions endpoint doesn't provide unread count
+            hasUnread: false,
+            // Store IDs for reference
+            clientId: session.client?.id,
+            psychologistId: session.psychologist?.id,
+            createdAt: session.createdAt,
+            updatedAt: session.updatedAt
+          };
+        });
+      }
+      
+      throw new Error(response.data?.message || 'Failed to fetch active sessions');
+    } catch (error) {
+      console.error('Error fetching active sessions:', error);
+      return [];
+    }
+  },
+
+  // Get messages (for chat main) - correct endpoint with sessionId
+  async getMessages(sessionId, cursor = null, limit = 10) {
+    try {
+      if (sessionId === 'team-ruangdiri') {
+        return [
+          {
+            id: '1',
+            text: "Hello, roomies!\n\nSelamat datang di Ruang Bantu.\nApakah ada yang bisa kami bantu?\nUntuk mempermudah keperluan roomies,\nkamu dapat memilih tiga opsi di bawah ini:",
+            time: getCurrentTime(),
+            timestamp: getCurrentTimestamp(),
+            isUser: false,
+            sender: {
+              id: 'team-ai',
+              name: 'Team RuangDiri',
+              role: 'ai_assistant'
+            },
+            messageType: 'ai_welcome',
+            showOptions: true
+          }
+        ];
+      }
+
+      const params = { sessionId, limit };
+      if (cursor) params.cursor = cursor;
+
+      console.log('📨 Getting messages for session:', sessionId, 'with params:', params);
+      const response = await apiClient.get('/chat/history', { params });
+      
+      if (response.data?.status === 'success') {
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        console.log('📨 Messages response:', response.data);
+        
+        return response.data.data.map(msg => ({
+          id: msg.id,
+          sessionId: msg.sessionId,
+          text: msg.message,
+          time: formatChatTime(msg.createdAt),
+          timestamp: msg.createdAt,
+          isUser: msg.senderId === currentUserId,
+          sender: {
+            id: msg.sender?.id || msg.senderId,
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            role: msg.sender?.role || 'user',
+            profilePicture: msg.sender?.profilePicture
+          },
+          senderId: msg.senderId,
+          messageType: msg.messageType || 'text',
+          isRead: msg.isRead,
+          // Handle attachments
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize
+        }));
+      }
+      
+      throw new Error(response.data?.message || 'Failed to fetch messages');
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+  },
+
+  // Send message - text only
+  async sendMessage(sessionId, content, messageType = 'text') {
+    try {
+      if (sessionId === 'team-ruangdiri') {
+        return {
+          id: Date.now().toString(),
+          text: content,
+          time: getCurrentTime(),
+          timestamp: getCurrentTimestamp(),
+          isUser: true,
+          sender: {
+            id: 'current-user',
+            name: 'You',
+            role: 'user'
+          },
+          messageType: 'text'
+        };
+      }
+
+      const response = await apiClient.post('/chat/messages', {
+        sessionId,
+        message: content,
+        messageType
+      });
+      
+      if (response.data?.status === 'success') {
+        const msg = response.data.data;
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        return {
+          id: msg.id,
+          text: msg.message,
+          time: formatChatTime(msg.createdAt),
+          timestamp: msg.createdAt,
+          isUser: msg.senderId === currentUserId,
+          sender: {
+            id: msg.sender?.id || msg.senderId,
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            role: msg.sender?.role || 'user',
+            profilePicture: msg.sender?.profilePicture
+          },
+          messageType: msg.messageType || 'text',
+          isRead: msg.isRead,
+          // Handle attachments
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize
+        };
+      }
+      
+      throw new Error(response.data?.message || 'Failed to send message');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+  },
+
+  // ✅ NEW: Upload file first (separate from sending message)
+  async uploadFile(file) {
+    try {
+      // Validate file
+      this.validateFile(file);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      console.log('📤 Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+
+      const response = await apiClient.post('/chat/upload-file', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data?.status === 'success') {
+        console.log('✅ File uploaded successfully:', response.data);
+        return response.data.data; // Return file URL and metadata
+      }
+      
+      throw new Error(response.data?.message || 'Failed to upload file');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  },
+
+  // Send file/image message
+  async sendFileMessage(sessionId, file, messageType = 'file') {
+    try {
+      if (sessionId === 'team-ruangdiri') {
+        throw new Error('File upload not supported for AI assistant');
+      }
+
+      const formData = new FormData();
+      formData.append('sessionId', sessionId);
+      formData.append('message', file);
+      formData.append('messageType', messageType);
+
+      console.log('📤 Uploading file:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sessionId,
+        messageType
+      });
+
+      const response = await apiClient.post('/chat/messages/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data?.status === 'success') {
+        const msg = response.data.data;
+        const currentUser = getCurrentUser();
+        const currentUserId = currentUser?.id;
+        
+        return {
+          id: msg.id,
+          text: msg.message || `Uploaded: ${file.name}`,
+          time: formatChatTime(msg.createdAt),
+          timestamp: msg.createdAt,
+          isUser: msg.senderId === currentUserId,
+          sender: {
+            id: msg.sender?.id || msg.senderId,
+            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+            role: msg.sender?.role || 'user',
+            profilePicture: msg.sender?.profilePicture
+          },
+          messageType: msg.messageType || messageType,
+          isRead: msg.isRead,
+          // File attachment data
+          attachmentUrl: msg.attachmentUrl,
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize
+        };
+      }
+      
+      throw new Error(response.data?.message || 'Failed to upload file');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  },
+
+  // Mark as read
+  async markAsRead(sessionId) {
+    if (sessionId === 'team-ruangdiri') return;
+
+    try {
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/read`);
+      
+      if (response.data?.status === 'success') {
+        console.log('✅ Marked session as read:', sessionId);
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to mark as read');
+    } catch (error) {
+      console.error('❌ Error marking as read:', error);
+      throw error;
+    }
+  },
+
+  // End session
+  async endSession(sessionId) {
+    try {
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/end`);
+      
+      if (response.data?.status === 'success') {
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to end session');
+    } catch (error) {
+      console.error('Error ending session:', error);
+      throw error;
+    }
+  },
+
+  // Get Ably token
+  async getAblyToken(sessionId) {
+    if (sessionId === 'team-ruangdiri') return null;
+
+    try {
+      const response = await apiClient.get('/chat/ably-token', {
+        params: { sessionId }
+      });
+      
+      if (response.data?.status === 'success') {
+        return {
+          token: response.data.data.token,
+          channels: response.data.data.channels,
+          sessionId: response.data.data.sessionId,
+          expiresAt: response.data.data.expiresAt
+        };
+      }
+      
+      throw new Error(response.data?.message || 'Failed to get Ably token');
+    } catch (error) {
+      console.error('Error getting Ably token:', error);
+      
+      // Handle specific cases where session cannot have Ably token
+      if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || '';
+        
+        if (errorMessage.includes('completed') || errorMessage.includes('ended')) {
+          console.log('🔒 Session is completed/ended, cannot generate Ably token');
+          return null;
+        }
+        
+        if (errorMessage.includes('inactive') || errorMessage.includes('disabled')) {
+          console.log('⏸️ Session is inactive, cannot generate Ably token');
+          return null;
+        }
+      }
+      
+      throw error;
+    }
+  },
+
+  // Send typing indicator  
+  async sendTypingIndicator(sessionId, isTyping) {
+    if (sessionId === 'team-ruangdiri') return;
+
+    try {
+      await apiClient.post('/chat/typing', { 
+        sessionId, 
+        isTyping 
+      });
+    } catch (error) {
+      console.error('Error sending typing indicator:', error);
+    }
+  },
+
+  // AI response generator
+  generateAIResponse(userInput) {
+    const input = userInput.toLowerCase();
+    
+    if (input.includes('halo') || input.includes('hai')) {
+      return "Halo! Selamat datang di RuangDiri. Ada yang bisa saya bantu? 😊";
+    }
+    
+    if (input.includes('konseling') || input.includes('booking')) {
+      return "Untuk booking sesi konseling, silakan pilih layanan yang sesuai dengan kebutuhan Anda.";
+    }
+    
+    return "Terima kasih sudah bercerita! Ada yang bisa saya bantu lagi? 😊";
+  },
+
+  // Handle AI service selection
+  async handleAIServiceSelection(option) {
+    const responses = {
+      'Ruang Cerita': {
+        message: "🌟 Ruang Cerita sedang dalam pengembangan. Fitur untuk berbagi cerita akan segera hadir!",
+        actions: ['Book Konseling', 'Info Lebih Lanjut']
+      },
+      'Booking Sesi Konseling': {
+        message: "📅 Pilihan sesi konseling:\n\n• 💻 Online Video Call\n• 💬 Online Chat\n• 🏢 Offline",
+        actions: ['Video Call', 'Chat', 'Offline']
+      },
+      'FAQ (Frequently Asked Questions)': {
+        message: "❓ Pertanyaan yang sering ditanyakan telah tersedia.",
+        actions: ['Hubungi Support', 'Kembali']
+      }
+    };
+
+    return responses[option] || {
+      message: "Terima kasih! Ada yang bisa saya bantu lagi?",
+      actions: ['Kembali ke Menu']
+    };
+  },
+
+  // ✅ ENHANCED: Validate file for upload with 15MB limit
+  validateFile(file) {
+    const maxSize = 15 * 1024 * 1024; // 15MB
+    const allowedTypes = [
+      // Images
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/svg+xml',
+      // Documents
+      'application/pdf',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Archives
+      'application/zip',
+      'application/x-rar-compressed',
+      'application/x-7z-compressed'
+    ];
+
+    if (file.size > maxSize) {
+      throw new Error('File size must be less than 15MB');
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('File type not supported. Supported types: Images, PDF, DOC, XLS, PPT, ZIP, RAR');
+    }
+
+    return true;
+  },
+
+  // Helper: Get file type category
+  getFileTypeCategory(file) {
+    if (file.type.startsWith('image/')) {
+      return 'image';
+    } else if (file.type === 'application/pdf') {
+      return 'document';
+    } else if (file.type.includes('word') || file.type.includes('excel') || file.type.includes('powerpoint') || file.type === 'text/plain') {
+      return 'document';
+    } else if (file.type.includes('zip') || file.type.includes('rar') || file.type.includes('7z')) {
+      return 'archive';
+    }
+    return 'file';
   }
 };
-
-// Export instances
-export const chatApi = new ChatApiService();
-export const sessionManager = new SessionManager();
-export { CHAT_CONFIG };
-
-export default chatApi;

@@ -186,24 +186,9 @@ const Sidebar = ({
 
   const dashboardDropdownItems = getDashboardDropdownItems()
 
-  const finalMenuItems = useMemo(() => {
-    const baseItems = menuItems.slice();
-    const scheduleIndex = baseItems.findIndex(item => item.path && item.path.includes('/schedule'));
-    
-    const messageMenuItem = {
-      label: "Pesan",
-      icon: "chat",
-      path: `/${organizationType}/message`,
-      hasDropdown: false,
-    };
-
-    if (scheduleIndex !== -1) {
-      baseItems.splice(scheduleIndex + 1, 0, messageMenuItem);
-    } else {
-      baseItems.push(messageMenuItem); 
-    }
-    return baseItems;
-  }, [menuItems, organizationType]);
+const finalMenuItems = useMemo(() => {
+  return menuItems;
+}, [menuItems]);
 
   return (
     <>

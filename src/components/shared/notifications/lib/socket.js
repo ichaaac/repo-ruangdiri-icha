@@ -323,13 +323,13 @@ class NotificationSocket {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event).add(callback);
-    console.log(`📡 Added listener for event: ${event} (total: ${this.listeners.get(event).size})`);
+    // console.log(`📡 Added listener for event: ${event} (total: ${this.listeners.get(event).size})`);
   }
 
   off(event, callback) {
     if (this.listeners.has(event)) {
       this.listeners.get(event).delete(callback);
-      console.log(`📡 Removed listener for event: ${event} (remaining: ${this.listeners.get(event).size})`);
+      // console.log(`📡 Removed listener for event: ${event} (remaining: ${this.listeners.get(event).size})`);
       
       // Clean up empty sets
       if (this.listeners.get(event).size === 0) {

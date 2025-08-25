@@ -1,9 +1,8 @@
-// src/components/shared/booking/BookingSession.jsx
-
+// src/components/shared/booking/BookingSession.jsx - FIXED VERSION
 import { useState, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useBooking } from "./hooks/useBooking"
-import { useAuth } from "../../../hooks/useAuth"
+import { useAuth } from "@/hooks/useAuth"
 
 // Back Arrow Component
 const BackArrow = ({ onClick }) => (
@@ -16,7 +15,7 @@ const BackArrow = ({ onClick }) => (
   </button>
 )
 
-// Calendar Component - FIXED for better positioning
+// Calendar Component - FIXED positioning and sizing
 const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onClose, triggerRef }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [position, setPosition] = useState({ top: true, left: 0 })
@@ -35,7 +34,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
       const triggerRect = triggerRef.current.getBoundingClientRect()
       const viewportHeight = window.innerHeight
       const viewportWidth = window.innerWidth
-      const calendarHeight = 400 // approximate calendar height
+      const calendarHeight = 400
       const calendarWidth = 320
 
       // Check if calendar fits below
@@ -51,7 +50,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
 
       setPosition({
         top: !showAbove,
-        left: leftOffset
+        left: leftOffset,
       })
     }
   }, [isOpen, triggerRef])
@@ -108,22 +107,19 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
 
   if (!isOpen) return null
 
-  const positionClasses = position.top 
-    ? "top-full mt-1" 
-    : "bottom-full mb-1"
+  const positionClasses = position.top ? "top-full mt-1" : "bottom-full mb-1"
 
   return (
-    <div 
+    <div
       ref={calendarRef}
-      className={`fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-4 w-80 max-h-96 overflow-hidden ${positionClasses}`}
-      style={{ 
+      className={`fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-4 w-80 overflow-hidden ${positionClasses}`}
+      style={{
         left: triggerRef?.current ? triggerRef.current.getBoundingClientRect().left + position.left : 0,
-        [position.top ? 'top' : 'bottom']: triggerRef?.current 
-          ? (position.top 
-              ? triggerRef.current.getBoundingClientRect().bottom + 4
-              : window.innerHeight - triggerRef.current.getBoundingClientRect().top + 4
-            )
-          : 0
+        [position.top ? "top" : "bottom"]: triggerRef?.current
+          ? position.top
+            ? triggerRef.current.getBoundingClientRect().bottom + 4
+            : window.innerHeight - triggerRef.current.getBoundingClientRect().top + 4
+          : 0,
       }}
     >
       {/* Calendar Header */}
@@ -164,16 +160,15 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
         ))}
       </div>
 
-      {/* Calendar Days */}
-      <div className="grid grid-cols-7 gap-1 max-h-48 overflow-y-auto">
+      <div className="grid grid-cols-7 gap-1 h-48">
         {days.map((dayObj, index) => {
           if (!dayObj) {
-            return <div key={index} className="h-9"></div>
+            return <div key={`empty-${index}`} className="h-8"></div>
           }
 
           const { day, dateStr, isAvailable, isSelected, isPast, isToday } = dayObj
 
-          let dayClasses = "h-9 text-sm rounded-full flex items-center justify-center transition-all duration-200 "
+          let dayClasses = "h-8 text-sm rounded-full flex items-center justify-center transition-all duration-200 "
 
           if (isSelected) {
             dayClasses += "bg-[#488BBA] text-white font-semibold shadow-md"
@@ -184,12 +179,12 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
           } else if (isPast) {
             dayClasses += "text-gray-300 cursor-not-allowed"
           } else {
-            dayClasses += "text-gray-400 cursor-not-allowed"
+            dayClasses += "text-gray-300 cursor-not-allowed"
           }
 
           return (
             <button
-              key={day}
+              key={`day-${day}-${dateStr}`}
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
@@ -224,15 +219,17 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
   )
 }
 
-// Main BookingSession Component
+// Main BookingSession Component - FIXED
 const BookingSession = ({ userType = "student", selectedMethod, onBack, onSuccess, standalone = false }) => {
   const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  
   const {
     counselingMethods,
     locations,
     timeSlots,
+    availableDates,
     selectedDate,
     selectedTimeSlot,
     selectedLocation,
@@ -252,9 +249,9 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
   const [showCalendar, setShowCalendar] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState(false)
-  const [showMethodDropdown, setShowMethodDropdown] = useState(false)  
+  const [showMethodDropdown, setShowMethodDropdown] = useState(false)
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
-  
+
   // Refs for positioning
   const datePickerRef = useRef(null)
 
@@ -273,43 +270,25 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showCalendar && !event.target.closest('.calendar-container')) {
+      if (showCalendar && !event.target.closest(".calendar-container")) {
         setShowCalendar(false)
       }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showCalendar])
-
-  // Generate available dates (next 30 days, excluding weekends for demo)
-  const getAvailableDates = () => {
-    const dates = []
-    const today = new Date()
-
-    for (let i = 1; i <= 30; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() + i)
-
-      // Skip weekends for demo
-      if (date.getDay() !== 0 && date.getDay() !== 6) {
-        dates.push({
-          value: date.toISOString().split("T")[0],
-          label: date.toLocaleDateString("id-ID", {
-            weekday: "long",
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-          }),
-        })
+      if (showMethodDropdown && !event.target.closest(".method-dropdown")) {
+        setShowMethodDropdown(false)
+      }
+      if (showLocationDropdown && !event.target.closest(".location-dropdown")) {
+        setShowLocationDropdown(false)
+      }
+      if (showTimePicker && !event.target.closest(".time-dropdown")) {
+        setShowTimePicker(false)
       }
     }
 
-    return dates
-  }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showCalendar, showMethodDropdown, showLocationDropdown, showTimePicker])
 
-  const availableDates = getAvailableDates()
-  const selectedDateObject = availableDates.find((date) => date.value === selectedDate)
+  const selectedDateObject = availableDates?.find((date) => date.value === selectedDate)
 
   // Check if form is valid for button enabling
   const isFormValid = () => {
@@ -336,7 +315,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     try {
       const result = await handleBookingSubmit()
 
-      if (onSuccess && typeof onSuccess === 'function') {
+      if (onSuccess && typeof onSuccess === "function") {
         onSuccess(result)
       } else {
         navigate(`/user/${userType}/booking-complete`, {
@@ -390,6 +369,10 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     )
   }
 
+  // FIXED: Consistent field height (36px = h-9)
+  const fieldHeight = "h-9"
+  const fieldClasses = `${fieldHeight} px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer`
+
   return (
     <div className="w-full min-h-screen relative bg-white overflow-hidden">
       {/* Background Header */}
@@ -420,7 +403,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         <BackArrow onClick={handleBackNavigation} />
       </div>
 
-      {/* Header - Aligned with back button (not center) */}
+      {/* Header - Aligned with back button */}
       <div className="absolute left-[104px] top-[191px] max-md:left-[70px] max-md:top-[165px]">
         <div className="text-[#488BBA] text-5xl font-extrabold font-['Public_Sans'] leading-[74px] max-md:text-3xl max-md:leading-[50px]">
           Booking Sesi Konseling
@@ -429,38 +412,42 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
       {/* Form Section */}
       <div className="absolute left-[59px] right-[59px] top-[329px] flex flex-col gap-5 max-md:left-[30px] max-md:right-[30px] max-md:top-[290px]">
-        {/* Method Selection Row - FIXED: Consistent sizing */}
+        
+        {/* FIXED: Method and Location Row - Consistent sizing */}
         <div className="flex gap-5 max-md:flex-col max-md:gap-4">
-          {/* Method Selection - Fixed width to maintain consistency */}
+          
+          {/* Method Selection - FIXED: Consistent sizing */}
           <div className="w-1/2 max-md:w-full flex flex-col gap-3.5">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Jenis Konseling</div>
-            <div
-              className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
-              onClick={() => setShowMethodDropdown(!showMethodDropdown)}
-            >
-              <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
-                {currentSelectedMethod?.name || "Pilih Jenis Konseling"}
-              </div>
-              <span className="material-icons text-gray-600">expand_more</span>
-
-              {/* Method Dropdown */}
-              {showMethodDropdown && (
-                <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg z-50 mt-1">
-                  {counselingMethods?.map((method) => (
-                    <button
-                      key={method.id}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleMethodSelection(method)
-                        setShowMethodDropdown(false)
-                      }}
-                    >
-                      <div className="font-medium text-sm text-gray-900">{method.name}</div>
-                    </button>
-                  ))}
+            <div className="method-dropdown relative">
+              <div
+                className={fieldClasses}
+                onClick={() => setShowMethodDropdown(!showMethodDropdown)}
+              >
+                <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
+                  {currentSelectedMethod?.name || "Pilih Jenis Konseling"}
                 </div>
-              )}
+                <span className="material-icons text-gray-600">expand_more</span>
+
+                {/* Method Dropdown */}
+                {showMethodDropdown && (
+                  <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg z-50 mt-1">
+                    {counselingMethods?.map((method) => (
+                      <button
+                        key={method.id}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleMethodSelection(method)
+                          setShowMethodDropdown(false)
+                        }}
+                      >
+                        <div className="font-medium text-sm text-gray-900">{method.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Method Description */}
@@ -469,96 +456,96 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Location Selection for Offline - Fixed width to match method field */}
+          {/* Location Selection for Offline - FIXED: Consistent sizing */}
           {currentSelectedMethod?.id === "offline" && (
             <div className="w-1/2 max-md:w-full flex flex-col gap-3.5">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Lokasi Konseling</div>
-              <div
-                className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex justify-between items-center relative cursor-pointer"
-                onClick={() => setShowLocationDropdown(!showLocationDropdown)}
-              >
-                <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
-                  <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
-                  {selectedLocation?.name || "Pilih Lokasi Konseling"}
-                </div>
-                <span className="material-icons text-gray-600">expand_more</span>
-
-                {/* Location Dropdown */}
-                {showLocationDropdown && (
-                  <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9998] mt-1">
-                    {loading.locations ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">Loading locations...</div>
-                    ) : locations?.length > 0 ? (
-                      locations.map((location) => (
-                        <button
-                          key={location.id}
-                          type="button"
-                          className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleLocationSelection(location)
-                            setShowLocationDropdown(false)
-                          }}
-                        >
-                          <div className="font-medium">{location.name}</div>
-                          <div className="text-xs text-gray-500">{location.address}</div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-gray-500">No locations available</div>
-                    )}
+              <div className="location-dropdown relative">
+                <div
+                  className={fieldClasses}
+                  onClick={() => setShowLocationDropdown(!showLocationDropdown)}
+                >
+                  <div className="text-center justify-center text-neutral-600 text-sm font-semibold font-['Public_Sans']">
+                    <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
+                    {selectedLocation?.name || "Pilih Lokasi Konseling"}
                   </div>
-                )}
+                  <span className="material-icons text-gray-600">expand_more</span>
+
+                  {/* Location Dropdown */}
+                  {showLocationDropdown && (
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9998] mt-1">
+                      {loading.locations ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">Loading locations...</div>
+                      ) : locations?.length > 0 ? (
+                        locations.map((location) => (
+                          <button
+                            key={location.id}
+                            type="button"
+                            className="w-full px-3 py-2 text-sm text-left hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleLocationSelection(location)
+                              setShowLocationDropdown(false)
+                            }}
+                          >
+                            <div className="font-medium">{location.name}</div>
+                            <div className="text-xs text-gray-500">{location.address}</div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-gray-500">No locations available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Date, Time, Subscription Section */}
+        {/* FIXED: Date, Time, Subscription Section - Consistent sizing */}
         <div className="flex gap-11 max-md:flex-col max-md:gap-5">
+          
           {/* Date and Time Column */}
           <div className="flex-1 flex flex-col gap-2.5">
-            <div className="flex flex-col gap-2.5">
-              <div className="flex flex-col gap-3">
-                {/* Date Label */}
-                <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tanggal</div>
-
-                {/* Date Picker - FIXED: Better positioning */}
-                <div className="calendar-container relative">
-                  <div
-                    ref={datePickerRef}
-                    className="h-9 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-neutral-600 flex justify-between items-center cursor-pointer"
-                    onClick={() => setShowCalendar(!showCalendar)}
-                  >
-                    <div className="text-center justify-center">
-                      <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
-                      <span className="text-neutral-600 text-sm font-normal font-['Public_Sans']">
-                        {selectedDateObject?.label || "Pilih Tanggal"}
-                      </span>
-                    </div>
-                    <span className="material-icons text-gray-600">calendar_today</span>
+            
+            {/* Date Picker - FIXED: Consistent sizing */}
+            <div className="flex flex-col gap-3">
+              <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tanggal</div>
+              <div className="calendar-container relative">
+                <div
+                  ref={datePickerRef}
+                  className={fieldClasses}
+                  onClick={() => setShowCalendar(!showCalendar)}
+                >
+                  <div className="text-center justify-center">
+                    <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
+                    <span className="text-neutral-600 text-sm font-normal font-['Public_Sans']">
+                      {selectedDateObject?.label || "Pilih Tanggal"}
+                    </span>
                   </div>
-
-                  {/* Calendar - FIXED: Better responsive positioning */}
-                  <Calendar
-                    selectedDate={selectedDate}
-                    onDateSelect={handleDateSelection}
-                    availableDates={availableDates}
-                    isOpen={showCalendar}
-                    onClose={() => setShowCalendar(false)}
-                    triggerRef={datePickerRef}
-                  />
+                  <span className="material-icons text-gray-600">calendar_today</span>
                 </div>
+
+                {/* Calendar - FIXED: Better responsive positioning */}
+                <Calendar
+                  selectedDate={selectedDate}
+                  onDateSelect={handleDateSelection}
+                  availableDates={availableDates || []}
+                  isOpen={showCalendar}
+                  onClose={() => setShowCalendar(false)}
+                  triggerRef={datePickerRef}
+                />
               </div>
             </div>
 
-            {/* Time Picker */}
+            {/* Time Picker - FIXED: Consistent sizing */}
             {selectedDate && (
-              <div
-                className="h-9 px-2.5 py-2 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-neutral-600 flex flex-col justify-between items-start relative cursor-pointer"
-                onClick={() => setShowTimePicker(!showTimePicker)}
-              >
-                <div className="w-full flex justify-between items-center">
+              <div className="time-dropdown relative">
+                <div
+                  className={fieldClasses}
+                  onClick={() => setShowTimePicker(!showTimePicker)}
+                >
                   <div className="justify-center">
                     <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
                     <span className="text-neutral-600 text-sm font-normal font-['Public_Sans']">
@@ -568,38 +555,43 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                     </span>
                   </div>
                   <span className="material-icons text-gray-600">expand_more</span>
-                </div>
 
-                {/* Time Dropdown */}
-                {showTimePicker && (
-                  <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9999] mt-1">
-                    {loading.timeSlots ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">Loading available times...</div>
-                    ) : timeSlots?.length > 0 ? (
-                      timeSlots.map((slot, index) => (
-                        <button
-                          key={index}
-                          className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 ${
-                            slot.available ? "hover:bg-gray-100 text-gray-900" : "text-gray-400 cursor-not-allowed"
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (slot.available) {
-                              handleTimeSlotSelection(slot)
-                              setShowTimePicker(false)
-                            }
-                          }}
-                          disabled={!slot.available}
-                        >
-                          {slot.displayTime || `${slot.startTime} - ${slot.endTime}`}
-                          {!slot.available && " (Not Available)"}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-gray-500">No available times</div>
-                    )}
-                  </div>
-                )}
+                  {/* Time Dropdown - FIXED: Unique keys */}
+                  {showTimePicker && (
+                    <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9999] mt-1">
+                      {loading.availableDates ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">Loading available times...</div>
+                      ) : timeSlots?.length > 0 ? (
+                        timeSlots.map((slot, index) => (
+                          <button
+                            key={`${slot.psychologistName}-${slot.startTime}-${slot.endTime}-${index}`}
+                            className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 ${
+                              slot.available ? "hover:bg-gray-100 text-gray-900" : "text-gray-300 cursor-not-allowed"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (slot.available) {
+                                handleTimeSlotSelection(slot)
+                                setShowTimePicker(false)
+                              }
+                            }}
+                            disabled={!slot.available}
+                          >
+                            {slot.psychologistName && (
+                              <div className="font-medium text-xs text-blue-600 mb-1">{slot.psychologistName}</div>
+                            )}
+                            <div>
+                              {slot.displayTime || `${slot.startTime} - ${slot.endTime}`}
+                              {!slot.available && " (Not Available)"}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-gray-500">No available times</div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -612,17 +604,17 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Subscription Type Column */}
+          {/* Subscription Type Column - FIXED: Consistent sizing */}
           <div className="flex-1 flex flex-col gap-3">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tipe Langganan</div>
-            <div className="h-9 px-2.5 py-2 bg-zinc-100 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex items-center">
+            <div className={`${fieldHeight} px-2.5 py-2 bg-zinc-100 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex items-center`}>
               <div className="flex-1 h-5 rounded-[5px] flex flex-col justify-center items-start gap-2.5">
                 <div className="flex-1 flex items-center gap-4">
                   <div className="text-gray-600 text-sm font-normal font-['Public_Sans']">Organisasi</div>
                 </div>
               </div>
             </div>
-            
+
             {/* Quota Info - Right aligned */}
             <div className="flex justify-end items-center gap-[5px]">
               <span className="material-icons text-[#EE4266] text-base">info</span>
@@ -640,8 +632,9 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Jenis Permasalahan</div>
+              <span className="text-gray-400 text-xs">(Opsional)</span>
             </div>
-            <div className="h-20 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-neutral-600 flex items-start gap-2.5">
+            <div className="h-20 px-2.5 py-3 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-neutral-600 flex items-start gap-2.5 relative">
               <textarea
                 className="flex-1 h-full text-gray-600 text-xs font-normal font-['Public_Sans'] bg-transparent border-none outline-none resize-none"
                 placeholder="Deskripsikan permasalahanmu secara singkat"
@@ -649,13 +642,16 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                 onChange={(e) => setNotes(e.target.value)}
                 maxLength={255}
               />
+              <div className="absolute bottom-2 right-2 text-xs text-gray-400">{notes.length}/255</div>
             </div>
           </div>
         </div>
 
         {/* Terms and Conditions */}
         <div className="flex flex-col gap-2 mt-2">
-          <div className="text-[#EE4266] text-xs font-bold font-['Public_Sans'] max-md:text-[10px]">{getTermsTitle()}</div>
+          <div className="text-[#EE4266] text-xs font-bold font-['Public_Sans'] max-md:text-[10px]">
+            {getTermsTitle()}
+          </div>
           <div className="text-gray-600 text-xs font-normal font-['Public_Sans'] whitespace-pre-line leading-relaxed max-md:text-[10px] max-md:leading-normal">
             {getTermsContent()}
           </div>

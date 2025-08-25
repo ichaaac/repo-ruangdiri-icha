@@ -1,602 +1,768 @@
-// src/components/shared/chats/hooks/useChats.js - Simplified Chat Hook - Just Hit Endpoints
+// src/components/shared/chats/hooks/useChats.js - ENHANCED: With Debug Integration
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import Ably from "ably";
-import { chatApi, sessionManager, timeUtils, messageUtils } from "../lib/chatsApi";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../../../hooks/useAuth';
+import { chatsApi } from '../lib/chatsApi';
+import { useAbly } from './useAbly';
+import { useMessages } from './useMessage';
+import notificationSocket from '../../notifications/lib/socket';
 
-/**
- * Simple Chat Service for Ably - Backend handles token generation
- */
-class ChatService {
-  constructor() {
-    this.ably = null;
-    this.messageChannel = null;
-    this.typingChannel = null;
-    this.sessionId = "";
-    this.eventHandlers = {};
-    this.connectionState = "disconnected";
-  }
-
-  setEventHandlers(handlers) {
-    this.eventHandlers = { ...this.eventHandlers, ...handlers };
-  }
-
-  async connect(sessionId) {
+// 🆕 ENHANCED: Debug Logger for useChats with error handling
+const ChatsLogger = {
+  log: (level, message, data = null) => {
     try {
-      this.sessionId = sessionId;
-      this.connectionState = "connecting";
-      this.eventHandlers.onConnectionStateChanged?.("connecting");
+      const timestamp = new Date().toLocaleTimeString('id-ID');
+      const styles = {
+        error: 'color: #FF6B6B; font-weight: bold;',
+        warn: 'color: #FFB74D; font-weight: bold;',
+        info: 'color: #4FC3F7; font-weight: bold;',
+        success: 'color: #66BB6A; font-weight: bold;',
+        debug: 'color: #9575CD; font-weight: bold;'
+      };
 
-      // Backend handles token generation - just hit the endpoint
-      const tokenResponse = await chatApi.getAblyToken(sessionId);
-      
-      if (!tokenResponse.success) {
-        throw new Error(tokenResponse.message);
-      }
-
-      const { token, channelName, typingChannelName } = tokenResponse.data;
-
-      // Initialize Ably with token from backend
-      this.ably = new Ably.Realtime({
-        authCallback: (tokenParams, callback) => {
-          callback(null, token);
-        },
-        disconnectedRetryTimeout: 5000,
-        suspendedRetryTimeout: 10000,
-        autoConnect: true,
-      });
-
-      // Connection state handlers  
-      this.ably.connection.on("connected", () => {
-        this.connectionState = "connected";
-        this.eventHandlers.onConnectionStateChanged?.("connected");
-        console.log("Chat: Connected to Ably");
-      });
-
-      this.ably.connection.on("disconnected", () => {
-        this.connectionState = "disconnected";
-        this.eventHandlers.onConnectionStateChanged?.("disconnected");
-        console.log("Chat: Disconnected from Ably");
-      });
-
-      this.ably.connection.on("failed", (error) => {
-        this.connectionState = "failed";
-        this.eventHandlers.onConnectionStateChanged?.("failed");
-        this.eventHandlers.onError?.(error);
-        console.error("Chat: Ably connection failed:", error);
-      });
-
-      // Setup channels
-      this.setupChannels(channelName, typingChannelName);
-
-      console.log("Chat service connected successfully to session:", sessionId);
-    } catch (error) {
-      this.connectionState = "failed";
-      this.eventHandlers.onConnectionStateChanged?.("failed");
-      this.eventHandlers.onError?.(error);
-      throw error;
-    }
-  }
-
-  setupChannels(channelName, typingChannelName) {
-    if (!this.ably) return;
-
-    // Message channel
-    this.messageChannel = this.ably.channels.get(channelName);
-    this.messageChannel.subscribe("message", (message) => {
-      console.log("New message received:", message.data);
-      this.eventHandlers.onMessageReceived?.(message.data);
-    });
-
-    this.messageChannel.subscribe("session_status", (statusMessage) => {
-      const { status, participants } = statusMessage.data;
-      console.log("Session status changed:", status);
-      this.eventHandlers.onSessionStatusChanged?.(status, participants);
-    });
-
-    // Typing channel
-    this.typingChannel = this.ably.channels.get(typingChannelName);
-    this.typingChannel.subscribe("typing", (typingMessage) => {
-      const { userId, isTyping, timestamp } = typingMessage.data;
-      this.eventHandlers.onTypingIndicator?.(userId, isTyping, timestamp);
-    });
-  }
-
-  async sendTypingIndicator(isTyping) {
-    if (!this.typingChannel || this.connectionState !== "connected") return;
-
-    try {
-      await this.typingChannel.publish("typing", {
-        isTyping,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error("Failed to send typing indicator:", error);
-    }
-  }
-
-  disconnect() {
-    if (this.ably) {
-      this.ably.close();
-      this.ably = null;
-    }
-
-    this.messageChannel = null;
-    this.typingChannel = null;
-    this.sessionId = "";
-    this.connectionState = "disconnected";
-
-    this.eventHandlers.onConnectionStateChanged?.("disconnected");
-  }
-
-  getConnectionState() {
-    return this.connectionState;
-  }
-}
-
-/**
- * Simple Chat Hook - Just hit endpoints, backend handles everything
- */
-export const useChats = (options = {}) => {
-  const {
-    sessionId: initialSessionId,
-    autoConnect = true,
-    eventHandlers = {},
-  } = options;
-
-  // State
-  const [connectionState, setConnectionState] = useState("disconnected");
-  const [messages, setMessages] = useState([]);
-  const [groupedMessages, setGroupedMessages] = useState({});
-  const [typingUsers, setTypingUsers] = useState(new Set());
-  const [error, setError] = useState(null);
-  const [currentSession, setCurrentSession] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
-
-  // Refs
-  const chatServiceRef = useRef(null);
-  const typingTimeoutRef = useRef(new Map());
-  const mountedRef = useRef(true);
-  const stopPollingRef = useRef(null);
-
-  // Initialize chat service
-  useEffect(() => {
-    chatServiceRef.current = new ChatService();
-
-    const defaultEventHandlers = {
-      onMessageReceived: (message) => {
-        if (!mountedRef.current) return;
-        setMessages((prev) => {
-          // Avoid duplicates
-          if (prev.some((m) => m.id === message.id)) return prev;
-          return [...prev, message];
-        });
-      },
-
-      onTypingIndicator: (userId, isTyping, timestamp) => {
-        if (!mountedRef.current) return;
-        
-        setTypingUsers((prev) => {
-          const newSet = new Set(prev);
-          
-          if (isTyping) {
-            newSet.add(userId);
-            
-            // Clear existing timeout
-            if (typingTimeoutRef.current.has(userId)) {
-              clearTimeout(typingTimeoutRef.current.get(userId));
-            }
-            
-            // Auto-remove after 3 seconds
-            const timeout = setTimeout(() => {
-              if (mountedRef.current) {
-                setTypingUsers((current) => {
-                  const updated = new Set(current);
-                  updated.delete(userId);
-                  return updated;
-                });
-              }
-              typingTimeoutRef.current.delete(userId);
-            }, 3000);
-            
-            typingTimeoutRef.current.set(userId, timeout);
-          } else {
-            newSet.delete(userId);
-            
-            if (typingTimeoutRef.current.has(userId)) {
-              clearTimeout(typingTimeoutRef.current.get(userId));
-              typingTimeoutRef.current.delete(userId);
-            }
-          }
-          
-          return newSet;
-        });
-      },
-
-      onSessionStatusChanged: (status, participants) => {
-        if (!mountedRef.current) return;
-        console.log("Session status changed:", status);
-        
-        setCurrentSession(prev => prev ? { ...prev, status } : null);
-        
-        if (status === "completed" || status === "cancelled") {
-          sessionManager.clearSession();
-          setCurrentSession(null);
-        } else {
-          sessionManager.updateSession({ status });
-        }
-        
-        eventHandlers.onSessionStatusChanged?.(status, participants);
-      },
-
-      onConnectionStateChanged: (state) => {
-        if (!mountedRef.current) return;
-        setConnectionState(state);
-        
-        if (state === "connected") {
-          setError(null);
-        } else if (state === "failed") {
-          setError("Connection failed");
-        }
-        
-        eventHandlers.onConnectionStateChanged?.(state);
-      },
-
-      onError: (error) => {
-        if (!mountedRef.current) return;
-        console.error("Chat error:", error);
-        setError(error.message || "An error occurred");
-        eventHandlers.onError?.(error);
-      },
-
-      ...eventHandlers,
-    };
-
-    chatServiceRef.current.setEventHandlers(defaultEventHandlers);
-
-    return () => {
-      mountedRef.current = false;
-      
-      // Cleanup
-      typingTimeoutRef.current.forEach((timeout) => clearTimeout(timeout));
-      typingTimeoutRef.current.clear();
-      
-      if (stopPollingRef.current) {
-        stopPollingRef.current();
-      }
-      
-      chatServiceRef.current?.disconnect();
-    };
-  }, []);
-
-  // Group messages by date
-  useEffect(() => {
-    const grouped = messageUtils.groupMessagesByDate(messages);
-    setGroupedMessages(grouped);
-  }, [messages]);
-
-  // Auto-connect when sessionId is available
-  useEffect(() => {
-    if (
-      autoConnect &&
-      currentSession?.sessionId &&
-      chatServiceRef.current &&
-      connectionState === "disconnected"
-    ) {
-      connect(currentSession.sessionId);
-    }
-  }, [currentSession?.sessionId, autoConnect, connectionState]);
-
-  // Check for existing session on mount
-  useEffect(() => {
-    if (!initialSessionId) {
-      const session = sessionManager.getSession();
-      if (session && session.sessionId) {
-        setCurrentSession(session);
-      }
-    } else {
-      loadSessionData(initialSessionId);
-    }
-  }, [initialSessionId]);
-
-  // Load session data from backend
-  const loadSessionData = useCallback(async (sessionId) => {
-    try {
-      setIsLoading(true);
-      const response = await chatApi.getSessionStatus(sessionId);
-      
-      if (response.success) {
-        const sessionData = response.data;
-        const session = sessionManager.setSession(sessionData);
-        setCurrentSession(session);
-      }
-    } catch (error) {
-      console.error("Failed to load session data:", error);
-      setError(error.message || "Failed to load session");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Connect to chat
-  const connect = useCallback(async (sessionId) => {
-    if (!chatServiceRef.current || !sessionId) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      // 7. Connect to Ably → Initialize with backend token
-      await chatServiceRef.current.connect(sessionId);
-
-      // Load message history
-      await loadMessageHistory(sessionId, null, true);
-
-      // Start polling session status
-      if (stopPollingRef.current) {
-        stopPollingRef.current();
-      }
-      
-      stopPollingRef.current = chatApi.startPolling(
-        sessionId,
-        (sessionData) => {
-          setCurrentSession(sessionData);
-          sessionManager.updateSession(sessionData);
-        },
-        (error) => {
-          console.error("Session polling error:", error);
-        }
+      console.log(
+        `%c[${timestamp}] CHATS:`,
+        styles[level] || styles.info,
+        message,
+        data ? '\n📦 Data:' : '',
+        data || ''
       );
-
     } catch (error) {
-      console.error("Failed to connect to chat:", error);
-      setError(error.message || "Failed to connect to chat");
-    } finally {
-      setIsLoading(false);
+      // Fallback logging if anything goes wrong
+      console.log('[CHATS]', level.toUpperCase(), message, data);
     }
-  }, []);
+  },
 
-  // Create new chat session
-  const createSession = useCallback(async (psychologistId) => {
+  // Safe error logging
+  error: (message, error) => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // 3. Create Chat Session → POST /api/v1/chat/sessions
-      const response = await chatApi.createSession(psychologistId);
-      
-      if (response.success) {
-        const sessionData = response.data;
-        const session = sessionManager.setSession(sessionData);
-        setCurrentSession(session);
-        
-        return response;
-      } else {
-        throw new Error(response.message);
+      console.error(`[CHATS] ERROR: ${message}`, error);
+      // Expose error info for debugging
+      if (typeof window !== 'undefined') {
+        window.lastChatError = { message, error, timestamp: new Date().toISOString() };
       }
-    } catch (error) {
-      console.error("Failed to create session:", error);
-      setError(error.message || "Failed to create session");
-      throw error;
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.error('[CHATS] CRITICAL:', message, error);
     }
-  }, []);
-
-  // Accept session (psychologist only)
-  const acceptSession = useCallback(async (sessionId) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // 5. Accept Session → POST /api/v1/chat/sessions/:sessionId/accept
-      const response = await chatApi.acceptSession(sessionId);
-      
-      if (response.success) {
-        const sessionData = response.data;
-        const session = sessionManager.updateSession(sessionData);
-        setCurrentSession(session);
-        
-        return response;
-      } else {
-        throw new Error(response.message);
-      }
-    } catch (error) {
-      console.error("Failed to accept session:", error);
-      setError(error.message || "Failed to accept session");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Send message
-  const sendMessage = useCallback(async (message, messageType = "text") => {
-    if (!currentSession?.sessionId || !message.trim()) return;
-
-    try {
-      // 8. Send Messages → POST /api/v1/chat/sessions/:sessionId/messages
-      const response = await chatApi.sendMessage(currentSession.sessionId, message.trim(), messageType);
-      
-      if (!response.success) {
-        throw new Error(response.message);
-      }
-
-      return response;
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      setError(error.message || "Failed to send message");
-      throw error;
-    }
-  }, [currentSession?.sessionId]);
-
-  // Load message history
-  const loadMessageHistory = useCallback(async (sessionId, cursor = null, replace = false) => {
-    if (!sessionId) return;
-
-    try {
-      setIsFetchingMore(!replace);
-      
-      // 11. Get Message History → GET /api/v1/chat/sessions/:sessionId/messages
-      const response = await chatApi.getMessageHistory(sessionId, cursor);
-      
-      if (response.success) {
-        const { data: historyMessages, metadata } = response.data;
-        
-        if (replace) {
-          // Sort oldest first for display
-          setMessages(messageUtils.sortMessagesOldestFirst(historyMessages));
-        } else {
-          // Prepend older messages (for pagination from top)
-          setMessages((prev) => [
-            ...messageUtils.sortMessagesOldestFirst(historyMessages), 
-            ...prev
-          ]);
-        }
-        
-        setHasMoreMessages(metadata.hasNextPage);
-        setNextCursor(metadata.nextCursor);
-      }
-    } catch (error) {
-      console.error("Failed to load message history:", error);
-      setError(error.message || "Failed to load message history");
-    } finally {
-      setIsFetchingMore(false);
-    }
-  }, []);
-
-  // Load more messages (pagination)
-  const loadMoreMessages = useCallback(async () => {
-    if (!currentSession?.sessionId || !hasMoreMessages || isFetchingMore) return;
-
-    await loadMessageHistory(currentSession.sessionId, nextCursor, false);
-  }, [currentSession?.sessionId, hasMoreMessages, isFetchingMore, nextCursor, loadMessageHistory]);
-
-  // Send typing indicator
-  const sendTypingIndicator = useCallback(async (isTyping) => {
-    if (!chatServiceRef.current || connectionState !== "connected") return;
-
-    try {
-      await chatServiceRef.current.sendTypingIndicator(isTyping);
-    } catch (error) {
-      console.error("Failed to send typing indicator:", error);
-    }
-  }, [connectionState]);
-
-  // End current session
-  const endSession = useCallback(async () => {
-    if (!currentSession?.sessionId) return;
-
-    try {
-      setIsLoading(true);
-      
-      // 10. End Session → POST /api/v1/chat/sessions/:sessionId/end
-      const response = await chatApi.endSession(currentSession.sessionId);
-      
-      if (response.success) {
-        // Clear everything
-        sessionManager.clearSession();
-        setCurrentSession(null);
-        setMessages([]);
-        
-        if (stopPollingRef.current) {
-          stopPollingRef.current();
-        }
-        
-        chatServiceRef.current?.disconnect();
-      }
-      
-      return response;
-    } catch (error) {
-      console.error("Failed to end session:", error);
-      setError(error.message || "Failed to end session");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentSession?.sessionId]);
-
-  // Disconnect from chat
-  const disconnect = useCallback(() => {
-    if (stopPollingRef.current) {
-      stopPollingRef.current();
-    }
-    
-    chatServiceRef.current?.disconnect();
-    setCurrentSession(null);
-    setMessages([]);
-    setGroupedMessages({});
-    setTypingUsers(new Set());
-    setError(null);
-  }, []);
-
-  // Clear error
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
-
-  // Mark messages as read
-  const markAsRead = useCallback(async () => {
-    if (!currentSession?.sessionId) return;
-
-    try {
-      await chatApi.markMessagesAsRead(currentSession.sessionId);
-    } catch (error) {
-      console.error("Failed to mark messages as read:", error);
-    }
-  }, [currentSession?.sessionId]);
-
-  // Get active sessions
-  const getActiveSessions = useCallback(async () => {
-    try {
-      const response = await chatApi.getActiveSessions();
-      return response.success ? response.data : [];
-    } catch (error) {
-      console.error("Failed to get active sessions:", error);
-      return [];
-    }
-  }, []);
-
-  return {
-    // State
-    connectionState,
-    isConnected: connectionState === "connected",
-    isConnecting: connectionState === "connecting",
-    messages,
-    groupedMessages,
-    typingUsers: Array.from(typingUsers),
-    error,
-    session: currentSession,
-    sessionId: currentSession?.sessionId || currentSession?.id,
-    isLoading,
-    hasMoreMessages,
-    isFetchingMore,
-
-    // Actions
-    connect,
-    disconnect,
-    createSession,
-    acceptSession,
-    sendMessage,
-    sendTypingIndicator,
-    loadMoreMessages,
-    endSession,
-    markAsRead,
-    getActiveSessions,
-
-    // Utilities
-    clearError,
-    hasActiveSession: () => sessionManager.hasActiveSession(),
-    getCurrentSession: () => sessionManager.getSession(),
-    
-    // Time utilities (same as notifications)
-    formatTimeAgo: timeUtils.formatTimeAgo,
-    formatMessageTime: timeUtils.formatMessageTime,
-    formatDate: timeUtils.formatDate,
-  };
+  }
 };
 
-export default useChats;
+export const useChats = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({}); // Track who's typing
+  
+  const ably = useAbly();
+  const messages = useMessages(selectedSession?.sessionId, ably);
+
+  // Memoize user ID to prevent re-renders
+  const userId = useMemo(() => user?.id, [user?.id]);
+
+  // Store user data for API access
+  useEffect(() => {
+    if (user && user.id) {
+      ChatsLogger.log('debug', 'Storing user data', { userId: user.id, role: user.role });
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+  }, [user]);
+
+  // Get sessions query
+  const sessionsQuery = useQuery({
+    queryKey: ['chat-sessions'],
+    queryFn: async () => {
+      ChatsLogger.log('info', 'Fetching chat sessions...');
+      
+      try {
+        const [histories, activeSessions] = await Promise.all([
+          chatsApi.getChatHistories(),
+          chatsApi.getActiveSessions()
+        ]);
+        
+        ChatsLogger.log('success', 'Sessions fetched successfully', {
+          historiesCount: histories?.length || 0,
+          activeSessionsCount: activeSessions?.length || 0
+        });
+        
+        return histories;
+        
+      } catch (error) {
+        ChatsLogger.log('error', 'Error fetching sessions', error);
+        return chatsApi.getChatHistories();
+      }
+    },
+    staleTime: 30000,
+    cacheTime: 300000,
+    retry: (failureCount, error) => {
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        ChatsLogger.log('error', 'Authentication error, stopping retries', error);
+        return false;
+      }
+      ChatsLogger.log('warn', `Retry attempt ${failureCount + 1}`, error);
+      return failureCount < 2;
+    },
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
+  });
+
+  // Memoize filtered sessions to prevent re-renders
+  const filteredSessions = useMemo(() => {
+    const sessions = (sessionsQuery.data || []).filter(session => {
+      const userRole = user?.role;
+      
+      if (userRole === 'psychologist') {
+        return true; // Psychologist sees all
+      } else {
+        const isTeamChat = session.isTeamChat;
+        const isMyClientSession = session.clientId === userId;
+        const isMyPsychologistSession = session.psychologistId === userId;
+        
+        return isTeamChat || isMyClientSession || isMyPsychologistSession;
+      }
+    });
+
+    ChatsLogger.log('debug', 'Sessions filtered', {
+      totalSessions: sessionsQuery.data?.length || 0,
+      filteredCount: sessions.length,
+      userRole: user?.role,
+      userId
+    });
+
+    return sessions;
+  }, [sessionsQuery.data, user?.role, userId]);
+
+  // ✅ ENHANCED: Socket.io event handlers with debug logging and error handling
+  const handleChatEnableDisable = useCallback((payload) => {
+    try {
+      ChatsLogger.log('event', 'Socket: chat:enable-chat event received', payload);
+      
+      // Update selected session if it matches
+      setSelectedSession(prev => {
+        if (prev && payload.sessionId === prev.sessionId) {
+          ChatsLogger.log('info', 'Updating selected session status', {
+            sessionId: payload.sessionId,
+            oldStatus: prev.status,
+            newStatus: payload.status,
+            isActive: payload.isActive,
+            isChatEnabled: payload.isChatEnabled
+          });
+          
+          return {
+            ...prev,
+            isActive: payload.isActive,
+            isChatEnabled: payload.isChatEnabled,
+            status: payload.status
+          };
+        }
+        return prev;
+      });
+      
+      // Refetch sessions to update sidebar
+      ChatsLogger.log('info', 'Refetching sessions due to enable-chat event');
+      sessionsQuery.refetch();
+    } catch (error) {
+      ChatsLogger.error('Failed to handle chat enable/disable event', error);
+    }
+  }, [sessionsQuery]);
+
+  const handleInitialMessage = useCallback((payload) => {
+    try {
+      ChatsLogger.log('event', 'Socket: chat:initial-message event received', payload);
+      
+      // Refetch sessions to update last message and unread count in sidebar  
+      ChatsLogger.log('info', 'Refetching sessions due to initial-message event');
+      sessionsQuery.refetch();
+      
+      // If the message is for current session, refetch messages too
+      if (selectedSession && payload.sessionId === selectedSession.sessionId) {
+        ChatsLogger.log('info', 'Refetching messages for current session', {
+          sessionId: selectedSession.sessionId
+        });
+        messages.refetch();
+      }
+    } catch (error) {
+      ChatsLogger.error('Failed to handle initial message event', error);
+    }
+  }, [sessionsQuery, selectedSession?.sessionId, messages]);
+
+  const handleChatInvalidate = useCallback((payload) => {
+    try {
+      ChatsLogger.log('event', 'Socket: chat:invalidate event received', payload);
+      sessionsQuery.refetch();
+      
+      if (selectedSession && payload.sessionId === selectedSession.sessionId) {
+        messages.refetch();
+      }
+    } catch (error) {
+      ChatsLogger.error('Failed to handle chat invalidate event', error);
+    }
+  }, [sessionsQuery, selectedSession?.sessionId, messages]);
+
+  // ✅ ENHANCED: Setup Socket.io with debug logging
+  useEffect(() => {
+    ChatsLogger.log('info', 'Setting up Socket.io event listeners...');
+    
+    if (!notificationSocket.isSocketConnected()) {
+      ChatsLogger.log('info', 'Connecting notification socket...');
+      notificationSocket.connect().catch(err => {
+        ChatsLogger.log('error', 'Failed to connect notification socket', err);
+      });
+    }
+
+    // Remove existing listeners to prevent duplicates
+    notificationSocket.off('chat:enable-chat');
+    notificationSocket.off('chat:initial-message'); 
+    notificationSocket.off('chat:invalidate');
+
+    // Register event listeners
+    notificationSocket.on('chat:enable-chat', handleChatEnableDisable);
+    notificationSocket.on('chat:initial-message', handleInitialMessage);
+    notificationSocket.on('chat:invalidate', handleChatInvalidate);
+
+    ChatsLogger.log('success', 'Socket.io event listeners registered');
+
+    return () => {
+      ChatsLogger.log('info', 'Cleaning up Socket.io event listeners...');
+      notificationSocket.off('chat:enable-chat', handleChatEnableDisable);
+      notificationSocket.off('chat:initial-message', handleInitialMessage);
+      notificationSocket.off('chat:invalidate', handleChatInvalidate);
+    };
+  }, [handleChatEnableDisable, handleInitialMessage, handleChatInvalidate]);
+
+  // Select session
+  const selectSession = useCallback(async (session, shouldMarkAsRead = true) => {
+    if (!session) {
+      ChatsLogger.log('warn', 'Attempted to select null session');
+      return;
+    }
+    
+    ChatsLogger.log('info', 'Selecting session', {
+      sessionName: session.name,
+      sessionId: session.sessionId,
+      isTeamChat: session.isTeamChat,
+      shouldMarkAsRead
+    });
+    
+    if (selectedSession?.sessionId === session.sessionId) {
+      ChatsLogger.log('debug', 'Session already selected, skipping');
+      return;
+    }
+    
+    // Mark as read before selecting
+    if (!session.isTeamChat && session.hasUnread && shouldMarkAsRead) {
+      try {
+        ChatsLogger.log('info', 'Marking session as read...', {
+          sessionId: session.sessionId,
+          unreadCount: session.unreadCount
+        });
+        
+        await chatsApi.markAsRead(session.sessionId);
+        
+        session.hasUnread = false;
+        session.unreadCount = 0;
+        
+        // Refetch after marking as read
+        setTimeout(() => {
+          sessionsQuery.refetch();
+        }, 500);
+        
+        ChatsLogger.log('success', 'Session marked as read');
+      } catch (error) {
+        ChatsLogger.log('error', 'Failed to mark session as read', error);
+      }
+    }
+    
+    // Clear typing users when switching sessions
+    setTypingUsers({});
+    ChatsLogger.log('debug', 'Cleared typing users for session switch');
+    
+    // Disconnect previous session
+    if (selectedSession?.sessionId !== session.sessionId) {
+      ChatsLogger.log('debug', 'Disconnecting from previous session');
+      ably.disconnect();
+    }
+    
+    // Set selected session
+    setSelectedSession(session);
+    
+    // Connect to Ably if needed
+    if (userId && !session.isTeamChat && session.status !== 'completed') {
+      ChatsLogger.log('info', 'Connecting to Ably for session', {
+        sessionId: session.sessionId,
+        status: session.status
+      });
+      await ably.connect(session.sessionId, userId);
+    } else if (session.status === 'completed') {
+      ChatsLogger.log('info', 'Session completed, skipping Ably connection');
+      ably.disconnect();
+    } else if (session.isTeamChat) {
+      ChatsLogger.log('info', 'Team chat session, connecting to AI mode');
+      await ably.connect(session.sessionId, userId);
+    }
+  }, [selectedSession?.sessionId, ably, userId, sessionsQuery]);
+
+  // Auto-select Team RuangDiri
+  useEffect(() => {
+    if (filteredSessions.length > 0 && !selectedSession) {
+      const teamSession = filteredSessions.find(s => s.isTeamChat);
+      if (teamSession) {
+        ChatsLogger.log('info', 'Auto-selecting team session');
+        selectSession(teamSession, false);
+      } else if (filteredSessions.length > 0) {
+        ChatsLogger.log('info', 'Auto-selecting first available session');
+        selectSession(filteredSessions[0], false);
+      }
+    }
+  }, [filteredSessions, selectedSession, selectSession]);
+
+  // ✅ ENHANCED: Message handling with debug logging and simplified extraction
+  const handleAblyMessage = useCallback((messageData) => {
+    ChatsLogger.log('event', 'Ably message received', {
+      messageId: messageData.id,
+      senderId: messageData.senderId,
+      messageType: messageData.messageType,
+      hasText: !!messageData.message,
+      isOwnMessage: messageData.senderId === userId,
+      senderName: messageData.senderFullname || messageData.senderName || 'Unknown'
+    });
+    
+    // ✅ SIMPLIFIED: Extract and transform message data
+    const transformedMessage = {
+      id: messageData.id || `realtime-${Date.now()}`,
+      text: messageData.message || messageData.text || messageData.content || '',
+      time: messageData.time || new Date().toLocaleTimeString("id-ID", {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Jakarta'
+      }),
+      createdAt: messageData.createdAt || new Date().toISOString(),
+      isUser: messageData.senderId === userId,
+      sender: {
+        id: messageData.senderId || 'unknown',
+        name: messageData.senderId === userId 
+          ? 'You' 
+          : (messageData.senderFullname || messageData.senderName || messageData.sender?.fullName || 'Unknown User'),
+        role: messageData.senderRole || messageData.sender?.role || 'user',
+        profilePicture: messageData.senderProfilePicture || messageData.sender?.profilePicture || null
+      },
+      messageType: messageData.messageType || 'text',
+      isRead: messageData.isRead === true,
+      attachmentUrl: messageData.attachmentUrl || null,
+      attachmentType: messageData.attachmentType || null,
+      attachmentName: messageData.attachmentName || null,
+      attachmentSize: messageData.attachmentSize || null
+    };
+    
+    // ✅ SIMPLIFIED: Only add valid messages
+    if (transformedMessage.text?.trim() || transformedMessage.attachmentUrl) {
+      ChatsLogger.log('success', 'Adding valid realtime message', {
+        messageId: transformedMessage.id,
+        hasText: !!transformedMessage.text,
+        hasAttachment: !!transformedMessage.attachmentUrl,
+        senderName: transformedMessage.sender.name
+      });
+      
+      messages.addMessage(transformedMessage);
+      
+      // Update performance monitor if available
+      if (window.ablyDebug?.monitor) {
+        window.ablyDebug.monitor.recordMessage(messageData);
+      }
+    } else {
+      ChatsLogger.log('warn', 'Skipping empty message', messageData);
+    }
+  }, [userId, messages]);
+
+  const handleAblySessionStatus = useCallback((statusData) => {
+    ChatsLogger.log('event', 'Ably session status change', statusData);
+    
+    setSelectedSession(prev => {
+      if (prev && statusData.sessionId === prev.sessionId) {
+        return {
+          ...prev,
+          ...statusData,
+          isActive: statusData.isActive ?? prev.isActive,
+          isChatEnabled: statusData.isChatEnabled ?? prev.isChatEnabled
+        };
+      }
+      return prev;
+    });
+  }, []);
+
+  // ✅ ENHANCED: Typing handler with debug logging and proper name extraction
+  const handleAblyTyping = useCallback((typingData) => {
+    ChatsLogger.log('event', 'Ably typing indicator received', {
+      userId: typingData.userId,
+      isTyping: typingData.isTyping,
+      sessionId: typingData.sessionId,
+      userName: typingData.userName || typingData.senderName || typingData.senderFullname
+    });
+    
+    const { userId: typingUserId, isTyping, sessionId, userName, senderName, senderFullname } = typingData;
+    
+    // Only handle typing for current session and not from current user
+    if (typingUserId !== userId && sessionId === selectedSession?.sessionId) {
+      // ✅ ENHANCED: Better name extraction from various sources
+      const displayName = userName || senderName || senderFullname || 'Someone';
+      
+      setTypingUsers(prev => {
+        if (isTyping) {
+          ChatsLogger.log('info', `${displayName} started typing`);
+          return {
+            ...prev,
+            [typingUserId]: {
+              isTyping: true,
+              timestamp: Date.now(),
+              userName: displayName
+            }
+          };
+        } else {
+          ChatsLogger.log('info', `${displayName} stopped typing`);
+          const newTypingUsers = { ...prev };
+          delete newTypingUsers[typingUserId];
+          return newTypingUsers;
+        }
+      });
+      
+      // Clear typing after timeout
+      if (isTyping) {
+        setTimeout(() => {
+          setTypingUsers(prev => {
+            const newTypingUsers = { ...prev };
+            if (newTypingUsers[typingUserId]) {
+              ChatsLogger.log('debug', `Auto-clearing typing for ${displayName}`);
+              delete newTypingUsers[typingUserId];
+            }
+            return newTypingUsers;
+          });
+        }, 5000);
+      }
+      
+      // Update performance monitor
+      if (window.ablyDebug?.monitor) {
+        window.ablyDebug.monitor.recordTypingEvent();
+      }
+    }
+  }, [userId, selectedSession?.sessionId]);
+
+  // ✅ ENHANCED: Unread count handler with debug logging and error handling
+  const handleAblyUnreadCount = useCallback((unreadData) => {
+    try {
+      ChatsLogger.log('event', 'Ably unread count update', unreadData);
+      
+      // Invalidate sessions query using queryClient
+      ChatsLogger.log('info', 'Invalidating sessions due to unread count update');
+      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
+    } catch (error) {
+      ChatsLogger.error('Failed to handle unread count update', error);
+    }
+  }, [queryClient]);
+
+  // Setup Ably callbacks with memoized handlers
+  useEffect(() => {
+    if (!selectedSession || selectedSession.isTeamChat) return;
+
+    ChatsLogger.log('info', 'Setting up Ably callbacks for session', {
+      sessionId: selectedSession.sessionId,
+      isTeamChat: selectedSession.isTeamChat
+    });
+
+    ably.setCallbacks({
+      onMessage: handleAblyMessage,
+      onSessionStatus: handleAblySessionStatus,
+      onTyping: handleAblyTyping,
+      onUnreadCount: handleAblyUnreadCount
+    });
+
+  }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount]);
+
+  // Memoize typing handler to prevent re-renders
+  const handleTyping = useCallback((text) => {
+    messages.setMessageText(text);
+    
+    if (selectedSession && userId) {
+      ably.handleTyping(selectedSession.sessionId, userId, text);
+    }
+  }, [selectedSession?.sessionId, userId, ably, messages.setMessageText]);
+
+  // ✅ ENHANCED: Send message with debug logging
+  const sendCurrentMessage = useCallback(async () => {
+    if (!selectedSession || !messages.canSendMessage(selectedSession)) {
+      ChatsLogger.log('warn', 'Cannot send message', {
+        hasSession: !!selectedSession,
+        canSend: messages.canSendMessage(selectedSession)
+      });
+      return;
+    }
+
+    try {
+      ChatsLogger.log('info', 'Sending message...', {
+        sessionId: selectedSession.sessionId,
+        messageLength: messages.messageText?.length || 0
+      });
+      
+      await messages.sendCurrentMessage();
+      
+      // Update performance monitor
+      if (window.ablyDebug?.monitor) {
+        window.ablyDebug.monitor.recordSentMessage();
+      }
+      
+      ChatsLogger.log('success', 'Message sent successfully');
+      
+    } catch (error) {
+      ChatsLogger.log('error', 'Failed to send message', error);
+      
+      // Update performance monitor
+      if (window.ablyDebug?.monitor) {
+        window.ablyDebug.monitor.recordError(error);
+      }
+      
+      throw error;
+    }
+  }, [selectedSession, messages]);
+
+  // ✅ ENHANCED: Send file with debug logging
+  const sendFile = useCallback(async (file, fileType) => {
+    if (!selectedSession || !messages.canSendFile(selectedSession)) {
+      ChatsLogger.log('warn', 'Cannot send file', {
+        hasSession: !!selectedSession,
+        canSendFile: messages.canSendFile(selectedSession)
+      });
+      return;
+    }
+
+    try {
+      ChatsLogger.log('info', 'Sending file...', {
+        sessionId: selectedSession.sessionId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType
+      });
+      
+      await messages.sendFile(file, fileType);
+      ChatsLogger.log('success', 'File sent successfully');
+      
+    } catch (error) {
+      ChatsLogger.log('error', 'Failed to send file', error);
+      throw error;
+    }
+  }, [selectedSession, messages]);
+
+  // Handle AI service selection
+  const handleAIServiceSelection = useCallback(async (option) => {
+    if (selectedSession?.isTeamChat) {
+      ChatsLogger.log('info', 'Handling AI service selection', { option });
+      await messages.handleAIServiceSelection(option);
+    }
+  }, [selectedSession?.isTeamChat, messages.handleAIServiceSelection]);
+
+  // Get session status
+  const getSessionStatus = useCallback(() => {
+    return messages.getSessionStatus(selectedSession);
+  }, [selectedSession, messages.getSessionStatus]);
+
+  // Check if can send message - return function that can be called
+  const canSendMessage = useCallback(() => {
+    return messages.canSendMessage(selectedSession);
+  }, [selectedSession, messages.canSendMessage]);
+
+  // Check if can send message with text - return function that can be called
+  const canSendMessageWithText = useCallback(() => {
+    return messages.canSendMessageWithText(selectedSession);
+  }, [selectedSession, messages.canSendMessageWithText]);
+
+  // ✅ ENHANCED: Typing status with debug logging
+  const getTypingStatus = useCallback(() => {
+    const typingUsersList = Object.values(typingUsers).filter(user => user.isTyping);
+    
+    if (typingUsersList.length === 0) {
+      return null;
+    }
+    
+    const status = typingUsersList.length === 1
+      ? `${typingUsersList[0].userName} sedang mengetik...`
+      : `${typingUsersList.length} orang sedang mengetik...`;
+    
+    ChatsLogger.log('debug', 'Typing status updated', {
+      typingUsersCount: typingUsersList.length,
+      status
+    });
+    
+    return status;
+  }, [typingUsers]);
+
+  // Handle booking
+  const handleBookingClick = useCallback(() => {
+    const userType = user?.role || 'student';
+    ChatsLogger.log('info', 'Opening booking page', { userType });
+    window.open(`/booking-session/${userType}`, '_blank');
+  }, [user?.role]);
+
+  // Refresh sessions
+  const refreshSessions = useCallback(async () => {
+    try {
+      ChatsLogger.log('info', 'Refreshing sessions...');
+      await sessionsQuery.refetch();
+      ChatsLogger.log('success', 'Sessions refreshed successfully');
+    } catch (error) {
+      ChatsLogger.log('error', 'Failed to refresh sessions', error);
+    }
+  }, [sessionsQuery.refetch]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      ChatsLogger.log('info', 'Cleaning up useChats...');
+      ably.disconnect();
+      setTypingUsers({});
+    };
+  }, []); // Empty dependency array
+
+  // User display data
+  const getUserDisplayData = useCallback(() => {
+    const userRole = user?.role;
+    
+    if (userRole === 'psychologist') {
+      return {
+        title: 'Chat Klien',
+        subtitle: 'Professional client communication'
+      };
+    }
+    
+    return {
+      title: 'Pesan',
+      subtitle: 'Chat with counselors and support team'
+    };
+  }, [user?.role]);
+
+  // ✅ ENHANCED: Debug info with performance metrics
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.selectedSession = selectedSession;
+      window.debugChat = {
+        selectedSession,
+        messageText: messages.messageText,
+        canSendMessage: canSendMessage(),
+        canSendMessageWithText: canSendMessageWithText(),
+        connectionStatus: ably.connectionStatus,
+        sessionsCount: filteredSessions.length,
+        typingUsers,
+        typingStatus: getTypingStatus(),
+        socketConnected: notificationSocket.isSocketConnected(),
+        ablyCallbacks: {
+          hasMessageCallback: !!ably.onMessageRef?.current,
+          hasTypingCallback: !!ably.onTypingRef?.current
+        },
+        // Performance metrics
+        metrics: window.ablyDebug?.monitor?.getSummary?.() || 'Not available',
+        // Quick test methods
+        testMessage: (message = 'Test from debugChat') => {
+          if (selectedSession?.sessionId) {
+            window.ablyDebug?.testMessage(selectedSession.sessionId, message);
+          }
+        },
+        testTyping: (duration = 3000) => {
+          if (selectedSession?.sessionId) {
+            window.ablyDebug?.testTyping(selectedSession.sessionId, duration);
+          }
+        }
+      };
+    }
+  }, [selectedSession, messages.messageText, canSendMessage, canSendMessageWithText, ably.connectionStatus, filteredSessions.length, typingUsers, getTypingStatus]);
+
+  // Memoize return object to prevent re-renders
+  return useMemo(() => ({
+    // Data
+    sessions: filteredSessions,
+    selectedSession,
+    messages: messages.messages,
+    messageText: messages.messageText,
+    
+    // Loading states
+    isLoadingSessions: sessionsQuery.isLoading,
+    isLoadingMessages: messages.isLoading,
+    isSendingMessage: messages.isSending,
+    isUploadingFile: messages.isUploadingFile,
+    
+    // Connection status
+    connectionStatus: ably.connectionStatus,
+    isConnected: ably.isConnected,
+    isAISession: ably.isAISession,
+    isTyping: ably.isTyping,
+    
+    // Typing status for header and components
+    typingStatus: getTypingStatus(),
+    typingUsers, // ✅ NEW: Expose typing users data
+    
+    // Errors
+    sessionsError: sessionsQuery.error,
+    messagesError: messages.error,
+    sendError: messages.error,
+    
+    // Actions  
+    selectSession,
+    sendCurrentMessage,
+    sendFile,
+    handleTyping,
+    handleAIServiceSelection,
+    handleBookingClick,
+    canSendMessage,
+    canSendMessageWithText,
+    canSendFile: (session) => messages.canSendFile(session || selectedSession),
+    getSessionStatus,
+    refetchSessions: refreshSessions,
+    
+    // Infinite scroll support
+    loadMoreMessages: messages.loadMoreMessages,
+    hasMoreMessages: messages.hasMore,
+    
+    // User data
+    userDisplayData: getUserDisplayData(),
+    
+    // Flags
+    isEmpty: (filteredSessions.length || 0) === 0 && !sessionsQuery.isLoading,
+    hasMessages: messages.messages.length > 0,
+    isTeamSession: selectedSession?.isTeamChat || false,
+    isPsychologist: user?.role === 'psychologist',
+    
+    // Debug utilities
+    debug: {
+      logger: ChatsLogger,
+      ably: ably,
+      performance: window.ablyDebug?.monitor?.getSummary?.() || null
+    }
+  }), [
+    filteredSessions,
+    selectedSession,
+    messages.messages,
+    messages.messageText,
+    messages.isLoading,
+    messages.isSending,
+    messages.isUploadingFile,
+    messages.error,
+    messages.loadMoreMessages,
+    messages.hasMore,
+    sessionsQuery.isLoading,
+    sessionsQuery.error,
+    ably.connectionStatus,
+    ably.isConnected,
+    ably.isAISession,
+    ably.isTyping,
+    getTypingStatus,
+    typingUsers, // ✅ NEW: Include in dependencies
+    selectSession,
+    sendCurrentMessage,
+    sendFile,
+    handleTyping,
+    handleAIServiceSelection,
+    handleBookingClick,
+    canSendMessage,
+    canSendMessageWithText,
+    getSessionStatus,
+    refreshSessions,
+    getUserDisplayData,
+    user?.role
+  ]);
+};
