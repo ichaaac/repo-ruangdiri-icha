@@ -1,3 +1,5 @@
+"use client"
+
 // src/components/shared/schedule/hooks/useScheduleForm.js - FIXED ATTACHMENT UPLOAD
 
 import { useState, useRef, useEffect } from "react"
@@ -16,7 +18,7 @@ const formatDateLocal = (date) => {
 }
 
 export const useScheduleForm = (mode = "create", initialData = null, isOpen = false, organizationType = "school") => {
-    const [formData, setFormData] = useState(() => ({
+  const [formData, setFormData] = useState(() => ({
     agenda: "",
     type: "counseling",
     dates: [
@@ -151,7 +153,9 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
             customLocation:
               initialData.type !== "counseling" ? initialData.customLocation || initialData.location || "" : "",
             selectedPsychologist: initialData.selectedPsychologist || null,
-            selectedParticipants: Array.isArray(initialData.selectedParticipants) ? initialData.selectedParticipants : [],
+            selectedParticipants: Array.isArray(initialData.selectedParticipants)
+              ? initialData.selectedParticipants
+              : [],
             multipleDate: dates.length > 1 || initialData.multipleDate || false,
             _originalBackendLocation: initialData.location,
           }
@@ -160,15 +164,15 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
 
           // FIXED: Handle existing attachments from initialData
           if (initialData.attachments && Array.isArray(initialData.attachments) && initialData.attachments.length > 0) {
-            const existingAttachments = initialData.attachments.map(att => ({
+            const existingAttachments = initialData.attachments.map((att) => ({
               ...att,
               id: att.id || `existing-${Date.now()}-${Math.random()}`,
               isExisting: true,
               name: att.originalName || att.fileName || `File ${att.id}`,
               size: att.fileSize || 0,
-              type: att.fileType?.startsWith('image/') ? 'image' : 'document',
-              fileType: att.fileType || 'application/octet-stream',
-              downloadUrl: att.fileUrl || ''
+              type: att.fileType?.startsWith("image/") ? "image" : "document",
+              fileType: att.fileType || "application/octet-stream",
+              downloadUrl: att.fileUrl || "",
             }))
             setAttachments(existingAttachments)
           } else {
@@ -244,7 +248,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       } catch (error) {
         console.error("Error initializing form data:", error)
         toast.error("Gagal memuat form, silakan coba lagi")
-        
+
         // Fallback to safe default state
         setFormData({
           agenda: "",
@@ -275,12 +279,12 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
   }, [isOpen, mode, initialData])
 
   // Event types and options
-const eventTypes = [
-  { label: "Konseling", value: "counseling", textColor: "#9986FF" },
-  ...(organizationType === "school" ? [{ label: "Kelas", value: "class", textColor: "#3CE69E" }] : []),
-  { label: "Seminar", value: "seminar", textColor: "#FF886D" },
-  { label: "Lainnya", value: "others", textColor: "#979797" },
-]
+  const eventTypes = [
+    { label: "Konseling", value: "counseling", textColor: "#9986FF" },
+    ...(organizationType === "school" ? [{ label: "Kelas", value: "class", textColor: "#3CE69E" }] : []),
+    { label: "Seminar", value: "seminar", textColor: "#FF886D" },
+    { label: "Lainnya", value: "others", textColor: "#979797" },
+  ]
 
   const notificationOptions = [
     { label: "1 jam", value: 60 },
@@ -319,25 +323,27 @@ const eventTypes = [
       try {
         const response = await apiClient.get("/psychologists/locations")
         const data = response.data || []
-        
+
         // FIXED: Handle various response formats and ensure we get strings
         let locations = []
-        
+
         if (Array.isArray(data)) {
-          locations = data.map(item => {
-            if (typeof item === 'string') {
-              return item
-            } else if (typeof item === 'object' && item !== null) {
-              // Handle object with locations array
-              if (item.locations && Array.isArray(item.locations)) {
-                return item.locations[0] || item.address || JSON.stringify(item)
+          locations = data
+            .map((item) => {
+              if (typeof item === "string") {
+                return item
+              } else if (typeof item === "object" && item !== null) {
+                // Handle object with locations array
+                if (item.locations && Array.isArray(item.locations)) {
+                  return item.locations[0] || item.address || JSON.stringify(item)
+                }
+                // Handle simple object
+                return item.name || item.label || item.value || JSON.stringify(item)
               }
-              // Handle simple object
-              return item.name || item.label || item.value || JSON.stringify(item)
-            }
-            return String(item)
-          }).filter(Boolean) // Remove empty values
-        } else if (typeof data === 'object' && data !== null) {
+              return String(item)
+            })
+            .filter(Boolean) // Remove empty values
+        } else if (typeof data === "object" && data !== null) {
           // If data is an object, try to extract locations
           if (data.locations && Array.isArray(data.locations)) {
             locations = data.locations.map(String).filter(Boolean)
@@ -345,7 +351,7 @@ const eventTypes = [
             locations = [JSON.stringify(data)]
           }
         }
-        
+
         console.log("Processed psychologist locations:", locations)
         setPsychologistLocations(locations)
         return locations
@@ -368,19 +374,19 @@ const eventTypes = [
       try {
         const response = await apiClient.get("/psychologists")
         const data = response.data?.data || response.data || []
-        
+
         // FIXED: Ensure data is always an array with proper structure
         if (!Array.isArray(data)) {
           console.warn("Psychologists API returned non-array data:", data)
           return []
         }
-        
+
         // Ensure each psychologist has required fields
-        return data.map(psychologist => ({
+        return data.map((psychologist) => ({
           ...psychologist,
           id: psychologist.id || `psych-${Date.now()}-${Math.random()}`,
-          fullName: psychologist.fullName || psychologist.name || 'Unknown Psychologist',
-          email: psychologist.email || 'no-email@example.com'
+          fullName: psychologist.fullName || psychologist.name || "Unknown Psychologist",
+          email: psychologist.email || "no-email@example.com",
         }))
       } catch (error) {
         console.error("Error fetching psychologists:", error)
@@ -404,19 +410,19 @@ const eventTypes = [
         }
         const response = await apiClient.get("/users", { params })
         const data = response.data?.data || []
-        
-        // FIXED: Ensure data is always an array with proper structure  
+
+        // FIXED: Ensure data is always an array with proper structure
         if (!Array.isArray(data)) {
           console.warn("Participants API returned non-array data:", data)
           return []
         }
-        
+
         // Ensure each participant has required fields
-        return data.map(participant => ({
+        return data.map((participant) => ({
           ...participant,
           id: participant.id || `participant-${Date.now()}-${Math.random()}`,
-          fullName: participant.fullName || participant.name || 'Unknown Participant',
-          email: participant.email || 'no-email@example.com'
+          fullName: participant.fullName || participant.name || "Unknown Participant",
+          email: participant.email || "no-email@example.com",
         }))
       } catch (error) {
         console.error("Error fetching participants:", error)
@@ -438,22 +444,22 @@ const eventTypes = [
 
       // FIXED: Validate inputs
       if (!scheduleIds || (Array.isArray(scheduleIds) && scheduleIds.length === 0)) {
-        throw new Error('Schedule IDs are required for attachment upload');
+        throw new Error("Schedule IDs are required for attachment upload")
       }
-      
+
       if (!files || files.length === 0) {
-        throw new Error('No files provided for upload');
+        throw new Error("No files provided for upload")
       }
 
       // FIXED: Use the scheduleApi uploadAttachments method which handles the correct endpoint
-      const scheduleApi = createScheduleApi('school'); // Use appropriate organization type
-      
+      const scheduleApi = createScheduleApi("school") // Use appropriate organization type
+
       try {
-        const result = await scheduleApi.uploadAttachments(scheduleIds, files);
-        return result;
+        const result = await scheduleApi.uploadAttachments(scheduleIds, files)
+        return result
       } catch (error) {
-        console.error('Failed to upload attachments:', error);
-        throw error;
+        console.error("Failed to upload attachments:", error)
+        throw error
       }
     },
   })
@@ -476,8 +482,7 @@ const eventTypes = [
     },
   })
 
-  // FIXED: Form validation - Fix timezone issues and past time detection
-  const validateForm = () => {
+ const validateForm = () => {
     const now = dayjs() // Current local time
 
     if (!formData.agenda.trim()) {
@@ -485,29 +490,49 @@ const eventTypes = [
       return false
     }
 
+    // FIXED: Check for duplicate dates when multiple date is enabled
+    if (formData.multipleDate && formData.dates.length > 1) {
+      const dateSet = new Set()
+      const duplicateDates = []
+
+      formData.dates.forEach((dateInfo) => {
+        if (dateSet.has(dateInfo.date)) {
+          duplicateDates.push(dayjs(dateInfo.date).format("DD/MM/YYYY"))
+        } else {
+          dateSet.add(dateInfo.date)
+        }
+      })
+
+      if (duplicateDates.length > 0) {
+        toast.error(`Tidak dapat menambahkan jadwal dengan tanggal yang sama: ${duplicateDates.join(", ")}`)
+        return false
+      }
+    }
+
     // Date and time validation
     for (let i = 0; i < formData.dates.length; i++) {
       const dateInfo = formData.dates[i]
-      
-      // FIXED: Parse datetime properly considering local timezone
-      const scheduleDateTime = dayjs(`${dateInfo.date} ${dateInfo.startTime}`, 'YYYY-MM-DD HH:mm')
 
-      console.log('=== VALIDATION DEBUG ===')
-      console.log('Current time (now):', now.format('YYYY-MM-DD HH:mm:ss'))
-      console.log('Schedule datetime:', scheduleDateTime.format('YYYY-MM-DD HH:mm:ss'))
-      console.log('Is schedule before now?:', scheduleDateTime.isBefore(now))
-      console.log('Time difference (minutes):', scheduleDateTime.diff(now, 'minute'))
+      // FIXED: Parse datetime properly considering local timezone
+      const scheduleDateTime = dayjs(`${dateInfo.date} ${dateInfo.startTime}`, "YYYY-MM-DD HH:mm")
+
+      console.log("=== VALIDATION DEBUG ===")
+      console.log("Current time (now):", now.format("YYYY-MM-DD HH:mm:ss"))
+      console.log("Schedule datetime:", scheduleDateTime.format("YYYY-MM-DD HH:mm:ss"))
+      console.log("Is schedule before now?:", scheduleDateTime.isBefore(now))
+      console.log("Time difference (minutes):", scheduleDateTime.diff(now, "minute"))
 
       // FIXED: Only prevent schedules that are more than 5 minutes in the past
       // This accounts for small timezone differences and processing delays
-   if (mode === 'create' && scheduleDateTime.isBefore(now.subtract(5, 'minute'))) {
-        toast.error(`Tidak dapat mengatur jadwal di masa lalu (${scheduleDateTime.format('DD/MM/YYYY HH:mm')})`)
+      if (mode === "create" && scheduleDateTime.isBefore(now.subtract(5, "minute"))) {
+        toast.error(`Tidak dapat mengatur jadwal di masa lalu (${scheduleDateTime.format("DD/MM/YYYY HH:mm")})`)
         return false
       }
 
-      // Check if start time equals end time
       if (dateInfo.startTime === dateInfo.endTime) {
-        toast.error(`Waktu mulai dan selesai tidak boleh sama pada tanggal ${dateInfo.date}`)
+        toast.error(
+          `Waktu mulai dan selesai tidak boleh sama pada tanggal ${dayjs(dateInfo.date).format("DD/MM/YYYY")}. Minimal durasi 15 menit.`,
+        )
         return false
       }
 
@@ -516,7 +541,33 @@ const eventTypes = [
       const endMinutes = convertTimeToMinutes(dateInfo.endTime)
 
       if (startMinutes >= endMinutes) {
-        toast.error(`Waktu mulai harus lebih awal dari waktu selesai pada tanggal ${dateInfo.date}`)
+        toast.error(
+          `Waktu mulai harus lebih awal dari waktu selesai pada tanggal ${dayjs(dateInfo.date).format("DD/MM/YYYY")}`,
+        )
+        return false
+      }
+
+      const durationMinutes = endMinutes - startMinutes
+      if (durationMinutes < 15) {
+        toast.error(`Durasi jadwal minimal 15 menit pada tanggal ${dayjs(dateInfo.date).format("DD/MM/YYYY")}`)
+        return false
+      }
+    }
+
+    if (formData.multipleDate && formData.dates.length > 1) {
+      const dateSet = new Set()
+      const duplicateDates = []
+
+      formData.dates.forEach((dateInfo) => {
+        if (dateSet.has(dateInfo.date)) {
+          duplicateDates.push(dayjs(dateInfo.date).format("DD/MM/YYYY"))
+        } else {
+          dateSet.add(dateInfo.date)
+        }
+      })
+
+      if (duplicateDates.length > 0) {
+        toast.error(`Tidak dapat menambahkan jadwal dengan tanggal yang sama: ${duplicateDates.join(", ")}`)
         return false
       }
     }
@@ -574,23 +625,23 @@ const eventTypes = [
         const firstDate = formData.dates[0]
         const nextDay = new Date(firstDate.date)
         nextDay.setDate(nextDay.getDate() + 1)
-        
+
         const secondDate = {
           ...firstDate,
-          date: formatDateLocal(nextDay)
+          date: formatDateLocal(nextDay),
         }
-        
+
         setFormData((prev) => ({
           ...prev,
           multipleDate: true,
-          dates: [firstDate, secondDate]
+          dates: [firstDate, secondDate],
         }))
       } else {
         // When disabling multiple date, keep only first date
         setFormData((prev) => ({
           ...prev,
           multipleDate: false,
-          dates: [prev.dates[0]]
+          dates: [prev.dates[0]],
         }))
       }
       return
@@ -638,39 +689,41 @@ const eventTypes = [
       return fixedLocationOptions
     } else {
       // FIXED: Ensure we return proper array of objects, not raw strings
-      return (psychologistLocations || []).map((location) => {
-        // Handle case where location might be an object with nested properties
-        if (typeof location === 'object' && location !== null) {
-          // If location is an object like {locations: [...], address: "..."}
-          if (location.locations && Array.isArray(location.locations)) {
-            // Return the first location from the array, or use address as fallback
-            const locationValue = location.locations[0] || location.address || 'Unknown';
-            return {
-              label: locationValue,
-              value: locationValue,
-            };
-          } else if (location.name || location.label || location.value) {
-            // Handle standard location object
-            return {
-              label: location.name || location.label || location.value,
-              value: location.value || location.name || location.label,
-            };
+      return (psychologistLocations || [])
+        .map((location) => {
+          // Handle case where location might be an object with nested properties
+          if (typeof location === "object" && location !== null) {
+            // If location is an object like {locations: [...], address: "..."}
+            if (location.locations && Array.isArray(location.locations)) {
+              // Return the first location from the array, or use address as fallback
+              const locationValue = location.locations[0] || location.address || "Unknown"
+              return {
+                label: locationValue,
+                value: locationValue,
+              }
+            } else if (location.name || location.label || location.value) {
+              // Handle standard location object
+              return {
+                label: location.name || location.label || location.value,
+                value: location.value || location.name || location.label,
+              }
+            } else {
+              // Convert object to string representation
+              const locationStr = JSON.stringify(location)
+              return {
+                label: locationStr,
+                value: locationStr,
+              }
+            }
           } else {
-            // Convert object to string representation
-            const locationStr = JSON.stringify(location);
+            // Handle simple string locations
             return {
-              label: locationStr,
-              value: locationStr,
-            };
+              label: String(location),
+              value: String(location),
+            }
           }
-        } else {
-          // Handle simple string locations
-          return {
-            label: String(location),
-            value: String(location),
-          };
-        }
-      }).filter(location => location.label && location.value); // Filter out invalid entries
+        })
+        .filter((location) => location.label && location.value) // Filter out invalid entries
     }
   }
 
@@ -761,8 +814,8 @@ const eventTypes = [
   }
 
   const removeAttachment = (attachmentId) => {
-    const attachmentToRemove = attachments.find(att => att.id === attachmentId)
-    
+    const attachmentToRemove = attachments.find((att) => att.id === attachmentId)
+
     if (!attachmentToRemove) {
       toast.error("Attachment tidak ditemukan")
       return
@@ -779,31 +832,32 @@ const eventTypes = [
             try {
               await deleteAttachmentMutation.mutateAsync({
                 scheduleId: initialData.id,
-                attachmentId: attachmentToRemove.id
+                attachmentId: attachmentToRemove.id,
               })
-              
+
               // Remove from local state after successful deletion
               setAttachments((prev) => prev.filter((att) => att.id !== attachmentId))
               toast.success("Lampiran berhasil dihapus dari server")
             } catch (error) {
               console.error("Failed to delete attachment:", error)
               toast.error("Gagal menghapus lampiran", {
-                description: error.message || "Terjadi kesalahan saat menghapus lampiran"
+                description: error.message || "Terjadi kesalahan saat menghapus lampiran",
               })
             }
           },
-          className: "!bg-red-600 hover:!bg-red-700 !text-white !border-red-600 hover:!border-red-700 !ml-auto"
+          className: "!bg-red-600 hover:!bg-red-700 !text-white !border-red-600 hover:!border-red-700 !ml-auto",
         },
         cancel: {
           label: "Batal",
           onClick: () => {
             // Do nothing
           },
-          className: "!bg-transparent hover:!bg-gray-100 !text-gray-700 !border !border-gray-300 hover:!border-gray-400"
+          className:
+            "!bg-transparent hover:!bg-gray-100 !text-gray-700 !border !border-gray-300 hover:!border-gray-400",
         },
         duration: 10000,
         className: "!bg-white !border !border-gray-200 !shadow-lg",
-        position: "top-center"
+        position: "top-center",
       })
     } else {
       // For new attachments, just remove from local state

@@ -1,103 +1,110 @@
-import React from "react"
+import React, { useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 
-// Exit Confirmation Popup Component
-const ExitConfirmationPopup = ({ isOpen, onCancel, onConfirm }) => {
+const ExitConfirmationPopup = ({
+  isOpen,
+  onCancel,
+  onConfirm,
+  closeOnOutsideClick = true,
+}) => {
+  const cancelRef = useRef(null)
+
+  // lock scroll + autofocus + esc to close
+  useEffect(() => {
+    if (!isOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    // autofocus cancel for quick keyboard access
+    setTimeout(() => cancelRef.current?.focus(), 0)
+
+    const onKey = (e) => {
+      if (e.key === "Escape") onCancel?.()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [isOpen, onCancel])
+
   if (!isOpen) return null
+
+  const card = (
+    <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="exit-title"
+      aria-describedby="exit-desc"
+      className="bg-white rounded-[10px] shadow-xl w-full max-w-md mx-4 p-6 relative flex flex-col items-center gap-4"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.2 }}
+      onClick={(e) => e.stopPropagation()} // prevent backdrop click bubbling
+    >
+      {/* Close button */}
+      <button
+        onClick={onCancel}
+        className="absolute top-2 right-2 w-8 h-8 rounded hover:bg-gray-100 flex items-center justify-center"
+        aria-label="Tutup"
+      >
+        <span className="material-icons text-base" style={{ color: "#EE4266" }}>
+          close
+        </span>
+      </button>
+
+      {/* Icon */}
+      <span className="material-icons text-[72px] leading-none" style={{ color: "#EE4266" }}>
+        error
+      </span>
+
+      {/* Warning text */}
+      <p id="exit-desc" className="text-center text-gray-700 text-sm leading-relaxed break-words">
+        Jika kamu pindah ke halaman lain, sesi skrining ini{" "}
+        <strong>tidak akan tersimpan.</strong>
+      </p>
+
+      {/* Title */}
+      <h2
+        id="exit-title"
+        className="text-center text-[#EE4266] text-xl font-semibold tracking-tight"
+      >
+        Apakah kamu yakin?
+      </h2>
+
+      {/* Actions */}
+      <div className="mt-2 flex items-center justify-center gap-3">
+        <button
+          ref={cancelRef}
+          onClick={onCancel}
+          className="w-24 h-9 px-3 rounded-full outline outline-1 outline-[#EE4266] text-rose-500 text-xs font-semibold hover:bg-red-50 focus:outline-2 focus:outline-offset-2 focus:outline-[#EE4266] transition-colors"
+        >
+          Batal
+        </button>
+        <button
+          onClick={onConfirm}
+          className="w-24 h-9 px-3 rounded-full bg-[#EE4266] outline outline-1 outline-[#EE4266] text-white text-xs font-semibold hover:bg-red-600 focus:outline-2 focus:outline-offset-2 focus:outline-[#EE4266] transition-colors"
+        >
+          Ya
+        </button>
+      </div>
+    </motion.div>
+  )
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        className="fixed inset-0 z-50 flex items-center justify-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={{ duration: 0.15 }}
+        onClick={() => closeOnOutsideClick && onCancel?.()}
       >
-        <motion.div
-          className="relative"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{ duration: 0.3 }}
-        >
-          {/* Main popup container - w-96 h-64 relative */}
-          <div className="w-96 h-64 relative">
-            {/* Background with shadow */}
-            <div className="w-96 h-64 left-0 top-0 absolute bg-white rounded-[10px] shadow-[0px_6px_13px_0px_rgba(0,0,0,0.07)] shadow-[0px_23px_23px_0px_rgba(0,0,0,0.06)] shadow-[0px_52px_31px_0px_rgba(0,0,0,0.04)] shadow-[0px_93px_37px_0px_rgba(0,0,0,0.01)] shadow-[0px_146px_41px_0px_rgba(0,0,0,0.00)]" />
-            
-            {/* Close button background */}
-            <div className="size-6 left-[342px] top-[10px] absolute bg-zinc-300 rounded" />
-            
-            {/* Main content container */}
-            <div className="w-72 left-[72px] top-[29px] absolute inline-flex flex-col justify-center items-center gap-3.5">
-              {/* Error icon using Material Icons */}
-              <div className="flex items-center justify-center">
-                <span 
-                  className="material-icons text-[92px] leading-none"
-                  style={{ color: '#EE4266' }}
-                >
-                  error
-                </span>
-              </div>
-              
-              {/* Warning text */}
-              <div className="inline-flex justify-center items-center gap-2.5">
-                <div className="text-center justify-center">
-                  <span className="text-gray-700 text-xs font-normal font-['Public_Sans']">
-                    Jika kamu pindah ke halaman lain, sesi skrining ini
-                  </span>
-                  <span className="text-gray-700 text-xs font-bold font-['Public_Sans']">
-                    {" "}tidak akan tersimpan.
-                  </span>
-                </div>
-              </div>
-              
-              {/* Confirmation question */}
-              <div className="inline-flex justify-center items-center gap-2.5">
-                <div className="text-center justify-center text-[#EE4266] text-xl font-semibold font-['Public_Sans'] leading-none">
-                  Apakah kamu yakin?
-                </div>
-              </div>
-              
-              {/* Action buttons */}
-              <div className="inline-flex justify-start items-center gap-2.5">
-                {/* Cancel button */}
-                <button
-                  onClick={onCancel}
-                  className="w-20 h-7 px-1.5 py-[3px] rounded-[50px] outline outline-1 outline-offset-[-1px] outline-[#EE4266] flex justify-center items-center gap-2.5 hover:bg-red-50 transition-colors duration-200"
-                >
-                  <div className="justify-center text-rose-500 text-xs font-semibold font-['Public_Sans'] leading-tight">
-                    Batal
-                  </div>
-                </button>
-                
-                {/* Confirm button */}
-                <button
-                  onClick={onConfirm}
-                  className="w-20 h-7 px-1.5 py-[3px] bg-[#EE4266] rounded-[50px] outline outline-1 outline-offset-[-1px] outline-[#EE4266] flex justify-center items-center gap-2.5 hover:bg-red-600 transition-colors duration-200"
-                >
-                  <div className="justify-center text-white text-xs font-semibold font-['Public_Sans'] leading-tight">
-                    Ya
-                  </div>
-                </button>
-              </div>
-            </div>
-            
-            {/* Close X button */}
-            <button
-              onClick={onCancel}
-              className="absolute left-[342px] top-[10px] w-6 h-6 flex items-center justify-center hover:bg-gray-200 rounded transition-colors duration-200"
-            >
-              <span 
-                className="material-icons text-sm"
-                style={{ color: '#EE4266' }}
-              >
-                close
-              </span>
-            </button>
-          </div>
-        </motion.div>
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/50" />
+        {/* Card */}
+        {card}
       </motion.div>
     </AnimatePresence>
   )
