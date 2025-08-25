@@ -1,8 +1,8 @@
-// src/components/shared/chats/lib/chatsApi.js - ENHANCED: With Frontend-Only Encryption
+// src/components/shared/chats/lib/chatsApi.js - FIXED: WhatsApp-like Upload System
 
 import { apiClient } from "../../../../lib/api.js";
-import { formatChatTime, getCurrentTime, getCurrentTimestamp, isMoreRecent } from "../utils/dateUtils";
-import chatEncryption from './encryption'; // 🔐 NEW: Import encryption utilities
+import { formatChatTime, getCurrentTime, getCurrentTimestamp } from "../utils/dateUtils";
+import chatEncryption from './encryption';
 
 // Get current user safely
 const getCurrentUser = () => {
@@ -14,12 +14,12 @@ const getCurrentUser = () => {
 };
 
 export const chatsApi = {
-  // ✅ FIXED: Get chat histories with total unread count
+  // Get chat histories with total unread count
   async getChatHistories() {
     try {
       console.log('📋 getChatHistories - Starting request...');
       
-      // ✅ NEW: Get total unread counts first
+      // Get total unread counts first
       let totalUnreadData = {};
       try {
         const unreadResponse = await apiClient.get('/chat/unread-count/total');
@@ -50,20 +50,17 @@ export const chatsApi = {
           
           // Determine display name based on current user ID
           if (currentUserId === session.clientId) {
-            // Current user is client, show psychologist info
             displayName = session.psychologist?.fullName || `Psychologist ${session.psychologistId?.slice(-8) || 'Unknown'}`;
             displayAvatar = session.psychologist?.profilePicture;
           } else if (currentUserId === session.psychologistId) {
-            // Current user is psychologist, show client info  
             displayName = session.client?.fullName || `Client ${session.clientId?.slice(-8) || 'Unknown'}`;
             displayAvatar = session.client?.profilePicture;
           } else {
-            // Fallback
             displayName = session.client?.fullName || session.psychologist?.fullName || 'Unknown';
             displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
           }
 
-          // ✅ FIXED: Get unread count from total API data
+          // Get unread count from total API data
           const unreadCount = parseInt(totalUnreadData.sessionUnreadCounts?.[session.sessionId] || '0');
 
           // Check unread messages properly
@@ -72,11 +69,10 @@ export const chatsApi = {
             lastMessage.senderId !== currentUserId && 
             unreadCount > 0;
 
-          // 🔓 DECRYPT: Decrypt last message if it exists
+          // Decrypt last message if it exists
           let lastMessageText = 'No messages yet';
           if (lastMessage && lastMessage.message) {
             try {
-              // Try to decrypt the last message
               const decryptedMessage = chatEncryption.decrypt(lastMessage.message, session.sessionId);
               const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
               lastMessageText = `${senderName}: ${decryptedMessage}`;
@@ -95,15 +91,6 @@ export const chatsApi = {
             lastMessageText = 'Waiting for session to start...';
           }
 
-          console.log(`📋 Session ${session.sessionId}:`, {
-            displayName,
-            lastMessageText,
-            unreadCount,
-            hasUnread: hasUnreadMessage,
-            lastMessageSender: lastMessage?.senderFullName,
-            status: session.status
-          });
-
           // Use formatChatTime for proper time display
           const timeToDisplay = lastMessage?.createdAt ? 
             formatChatTime(lastMessage.createdAt) : 
@@ -114,18 +101,16 @@ export const chatsApi = {
             sessionId: session.sessionId,
             name: displayName,
             avatar: displayAvatar,
-            lastMessage: lastMessageText, // 🔓 Decrypted last message
+            lastMessage: lastMessageText,
             time: timeToDisplay,
             isActive: session.isActive,
             isChatEnabled: session.status === 'active' || session.status === 'pending',
             status: session.status,
             isTeamChat: false,
-            unreadCount: unreadCount, // From total API
-            hasUnread: hasUnreadMessage, // Proper unread logic
-            // Store IDs for reference
+            unreadCount: unreadCount,
+            hasUnread: hasUnreadMessage,
             clientId: session.clientId,
             psychologistId: session.psychologistId,
-            // Store last message details for future use
             lastMessageData: lastMessage
           };
         });
@@ -177,31 +162,10 @@ export const chatsApi = {
     }
   },
 
-  // ✅ NEW: Get total unread count
-  async getTotalUnreadCount() {
-    try {
-      console.log('📢 Getting total unread count...');
-      const response = await apiClient.get('/chat/unread-count/total');
-      
-      if (response.data?.status === 'success') {
-        console.log('✅ Total unread count response:', response.data);
-        return response.data.data;
-      }
-      
-      throw new Error(response.data?.message || 'Failed to get total unread count');
-    } catch (error) {
-      console.error('❌ Error getting total unread count:', error);
-      return { 
-        totalUnread: '0', 
-        sessionUnreadCounts: {} 
-      };
-    }
-  },
-
-  // Get active sessions - don't override lastMessage
+  // Get active sessions
   async getActiveSessions() {
     try {
-      console.log('📄 Getting active sessions...');
+      console.log('🔄 Getting active sessions...');
       const response = await apiClient.get('/chat/sessions/active');
       
       if (response.data?.status === 'success') {
@@ -211,19 +175,15 @@ export const chatsApi = {
         console.log('✅ Active sessions response:', response.data);
         
         return response.data.data.map(session => {
-          // Determine display info based on current user
           let displayName, displayAvatar;
           
           if (currentUserId === session.client?.id) {
-            // Current user is client, show psychologist info
             displayName = session.psychologist?.fullName || 'Psychologist';
             displayAvatar = session.psychologist?.profilePicture;
           } else if (currentUserId === session.psychologist?.id) {
-            // Current user is psychologist, show client info  
             displayName = session.client?.fullName || 'Client';
             displayAvatar = session.client?.profilePicture;
           } else {
-            // Fallback
             displayName = session.client?.fullName || session.psychologist?.fullName || 'Unknown';
             displayAvatar = session.client?.profilePicture || session.psychologist?.profilePicture;
           }
@@ -233,15 +193,14 @@ export const chatsApi = {
             sessionId: session.id,
             name: displayName,
             avatar: displayAvatar,
-            lastMessage: 'Active session ready', // Don't override with generic message
+            lastMessage: 'Active session ready',
             time: formatChatTime(session.updatedAt || session.createdAt),
             isActive: session.isActive,
             isChatEnabled: session.status === 'active' && session.isActive,
             status: session.status,
             isTeamChat: false,
-            unreadCount: 0, // Active sessions endpoint doesn't provide unread count
+            unreadCount: 0,
             hasUnread: false,
-            // Store IDs for reference
             clientId: session.client?.id,
             psychologistId: session.psychologist?.id,
             createdAt: session.createdAt,
@@ -257,7 +216,7 @@ export const chatsApi = {
     }
   },
 
-  // 🔓 ENHANCED: Get messages with decryption support
+  // Get messages with decryption support
   async getMessages(sessionId, cursor = null, limit = 10) {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -292,15 +251,10 @@ export const chatsApi = {
         console.log('📨 Messages response:', response.data);
         
         return response.data.data.map(msg => {
-          // 🔓 DECRYPT: Decrypt message content
+          // Decrypt message content
           let decryptedMessage = msg.message;
           try {
             decryptedMessage = chatEncryption.decrypt(msg.message, sessionId);
-            console.log('🔓 Decrypted message:', {
-              messageId: msg.id,
-              originalLength: msg.message?.length || 0,
-              decryptedLength: decryptedMessage?.length || 0
-            });
           } catch (error) {
             console.warn('Failed to decrypt message, using as-is:', error);
           }
@@ -308,7 +262,7 @@ export const chatsApi = {
           return {
             id: msg.id,
             sessionId: msg.sessionId,
-            text: decryptedMessage, // 🔓 Use decrypted message
+            text: decryptedMessage,
             time: formatChatTime(msg.createdAt),
             timestamp: msg.createdAt,
             isUser: msg.senderId === currentUserId,
@@ -321,12 +275,10 @@ export const chatsApi = {
             senderId: msg.senderId,
             messageType: msg.messageType || 'text',
             isRead: msg.isRead,
-            // Handle attachments
             attachmentUrl: msg.attachmentUrl,
             attachmentType: msg.attachmentType,
             attachmentName: msg.attachmentName,
             attachmentSize: msg.attachmentSize,
-            // 🔐 Add encryption metadata
             wasEncrypted: msg.message !== decryptedMessage
           };
         });
@@ -339,7 +291,7 @@ export const chatsApi = {
     }
   },
 
-  // 🔒 ENHANCED: Send message with encryption
+  // Send message with encryption
   async sendMessage(sessionId, content, messageType = 'text') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -358,7 +310,7 @@ export const chatsApi = {
         };
       }
 
-      // 🔒 ENCRYPT: Encrypt message content before sending to backend
+      // Encrypt message content before sending to backend
       let encryptedContent = content;
       let isEncrypted = false;
       
@@ -377,7 +329,7 @@ export const chatsApi = {
 
       const response = await apiClient.post('/chat/messages', {
         sessionId,
-        message: encryptedContent, // 🔒 Send encrypted message to backend
+        message: encryptedContent,
         messageType
       });
       
@@ -386,7 +338,7 @@ export const chatsApi = {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
-        // 🔓 DECRYPT: Message returned from backend (should be same encrypted content)
+        // Decrypt message returned from backend
         let displayMessage = msg.message;
         try {
           displayMessage = chatEncryption.decrypt(msg.message, sessionId);
@@ -396,7 +348,7 @@ export const chatsApi = {
         
         return {
           id: msg.id,
-          text: displayMessage, // 🔓 Use decrypted message for display
+          text: displayMessage,
           time: formatChatTime(msg.createdAt),
           timestamp: msg.createdAt,
           isUser: msg.senderId === currentUserId,
@@ -408,12 +360,10 @@ export const chatsApi = {
           },
           messageType: msg.messageType || 'text',
           isRead: msg.isRead,
-          // Handle attachments
           attachmentUrl: msg.attachmentUrl,
           attachmentType: msg.attachmentType,
           attachmentName: msg.attachmentName,
           attachmentSize: msg.attachmentSize,
-          // 🔐 Add encryption metadata
           wasEncrypted: isEncrypted
         };
       }
@@ -425,63 +375,48 @@ export const chatsApi = {
     }
   },
 
-  // ✅ NEW: Upload file first (separate from sending message)
-  async uploadFile(file) {
-    try {
-      // Validate file
-      this.validateFile(file);
-      
-      const formData = new FormData();
-      formData.append('file', file);
-
-      console.log('📤 Uploading file:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-
-      const response = await apiClient.post('/chat/upload-file', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      if (response.data?.status === 'success') {
-        console.log('✅ File uploaded successfully:', response.data);
-        return response.data.data; // Return file URL and metadata
-      }
-      
-      throw new Error(response.data?.message || 'Failed to upload file');
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      throw error;
-    }
-  },
-
-  // 🔒 ENHANCED: Send file/image message (captions don't need encryption for files)
-  async sendFileMessage(sessionId, file, messageType = 'file') {
+  // FIXED: Send file message with proper FormData handling
+  async sendFileMessage(sessionId, file, messageType = 'file', caption = '') {
     try {
       if (sessionId === 'team-ruangdiri') {
         throw new Error('File upload not supported for AI assistant');
       }
 
+      // Validate file first
+      this.validateFile(file);
+
       const formData = new FormData();
       formData.append('sessionId', sessionId);
-      formData.append('message', file); // Note: 'message' field is the file itself in this endpoint
+      formData.append('file', file); // Use 'file' field name as per backend
       formData.append('messageType', messageType);
+      
+      // Add caption if provided (encrypt it)
+      if (caption && caption.trim()) {
+        try {
+          const encryptedCaption = chatEncryption.encrypt(caption.trim(), sessionId);
+          formData.append('message', encryptedCaption);
+        } catch (error) {
+          console.warn('Failed to encrypt caption:', error);
+          formData.append('message', caption.trim());
+        }
+      } else {
+        formData.append('message', file.name); // Default to filename
+      }
 
-      console.log('📤 Uploading file:', {
+      console.log('📤 Uploading file to backend:', {
         name: file.name,
         size: file.size,
         type: file.type,
         sessionId,
-        messageType
+        messageType,
+        hasCaption: !!caption
       });
 
       const response = await apiClient.post('/chat/messages/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 60000, // 60 seconds for file upload
       });
       
       if (response.data?.status === 'success') {
@@ -489,9 +424,17 @@ export const chatsApi = {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
-        // File messages typically don't have encrypted captions from this endpoint
-        // Caption is usually just the filename
+        // Decrypt message/caption if it exists
         let displayMessage = msg.message || `Uploaded: ${file.name}`;
+        try {
+          if (msg.message && msg.message !== file.name) {
+            displayMessage = chatEncryption.decrypt(msg.message, sessionId);
+          }
+        } catch (error) {
+          console.warn('Failed to decrypt file caption:', error);
+        }
+        
+        console.log('✅ File uploaded successfully:', response.data);
         
         return {
           id: msg.id,
@@ -509,15 +452,27 @@ export const chatsApi = {
           isRead: msg.isRead,
           // File attachment data
           attachmentUrl: msg.attachmentUrl,
-          attachmentType: msg.attachmentType,
-          attachmentName: msg.attachmentName,
-          attachmentSize: msg.attachmentSize
+          attachmentType: msg.attachmentType || file.type,
+          attachmentName: msg.attachmentName || file.name,
+          attachmentSize: msg.attachmentSize || file.size
         };
       }
       
       throw new Error(response.data?.message || 'Failed to upload file');
     } catch (error) {
       console.error('Error uploading file:', error);
+      
+      // Provide more specific error messages
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Upload timeout. Please try a smaller file.');
+      }
+      if (error.response?.status === 413) {
+        throw new Error('File too large. Maximum size is 15MB.');
+      }
+      if (error.response?.status === 400) {
+        throw new Error(error.response.data?.message || 'Invalid file or request');
+      }
+      
       throw error;
     }
   },
@@ -579,7 +534,6 @@ export const chatsApi = {
     } catch (error) {
       console.error('Error getting Ably token:', error);
       
-      // Handle specific cases where session cannot have Ably token
       if (error.response?.status === 400) {
         const errorMessage = error.response?.data?.message || '';
         
@@ -650,7 +604,7 @@ export const chatsApi = {
     };
   },
 
-  // ✅ ENHANCED: Validate file for upload with 15MB limit
+  // Enhanced file validation with 15MB limit
   validateFile(file) {
     const maxSize = 15 * 1024 * 1024; // 15MB
     const allowedTypes = [
@@ -675,6 +629,10 @@ export const chatsApi = {
       'application/x-rar-compressed',
       'application/x-7z-compressed'
     ];
+
+    if (!file) {
+      throw new Error('No file provided');
+    }
 
     if (file.size > maxSize) {
       throw new Error('File size must be less than 15MB');
