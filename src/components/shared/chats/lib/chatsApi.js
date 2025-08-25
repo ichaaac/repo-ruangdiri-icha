@@ -1,7 +1,8 @@
-// src/components/shared/chats/lib/chatsApi.js - FIXED: Unread Count API
+// src/components/shared/chats/lib/chatsApi.js - ENHANCED: With Frontend-Only Encryption
 
 import { apiClient } from "../../../../lib/api.js";
 import { formatChatTime, getCurrentTime, getCurrentTimestamp, isMoreRecent } from "../utils/dateUtils";
+import chatEncryption from './encryption'; // 🔐 NEW: Import encryption utilities
 
 // Get current user safely
 const getCurrentUser = () => {
@@ -71,12 +72,25 @@ export const chatsApi = {
             lastMessage.senderId !== currentUserId && 
             unreadCount > 0;
 
-          // ✅ FIXED: Render REAL last message with sender name
+          // 🔓 DECRYPT: Decrypt last message if it exists
           let lastMessageText = 'No messages yet';
           if (lastMessage && lastMessage.message) {
-            // Show who sent the message for clarity
-            const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
-            lastMessageText = `${senderName}: ${lastMessage.message}`;
+            try {
+              // Try to decrypt the last message
+              const decryptedMessage = chatEncryption.decrypt(lastMessage.message, session.sessionId);
+              const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
+              lastMessageText = `${senderName}: ${decryptedMessage}`;
+              
+              console.log('🔓 Decrypted last message:', {
+                sessionId: session.sessionId,
+                originalLength: lastMessage.message?.length || 0,
+                decryptedLength: decryptedMessage?.length || 0
+              });
+            } catch (error) {
+              console.warn('Failed to decrypt last message, using as-is:', error);
+              const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
+              lastMessageText = `${senderName}: ${lastMessage.message}`;
+            }
           } else if (session.status === 'pending') {
             lastMessageText = 'Waiting for session to start...';
           }
@@ -100,7 +114,7 @@ export const chatsApi = {
             sessionId: session.sessionId,
             name: displayName,
             avatar: displayAvatar,
-            lastMessage: lastMessageText, // Real last message
+            lastMessage: lastMessageText, // 🔓 Decrypted last message
             time: timeToDisplay,
             isActive: session.isActive,
             isChatEnabled: session.status === 'active' || session.status === 'pending',
@@ -166,7 +180,7 @@ export const chatsApi = {
   // ✅ NEW: Get total unread count
   async getTotalUnreadCount() {
     try {
-      console.log('🔢 Getting total unread count...');
+      console.log('📢 Getting total unread count...');
       const response = await apiClient.get('/chat/unread-count/total');
       
       if (response.data?.status === 'success') {
@@ -184,13 +198,10 @@ export const chatsApi = {
     }
   },
 
-  // ✅ REMOVED: Individual session unread count (using total now)
-  // async getUnreadCount(sessionId) - DEPRECATED
-
   // Get active sessions - don't override lastMessage
   async getActiveSessions() {
     try {
-      console.log('🔄 Getting active sessions...');
+      console.log('📄 Getting active sessions...');
       const response = await apiClient.get('/chat/sessions/active');
       
       if (response.data?.status === 'success') {
@@ -246,7 +257,7 @@ export const chatsApi = {
     }
   },
 
-  // Get messages (for chat main) - correct endpoint with sessionId
+  // 🔓 ENHANCED: Get messages with decryption support
   async getMessages(sessionId, cursor = null, limit = 10) {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -280,28 +291,45 @@ export const chatsApi = {
         
         console.log('📨 Messages response:', response.data);
         
-        return response.data.data.map(msg => ({
-          id: msg.id,
-          sessionId: msg.sessionId,
-          text: msg.message,
-          time: formatChatTime(msg.createdAt),
-          timestamp: msg.createdAt,
-          isUser: msg.senderId === currentUserId,
-          sender: {
-            id: msg.sender?.id || msg.senderId,
-            name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
-            role: msg.sender?.role || 'user',
-            profilePicture: msg.sender?.profilePicture
-          },
-          senderId: msg.senderId,
-          messageType: msg.messageType || 'text',
-          isRead: msg.isRead,
-          // Handle attachments
-          attachmentUrl: msg.attachmentUrl,
-          attachmentType: msg.attachmentType,
-          attachmentName: msg.attachmentName,
-          attachmentSize: msg.attachmentSize
-        }));
+        return response.data.data.map(msg => {
+          // 🔓 DECRYPT: Decrypt message content
+          let decryptedMessage = msg.message;
+          try {
+            decryptedMessage = chatEncryption.decrypt(msg.message, sessionId);
+            console.log('🔓 Decrypted message:', {
+              messageId: msg.id,
+              originalLength: msg.message?.length || 0,
+              decryptedLength: decryptedMessage?.length || 0
+            });
+          } catch (error) {
+            console.warn('Failed to decrypt message, using as-is:', error);
+          }
+
+          return {
+            id: msg.id,
+            sessionId: msg.sessionId,
+            text: decryptedMessage, // 🔓 Use decrypted message
+            time: formatChatTime(msg.createdAt),
+            timestamp: msg.createdAt,
+            isUser: msg.senderId === currentUserId,
+            sender: {
+              id: msg.sender?.id || msg.senderId,
+              name: msg.senderId === currentUserId ? 'You' : (msg.sender?.fullName || 'Unknown'),
+              role: msg.sender?.role || 'user',
+              profilePicture: msg.sender?.profilePicture
+            },
+            senderId: msg.senderId,
+            messageType: msg.messageType || 'text',
+            isRead: msg.isRead,
+            // Handle attachments
+            attachmentUrl: msg.attachmentUrl,
+            attachmentType: msg.attachmentType,
+            attachmentName: msg.attachmentName,
+            attachmentSize: msg.attachmentSize,
+            // 🔐 Add encryption metadata
+            wasEncrypted: msg.message !== decryptedMessage
+          };
+        });
       }
       
       throw new Error(response.data?.message || 'Failed to fetch messages');
@@ -311,7 +339,7 @@ export const chatsApi = {
     }
   },
 
-  // Send message - text only
+  // 🔒 ENHANCED: Send message with encryption
   async sendMessage(sessionId, content, messageType = 'text') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -330,9 +358,26 @@ export const chatsApi = {
         };
       }
 
+      // 🔒 ENCRYPT: Encrypt message content before sending to backend
+      let encryptedContent = content;
+      let isEncrypted = false;
+      
+      try {
+        encryptedContent = chatEncryption.encrypt(content, sessionId);
+        isEncrypted = true;
+        
+        console.log('🔒 Message encrypted before sending to backend:', {
+          sessionId: sessionId?.slice(-8),
+          originalLength: content?.length || 0,
+          encryptedLength: encryptedContent?.length || 0
+        });
+      } catch (error) {
+        console.warn('Failed to encrypt message, sending plaintext:', error);
+      }
+
       const response = await apiClient.post('/chat/messages', {
         sessionId,
-        message: content,
+        message: encryptedContent, // 🔒 Send encrypted message to backend
         messageType
       });
       
@@ -341,9 +386,17 @@ export const chatsApi = {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
+        // 🔓 DECRYPT: Message returned from backend (should be same encrypted content)
+        let displayMessage = msg.message;
+        try {
+          displayMessage = chatEncryption.decrypt(msg.message, sessionId);
+        } catch (error) {
+          console.warn('Failed to decrypt returned message:', error);
+        }
+        
         return {
           id: msg.id,
-          text: msg.message,
+          text: displayMessage, // 🔓 Use decrypted message for display
           time: formatChatTime(msg.createdAt),
           timestamp: msg.createdAt,
           isUser: msg.senderId === currentUserId,
@@ -359,7 +412,9 @@ export const chatsApi = {
           attachmentUrl: msg.attachmentUrl,
           attachmentType: msg.attachmentType,
           attachmentName: msg.attachmentName,
-          attachmentSize: msg.attachmentSize
+          attachmentSize: msg.attachmentSize,
+          // 🔐 Add encryption metadata
+          wasEncrypted: isEncrypted
         };
       }
       
@@ -403,7 +458,7 @@ export const chatsApi = {
     }
   },
 
-  // Send file/image message
+  // 🔒 ENHANCED: Send file/image message (captions don't need encryption for files)
   async sendFileMessage(sessionId, file, messageType = 'file') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -412,7 +467,7 @@ export const chatsApi = {
 
       const formData = new FormData();
       formData.append('sessionId', sessionId);
-      formData.append('message', file);
+      formData.append('message', file); // Note: 'message' field is the file itself in this endpoint
       formData.append('messageType', messageType);
 
       console.log('📤 Uploading file:', {
@@ -434,9 +489,13 @@ export const chatsApi = {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
+        // File messages typically don't have encrypted captions from this endpoint
+        // Caption is usually just the filename
+        let displayMessage = msg.message || `Uploaded: ${file.name}`;
+        
         return {
           id: msg.id,
-          text: msg.message || `Uploaded: ${file.name}`,
+          text: displayMessage,
           time: formatChatTime(msg.createdAt),
           timestamp: msg.createdAt,
           isUser: msg.senderId === currentUserId,

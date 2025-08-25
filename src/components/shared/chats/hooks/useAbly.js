@@ -1,9 +1,10 @@
-// src/components/shared/chats/hooks/useAbly.js - ENHANCED: Detailed Logging & Debugging
+// src/components/shared/chats/hooks/useAbly.js - ENHANCED: With Frontend-Only Encryption
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Ably from 'ably';
 import { chatsApi } from '../lib/chatsApi';
 import notificationSocket from '../../notifications/lib/socket';
+import chatEncryption from '../lib/encryption'; // 🔐 NEW: Import encryption utilities
 
 // 🆕 ENHANCED: Detailed Ably Event Logger
 const AblyLogger = {
@@ -16,29 +17,40 @@ const AblyLogger = {
       info: 'color: #4FC3F7; font-weight: bold;',
       success: 'color: #66BB6A; font-weight: bold;',
       debug: 'color: #9575CD; font-weight: bold;',
-      event: 'color: #26A69A; font-weight: bold;'
+      event: 'color: #26A69A; font-weight: bold;',
+      crypto: 'color: #FF9800; font-weight: bold;' // 🔐 NEW: Crypto operations
     };
 
     console.log(
       `%c[${timestamp}] ABLY-${category.toUpperCase()}:`,
       styles[level] || styles.info,
       message,
-      data ? '\n📦 Data:' : '',
+      data ? '\n🔦 Data:' : '',
       data || ''
     );
   },
 
+  // Log encryption/decryption operations
+  logCrypto: (operation, details) => {
+    console.group(`🔐 CRYPTO ${operation.toUpperCase()}`);
+    console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
+    Object.entries(details).forEach(([key, value]) => {
+      console.log(`${key}:`, value);
+    });
+    console.groupEnd();
+  },
+
   // Log raw Ably message structure
   logAblyMessage: (message, channelName, eventType) => {
-    console.group(`🔔 ABLY MESSAGE RECEIVED`);
+    console.group(`📡 ABLY MESSAGE RECEIVED`);
     console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
     console.log('📡 Channel:', channelName);
     console.log('🎯 Event Type:', eventType);
     console.log('🆔 Message ID:', message.id);
     console.log('👤 Client ID:', message.clientId);
     console.log('⚡ Action:', message.action);
-    console.log('🔤 Encoding:', message.encoding);
-    console.log('📝 Name:', message.name);
+    console.log('📤 Encoding:', message.encoding);
+    console.log('🏷️ Name:', message.name);
     console.log('🕐 Message Timestamp:', message.timestamp);
     console.log('📦 Raw Data:', message.data);
     console.log('🔍 Full Message Object:', message);
@@ -71,6 +83,7 @@ const AblyLogger = {
 
   // Log typing events with details
   logTyping: (data, channelName) => {
+    // Uncomment for detailed typing logs
     // console.group(`⌨️ TYPING EVENT`);
     // console.log('📡 Channel:', channelName);
     // console.log('👤 User ID:', data.userId);
@@ -91,18 +104,81 @@ const AblyLogger = {
   }
 };
 
-// 🆕 SIMPLE: Message processing (no crypto for now)
+// 🔐 ENHANCED: Message processing with frontend-only encryption
 const MessageProcessor = {
-  // Simple pass-through for now
-  process: (message) => {
-    AblyLogger.log('debug', 'PROCESS', 'Processing message', { message });
-    return message;
+  /**
+   * Process outgoing message - encrypt before sending via Ably
+   */
+  process: (message, sessionId = '') => {
+    AblyLogger.logCrypto('ENCRYPT_OUTGOING', {
+      'Session ID': sessionId?.slice(-8) || 'none',
+      'Original Length': message?.content?.length || 0,
+      'Has Content': !!message?.content,
+      'Message Type': message?.messageType || 'unknown'
+    });
+    
+    try {
+      // 🔐 ENCRYPT: Message content before broadcasting via Ably
+      if (message.content && typeof message.content === 'string') {
+        const encryptedContent = chatEncryption.encrypt(message.content, sessionId);
+        
+        const encryptedMessage = {
+          ...message,
+          content: encryptedContent
+        };
+        
+        AblyLogger.logCrypto('ENCRYPT_SUCCESS', {
+          'Original Length': message.content.length,
+          'Encrypted Length': encryptedContent.length,
+          'Encryption Status': chatEncryption.getStatus()
+        });
+        
+        return encryptedMessage;
+      }
+      
+      return message;
+    } catch (error) {
+      AblyLogger.log('error', 'CRYPTO', 'Encryption failed, sending plaintext', error);
+      return message; // Fallback to unencrypted
+    }
   },
 
-  // Simple pass-through for now
-  unprocess: (processedMessage) => {
-    AblyLogger.log('debug', 'PROCESS', 'Unprocessing message', { processedMessage });
-    return processedMessage;
+  /**
+   * Unprocess incoming message - decrypt received data from Ably
+   */
+  unprocess: (processedMessage, sessionId = '') => {
+    AblyLogger.logCrypto('DECRYPT_INCOMING', {
+      'Session ID': sessionId?.slice(-8) || 'none',
+      'Encrypted Length': processedMessage?.content?.length || 0,
+      'Has Content': !!processedMessage?.content,
+      'Message Type': processedMessage?.messageType || 'unknown'
+    });
+    
+    try {
+      // 🔓 DECRYPT: Message content after receiving from Ably
+      if (processedMessage.content && typeof processedMessage.content === 'string') {
+        const decryptedContent = chatEncryption.decrypt(processedMessage.content, sessionId);
+        
+        const decryptedMessage = {
+          ...processedMessage,
+          content: decryptedContent,
+          message: decryptedContent // Also map to message field for consistency
+        };
+        
+        AblyLogger.logCrypto('DECRYPT_SUCCESS', {
+          'Encrypted Length': processedMessage.content.length,
+          'Decrypted Length': decryptedContent.length,
+          'Was Encrypted': processedMessage.content !== decryptedContent
+        });
+        
+        return decryptedMessage;
+      }
+      
+      return processedMessage;
+    } catch (error) {
+      AblyLogger.log('error', 'CRYPTO', 'Decryption failed, returning as-is', error);
+      return processedMessage; // Fallback to encrypted text
+    }
   }
 };
 
@@ -135,7 +211,8 @@ export const useAbly = () => {
         timestamp: new Date().toISOString(),
         ablyState: ablyRef.current?.connection?.state,
         channels: Object.keys(channelsRef.current),
-        currentSession: currentSessionRef.current
+        currentSession: currentSessionRef.current,
+        encryptionStatus: chatEncryption.getStatus() // 🔐 NEW: Add encryption status
       };
     }
   }, []);
@@ -160,7 +237,10 @@ export const useAbly = () => {
     try {
       currentSessionRef.current = sessionId;
       
-      AblyLogger.log('info', 'CONNECT', `Connecting to session: ${sessionId}`, { userId });
+      AblyLogger.log('info', 'CONNECT', `Connecting to session: ${sessionId}`, { 
+        userId,
+        encryptionEnabled: chatEncryption.getStatus().isEnabled // 🔐 NEW: Log encryption status
+      });
 
       // Handle AI Team RuangDiri session
       if (sessionId === 'team-ruangdiri') {
@@ -273,19 +353,19 @@ export const useAbly = () => {
         typingChannel: tokenData.channels.typing
       });
 
-      // 🆕 ENHANCED: Message handlers with detailed logging
+      // 🔐 ENHANCED: Message handlers with encryption support
       const handleChatMessage = (message) => {
         AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'CHAT_MESSAGE');
         
-        // 🆕 PROCESS: Simple message processing (no crypto for now)
-        const processedData = MessageProcessor.unprocess(message.data);
+        // 🔓 DECRYPT: Process incoming encrypted message from other users
+        const processedData = MessageProcessor.unprocess(message.data, sessionId);
         
         if (processedData.senderId !== userId && onMessageRef.current) {
           AblyLogger.log('info', 'MESSAGE', 'Processing incoming chat message', {
             senderId: processedData.senderId,
             currentUserId: userId,
             messageType: processedData.messageType,
-            hasText: !!processedData.message
+            hasText: !!(processedData.content || processedData.message)
           });
           onMessageRef.current(processedData);
         } else {
@@ -306,11 +386,14 @@ export const useAbly = () => {
       const handleAutomatedMessage = (message) => {
         AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'AUTOMATED_MESSAGE');
         if (onMessageRef.current) {
-          onMessageRef.current({
+          // 🔓 DECRYPT: Automated messages might also be encrypted
+          const processedData = MessageProcessor.unprocess({
             ...message.data,
             isAutomated: true,
             messageType: 'automated'
-          });
+          }, sessionId);
+          
+          onMessageRef.current(processedData);
         }
       };
 
@@ -531,7 +614,7 @@ export const useAbly = () => {
     }
   }, [connectionStatus]);
 
-  // ✅ FIXED: Memoize sendMessageViaAbly function
+  // 🔐 ENHANCED: Memoize sendMessageViaAbly function with encryption
   const sendMessageViaAbly = useCallback(async (sessionId, messageData) => {
     if (sessionId === 'team-ruangdiri') return false;
 
@@ -539,12 +622,12 @@ export const useAbly = () => {
 
     try {
       if (ablyRef.current && channelsRef.current.chat && connectionStatus === 'connected') {
-        // 🆕 PROCESS: Simple message processing (no crypto for now)
-        const processedData = MessageProcessor.process(messageData);
+        // 🔒 ENCRYPT: Process outgoing message with encryption for Ably broadcast
+        const processedData = MessageProcessor.process(messageData, sessionId);
         
-        AblyLogger.log('info', 'MESSAGE', 'Broadcasting message via Ably');
+        AblyLogger.log('info', 'MESSAGE', 'Broadcasting encrypted message via Ably');
         await channelsRef.current.chat.publish('message', processedData);
-        AblyLogger.log('success', 'MESSAGE', 'Message broadcasted via Ably successfully');
+        AblyLogger.log('success', 'MESSAGE', 'Encrypted message broadcasted via Ably successfully');
         return true;
       } else {
         AblyLogger.log('warn', 'MESSAGE', 'Ably not available for message broadcast', {
@@ -610,31 +693,40 @@ export const useAbly = () => {
       ablyState: ablyRef.current?.connection?.state || 'none',
       hasRealtime: connectionStatus === 'connected',
       connectionId: ablyRef.current?.connection?.id,
-      clientId: ablyRef.current?.connection?.clientId
+      clientId: ablyRef.current?.connection?.clientId,
+      // 🔐 NEW: Add encryption status to connection info
+      encryption: chatEncryption.getStatus()
     };
     
     AblyLogger.log('debug', 'INFO', 'Connection info requested', info);
     return info;
   }, [connectionStatus]);
 
-  // 🆕 ENHANCED: Debug utilities for window access
+  // 🔐 ENHANCED: Debug utilities for window access with encryption
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.ablyDebug = {
         logger: AblyLogger,
         processor: MessageProcessor,
+        encryption: chatEncryption, // 🔐 NEW: Expose encryption utilities
         connection: getConnectionInfo,
         ably: ablyRef.current,
         channels: channelsRef.current,
         forceLog: (level, category, message, data) => {
           AblyLogger.log(level, category, message, data);
         },
-        // Test message processing
-        testProcessor: (message) => {
-          const processed = MessageProcessor.process(message);
-          const unprocessed = MessageProcessor.unprocess(processed);
-          console.log('🔄 Processor test:', { original: message, processed, unprocessed });
-          return { processed, unprocessed };
+        // 🔐 NEW: Test message encryption/decryption
+        testEncryption: (message = 'Test message', sessionId = 'test-session') => {
+          const testData = { content: message, sessionId, messageType: 'text' };
+          const encrypted = MessageProcessor.process(testData, sessionId);
+          const decrypted = MessageProcessor.unprocess(encrypted, sessionId);
+          console.log('🔐 Encryption test:', { 
+            original: testData, 
+            encrypted, 
+            decrypted,
+            success: testData.content === decrypted.content
+          });
+          return { encrypted, decrypted };
         }
       };
     }
@@ -663,9 +755,10 @@ export const useAbly = () => {
     simulateAITyping,
     setCallbacks,
     getConnectionInfo,
-    // 🆕 ENHANCED: Expose utilities for debugging
+    // 🔐 ENHANCED: Expose utilities for debugging with encryption
     logger: AblyLogger,
-    processor: MessageProcessor
+    processor: MessageProcessor,
+    encryption: chatEncryption // 🔐 NEW: Expose encryption instance
   }), [
     connectionStatus,
     isTyping,
