@@ -1,6 +1,6 @@
-// src/components/shared/onboarding/OnboardingContainer.jsx - VERSI BARU YANG LEBIH SEDERHANA
+// src/components/shared/onboarding/OnboardingContainer.jsx - FIXED: Remove infinite loop
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import OnboardingSplashScreen from './OnboardingSplashScreen';
@@ -16,37 +16,84 @@ const LoadingScreen = () => (
 );
 
 /**
- * OnboardingContainer MENGELOLA ALUR ONBOARDING.
- * Tugasnya hanya menampilkan Splash Screen atau Form.
- * TIDAK melakukan redirect berdasarkan role.
+ * OnboardingContainer - FIXED: Simple logic without infinite loops
  */
 const OnboardingContainer = () => {
-  const { user, needsOnboarding, getDefaultRoute } = useAuth();
+  const { user, needsOnboarding } = useAuth();
   const navigate = useNavigate();
   
   // State untuk mengontrol tampilan: 'splash' atau 'form'
   const [view, setView] = useState('splash');
+  const hasRedirected = useRef(false);
 
+  // ✅ FIXED: Simple useEffect with minimal dependencies
   useEffect(() => {
-    // Pengaman: Jika karena suatu alasan user yang sudah onboarded
-    // masuk ke halaman ini, arahkan mereka ke dashboard.
-    if (user && !needsOnboarding()) {
-      console.log("OnboardingContainer: User is already onboarded. Redirecting...");
-      navigate(getDefaultRoute(), { replace: true });
-    }
-  }, [user, needsOnboarding, navigate, getDefaultRoute]);
+    if (!user || hasRedirected.current) return;
 
-  // Fungsi yang akan dipanggil oleh SplashScreen untuk beralih ke form
+    const currentNeedsOnboarding = needsOnboarding();
+    
+    // Debug log - only once per user change
+    console.log("🔍 OnboardingContainer Check:", {
+      userId: user.id,
+      isOnboarded: user.isOnboarded,
+      needsOnboarding: currentNeedsOnboarding,
+      userRole: user.role,
+      orgType: user.organization?.type
+    });
+
+    // If user doesn't need onboarding, redirect immediately
+    if (!currentNeedsOnboarding) {
+      console.log("✅ User is already onboarded, redirecting to dashboard");
+      hasRedirected.current = true;
+      
+      // Determine redirect path
+      let redirectPath = '/';
+      const userRole = user.role;
+      const orgType = user.organization?.type;
+      
+      if (userRole === 'student') {
+        redirectPath = '/user/student/screening';
+      } else if (userRole === 'employee') {
+        redirectPath = '/user/employee/screening';
+      } else if (userRole === 'psychologist') {
+        redirectPath = '/user/psychologist/chat';
+      } else if (orgType === 'school') {
+        redirectPath = '/organization/school/dashboard';
+      } else if (orgType === 'company') {
+        redirectPath = '/organization/company/dashboard';
+      }
+      
+      console.log("📍 Redirecting to:", redirectPath);
+      navigate(redirectPath, { replace: true });
+    } else {
+      console.log("⏳ User needs onboarding, staying on onboarding page");
+    }
+  }, [user?.id, user?.isOnboarded]); // ✅ FIXED: Only depend on user ID and isOnboarded status
+
+  // ✅ Simple start handler
   const handleStart = () => {
+    console.log("🚀 Starting onboarding form");
     setView('form');
   };
 
-  // Selama data user belum siap, tampilkan loading.
+  // Loading state while no user data
   if (!user) {
     return <LoadingScreen />;
   }
 
-  // Render berdasarkan state 'view'
+  // Additional check - if user doesn't need onboarding, show redirecting screen
+  if (!needsOnboarding()) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="flex items-center space-x-2">
+          <span className="material-icons animate-spin text-primary">sync</span>
+          <span className="text-primary">Redirecting to dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Render based on view state
   if (view === 'splash') {
     return <OnboardingSplashScreen onContinue={handleStart} />;
   }
@@ -55,7 +102,7 @@ const OnboardingContainer = () => {
     return <OnboardingForm />;
   }
 
-  // Fallback (seharusnya tidak pernah terjadi)
+  // Fallback
   return <LoadingScreen />;
 };
 
