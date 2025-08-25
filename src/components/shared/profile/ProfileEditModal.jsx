@@ -58,15 +58,15 @@ const ProfileEditModal = ({
   // Default values dari userData atau tempFormData (jika ada)
   const defaultValues = tempFormData || {
     fullName: userData?.fullName || "",
-    address: userData?.organization?.address || "",
-    phone: userData?.organization?.phone || "",
+    address: userData?.address || "",
+    phone: userData?.phone || "",
   };
 
   // Original values dari userData asli (untuk perbandingan hasChanges)
   const originalValues = {
     fullName: userData?.fullName || "",
-    address: userData?.organization?.address || "",
-    phone: userData?.organization?.phone || "",
+    address: userData?.address || "",
+    phone: userData?.phone || "",
   };
 
   const {
@@ -101,8 +101,8 @@ const ProfileEditModal = ({
     } else if (userData) {
       // Fallback ke userData
       setValue("fullName", userData.fullName || "");
-      setValue("address", userData.organization?.address || "");
-      setValue("phone", userData.organization?.phone || "");
+      setValue("address", userData.address || "");
+      setValue("phone", userData.phone || "");
     }
   }, [userData, setValue, tempFormData]);
 

@@ -324,7 +324,10 @@ export const useDashboard = (type = "student") => {
   const optionsQuery = type === "student" ? useAcademicInfo() : useEmployeeRoles()
 
   const processedMetrics = useMemo(() => {
-    const data = mainMetricsQuery.data?.data || handleEmptyDataResponse("monthly").data;
+const data = {
+  ...handleEmptyDataResponse("monthly").data,
+  ...(mainMetricsQuery.data?.data || {})
+}
     
     // Ensure all nested properties exist to prevent downstream errors
     const safeData = {

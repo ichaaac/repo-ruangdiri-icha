@@ -14,15 +14,12 @@ const UserSidebar = ({
   onHoverChange,
   userType = "student", // "student", "employee", atau "psychologist"
   isMobile = false,
-  selectedDashboardTab = "home",
-  onDashboardTabChange = () => {},
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user: userData } = useAuth()
   
   const [isProfileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [activeMenuPath, setActiveMenuPath] = useState(null);
   const [hovered, setHovered] = useState(false)
   const [toggleHovered, setToggleHovered] = useState(false)
   const [fallbackProfileImage, setFallbackProfileImage] = useState(false)
@@ -40,7 +37,7 @@ const UserSidebar = ({
   const menuItemHeight = isMobile ? 40 : 47
   const dividerHeight = 20
 
-  // Menu items berdasarkan user type
+  // Menu items berdasarkan user type - Dashboard tanpa dropdown
   const menuItems = useMemo(() => {
     const baseMenus = {
       student: [
@@ -48,7 +45,6 @@ const UserSidebar = ({
           label: "Dashboard",
           icon: "dashboard",
           path: `/user/student/dashboard`,
-          hasDropdown: true,
           disabled: false
         },
         {
@@ -60,9 +56,9 @@ const UserSidebar = ({
         {
           label: "Booking Sesi",
           icon: "event_available",
-          path: `/booking-session/student`, // Updated to standalone page
+          path: `/booking-session/student`,
           disabled: false,
-          isExternal: true // Mark as external/standalone
+          isExternal: true
         },
         {
           label: "Pesan",
@@ -76,7 +72,6 @@ const UserSidebar = ({
           label: "Dashboard",
           icon: "dashboard",
           path: `/user/employee/dashboard`,
-          hasDropdown: true,
           disabled: false
         },
         {
@@ -88,9 +83,9 @@ const UserSidebar = ({
         {
           label: "Booking Sesi",
           icon: "event_available",
-          path: `/booking-session/employee`, // Updated to standalone page
+          path: `/booking-session/employee`,
           disabled: false,
-          isExternal: true // Mark as external/standalone
+          isExternal: true
         },
         {
           label: "Pesan",
@@ -139,15 +134,7 @@ const UserSidebar = ({
   useEffect(() => {
     const isProfilePage = location.pathname.includes('/profile') || location.pathname.includes('/settings');
     setProfileDropdownOpen(isProfilePage);
-
-    const isDashboardPage = location.pathname.includes("/dashboard");
-    const dashboardItem = menuItems.find(item => item.path.includes('/dashboard'));
-    if (isDashboardPage && dashboardItem) {
-        setActiveMenuPath(dashboardItem.path);
-    } else {
-        setActiveMenuPath(null);
-    }
-  }, [location.pathname, menuItems]);
+  }, [location.pathname]);
 
   // Handle closing manually opened dropdowns when the sidebar collapses
   useEffect(() => {
@@ -155,11 +142,6 @@ const UserSidebar = ({
         const isProfilePage = location.pathname.includes('/profile') || location.pathname.includes('/settings');
         if (!isProfilePage) {
             setProfileDropdownOpen(false);
-        }
-
-        const isDashboardPage = location.pathname.includes("/dashboard");
-        if (!isDashboardPage) {
-            setActiveMenuPath(null);
         }
     }
   }, [expanded, hovered, location.pathname]);
@@ -208,41 +190,15 @@ const UserSidebar = ({
     return location.pathname === path
   }
 
-  const isDashboardTabActive = (tabId) => {
-    if (!location.pathname.includes("/dashboard")) return false
-    return tabId === selectedDashboardTab
-  }
-
-  const getDashboardDropdownItems = () => [
-    { id: "home", label: "Dashboard Home", disabled: false },
-    { id: "tablist", label: "Dashboard Tab Laporan", disabled: false },
-  ]
-
-  const handleDashboardItemClick = (tabId) => {
-    if (tabId === "home") {
-      onDashboardTabChange("home")
-    } else if (tabId === "tablist") {
-      onDashboardTabChange("tablist")
-    }
-    const dashboardPath = `/user/${userType}/dashboard`
-    if (location.pathname !== dashboardPath) navigate(dashboardPath)
-    if (isMobile) setExpanded(false)
-  }
-
-  const toggleMenuDropdown = (path) => setActiveMenuPath(activeMenuPath === path ? null : path)
-
-  // Handle menu item clicks
+  // Handle menu item clicks - simplified without dropdown logic
   const handleMenuItemClick = (item) => {
     if (item.disabled) return;
     
-    if (item.hasDropdown) {
-      toggleMenuDropdown(item.path)
-    } else if (item.isExternal) {
+    if (item.isExternal) {
       // For external/standalone pages, open in new window/tab
       window.open(item.path, '_blank')
     } else {
       navigate(item.path)
-      if (item.path.includes('/dashboard')) onDashboardTabChange('home')
       if (isMobile) setExpanded(false)
     }
   }
@@ -263,8 +219,6 @@ const UserSidebar = ({
     if (userType === "psychologist") return "Psikolog"
     return "User"
   }
-
-  const dashboardDropdownItems = getDashboardDropdownItems()
 
   return (
     <>
@@ -372,68 +326,34 @@ const UserSidebar = ({
             <div className="h-[1px] bg-[#D9D9D9] w-full"></div>
           </div>
 
-          {/* Navigation Menu */}
+          {/* Navigation Menu - Simplified without dropdowns */}
           <div className={`flex flex-col gap-y-1`}>
             {menuItems.map((item, index) => (
-              <div key={index}>
-                <motion.div className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${ isActive(item.path) ? "bg-[#488BBE] text-white font-bold" : item.disabled ? "text-gray-400 cursor-not-allowed" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white" }`}
-                  onClick={() => handleMenuItemClick(item)}>
-                  <span className={`material-icons ${isMobile ? "w-[16px]" : "w-[20px]"} flex-shrink-0`} style={{ fontSize: isMobile ? "16px" : "20px" }}>{item.icon}</span>
-                  <motion.span animate={{ width: expanded || hovered ? "auto" : 0, opacity: expanded || hovered ? 1 : 0, marginLeft: expanded || hovered ? (isMobile ? "8px" : "10px") : 0, }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1 ${isActive(item.path) ? "font-bold" : ""}`}>
-                    {item.label}
-                    {item.hasDropdown && (
-                      <span className={`material-icons ${isMobile ? "text-xs" : "text-sm"} ml-2`}>
-                        {activeMenuPath === item.path ? "expand_less" : "expand_more"}
-                      </span>
-                    )}
-                    {item.disabled && (
-                      <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full bg-orange-100 text-orange-600`}>
-                        Soon
-                      </span>
-                    )}
-                  </motion.span>
-                </motion.div>
-                
-                <AnimatePresence>
-                  {item.hasDropdown && activeMenuPath === item.path && (expanded || hovered) && (
-                    <motion.div className={`overflow-hidden relative z-[9999]`}
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}>
-                      
-                      {item.path.includes('/dashboard') && dashboardDropdownItems.map((dropdownItem) => (
-                          <motion.div
-                            key={dropdownItem.id}
-                            className={`${isMobile ? "pl-7" : "pl-10"}`}
-                            animate={{
-                              paddingLeft: expanded || hovered ? (isMobile ? "28px" : "40px") : 0,
-                              opacity: expanded || hovered ? 1 : 0
-                            }}
-                            transition={{ duration: 0.3, ease: "easeInOut" }}
-                          >
-                            <button type="button" disabled={dropdownItem.disabled}
-                              className={`block w-full text-left ${isMobile ? "py-1.5 pl-2 text-xs" : "py-2 pl-3 text-sm"} transition-colors rounded ${dropdownItem.disabled ? "text-gray-400 cursor-not-allowed opacity-50" : ((dropdownItem.id === "home" && isDashboardTabActive("home")) || (dropdownItem.id === "tablist" && selectedDashboardTab !== "home")) ? "text-[#488BBE] font-bold underline" : "text-[#488BBE] hover:text-[#3399E9] hover:bg-[#F0F8FF]"}`}
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!dropdownItem.disabled) handleDashboardItemClick(dropdownItem.id); }}>
-                              <motion.span
-                                animate={{
-                                  opacity: expanded || hovered ? 1 : 0,
-                                  x: expanded || hovered ? 0 : -10
-                                }}
-                                transition={{ duration: 0.3, ease: "easeInOut" }}
-                                className="whitespace-nowrap"
-                              >
-                                {dropdownItem.label}
-                              </motion.span>
-                            </button>
-                          </motion.div>
-                        ))}
-                    </motion.div>
+              <motion.div 
+                key={index}
+                className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${ 
+                  isActive(item.path) ? "bg-[#488BBE] text-white font-bold" : item.disabled ? "text-gray-400 cursor-not-allowed" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white" 
+                }`}
+                onClick={() => handleMenuItemClick(item)}
+              >
+                <span className={`material-icons ${isMobile ? "w-[16px]" : "w-[20px]"} flex-shrink-0`} style={{ fontSize: isMobile ? "16px" : "20px" }}>{item.icon}</span>
+                <motion.span 
+                  animate={{ 
+                    width: expanded || hovered ? "auto" : 0, 
+                    opacity: expanded || hovered ? 1 : 0, 
+                    marginLeft: expanded || hovered ? (isMobile ? "8px" : "10px") : 0, 
+                  }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className={`${isMobile ? "text-xs" : "text-sm"} whitespace-nowrap overflow-hidden flex items-center justify-between flex-1 ${isActive(item.path) ? "font-bold" : ""}`}
+                >
+                  {item.label}
+                  {item.disabled && (
+                    <span className={`ml-2 px-1.5 py-0.5 text-xs rounded-full bg-orange-100 text-orange-600`}>
+                      Soon
+                    </span>
                   )}
-                </AnimatePresence>
-              </div>
+                </motion.span>
+              </motion.div>
             ))}
           </div>
 

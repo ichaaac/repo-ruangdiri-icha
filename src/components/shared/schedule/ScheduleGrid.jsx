@@ -1,3 +1,5 @@
+"use client"
+
 // src/components/shared/schedule/ScheduleGrid.jsx - FIXED CURRENT TIME & VIEWPORT
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
@@ -154,6 +156,8 @@ const ScheduleGrid = ({
     },
     [timeSlots.length],
   )
+
+  
 
   const getActualHour = useCallback(
     (index) => {
@@ -358,7 +362,20 @@ const ScheduleGrid = ({
     return heights
   }, [processedSchedules, days])
 
-// FIXED: Auto-scroll to current day when today is in selected week
+  
+  const getDayRowTop = useCallback(
+    (dayIndex) => {
+      let top = 0
+      for (let i = 0; i < dayIndex; i++) {
+        const dayName = days[i]?.full
+        top += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT
+      }
+      return top
+    },
+    [days, dayRowHeights],
+  )
+
+  // FIXED: Auto-scroll to current day when today is in selected week
   useEffect(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -435,23 +452,42 @@ const ScheduleGrid = ({
 
       if (dayIndex < 0) return null
 
-      const actualHour = getActualHour(hourIndex)
+      let actualHour = getActualHour(hourIndex)
       const pixelWithinHour = gridX - hourIndex * HOUR_WIDTH
       const exactMinute = (pixelWithinHour / HOUR_WIDTH) * 60
-      const snappedMinute = Math.round(exactMinute / 15) * 15
-      const finalMinute = Math.min(snappedMinute, 59)
-      const pixelX = hourIndex * HOUR_WIDTH + (finalMinute / 60) * HOUR_WIDTH
+
+      // FIXED: Proper minute snapping with hour overflow handling
+      let snappedMinute = Math.round(exactMinute / 15) * 15
+
+      // Handle minute overflow (when snapping results in 60 minutes)
+      if (snappedMinute >= 60) {
+        snappedMinute = 0
+        actualHour += 1
+
+        // Handle hour overflow (24:00 becomes 00:00 next day)
+        if (actualHour >= 24) {
+          actualHour = 0
+          // Note: We don't change dayIndex here as it would complicate things
+          // Instead, we'll cap at 23:45 for the last selectable time
+          actualHour = 23
+          snappedMinute = 45
+        }
+      }
+
+      // FIXED: Calculate pixel position based on corrected hour/minute
+      const correctedHourIndex = getHourDisplayIndex(actualHour)
+      const pixelX = correctedHourIndex * HOUR_WIDTH + (snappedMinute / 60) * HOUR_WIDTH
 
       return {
         hour: actualHour,
-        minute: finalMinute,
-        hourIndex: hourIndex,
+        minute: snappedMinute,
+        hourIndex: correctedHourIndex,
         dayIndex: dayIndex,
         exactMinute: exactMinute,
         pixelX: pixelX,
       }
     },
-    [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour],
+    [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour, getHourDisplayIndex],
   )
 
   const getDateFromDayIndex = useCallback(
@@ -531,6 +567,36 @@ const ScheduleGrid = ({
         endPixelX: timeInfo.pixelX,
       }))
 
+      // FIXED: Auto-scroll viewport to ensure drag area is visible
+      if (viewportRef.current) {
+        const viewport = viewportRef.current
+        const viewportRect = viewport.getBoundingClientRect()
+        
+        // Calculate if we need to scroll to show the drag area
+        const startDayTop = getDayRowTop(Math.min(dragStartPos.dayIndex, constrainedDayIndex))
+        const endDayTop = getDayRowTop(Math.max(dragStartPos.dayIndex, constrainedDayIndex))
+        const endDayHeight = dayRowHeights[days[Math.max(dragStartPos.dayIndex, constrainedDayIndex)]?.full] || MIN_DAY_ROW_HEIGHT
+        const dragAreaBottom = endDayTop + endDayHeight
+        
+        const currentScrollTop = viewport.scrollTop
+        const viewportHeight = viewport.clientHeight
+        const visibleTop = currentScrollTop
+        const visibleBottom = currentScrollTop + viewportHeight
+        
+        // Scroll down if drag area bottom is below visible area
+        if (dragAreaBottom > visibleBottom) {
+          const newScrollTop = dragAreaBottom - viewportHeight + 20 // 20px padding
+          viewport.scrollTop = Math.min(newScrollTop, viewport.scrollHeight - viewportHeight)
+        }
+        
+        // Scroll up if drag area top is above visible area
+        if (startDayTop < visibleTop) {
+          const newScrollTop = Math.max(0, startDayTop - 20) // 20px padding
+          viewport.scrollTop = newScrollTop
+        }
+      }
+      
+
       const rect = viewportRef.current.getBoundingClientRect()
       const relativeX = e.clientX - rect.left
       const relativeY = e.clientY - rect.top
@@ -557,11 +623,14 @@ const ScheduleGrid = ({
         endTime: endTime,
       })
     },
-    [isDragging, dragStartPos, days.length, getTimeFromPosition],
+    [isDragging, dragStartPos, days.length, getTimeFromPosition, getDayRowTop, dayRowHeights],
   )
 
-const handleMouseUp = useCallback(() => {
+  
+
+  const handleMouseUp = useCallback(() => {
     if (!isDragging || !selectedArea || !dragStartPos) return
+    
 
     // FIXED: Prevent creating schedules when no dates are selected
     if (!selectedDates || selectedDates.length === 0) {
@@ -572,6 +641,8 @@ const handleMouseUp = useCallback(() => {
       setDragTimeTooltip(null)
       return
     }
+
+    
 
     const isClick =
       selectedArea.startDay === selectedArea.endDay &&
@@ -613,12 +684,26 @@ const handleMouseUp = useCallback(() => {
         endMinute = time1.minute
       }
 
-      // Ensure minimum 15 minutes duration for drag selection
-      if (startDay === endDay && startHour === endHour && startMinute === endMinute) {
+      // Calculate total minutes for both start and end times
+      const startTotalMinutes = startDay * 1440 + startHour * 60 + startMinute
+      const endTotalMinutes = endDay * 1440 + endHour * 60 + endMinute
+
+      // Ensure minimum 15 minutes duration for any drag selection
+      if (startTotalMinutes >= endTotalMinutes) {
+        // If same time or end is before start, add 15 minutes to end
         endMinute += 15
         if (endMinute >= 60) {
           endHour += 1
           endMinute -= 60
+          // Handle hour overflow
+          if (endHour >= 24) {
+            endHour = 0
+            // For simplicity, cap at 23:45 if we would overflow to next day
+            if (endDay >= days.length - 1) {
+              endHour = 23
+              endMinute = 45
+            }
+          }
         }
       }
 
@@ -678,18 +763,6 @@ const handleMouseUp = useCallback(() => {
     return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0)
   }, [dayRowHeights])
 
-  const getDayRowTop = useCallback(
-    (dayIndex) => {
-      let top = 0
-      for (let i = 0; i < dayIndex; i++) {
-        const dayName = days[i]?.full
-        top += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT
-      }
-      return top
-    },
-    [days, dayRowHeights],
-  )
-
   const handleScheduleClick = useCallback(
     (event, scheduleData) => {
       event.preventDefault()
@@ -722,7 +795,7 @@ const handleMouseUp = useCallback(() => {
       height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT
     }
 
-    const left = PADDING_OFFSET + startPixelX
+    const left = PADDING_OFFSET + startPixelX + 2 // Added 2px adjustment for better alignment
     const width = Math.max(endPixelX - startPixelX, 30)
 
     return (

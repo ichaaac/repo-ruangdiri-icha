@@ -54,7 +54,7 @@ const EmployeeFilters = ({
               <div className="text-[#488bbe] text-lg sm:text-xl font-semibold">Filter</div>
               <button 
                 onClick={handleClose}
-                className="text-[#488bbe] hover:text-[#3399e9]"
+                className="text-[#EE4266] hover:text-[rgb(148,42,65)]"
               >
                 <span className="material-icons">close</span>
               </button>

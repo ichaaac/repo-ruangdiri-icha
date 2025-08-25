@@ -167,7 +167,7 @@ const ProfilePage = ({
     )
   }
 
-  const displayPhone = formatPhoneDisplay(userData?.organization?.phone)
+  const displayPhone = formatPhoneDisplay(userData?.phone)
 
   return (
 <div className="box-border w-full min-h-screen bg-white relative">
@@ -248,7 +248,7 @@ const ProfilePage = ({
                 <div className="w-full lg:w-80 xl:w-96">
                   <span className="block text-xs text-zinc-500">{addressLabel}</span>
                   <span className="block text-sm sm:text-base text-neutral-600 mt-1 break-words">
-                    {userData?.organization?.address || "-"}
+                    {userData?.address || "-"}
                   </span>
                 </div>
                 <div className="w-full lg:w-auto">

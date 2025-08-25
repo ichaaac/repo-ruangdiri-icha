@@ -1,9 +1,10 @@
-"use client"
+// src/components/shared/schedule/ViewScheduleModal.jsx
 
 import { useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { createScheduleApi } from "./lib/scheduleApi"
+import ImagePreviewModal from "./ImagePreviewModal"
 
 const ViewScheduleModal = ({
   isOpen,
@@ -16,6 +17,7 @@ const ViewScheduleModal = ({
 }) => {
   const [downloadingAttachment, setDownloadingAttachment] = useState(null)
   const [scheduleData, setScheduleData] = useState(initialScheduleData)
+  const [imagePreview, setImagePreview] = useState({ isOpen: false, url: "", name: "" })
 
   const scheduleApi = createScheduleApi(organizationType)
 

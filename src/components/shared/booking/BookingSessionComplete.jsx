@@ -1,4 +1,4 @@
-// src/components/shared/booking/BookingSessionComplete.jsx
+// src/components/shared/booking/BookingSessionComplete.jsx - UPDATED RESPONSIVE VERSION
 
 import { useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../../../hooks/useAuth"
@@ -13,38 +13,129 @@ const BookingSessionComplete = () => {
   // Get booking result from location state
   useEffect(() => {
     const result = location.state?.bookingResult
+    
     if (result) {
-      setBookingData(result)
+      // Handle different possible data structures
+      let processedData = result
+      
+      // Check for multiple levels of nesting
+      if (result.data && typeof result.data === 'object') {
+        processedData = result.data
+        
+        // Check for second level nesting
+        if (processedData.data && typeof processedData.data === 'object') {
+          processedData = processedData.data
+        }
+      }
+      
+      setBookingData(processedData)
     } else {
       // If no booking data, redirect back
       navigate(-1)
     }
   }, [location.state, navigate])
 
-  // Format date and time
-  const formatDateTime = (date, startTime, endTime) => {
+  // Format date and time with backend data structure handling
+  const formatDateTime = (bookingData) => {
     try {
-      const dateObj = new Date(date)
+      if (!bookingData) {
+        return "Data tidak tersedia"
+      }
+
+      // First, check if we have pre-formatted dateTimeFormatted from API (but fix undefined times)
+      if (bookingData.dateTimeFormatted && 
+          bookingData.dateTimeFormatted.date &&
+          bookingData.dateTimeFormatted.time && 
+          !bookingData.dateTimeFormatted.time.includes('undefined')) {
+        return `${bookingData.dateTimeFormatted.date} | ${bookingData.dateTimeFormatted.time}`
+      }
+
+      // Handle backend structure with date/endDate ISO timestamps
+      let dateValue = null
+      let startTime = null
+      let endTime = null
+
+      if (bookingData.date && bookingData.endDate) {
+        const startDate = new Date(bookingData.date)
+        const endDate = new Date(bookingData.endDate)
+        
+        // Extract date in YYYY-MM-DD format
+        dateValue = startDate.toISOString().split('T')[0]
+        
+        // Extract times in HH:mm format (convert from UTC to local timezone)
+        const timeOptions = { 
+          timeZone: bookingData.originalTimezone || 'Asia/Jakarta',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit'
+        }
+        
+        startTime = startDate.toLocaleTimeString('en-US', timeOptions)
+        endTime = endDate.toLocaleTimeString('en-US', timeOptions)
+      } else {
+        // Fallback: try original structure
+        const { date, startTime: st, endTime: et } = bookingData
+        dateValue = date
+        startTime = st
+        endTime = et
+      }
+      
+      if (!dateValue) {
+        return "Tanggal tidak tersedia"
+      }
+      
+      if (!startTime || !endTime) {
+        return `${formatDateOnly(dateValue)} | Waktu tidak tersedia`
+      }
+
+      const dateObj = new Date(dateValue)
       const formattedDate = dateObj.toLocaleDateString("id-ID", {
         weekday: "long",
         day: "2-digit",
         month: "long",
         year: "numeric",
       })
-      return `${formattedDate} | ${startTime} - ${endTime} WIB`
+      
+      // Format time - handle both "HH:mm" and "HH:mm:ss" formats
+      const formatTime = (time) => {
+        if (!time) return ""
+        const timeStr = String(time)
+        return timeStr.length > 5 ? timeStr.substring(0, 5) : timeStr
+      }
+      
+      const formattedStartTime = formatTime(startTime)
+      const formattedEndTime = formatTime(endTime)
+      
+      return `${formattedDate} | ${formattedStartTime} - ${formattedEndTime} WIB`
     } catch (error) {
-      return `${date} | ${startTime} - ${endTime} WIB`
+      // Last resort fallback
+      return `${bookingData?.date || "Unknown date"} | ${bookingData?.startTime || "Unknown"} - ${bookingData?.endTime || "Unknown"} WIB`
     }
   }
 
-  // Get counseling method display name
+  // Helper function to format date only
+  const formatDateOnly = (date) => {
+    try {
+      const dateObj = new Date(date)
+      return dateObj.toLocaleDateString("id-ID", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
+    } catch (error) {
+      return date
+    }
+  }
+
+  // Get counseling method display name - UPDATED
   const getCounselingMethodDisplay = (method) => {
     const methods = {
       online: "Daring (Zoom)",
       offline: "Luring",
       chat: "Chat",
     }
-    return methods[method] || method
+    return methods[method] || method || "Konseling"
   }
 
   // Get user phone number from organization or user data
@@ -54,13 +145,21 @@ const BookingSessionComplete = () => {
 
   // Get user name
   const getUserName = () => {
-    return user?.fullName || "-"
+    return user?.fullName || user?.name || "-"
   }
 
-  // Generate booking number (in real app, this would come from backend)
+  // Generate booking number
   const getBookingNumber = () => {
     if (bookingData?.id) {
-      return `RD-${bookingData.id.slice(-5).toUpperCase()}`
+      return `RD-${String(bookingData.id).padStart(5, '0')}`
+    }
+    if (bookingData?.bookingId) {
+      return `RD-${String(bookingData.bookingId).padStart(5, '0')}`
+    }
+    // Generate from date and time if no ID available
+    if (bookingData?.date) {
+      const dateStr = new Date(bookingData.date).toISOString().split('T')[0].replace(/-/g, '')
+      return `RD-${dateStr.slice(-4)}${Math.random().toString(36).substr(2, 2).toUpperCase()}`
     }
     return `RD-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
   }
@@ -83,142 +182,165 @@ const BookingSessionComplete = () => {
         <div className="text-center">
           <span className="material-icons text-6xl text-gray-400 mb-4 block">hourglass_empty</span>
           <h2 className="text-xl font-semibold text-gray-800">Loading...</h2>
+          <p className="text-sm text-gray-500 mt-2">Waiting for booking data...</p>
         </div>
       </div>
     )
   }
 
-return (
-    <div className="bg-[#ffffff] min-h-screen relative overflow-hidden w-full">
+  return (
+    <div className="w-full h-[810px] relative bg-white overflow-hidden">
       {/* Background Gradient */}
-      <div
-        className="w-full h-60 absolute left-0 top-0 lg:h-72 sm:h-60 xs:h-52"
-        style={{
-          background: "linear-gradient(180deg, rgba(145, 217, 225, 1.00) 0%, rgba(94, 110, 195, 1.00) 100%)",
-        }}
-      />
+      <div className="w-full h-72 left-0 top-0 absolute bg-gradient-to-b from-teal-200 to-indigo-500" />
       
-      {/* Background Card */}
-      <div className="w-full max-w-[926px] mx-auto min-h-[580px] absolute left-1/2 top-28 transform -translate-x-1/2 bg-white rounded-[10px] shadow-lg px-4 py-6 lg:top-36 lg:min-h-[660px] lg:px-6 sm:top-28 sm:min-h-[520px] xs:top-24 xs:min-h-[480px] xs:px-3 xs:py-4">
-        
-        {/* Main Content - TELAH DIPINDAHKAN KE DALAM CARD & CLASSNYA DIPERBAIKI */}
-        <div className="flex flex-col gap-6 items-center justify-start w-full relative lg:gap-10 sm:gap-8 xs:gap-6">
-          {/* Success Icon */}
-          <div className="w-20 h-20 relative flex items-center justify-center lg:w-40 lg:h-40 sm:w-28 sm:h-28 xs:w-16 xs:h-16">
-            <div className="w-full h-full bg-green-100 rounded-full flex items-center justify-center">
-              <span className="material-icons text-green-600 text-4xl lg:text-7xl sm:text-5xl xs:text-3xl">
-                check_circle
-              </span>
-            </div>
-          </div>
-
-          {/* Content Section */}
-          <div className="flex flex-col gap-4 items-center justify-start w-full shrink-0 relative lg:gap-5 sm:gap-4 xs:gap-3">
-            {/* Header */}
-            <div className="flex flex-col gap-4 items-center justify-start shrink-0 relative lg:gap-6 sm:gap-4 xs:gap-3">
-              <div className="flex flex-row items-center justify-center w-full shrink-0 relative">
-                <div className="text-[#488BBA] text-center font-['Public_Sans'] text-2xl leading-8 font-extrabold relative lg:text-4xl lg:leading-[60px] sm:text-3xl sm:leading-[48px] xs:text-xl xs:leading-7">
-                  Terima Kasih
-                </div>
-              </div>
-              <div className="text-[#6B7280] text-center font-['Public_Sans'] text-sm leading-5 font-normal relative w-full px-2 lg:text-base lg:leading-6 lg:px-4 sm:text-sm sm:leading-5 sm:px-3 xs:text-xs xs:leading-4 xs:px-2">
-                Selamat, sesi konseling berhasil dibuat. Kamu sudah masuk daftar antrean konseling Ruang Diri.
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div
-              className="border-solid border-[#6B7280] border-t-[0.25px] border-r-0 border-b-0 border-l-0 shrink-0 w-full h-0 relative"
-              style={{
-                marginTop: "-0.25px",
-                transformOrigin: "0 0",
-                transform: "rotate(0deg) scale(1, 1)",
+      {/* Main Content Card with Shadow */}
+      <div className="absolute left-[271px] top-[150px] max-md:left-[20px] max-md:right-[20px] max-md:top-[120px] max-sm:left-[10px] max-sm:right-[10px]">
+        <div className="w-[898px] max-md:w-full bg-white rounded-[15px] shadow-[0px_12px_27px_0px_rgba(0,0,0,0.07)] shadow-[0px_49px_49px_0px_rgba(0,0,0,0.06)] shadow-[0px_111px_67px_0px_rgba(0,0,0,0.04)] shadow-[0px_198px_79px_0px_rgba(0,0,0,0.01)] shadow-[0px_309px_86px_0px_rgba(0,0,0,0.00)] min-h-[525px] px-[79px] py-[25px] max-md:px-[30px] max-md:py-[20px] max-sm:px-[20px] max-sm:py-[15px]">
+          
+          {/* Logo */}
+          <div className="w-24 absolute left-1/2 top-[26px] transform -translate-x-1/2 max-md:w-20 max-md:top-[20px] max-sm:w-16 max-sm:top-[15px]">
+            <img
+              src="/logo/ruang-diri-logo-white.svg"
+              alt="RuangDiri Logo"
+              className="w-full h-auto"
+              onError={(e) => {
+                e.target.style.display = "none"
+                e.target.parentNode.innerHTML =
+                  '<div class="bg-white bg-opacity-20 rounded-lg flex items-center justify-center w-full h-16"><span class="text-white font-bold text-lg">LOGO</span></div>'
               }}
             />
+          </div>
 
-            {/* Booking Details */}
-            <div className="rounded-[10px] border-dashed border-[#6B7280] border-[0.25px] pt-4 pr-3 pb-4 pl-3 flex flex-col gap-2 items-center justify-center shrink-0 w-full relative lg:pt-6 lg:pr-5 lg:pb-6 lg:pl-5 lg:gap-3 sm:pt-4 sm:pr-4 sm:pb-4 sm:pl-4 sm:gap-2 xs:pt-3 xs:pr-2 xs:pb-3 xs:pl-2 xs:gap-2">
-              <div className="flex flex-col gap-4 items-start justify-start shrink-0 relative w-full lg:gap-5 sm:gap-4 xs:gap-3">
-                {/* Title */}
-                <div className="text-[#488BBA] text-left font-['Public_Sans'] text-lg leading-6 font-bold relative w-full lg:text-xl lg:leading-7 sm:text-lg sm:leading-6 xs:text-base xs:leading-5">
-                  Rincian Pemesanan
+          {/* Content Container */}
+          <div className="w-[740px] max-md:w-full left-[79px] max-md:left-0 top-[74px] max-md:top-[60px] max-sm:top-[50px] absolute flex flex-col justify-start items-center gap-10 max-md:gap-8 max-sm:gap-6">
+            
+            {/* Success Icon */}
+            <div className="w-[168px] h-[167px] max-md:w-[120px] max-md:h-[120px] max-sm:w-[80px] max-sm:h-[80px] flex items-center justify-center">
+              <div className="w-full h-full bg-green-100 rounded-full flex items-center justify-center">
+                <span className="material-icons text-[#9BCA61] text-[120px] max-md:text-[80px] max-sm:text-[60px]">
+                  check_circle
+                </span>
+              </div>
+            </div>
+
+            {/* Main Content Section */}
+            <div className="self-stretch flex flex-col justify-start items-center gap-5 max-md:gap-4 max-sm:gap-3">
+              
+              {/* Header Section */}
+              <div className="self-stretch flex flex-col justify-start items-center gap-6 max-md:gap-4 max-sm:gap-3">
+                <div className="self-stretch inline-flex justify-center items-center">
+                  <div className="text-[#488BBA] text-4xl font-extrabold font-['Public_Sans'] leading-[74px] max-md:text-3xl max-md:leading-[50px] max-sm:text-2xl max-sm:leading-[40px]">
+                    Terima Kasih
+                  </div>
                 </div>
+                <div className="self-stretch text-center text-[#6B7280] text-base font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:leading-5 max-sm:text-xs max-sm:leading-4">
+                  Selamat, sesi konseling berhasil dibuat. Kamu sudah masuk daftar antrean konseling Ruang Diri.
+                </div>
+              </div>
 
-                {/* Details */}
-                <div className="flex flex-col gap-3 items-start justify-start shrink-0 relative w-full lg:gap-4 sm:gap-3 xs:gap-2">
-                  {/* Booking Number */}
-                  <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                    <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                      Nomor Pemesanan
-                    </div>
-                    <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative break-all lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                      {getBookingNumber()}
-                    </div>
+              {/* Divider */}
+              <div className="w-full h-0 outline outline-[0.25px] outline-offset-[-0.12px] outline-[#6B7280]"></div>
+
+              {/* Booking Details Card */}
+              <div className="w-full px-5 py-6 max-md:px-4 max-md:py-5 max-sm:px-3 max-sm:py-4 rounded-[10px] outline outline-[0.25px] outline-dashed outline-offset-[-0.25px] outline-[#6B7280] flex flex-col justify-center items-center gap-2.5">
+                
+                <div className="self-stretch flex flex-col justify-start items-start gap-5 max-md:gap-4 max-sm:gap-3">
+                  
+                  {/* Title */}
+                  <div className="self-stretch text-[#488BBA] text-xl font-bold font-['Public_Sans'] leading-snug max-md:text-lg max-md:leading-6 max-sm:text-base max-sm:leading-5">
+                    Rincian Pemesanan
                   </div>
 
-                  {/* Time */}
-                  <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                    <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                      Waktu
-                    </div>
-                    <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative break-words lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                      {formatDateTime(bookingData.date, bookingData.startTime, bookingData.endTime)}
-                    </div>
-                  </div>
-
-                  {/* Counseling Type */}
-                  <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                    <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                      Jenis Konseling
-                    </div>
-                    <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                      {getCounselingMethodDisplay(bookingData.method)}
-                    </div>
-                  </div>
-
-                  {/* Name */}
-                  <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                    <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                      Nama
-                    </div>
-                    <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative break-words lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                      {getUserName()}
-                    </div>
-                  </div>
-
-                  {/* Phone Number */}
-                  <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                    <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                      Nomor Telepon
-                    </div>
-                    <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative break-all lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                      {getUserPhone()}
-                    </div>
-                  </div>
-
-                  {/* Location (if offline) */}
-                  {bookingData.method === "offline" && bookingData.location && (
-                    <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                      <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                        Lokasi
+                  {/* Details Grid */}
+                  <div className="self-stretch flex flex-col justify-start items-start gap-3.5 max-md:gap-3 max-sm:gap-2.5">
+                    
+                    {/* Booking Number */}
+                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                        Nomor Pemesanan
                       </div>
-                      <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative break-words lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                        {bookingData.location.name}
+                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-all">
+                        {getBookingNumber()}
                       </div>
                     </div>
-                  )}
 
-                  {/* Psychologist */}
-                  {bookingData.psychologist && (
-                    <div className="flex flex-col gap-1 items-start justify-start shrink-0 relative w-full lg:flex-row lg:gap-16 lg:justify-between sm:flex-col sm:gap-1 xs:flex-col xs:gap-1">
-                      <div className="text-[#6B7280] text-left font-['Public_Sans'] text-sm leading-5 font-normal relative lg:text-sm lg:leading-6 sm:text-sm sm:leading-5 xs:text-xs xs:leading-4">
-                        Psikolog
+                    {/* Date & Time */}
+                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                        Waktu
                       </div>
-                      <div className="text-[#374151] text-left font-['Public_Sans'] text-sm leading-5 font-semibold relative break-words lg:text-sm lg:leading-6 lg:font-normal sm:text-sm sm:leading-5 sm:font-semibold xs:text-xs xs:leading-4 xs:font-semibold">
-                        {bookingData.psychologist.fullName || bookingData.psychologist.name}
+                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words text-right max-md:text-left">
+                        {formatDateTime(bookingData)}
                       </div>
                     </div>
-                  )}
+
+                    {/* Counseling Type - UPDATED */}
+                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                        Jenis Konseling
+                      </div>
+                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold">
+                        {getCounselingMethodDisplay(bookingData.method)}
+                      </div>
+                    </div>
+
+                    {/* Name */}
+                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                        Nama
+                      </div>
+                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
+                        {getUserName()}
+                      </div>
+                    </div>
+
+                    {/* Phone Number */}
+                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                        Nomor Telepon
+                      </div>
+                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-all">
+                        {getUserPhone()}
+                      </div>
+                    </div>
+
+                    {/* Psychologist - if available */}
+                    {(bookingData.psychologistName || bookingData.psychologistId) && (
+                      <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                        <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                          Psikolog
+                        </div>
+                        <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
+                          {bookingData.psychologistName || `Psikolog ID: ${bookingData.psychologistId}`}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Location - if offline */}
+                    {bookingData.method === "offline" && bookingData.location && (
+                      <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                        <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                          Lokasi
+                        </div>
+                        <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
+                          {bookingData.location.name}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notes - if provided */}
+                    {bookingData.notes && (
+                      <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
+                        <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
+                          Catatan
+                        </div>
+                        <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
+                          {bookingData.notes}
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
                 </div>
               </div>
             </div>
@@ -226,25 +348,10 @@ return (
         </div>
       </div>
 
-      {/* Logo */}
-      <div className="flex flex-col gap-2.5 items-start justify-start w-16 absolute left-1/2 top-4 overflow-hidden transform -translate-x-1/2 lg:w-24 lg:top-7 sm:w-20 sm:top-5 xs:w-16 xs:top-3">
-        <img
-          className="w-full h-auto relative overflow-visible"
-          src="/logo/ruang-diri-logo-white.svg"
-          alt="RuangDiri Logo"
-          onError={(e) => {
-            e.target.style.display = "none"
-            e.target.parentNode.innerHTML =
-              '<div class="bg-white bg-opacity-20 rounded-lg flex items-center justify-center w-full h-16"><span class="text-white font-bold text-lg">LOGO</span></div>'
-          }}
-        />
-      </div>
-
-
       {/* Back to Home Button */}
       <button
         onClick={handleBackToHome}
-        className="text-[#488BBA] text-center font-['Public_Sans'] text-xs leading-5 font-normal absolute left-1/2 bottom-6 transform -translate-x-1/2 hover:underline transition-all duration-200 lg:text-sm lg:leading-6 lg:bottom-8 sm:text-xs sm:leading-5 sm:bottom-6 xs:text-[10px] xs:leading-4 xs:bottom-4"
+        className="absolute left-1/2 top-[749px] transform -translate-x-1/2 text-[#488BBA] text-[10px] font-normal font-['Public_Sans'] leading-snug hover:underline transition-all duration-200 max-md:text-xs max-md:top-[700px] max-sm:text-[10px] max-sm:top-[680px]"
       >
         Kembali ke Beranda
       </button>

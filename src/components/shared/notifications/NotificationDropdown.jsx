@@ -2,8 +2,12 @@
 
 import React, { useState, useMemo } from "react";
 import { useNotificationDropdown } from "./hooks/useNotificationDropdown";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const NotificationDropdown = ({ onViewAll, onClose }) => {
+  const navigate = useNavigate();
+  const { getUserRole, getOrganizationType } = useAuth();
   const [selectedTab, setSelectedTab] = useState('all');
   
   const { 
@@ -186,7 +190,21 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
 
       <div className="border-t border-gray-100 p-4 bg-gray-50 mt-auto">
         <button
-          onClick={onViewAll}
+ onClick={() => {
+  const to = (() => {
+    const role = getUserRole();
+    const org = getOrganizationType();
+    if (role === "student") return "/user/student/notifications";
+    if (role === "employee") return "/user/employee/notifications";
+    if (role === "psychologist") return "/user/psychologist/notifications";
+    if (org === "school") return "/organization/school/notifications";
+    if (org === "company") return "/organization/company/notifications";
+    return "/notifications"; // ⬅ fallback ke global, bukan /user/student/notifications
+  })();
+  if (onViewAll) onViewAll(to);
+else navigate(to);
+}}
+
           className="w-full text-sm text-[#488abe] hover:text-[#3399E9] font-medium"
         >
           Lihat Semua Notifikasi
