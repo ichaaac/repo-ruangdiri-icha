@@ -1,31 +1,30 @@
-// src/components/shared/chats/lib/encryption.js - Frontend-Only End-to-End Encryption
-
 import CryptoJS from 'crypto-js';
 
 // 🔐 ENCRYPTION CONFIG
 const ENCRYPTION_CONFIG = {
   algorithm: 'AES',
-  keySize: 256 / 32, // 256 bits
-  ivSize: 128 / 32,   // 128 bits 
+  // CryptoJS.PBKDF2 keySize diukur dalam "words" (1 word = 4 bytes).
+  // 256-bit = 32 bytes = 8 words → 256 / 32 = 8
+  keySize: 256 / 32,
+  // Untuk IV, CryptoJS.lib.WordArray.random(N) menerima N dalam BYTES.
+  ivBytes: 16, // 128-bit = 16 bytes
   iterations: 1000,
   mode: CryptoJS.mode.CBC,
   padding: CryptoJS.pad.Pkcs7
 };
 
-// 🔑 Get encryption key from environment
+// 🔑 Get encryption key from environment (Vite)
 const getEncryptionKey = () => {
-  // Get from environment variables
-  const key = process.env.REACT_APP_CHAT_ENCRYPTION_KEY || 
-              import.meta.env.VITE_CHAT_ENCRYPTION_KEY ||
-              'ruangdiri-default-chat-key-2024'; // fallback for development
-  
+  const key =
+    import.meta.env.VITE_CHAT_ENCRYPTION_KEY ||
+    'ruangdiri-default-chat-key-2024'; // fallback dev
+
   console.log('🔑 Encryption key status:', {
-    hasReactAppKey: !!process.env.REACT_APP_CHAT_ENCRYPTION_KEY,
     hasViteKey: !!import.meta.env.VITE_CHAT_ENCRYPTION_KEY,
-    usingFallback: !process.env.REACT_APP_CHAT_ENCRYPTION_KEY && !import.meta.env.VITE_CHAT_ENCRYPTION_KEY,
+    usingFallback: !import.meta.env.VITE_CHAT_ENCRYPTION_KEY,
     keyLength: key?.length || 0
   });
-  
+
   return key;
 };
 
@@ -34,13 +33,13 @@ class ChatEncryption {
   constructor() {
     this.encryptionKey = getEncryptionKey();
     this.isEnabled = true;
-    
+
     // Validate key
     if (!this.encryptionKey || this.encryptionKey.length < 16) {
       console.error('❌ Invalid encryption key! Messages will not be encrypted properly.');
       this.isEnabled = false;
     }
-    
+
     console.log('🔐 ChatEncryption initialized:', {
       keyLength: this.encryptionKey?.length || 0,
       isEnabled: this.isEnabled
@@ -48,10 +47,10 @@ class ChatEncryption {
   }
 
   /**
-   * Generate a random IV for encryption
+   * Generate a random IV for encryption (bytes)
    */
   generateIV() {
-    return CryptoJS.lib.WordArray.random(ENCRYPTION_CONFIG.ivSize);
+    return CryptoJS.lib.WordArray.random(ENCRYPTION_CONFIG.ivBytes);
   }
 
   /**
@@ -59,7 +58,7 @@ class ChatEncryption {
    */
   deriveKey(masterKey, salt) {
     return CryptoJS.PBKDF2(masterKey, salt, {
-      keySize: ENCRYPTION_CONFIG.keySize,
+      keySize: ENCRYPTION_CONFIG.keySize, // words
       iterations: ENCRYPTION_CONFIG.iterations
     });
   }
@@ -79,14 +78,16 @@ class ChatEncryption {
     try {
       // Generate random IV and salt
       const iv = this.generateIV();
-      const salt = CryptoJS.lib.WordArray.random(128 / 8); // 128-bit salt
-      
+      const salt = CryptoJS.lib.WordArray.random(16); // 128-bit salt (bytes)
+
       // Create session-specific entropy
-      const sessionSalt = sessionId ? CryptoJS.SHA256(sessionId + salt.toString()).toString() : salt.toString();
-      
+      const sessionSalt = sessionId
+        ? CryptoJS.SHA256(sessionId + salt.toString()).toString()
+        : salt.toString();
+
       // Derive encryption key
       const derivedKey = this.deriveKey(this.encryptionKey + sessionSalt, salt);
-      
+
       // Encrypt the plaintext
       const encrypted = CryptoJS.AES.encrypt(plaintext, derivedKey, {
         iv: iv,
@@ -96,13 +97,13 @@ class ChatEncryption {
 
       // Combine IV + salt + encrypted data
       const result = `${iv.toString()}:${salt.toString()}:${encrypted.toString()}`;
-      
+
       console.log('🔒 Message encrypted:', {
         originalLength: plaintext.length,
         encryptedLength: result.length,
         sessionId: sessionId?.slice(-8) || 'none'
       });
-      
+
       return result;
     } catch (error) {
       console.error('❌ Encryption failed:', error);
@@ -130,17 +131,19 @@ class ChatEncryption {
 
     try {
       const [ivHex, saltHex, encryptedData] = parts;
-      
+
       // Parse components
       const iv = CryptoJS.enc.Hex.parse(ivHex);
       const salt = CryptoJS.enc.Hex.parse(saltHex);
-      
+
       // Create session-specific entropy
-      const sessionSalt = sessionId ? CryptoJS.SHA256(sessionId + salt.toString()).toString() : salt.toString();
-      
+      const sessionSalt = sessionId
+        ? CryptoJS.SHA256(sessionId + salt.toString()).toString()
+        : salt.toString();
+
       // Derive the same key used for encryption
       const derivedKey = this.deriveKey(this.encryptionKey + sessionSalt, salt);
-      
+
       // Decrypt
       const decrypted = CryptoJS.AES.decrypt(encryptedData, derivedKey, {
         iv: iv,
@@ -149,17 +152,17 @@ class ChatEncryption {
       });
 
       const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
-      
+
       if (!decryptedText) {
         throw new Error('Decryption resulted in empty string');
       }
-      
+
       console.log('🔓 Message decrypted successfully:', {
         encryptedLength: encryptedText.length,
         decryptedLength: decryptedText.length,
         sessionId: sessionId?.slice(-8) || 'none'
       });
-      
+
       return decryptedText;
     } catch (error) {
       console.error('❌ Decryption failed:', error);
@@ -174,19 +177,19 @@ class ChatEncryption {
   test() {
     const testMessage = "Hello, this is a test message! 🔒";
     const testSessionId = "test-session-123";
-    
+
     console.log('🧪 Testing encryption...');
     console.log('Original:', testMessage);
-    
+
     const encrypted = this.encrypt(testMessage, testSessionId);
     console.log('Encrypted:', encrypted);
-    
+
     const decrypted = this.decrypt(encrypted, testSessionId);
     console.log('Decrypted:', decrypted);
-    
+
     const success = testMessage === decrypted;
     console.log('Test result:', success ? '✅ SUCCESS' : '❌ FAILED');
-    
+
     return success;
   }
 
@@ -197,7 +200,7 @@ class ChatEncryption {
     return {
       isEnabled: this.isEnabled,
       hasValidKey: this.encryptionKey && this.encryptionKey.length >= 16,
-      keySource: process.env.REACT_APP_CHAT_ENCRYPTION_KEY ? 'environment' : 'fallback',
+      keySource: import.meta.env.VITE_CHAT_ENCRYPTION_KEY ? 'environment' : 'fallback',
       algorithm: 'AES-256-CBC',
       keyDerivation: 'PBKDF2'
     };
@@ -207,8 +210,8 @@ class ChatEncryption {
 // 🏭 Create singleton instance
 const chatEncryption = new ChatEncryption();
 
-// 🧪 Auto-test in development
-if (process.env.NODE_ENV === 'development') {
+// 🧪 Auto-test in development (Vite)
+if (import.meta.env.MODE === 'development') {
   setTimeout(() => {
     console.log('🔐 Encryption Status:', chatEncryption.getStatus());
     chatEncryption.test();

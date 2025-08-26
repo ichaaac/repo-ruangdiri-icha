@@ -1,9 +1,9 @@
 // src/components/shared/chats/ChatMain.jsx - Refactored with Split Components
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import ChatHeader from './components/ChatHeader';
-import ChatMessages from './components/ChatMessages';
-import ChatInput from './components/ChatInput';
+import ChatHeader from './ChatHeader';
+import ChatInput from './ChatInput';
+import ChatMessages from './ChatMessages';
 
 const ChatMain = ({
   selectedConversation,

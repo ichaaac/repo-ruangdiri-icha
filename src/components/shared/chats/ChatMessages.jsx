@@ -1,7 +1,7 @@
 // src/components/shared/chats/components/ChatMessages.jsx
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatChatDateHeader } from '../utils/dateUtils';
+import { formatChatDateHeader } from './utils/dateUtils';
 import MessageBubble from './MessageBubble';
 
 const ChatMessages = ({ 

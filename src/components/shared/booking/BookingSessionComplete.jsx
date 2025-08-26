@@ -1,4 +1,4 @@
-// src/components/shared/booking/BookingSessionComplete.jsx - UPDATED RESPONSIVE VERSION
+// src/components/shared/booking/BookingSessionComplete.jsx - CLEAN LAYOUT VERSION
 
 import { useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "../../../hooks/useAuth"
@@ -128,7 +128,7 @@ const BookingSessionComplete = () => {
     }
   }
 
-  // Get counseling method display name - UPDATED
+  // Get counseling method display name
   const getCounselingMethodDisplay = (method) => {
     const methods = {
       online: "Daring (Zoom)",
@@ -189,158 +189,159 @@ const BookingSessionComplete = () => {
   }
 
   return (
-    <div className="w-full h-[810px] relative bg-white overflow-hidden">
+    <div className="min-h-screen w-full bg-white overflow-x-hidden">
       {/* Background Gradient */}
-      <div className="w-full h-72 left-0 top-0 absolute bg-gradient-to-b from-teal-200 to-indigo-500" />
+      <div className="w-full h-72 bg-gradient-to-b from-teal-200 to-indigo-500" />
       
-      {/* Main Content Card with Shadow */}
-      <div className="absolute left-[271px] top-[150px] max-md:left-[20px] max-md:right-[20px] max-md:top-[120px] max-sm:left-[10px] max-sm:right-[10px]">
-        <div className="w-[898px] max-md:w-full bg-white rounded-[15px] shadow-[0px_12px_27px_0px_rgba(0,0,0,0.07)] shadow-[0px_49px_49px_0px_rgba(0,0,0,0.06)] shadow-[0px_111px_67px_0px_rgba(0,0,0,0.04)] shadow-[0px_198px_79px_0px_rgba(0,0,0,0.01)] shadow-[0px_309px_86px_0px_rgba(0,0,0,0.00)] min-h-[525px] px-[79px] py-[25px] max-md:px-[30px] max-md:py-[20px] max-sm:px-[20px] max-sm:py-[15px]">
+      {/* Main Container */}
+      <div className="relative -mt-40 flex justify-center px-4 pb-20">
+        
+        {/* Main Content Card */}
+        <div className="w-full max-w-4xl bg-white rounded-[15px] shadow-[0px_12px_27px_0px_rgba(0,0,0,0.07)] relative">
           
           {/* Logo */}
-          <div className="w-24 absolute left-1/2 top-[26px] transform -translate-x-1/2 max-md:w-20 max-md:top-[20px] max-sm:w-16 max-sm:top-[15px]">
-            <img
-              src="/logo/ruang-diri-logo-white.svg"
-              alt="RuangDiri Logo"
-              className="w-full h-auto"
-              onError={(e) => {
-                e.target.style.display = "none"
-                e.target.parentNode.innerHTML =
-                  '<div class="bg-white bg-opacity-20 rounded-lg flex items-center justify-center w-full h-16"><span class="text-white font-bold text-lg">LOGO</span></div>'
-              }}
-            />
+          <div className="flex justify-center pt-6 pb-2">
+            <div className="w-20 h-16 sm:w-24 sm:h-20">
+              <img
+                src="/logo/ruang-diri-logo-white.svg"
+                alt="RuangDiri Logo"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  e.target.style.display = "none"
+                  e.target.parentNode.innerHTML =
+                    '<div class="bg-gray-200 rounded-lg flex items-center justify-center w-full h-full"><span class="text-gray-600 font-bold text-sm">LOGO</span></div>'
+                }}
+              />
+            </div>
           </div>
 
           {/* Content Container */}
-          <div className="w-[740px] max-md:w-full left-[79px] max-md:left-0 top-[74px] max-md:top-[60px] max-sm:top-[50px] absolute flex flex-col justify-start items-center gap-10 max-md:gap-8 max-sm:gap-6">
+          <div className="px-6 pb-8 sm:px-12 sm:pb-12 md:px-20">
             
             {/* Success Icon */}
-            <div className="w-[168px] h-[167px] max-md:w-[120px] max-md:h-[120px] max-sm:w-[80px] max-sm:h-[80px] flex items-center justify-center">
-              <div className="w-full h-full bg-green-100 rounded-full flex items-center justify-center">
-                <span className="material-icons text-[#9BCA61] text-[120px] max-md:text-[80px] max-sm:text-[60px]">
+            <div className="flex justify-center mb-8">
+              <div className="w-20 h-20 sm:w-32 sm:h-32 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="material-icons text-[#9BCA61] text-4xl sm:text-6xl">
                   check_circle
                 </span>
               </div>
             </div>
 
-            {/* Main Content Section */}
-            <div className="self-stretch flex flex-col justify-start items-center gap-5 max-md:gap-4 max-sm:gap-3">
+            {/* Main Content */}
+            <div className="space-y-6">
               
               {/* Header Section */}
-              <div className="self-stretch flex flex-col justify-start items-center gap-6 max-md:gap-4 max-sm:gap-3">
-                <div className="self-stretch inline-flex justify-center items-center">
-                  <div className="text-[#488BBA] text-4xl font-extrabold font-['Public_Sans'] leading-[74px] max-md:text-3xl max-md:leading-[50px] max-sm:text-2xl max-sm:leading-[40px]">
-                    Terima Kasih
-                  </div>
-                </div>
-                <div className="self-stretch text-center text-[#6B7280] text-base font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:leading-5 max-sm:text-xs max-sm:leading-4">
+              <div className="text-center space-y-4">
+                <h1 className="text-[#488BBA] text-2xl sm:text-3xl lg:text-4xl font-extrabold font-['Public_Sans']">
+                  Terima Kasih
+                </h1>
+                <p className="text-[#6B7280] text-sm sm:text-base font-normal font-['Public_Sans'] leading-relaxed max-w-2xl mx-auto">
                   Selamat, sesi konseling berhasil dibuat. Kamu sudah masuk daftar antrean konseling Ruang Diri.
-                </div>
+                </p>
               </div>
 
               {/* Divider */}
-              <div className="w-full h-0 outline outline-[0.25px] outline-offset-[-0.12px] outline-[#6B7280]"></div>
+              <div className="w-full h-px bg-[#6B7280] opacity-25"></div>
 
               {/* Booking Details Card */}
-              <div className="w-full px-5 py-6 max-md:px-4 max-md:py-5 max-sm:px-3 max-sm:py-4 rounded-[10px] outline outline-[0.25px] outline-dashed outline-offset-[-0.25px] outline-[#6B7280] flex flex-col justify-center items-center gap-2.5">
+              <div className="border border-dashed border-[#6B7280] rounded-[10px] p-4 sm:p-6">
                 
-                <div className="self-stretch flex flex-col justify-start items-start gap-5 max-md:gap-4 max-sm:gap-3">
+                {/* Title */}
+                <h2 className="text-[#488BBA] text-lg sm:text-xl font-bold font-['Public_Sans'] mb-4 sm:mb-6">
+                  Rincian Pemesanan
+                </h2>
+
+                {/* Details */}
+                <div className="space-y-3 sm:space-y-4">
                   
-                  {/* Title */}
-                  <div className="self-stretch text-[#488BBA] text-xl font-bold font-['Public_Sans'] leading-snug max-md:text-lg max-md:leading-6 max-sm:text-base max-sm:leading-5">
-                    Rincian Pemesanan
+                  {/* Booking Number */}
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                    <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                      Nomor Pemesanan
+                    </span>
+                    <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] word-break-all">
+                      {getBookingNumber()}
+                    </span>
                   </div>
 
-                  {/* Details Grid */}
-                  <div className="self-stretch flex flex-col justify-start items-start gap-3.5 max-md:gap-3 max-sm:gap-2.5">
-                    
-                    {/* Booking Number */}
-                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                        Nomor Pemesanan
-                      </div>
-                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-all">
-                        {getBookingNumber()}
-                      </div>
-                    </div>
-
-                    {/* Date & Time */}
-                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                        Waktu
-                      </div>
-                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words text-right max-md:text-left">
-                        {formatDateTime(bookingData)}
-                      </div>
-                    </div>
-
-                    {/* Counseling Type - UPDATED */}
-                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                        Jenis Konseling
-                      </div>
-                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold">
-                        {getCounselingMethodDisplay(bookingData.method)}
-                      </div>
-                    </div>
-
-                    {/* Name */}
-                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                        Nama
-                      </div>
-                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
-                        {getUserName()}
-                      </div>
-                    </div>
-
-                    {/* Phone Number */}
-                    <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                      <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                        Nomor Telepon
-                      </div>
-                      <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-all">
-                        {getUserPhone()}
-                      </div>
-                    </div>
-
-                    {/* Psychologist - if available */}
-                    {(bookingData.psychologistName || bookingData.psychologistId) && (
-                      <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                        <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                          Psikolog
-                        </div>
-                        <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
-                          {bookingData.psychologistName || `Psikolog ID: ${bookingData.psychologistId}`}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Location - if offline */}
-                    {bookingData.method === "offline" && bookingData.location && (
-                      <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                        <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                          Lokasi
-                        </div>
-                        <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
-                          {bookingData.location.name}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Notes - if provided */}
-                    {bookingData.notes && (
-                      <div className="self-stretch inline-flex justify-between items-start max-md:flex-col max-md:gap-1 max-sm:gap-0.5">
-                        <div className="text-[#6B7280] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-sm:text-xs">
-                          Catatan
-                        </div>
-                        <div className="text-[#374151] text-sm font-normal font-['Public_Sans'] leading-snug max-md:text-sm max-md:font-semibold max-sm:text-xs max-sm:font-semibold break-words">
-                          {bookingData.notes}
-                        </div>
-                      </div>
-                    )}
-
+                  {/* Date & Time */}
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                    <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                      Waktu
+                    </span>
+                    <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] text-left sm:text-right">
+                      {formatDateTime(bookingData)}
+                    </span>
                   </div>
+
+                  {/* Counseling Type */}
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                    <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                      Jenis Konseling
+                    </span>
+                    <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans']">
+                      {getCounselingMethodDisplay(bookingData.method)}
+                    </span>
+                  </div>
+
+                  {/* Name */}
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                    <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                      Nama
+                    </span>
+                    <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] word-wrap">
+                      {getUserName()}
+                    </span>
+                  </div>
+
+                  {/* Phone Number */}
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                    <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                      Nomor Telepon
+                    </span>
+                    <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] word-break-all">
+                      {getUserPhone()}
+                    </span>
+                  </div>
+
+                  {/* Psychologist - if available */}
+                  {(bookingData.psychologistName || bookingData.psychologistId) && (
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                      <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                        Psikolog
+                      </span>
+                      <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] word-wrap">
+                        {bookingData.psychologistName || `Psikolog ID: ${bookingData.psychologistId}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Location - if offline */}
+                  {bookingData.method === "offline" && bookingData.location && (
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                      <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                        Lokasi
+                      </span>
+                      <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] word-wrap">
+                        {bookingData.location.name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Notes - if provided */}
+                  {bookingData.notes && (
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-4">
+                      <span className="text-[#6B7280] text-xs sm:text-sm font-normal font-['Public_Sans'] flex-shrink-0">
+                        Catatan
+                      </span>
+                      <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans'] word-wrap">
+                        {bookingData.notes}
+                      </span>
+                    </div>
+                  )}
+
+                  
+
                 </div>
               </div>
             </div>
@@ -349,12 +350,14 @@ const BookingSessionComplete = () => {
       </div>
 
       {/* Back to Home Button */}
-      <button
-        onClick={handleBackToHome}
-        className="absolute left-1/2 top-[749px] transform -translate-x-1/2 text-[#488BBA] text-[10px] font-normal font-['Public_Sans'] leading-snug hover:underline transition-all duration-200 max-md:text-xs max-md:top-[700px] max-sm:text-[10px] max-sm:top-[680px]"
-      >
-        Kembali ke Beranda
-      </button>
+      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2">
+        <button
+          onClick={handleBackToHome}
+          className="text-[#488BBA] text-xs sm:text-sm font-normal font-['Public_Sans'] hover:underline transition-all duration-200 px-4 py-2"
+        >
+          Kembali ke Beranda
+        </button>
+      </div>
     </div>
   )
 }
