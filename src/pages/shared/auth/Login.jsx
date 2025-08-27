@@ -1,4 +1,4 @@
-// src/pages/shared/auth/Login.jsx - FIXED WITH AUTO REDIRECT
+// src/pages/shared/auth/Login.jsx - UPDATED WITH TIMEZONE SUPPORT
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../../hooks/useAuth";
@@ -27,6 +27,34 @@ const Login = () => {
 
 	// Use the useAuth hook
 	const { login, isAuthenticated, needsOnboarding, user, isLoading } = useAuth();
+
+	// ✅ NEW: Function to detect user timezone
+	const detectTimezone = () => {
+		try {
+			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+			
+			// Convert to Indonesian timezone format
+			if (timezone.includes('Jakarta') || timezone.includes('Asia/Jakarta')) {
+				return 'WIB';
+			} else if (timezone.includes('Makassar') || timezone.includes('Asia/Makassar')) {
+				return 'WITA';
+			} else if (timezone.includes('Jayapura') || timezone.includes('Asia/Jayapura')) {
+				return 'WIT';
+			}
+			
+			// Default based on UTC offset
+			const offset = new Date().getTimezoneOffset();
+			if (offset === -420) return 'WIB'; // UTC+7
+			if (offset === -480) return 'WITA'; // UTC+8
+			if (offset === -540) return 'WIT'; // UTC+9
+			
+			// Default to WIB if can't determine
+			return 'WIB';
+		} catch (error) {
+			console.error('Error detecting timezone:', error);
+			return 'WIB'; // Default fallback
+		}
+	};
 
 	// ✅ ENABLED: Auto redirect if already authenticated
 	useEffect(() => {
@@ -304,11 +332,15 @@ const Login = () => {
 		try {
 			console.log("Attempting login...");
 			
-			// ✅ SIMPLIFIED: Just call login - useAuth will handle redirects
+			// ✅ UPDATED: Include timezone in login payload
+			const timezone = detectTimezone();
+			console.log("Detected timezone:", timezone);
+			
 			await login.mutateAsync({ 
 				email: email.toLowerCase().trim(), 
 				password, 
-				rememberMe 
+				rememberMe,
+				timezone  // ✅ NEW: Send timezone to API
 			});
 
 			// Clear temporary session data after successful login

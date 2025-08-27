@@ -1,4 +1,4 @@
-// src/hooks/useAuth.js - FIXED VERSION with better token management
+// src/hooks/useAuth.js - UPDATED WITH TIMEZONE SUPPORT
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -25,6 +25,11 @@ export const useAuth = () => {
         if (response?.status === "success") {
           const userData = response.data
 
+          // ✅ NEW: Store timezone from user profile
+          if (userData?.timezone) {
+            localStorage.setItem("userTimezone", userData.timezone)
+          }
+
           // Store organization type if exists (for admin users)
           const orgType = userData?.organization?.type
           if (orgType) {
@@ -47,6 +52,7 @@ export const useAuth = () => {
           localStorage.removeItem("token")
           localStorage.removeItem("organizationType")
           localStorage.removeItem("userRole")
+          localStorage.removeItem("userTimezone") // ✅ NEW: Clear timezone on auth error
         }
         return null
       }
@@ -61,7 +67,16 @@ export const useAuth = () => {
   const login = useMutation({
     mutationFn: async (credentials) => {
       try {
-        const loginResponse = await api.auth.login(credentials)
+        // ✅ UPDATED: Include timezone in login request
+        const loginPayload = {
+          email: credentials.email,
+          password: credentials.password,
+          timezone: credentials.timezone // ✅ NEW: Send timezone to server
+        }
+
+        console.log("Login payload:", loginPayload)
+
+        const loginResponse = await api.auth.login(loginPayload)
 
         if (loginResponse?.status !== "success") {
           throw new Error(loginResponse?.message || "Login failed")
@@ -83,7 +98,12 @@ export const useAuth = () => {
           localStorage.setItem("userRole", userRole)
         }
 
-        return { accessToken, organizationType, userRole }
+        // ✅ NEW: Store timezone from login request
+        if (credentials.timezone) {
+          localStorage.setItem("userTimezone", credentials.timezone)
+        }
+
+        return { accessToken, organizationType, userRole, timezone: credentials.timezone }
       } catch (error) {
         console.error("Login error:", error)
         throw error
@@ -98,6 +118,12 @@ export const useAuth = () => {
         if (userResponse?.status === "success") {
           const userData = userResponse.data
           queryClient.setQueryData(["currentUser"], userData)
+
+          // ✅ UPDATED: Store timezone from user profile (server response takes priority)
+          if (userData?.timezone) {
+            localStorage.setItem("userTimezone", userData.timezone)
+            console.log("Timezone stored from server:", userData.timezone)
+          }
 
           console.log("User data:", userData)
 
@@ -118,6 +144,7 @@ export const useAuth = () => {
       localStorage.removeItem("token")
       localStorage.removeItem("organizationType")
       localStorage.removeItem("userRole")
+      localStorage.removeItem("userTimezone") // ✅ NEW: Clear timezone on login error
     },
   })
 
@@ -198,6 +225,7 @@ export const useAuth = () => {
       localStorage.removeItem("user")
       localStorage.removeItem("organizationType")
       localStorage.removeItem("userRole")
+      localStorage.removeItem("userTimezone") // ✅ NEW: Clear timezone on logout
       queryClient.clear()
       navigate("/login")
     },
@@ -224,6 +252,42 @@ export const useAuth = () => {
     const userRole = user?.role
     const storedRole = localStorage.getItem("userRole")
     return userRole || storedRole || null
+  }
+
+  // ✅ NEW: Timezone helper functions
+  const getUserTimezone = () => {
+    const userTimezone = user?.timezone
+    const storedTimezone = localStorage.getItem("userTimezone")
+    return userTimezone || storedTimezone || null
+  }
+
+  const getTimezoneLabel = () => {
+    const timezone = getUserTimezone()
+    switch (timezone) {
+      case 'WIB':
+        return 'Waktu Indonesia Barat (UTC+7)'
+      case 'WITA':
+        return 'Waktu Indonesia Tengah (UTC+8)'
+      case 'WIT':
+        return 'Waktu Indonesia Timur (UTC+9)'
+      default:
+        return timezone || 'Unknown Timezone'
+    }
+  }
+
+  const formatTimeWithTimezone = (date, format = 'datetime') => {
+    if (!date) return null
+    
+    const timezone = getUserTimezone()
+    const dateObj = new Date(date)
+    
+    if (format === 'time') {
+      return `${dateObj.toLocaleTimeString('id-ID')} ${timezone || ''}`
+    } else if (format === 'date') {
+      return `${dateObj.toLocaleDateString('id-ID')} ${timezone || ''}`
+    } else {
+      return `${dateObj.toLocaleString('id-ID')} ${timezone || ''}`
+    }
   }
 
   // ✅ IMPROVED: More precise onboarding check
@@ -273,6 +337,9 @@ export const useAuth = () => {
     isAuthenticated,
     getOrganizationType,
     getUserRole,
+    getUserTimezone, // ✅ NEW: Export timezone functions
+    getTimezoneLabel, // ✅ NEW: Get timezone label
+    formatTimeWithTimezone, // ✅ NEW: Format time with timezone
     needsOnboarding,
     isOrganizationAdmin,
     isRegularUser,
