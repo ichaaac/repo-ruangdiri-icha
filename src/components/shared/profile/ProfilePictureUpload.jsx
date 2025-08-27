@@ -8,7 +8,7 @@ import api from "../../../lib/api"
 import { toast } from "sonner"
 
 // --- KOMPONEN MODAL DENGAN LAYOUT YANG DIPOLES ---
-const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading }) => {
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading, mode }) => {
   if (!isOpen) return null
 
   const handleClose = () => {
@@ -21,17 +21,19 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
     onConfirm()
   }
 
+  const buttonText = mode === "client-only" ? "Pilih Foto Ini" : "Simpan";
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-[9999] p-4"
-      style={{ backgroundColor: "#55555580" }}
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col relative z-[10000]"
       >
         {/* Konten Atas dengan Padding */}
         <div className="p-6 text-center relative">
@@ -43,14 +45,18 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
             <span className="material-icons text-xl">close</span>
           </button>
           <h3 className="text-lg font-bold text-[#488BBA] mb-2">Ganti Foto Profil?</h3>
-          <p className="text-sm text-gray-500">Foto ini akan ditampilkan sebagai foto profil baru Anda.</p>
+          <p className="text-sm text-gray-500">
+            {mode === "client-only" 
+              ? "Foto ini akan ditampilkan sebagai foto profil baru Anda." 
+              : "Foto ini akan diupload dan disimpan sebagai foto profil baru Anda."}
+          </p>
         </div>
 
         {/* Preview Foto di Tengah */}
         <div className="px-6 py-4 flex justify-center">
           <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow-inner">
             {previewUrl ? (
-              <img src={previewUrl || "/placeholder.svg"} alt="Preview" className="w-full h-full object-cover" />
+              <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gray-200" />
             )}
@@ -62,9 +68,13 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
           <button
             onClick={handleConfirm}
             disabled={isUploading}
-            className="w-full h-12 px-6 bg-primary text-white font-bold rounded-full hover:bg-primary-variant1 transition-colors disabled:bg-gray-400 flex items-center justify-center"
+            className="w-full h-12 px-6 bg-[#488BBA] text-white font-bold rounded-full hover:bg-[#3a7a9e] transition-colors disabled:bg-gray-400 flex items-center justify-center"
           >
-            {isUploading ? <span className="material-icons animate-spin">refresh</span> : "Simpan"}
+            {isUploading ? (
+              <span className="material-icons animate-spin">refresh</span>
+            ) : (
+              buttonText
+            )}
           </button>
         </div>
       </motion.div>
@@ -72,7 +82,15 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, previewUrl, isUploading
   )
 }
 
-const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "school", isOnboarding = false }) => {
+const ProfilePictureUpload = ({ 
+  currentProfilePicture, 
+  organizationType = "school", 
+  isOnboarding = false,
+  mode = "direct-upload", // "direct-upload" | "client-only"
+  onImageSelect, // callback untuk client-only mode
+  onUploadSuccess, // callback untuk direct-upload mode
+  isEditing = true // new prop untuk control button visibility
+}) => {
   const fileInputRef = useRef(null)
   const [previewImage, setPreviewImage] = useState(currentProfilePicture)
   const [isHovering, setIsHovering] = useState(false)
@@ -82,7 +100,7 @@ const ProfilePictureUpload = ({ currentProfilePicture, organizationType = "schoo
   const [tempPreviewUrl, setTempPreviewUrl] = useState(null)
   const queryClient = useQueryClient()
 
-const allowedTypes = ["image/jpeg", "image/png"]; // WebP, GIF, dll. ga ada
+  const allowedTypes = ["image/jpeg", "image/png"]
   const maxSize = 2 * 1024 * 1024 // 2MB
 
   useEffect(() => {
@@ -92,7 +110,7 @@ const allowedTypes = ["image/jpeg", "image/png"]; // WebP, GIF, dll. ga ada
 
   useEffect(() => {
     return () => {
-      if (tempPreviewUrl) {
+      if (tempPreviewUrl && !tempPreviewUrl.startsWith('data:')) {
         URL.revokeObjectURL(tempPreviewUrl)
       }
     }
@@ -109,7 +127,7 @@ const allowedTypes = ["image/jpeg", "image/png"]; // WebP, GIF, dll. ga ada
     maxWidth: "200px",
   }
 
-  // FIXED: Upload foto profil dengan handling khusus untuk onboarding
+  // DIRECT UPLOAD: Upload foto profil langsung ke server
   const uploadProfilePicture = useMutation({
     mutationFn: async (file) => {
       const token = localStorage.getItem("token")
@@ -127,14 +145,14 @@ const allowedTypes = ["image/jpeg", "image/png"]; // WebP, GIF, dll. ga ada
       }
       handleCloseConfirmation()
 
-      // PERBAIKAN: Jika dalam mode onboarding, JANGAN invalidate user query
-      // untuk menghindari auto-redirect karena perubahan status onboarding
+      // Callback untuk parent component
+      if (onUploadSuccess) {
+        onUploadSuccess(newImageUrl)
+      }
+
       if (!isOnboarding) {
-        // ProfilePage: Normal auto-save behavior dengan query invalidation
         queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       }
-      // OnboardingForm: TIDAK ada query update, cuma local state update
-      // Ini mencegah auto-trigger useEffect yang bisa submit form
     },
     onError: (error) => {
       const message = error.response?.data?.message || "Gagal mengupload foto profil."
@@ -143,62 +161,85 @@ const allowedTypes = ["image/jpeg", "image/png"]; // WebP, GIF, dll. ga ada
     },
   })
 
-const handleFileChange = (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) {
       console.log("No file selected - user canceled file picker")
       return
     }
 
-    // Reset inputnya biar bisa milih file yang sama lagi nanti
+    // Reset input
     e.target.value = ""
 
-    // --- PERBAIKAN DI SINI ---
-    // Validasi dulu, baru proses. Kalo ga valid, langsung stop.
+    // Validasi file
     if (!allowedTypes.includes(file.type)) {
-      toast.error("Gunakan format JPG, PNG, GIF, atau WebP.", { style: toastStyle, closeButton: false })
-      return // <-- PENTING: Stop eksekusi di sini!
+      toast.error("Gunakan format JPG atau PNG.", { style: toastStyle, closeButton: false })
+      return
     }
     if (file.size > maxSize) {
       toast.error("Ukuran file terlalu besar. Maksimal 2MB.", { style: toastStyle, closeButton: false })
-      return // <-- PENTING: Stop eksekusi di sini juga!
+      return
     }
 
-    // Kode di bawah ini cuma jalan kalo filenya VALID
     console.log("File is valid, proceeding to show confirmation modal.")
-    const previewUrl = URL.createObjectURL(file)
-    setSelectedFile(file)
-    setTempPreviewUrl(previewUrl)
-    setShowConfirmation(true)
-    setImageError(false)
+
+    if (mode === "client-only") {
+      // Convert to base64 untuk preview dan storage
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const base64String = event.target.result
+        setTempPreviewUrl(base64String)
+        setSelectedFile({ file, base64: base64String })
+        setShowConfirmation(true)
+        setImageError(false)
+      }
+      reader.readAsDataURL(file)
+    } else {
+      // Direct upload mode - gunakan object URL untuk preview
+      const previewUrl = URL.createObjectURL(file)
+      setSelectedFile(file)
+      setTempPreviewUrl(previewUrl)
+      setShowConfirmation(true)
+      setImageError(false)
+    }
   }
 
   const handleButtonClick = () => {
-    if (uploadProfilePicture.isPending) return
+    if (mode === "direct-upload" && uploadProfilePicture.isPending) return
     
     console.log("Profile picture button clicked - opening file picker")
     fileInputRef.current.click()
   }
 
   const handleConfirmUpload = () => {
-    if (selectedFile) {
+    if (!selectedFile) return
+
+    if (mode === "client-only") {
+      // CLIENT-ONLY MODE: Set preview dan callback ke parent
+      setPreviewImage(selectedFile.base64)
+      
+      if (onImageSelect) {
+        onImageSelect(selectedFile.base64)
+      }
+      
+      toast.success("Foto profil dipilih! Klik 'Simpan' untuk menyimpan perubahan.")
+    } else {
+      // DIRECT UPLOAD MODE: Upload ke server langsung
       uploadProfilePicture.mutate(selectedFile)
     }
+    
+    handleCloseConfirmation()
   }
 
   const handleCloseConfirmation = () => {
-    // PERBAIKAN: Pastikan hanya cleanup state, TIDAK ada query invalidation
-    console.log("Modal closed without upload - no side effects should occur")
+    console.log("Modal closed")
     
     setShowConfirmation(false)
     setSelectedFile(null)
-    if (tempPreviewUrl) {
+    if (tempPreviewUrl && !tempPreviewUrl.startsWith('data:')) {
       URL.revokeObjectURL(tempPreviewUrl)
-      setTempPreviewUrl(null)
     }
-    
-    // TIDAK ada queryClient.invalidateQueries di sini!
-    // Ini hanya dipanggil saat user close modal tanpa upload
+    setTempPreviewUrl(null)
   }
 
   const getFallbackIcon = () => {
@@ -209,14 +250,16 @@ const handleFileChange = (e) => {
     setImageError(true)
   }
 
+  const isLoading = mode === "direct-upload" && uploadProfilePicture.isPending
+
   return (
     <>
-      <div className="relative z-10">
+      <div className="relative z-50">
         <div className="relative" onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
           <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
             {previewImage && !imageError ? (
               <img
-                src={previewImage || "/placeholder.svg"}
+                src={previewImage}
                 alt="Profile"
                 className="w-full h-full object-cover"
                 onError={handleImageError}
@@ -231,16 +274,17 @@ const handleFileChange = (e) => {
           <button
             type="button"
             onClick={handleButtonClick}
-            disabled={uploadProfilePicture.isPending}
+            disabled={isLoading}
             className={clsx(
-              "absolute right-0 bottom-0 w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center",
+              "absolute right-0 bottom-0 w-6 h-6 sm:w-8 sm:h-8 bg-[#488BBA] rounded-full flex items-center justify-center",
               "transition-all duration-200",
-              isHovering && !uploadProfilePicture.isPending ? "opacity-100 scale-110" : "opacity-75",
-              uploadProfilePicture.isPending && "opacity-50 cursor-not-allowed bg-gray-400 scale-100",
+              isHovering && !isLoading ? "opacity-100 scale-110" : "opacity-75",
+              isLoading && "opacity-50 cursor-not-allowed bg-gray-400 scale-100",
+              !isEditing && "hidden" // Hide button when not in editing mode
             )}
             aria-label="Upload profile picture"
           >
-            {uploadProfilePicture.isPending && !showConfirmation ? (
+            {isLoading && !showConfirmation ? (
               <span className="material-icons text-white animate-spin text-xs sm:text-sm">refresh</span>
             ) : (
               <span className="material-icons text-white text-xs sm:text-sm">photo_camera</span>
@@ -264,7 +308,8 @@ const handleFileChange = (e) => {
             onClose={handleCloseConfirmation}
             onConfirm={handleConfirmUpload}
             previewUrl={tempPreviewUrl}
-            isUploading={uploadProfilePicture.isPending}
+            isUploading={isLoading}
+            mode={mode}
           />
         )}
       </AnimatePresence>

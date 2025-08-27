@@ -174,12 +174,13 @@ const PsychologistProfile = ({
   return (
     <div className="relative w-full min-h-screen bg-white">
       {/* Header dan divider - responsive dengan padding kanan */}
-    <div className="absolute left-[138px] top-[92px] right-[20px] flex items-center gap-4">
-      <div className="text-[#488BBA] text-xl font-semibold font-['Public_Sans'] leading-tight">
-        Informasi Diri
+      <div className="absolute left-[138px] top-[92px] right-[20px] flex items-center gap-4">
+        <div className="text-[#488BBA] text-xl font-semibold font-['Public_Sans'] leading-tight">
+          Informasi Diri
+        </div>
+        <div className="flex-1 h-0.5 bg-gray-300" />
       </div>
-      <div className="flex-1 h-0.5 bg-gray-300" />
-    </div>
+
 
       {/* Content container */}
       <div className="pt-40">
@@ -189,7 +190,9 @@ const PsychologistProfile = ({
             currentProfilePicture={values.profilePicture}
             organizationType="psychologist"
             isOnboarding={false}
+            mode="client-only"
             onImageSelect={(imageUrl) => updateField('profilePicture', imageUrl)}
+            isEditing={isEditing}
           />
         </div>
 

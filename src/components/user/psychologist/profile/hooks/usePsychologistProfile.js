@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import api from "@/lib/api";
+import psychologistProfileApi from "../lib/psychologistProfileApi";
 
 const mapFromMe = (me) => {
   const p = me?.psychologistProfile || {};
@@ -10,6 +10,7 @@ const mapFromMe = (me) => {
     profilePicture: me?.profilePicture || "",
     fullName: me?.fullName || "",
     email: me?.email || "",
+    phone: me?.phone || "",
     sippNumber: p?.sippNumber || "",
     registrationNumber: p?.registrationNumber || "",
     fieldOfExpertise: p?.fieldOfExpertise || "",
@@ -23,6 +24,7 @@ const toPayload = (v) => {
   const payload = {
     fullName: v.fullName,
     email: v.email,
+    phone: v.phone,
     psychologistProfile: {
       sippNumber: v.sippNumber || null,
       registrationNumber: v.registrationNumber || null,
@@ -48,7 +50,7 @@ export const usePsychologistProfile = () => {
   const meQuery = useQuery({
     queryKey: ["me"],
     queryFn: async () => {
-      const res = await api.user.getMe();
+      const res = await psychologistProfileApi.getProfile();
       return res?.data?.data ?? res?.data ?? res;
     },
   });
@@ -65,7 +67,7 @@ export const usePsychologistProfile = () => {
       console.log("Payload to be sent:", payload);
       
       try {
-        const response = await api.user.updateProfile(payload);
+        const response = await psychologistProfileApi.updateProfile(payload);
         console.log("Profile update response:", response);
         return response;
       } catch (error) {
@@ -77,7 +79,6 @@ export const usePsychologistProfile = () => {
     onSuccess: async (response) => {
       console.log("Profile update successful:", response);
       await qc.invalidateQueries({ queryKey: ["me"] });
-      // Juga invalidate currentUser query jika ada
       await qc.invalidateQueries({ queryKey: ["currentUser"] });
     },
     onError: (error) => {
