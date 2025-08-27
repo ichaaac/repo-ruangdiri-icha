@@ -96,9 +96,27 @@ const UserSidebar = ({
       ],
       psychologist: [
         {
-          label: "Chat dengan Klien",
+          label: "Dashboard",
+          icon: "dashboard",
+          path: `/user/psychologist/dashboard`,
+          disabled: false
+        },
+        {
+          label: "Profil",
+          icon: "person",
+          path: `/user/psychologist/profile`,
+          disabled: false
+        },
+        {
+          label: "Pesan",
           icon: "chat",
           path: `/user/psychologist/chat`,
+          disabled: false
+        },
+        {
+          label: "Schedule",
+          icon: "schedule",
+          path: `/user/psychologist/schedule`,
           disabled: false
         }
       ]
