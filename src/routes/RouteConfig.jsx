@@ -43,6 +43,8 @@ import UserDashboard from "../pages/user/shared/UserDashboard"
 
 // === STANDALONE BOOKING COMPONENTS ===
 import BookingContainer from "@/components/shared/booking/BookingContainer"
+import PsychologistProfilePage from "@/pages/user/psychologist/profile/PsychologistProfilePage"
+import PsychologistChatPage from "@/pages/user/psychologist/PsychologistChatPage"
 
 // === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
@@ -282,7 +284,7 @@ const routes = [
       },
       {
         path: "profile",
-        element: <UserProfile />,
+        element: <PsychologistProfilePage />,
       },
       {
         path: "notifications",
