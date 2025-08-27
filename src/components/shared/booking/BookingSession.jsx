@@ -70,21 +70,28 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
       days.push(null)
     }
 
-    // Add days of the month
+// Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+      const currentDate = new Date(dateStr)
       const isAvailable = availableDates.some((d) => d.value === dateStr)
       const isSelected = selectedDate === dateStr
-      const isPast = new Date(dateStr) < new Date().setHours(0, 0, 0, 0)
-      const isToday = new Date(dateStr).toDateString() === new Date().toDateString()
+      const isPast = currentDate < new Date().setHours(0, 0, 0, 0)
+      const isToday = currentDate.toDateString() === new Date().toDateString()
+      
+      // UPDATED: Disable dates beyond 4 weeks (28 days) from today
+      const today = new Date()
+      const fourWeeksFromNow = new Date(today.getTime() + (28 * 24 * 60 * 60 * 1000))
+      const isBeyondFourWeeks = currentDate > fourWeeksFromNow
 
       days.push({
         day,
         dateStr,
-        isAvailable: isAvailable && !isPast,
+        isAvailable: isAvailable && !isPast && !isBeyondFourWeeks,
         isSelected,
         isPast,
         isToday,
+        isBeyondFourWeeks,
       })
     }
 

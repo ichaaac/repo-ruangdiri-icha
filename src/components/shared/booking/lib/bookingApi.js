@@ -1,6 +1,13 @@
 // src/components/shared/booking/lib/bookingApi.js - Updated for New Backend Response
 
 import { apiClient } from "@/lib/api"
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+
 
 export const createBookingApi = (userType = "student") => {
   // Validation helper for booking data
@@ -250,8 +257,9 @@ export const createBookingApi = (userType = "student") => {
 
         const response = await apiClient.get("/psychologists/availability")
 
-        if (response.data && response.data.status === "success") {
-          const availabilityData = response.data.data
+  if (response.data && response.data.status === "success") {
+          // UPDATED: Handle new nested structure - availability is now under data.availability
+          const availabilityData = response.data.data.availability || response.data.data
 
           console.log("Backend availability data:", availabilityData)
 
