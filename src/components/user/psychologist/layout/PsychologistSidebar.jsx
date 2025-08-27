@@ -37,15 +37,14 @@ const PsychologistSidebar = ({
   const menuItemHeight = isMobile ? 40 : 47
   const dividerHeight = 20
 
-  // Menu items untuk psikolog - hanya chat dan profile
-  const menuItems = [
-    {
-      label: "Chat dengan Klien",
-      icon: "chat",
-      path: `/user/psychologist/chat`,
-      disabled: false
-    }
-  ];
+const menuItems = [
+  { label: "Dashboard", icon: "dashboard", path: `/user/psychologist/dashboard`, disabled: false },
+  { label: "Profil",    icon: "person",    path: `/user/psychologist/profile`,   disabled: false },
+  { label: "Chat dengan Klien", icon: "chat", path: `/user/psychologist/chat`, disabled: false },
+  { label: "Schedule",  icon: "schedule",  path: `/user/psychologist/schedule`, disabled: false },
+];
+
+
 
   const totalMenuHeight = menuItems.length * menuItemHeight
   const hoverableContentHeight = profileSectionHeight + dividerHeight + totalMenuHeight
