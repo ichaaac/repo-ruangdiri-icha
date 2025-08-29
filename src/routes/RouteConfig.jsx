@@ -45,6 +45,7 @@ import UserDashboard from "../pages/user/shared/UserDashboard"
 import BookingContainer from "@/components/shared/booking/BookingContainer"
 import PsychologistProfilePage from "@/pages/user/psychologist/profile/PsychologistProfilePage"
 import PsychologistChatPage from "@/pages/user/psychologist/PsychologistChatPage"
+import SchedulePage from "@/components/shared/schedule/SchedulePage"
 
 // === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
@@ -294,10 +295,10 @@ const routes = [
       {
         path: "schedule",
         element: (
-          <UnderDevelopmentPage
-            title="Manajemen Jadwal"
-            description="Kelola jadwal konseling dan appointment dengan klien"
-            icon="schedule"
+          <SchedulePage
+            type="psychologist"
+            className="pb-6"
+            showTopRightControl={true}
           />
         ),
       },
