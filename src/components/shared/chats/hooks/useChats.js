@@ -391,61 +391,208 @@ export const useChats = () => {
   }, []);
 
   // ✅ ENHANCED: Typing handler with debug logging and proper name extraction
-  const handleAblyTyping = useCallback((typingData) => {
-    ChatsLogger.log('event', 'Ably typing indicator received', {
-      userId: typingData.userId,
-      isTyping: typingData.isTyping,
-      sessionId: typingData.sessionId,
-      userName: typingData.userName || typingData.senderName || typingData.senderFullname
+const handleAblyTyping = useCallback((typingData) => {
+  ChatsLogger.log('event', 'Ably typing indicator received', {
+    userId: typingData.userId,
+    isTyping: typingData.isTyping,
+    sessionId: typingData.sessionId,
+    // Multiple possible name fields
+    userName: typingData.userName,
+    senderName: typingData.senderName, 
+    senderFullName: typingData.senderFullName,
+    senderFullname: typingData.senderFullname,
+    fullName: typingData.fullName,
+    name: typingData.name,
+    // Debug: show all available fields
+    availableFields: Object.keys(typingData).filter(key => 
+      key.toLowerCase().includes('name') || key.toLowerCase().includes('user')
+    )
+  });
+  
+  const { userId: typingUserId, isTyping, sessionId } = typingData;
+  
+  // Only handle typing for current session and not from current user
+  if (typingUserId !== userId && sessionId === selectedSession?.sessionId) {
+    
+    // 🔧 ENHANCED: Better name extraction with fallback priority
+    const extractName = () => {
+      // Priority order for name fields
+      const nameFields = [
+        typingData.senderFullName,     // Backend standard
+        typingData.senderFullname,     // Alternative casing
+        typingData.fullName,           // Short version
+        typingData.userName,           // User specific
+        typingData.senderName,         // Sender specific  
+        typingData.name,               // Generic name
+        // Extract from nested sender object
+        typingData.sender?.fullName,
+        typingData.sender?.name,
+        // Try other possible structures
+        typingData.user?.fullName,
+        typingData.user?.name
+      ];
+      
+      // Find first non-empty name
+      for (const nameField of nameFields) {
+        if (nameField && typeof nameField === 'string' && nameField.trim()) {
+          return nameField.trim();
+        }
+      }
+      
+      // If we have userId, try to get name from current sessions
+      if (typingUserId && filteredSessions) {
+        const currentSession = filteredSessions.find(s => s.sessionId === sessionId);
+        if (currentSession) {
+          // For psychologist view - get client name
+          if (user?.role === 'psychologist' && currentSession.clientId === typingUserId) {
+            const clientName = currentSession.name;
+            if (clientName && clientName !== 'Unknown') {
+              return clientName;
+            }
+          }
+          // For client view - get psychologist name  
+          else if (user?.role !== 'psychologist' && currentSession.psychologistId === typingUserId) {
+            const psychName = currentSession.name;
+            if (psychName && psychName !== 'Unknown') {
+              return psychName;
+            }
+          }
+        }
+      }
+      
+      // Try to extract from userId (last resort)
+      if (typingUserId && typeof typingUserId === 'string') {
+        // If userId has readable format, extract
+        if (typingUserId.includes('-')) {
+          const parts = typingUserId.split('-');
+          return `User ${parts[parts.length - 1].slice(0, 8)}`;
+        }
+      }
+      
+      return 'Someone'; // Final fallback
+    };
+    
+    const displayName = extractName();
+    
+    // 📝 Log extracted name for debugging
+    ChatsLogger.log('info', `Typing from: "${displayName}" (${typingUserId})`, {
+      originalData: typingData,
+      extractedName: displayName,
+      isTyping
     });
     
-    const { userId: typingUserId, isTyping, sessionId, userName, senderName, senderFullname } = typingData;
-    
-    // Only handle typing for current session and not from current user
-    if (typingUserId !== userId && sessionId === selectedSession?.sessionId) {
-      // ✅ ENHANCED: Better name extraction from various sources
-      const displayName = userName || senderName || senderFullname || 'Someone';
-      
-      setTypingUsers(prev => {
-        if (isTyping) {
-          ChatsLogger.log('info', `${displayName} started typing`);
-          return {
-            ...prev,
-            [typingUserId]: {
-              isTyping: true,
-              timestamp: Date.now(),
-              userName: displayName
-            }
-          };
-        } else {
-          ChatsLogger.log('info', `${displayName} stopped typing`);
-          const newTypingUsers = { ...prev };
-          delete newTypingUsers[typingUserId];
-          return newTypingUsers;
-        }
-      });
-      
-      // Clear typing after timeout
+    setTypingUsers(prev => {
       if (isTyping) {
-        setTimeout(() => {
-          setTypingUsers(prev => {
-            const newTypingUsers = { ...prev };
-            if (newTypingUsers[typingUserId]) {
-              ChatsLogger.log('debug', `Auto-clearing typing for ${displayName}`);
-              delete newTypingUsers[typingUserId];
-            }
-            return newTypingUsers;
-          });
-        }, 5000);
+        ChatsLogger.log('info', `${displayName} started typing`);
+        return {
+          ...prev,
+          [typingUserId]: {
+            isTyping: true,
+            timestamp: Date.now(),
+            userName: displayName,
+            userId: typingUserId,
+            sessionId: sessionId
+          }
+        };
+      } else {
+        ChatsLogger.log('info', `${displayName} stopped typing`);
+        const newTypingUsers = { ...prev };
+        delete newTypingUsers[typingUserId];
+        return newTypingUsers;
       }
-      
-      // Update performance monitor
-      if (window.ablyDebug?.monitor) {
-        window.ablyDebug.monitor.recordTypingEvent();
-      }
+    });
+    
+    // Clear typing after timeout
+    if (isTyping) {
+      setTimeout(() => {
+        setTypingUsers(prev => {
+          const newTypingUsers = { ...prev };
+          if (newTypingUsers[typingUserId]) {
+            ChatsLogger.log('debug', `Auto-clearing typing for ${displayName}`);
+            delete newTypingUsers[typingUserId];
+          }
+          return newTypingUsers;
+        });
+      }, 5000);
     }
-  }, [userId, selectedSession?.sessionId]);
+    
+    // Update performance monitor
+    if (window.ablyDebug?.monitor) {
+      window.ablyDebug.monitor.recordTypingEvent();
+    }
+  }
+}, [userId, selectedSession?.sessionId, filteredSessions, user?.role]);
 
+// FIXED: Enhanced getTypingStatus function
+const getTypingStatus = useCallback(() => {
+  const typingUsersList = Object.values(typingUsers).filter(user => user.isTyping);
+  
+  if (typingUsersList.length === 0) {
+    return null;
+  }
+  
+  // 🔧 ENHANCED: Better status message with real names
+  let status;
+  if (typingUsersList.length === 1) {
+    const typingUser = typingUsersList[0];
+    status = `${typingUser.userName} sedang mengetik...`;
+  } else if (typingUsersList.length === 2) {
+    const names = typingUsersList.map(u => u.userName).join(' dan ');
+    status = `${names} sedang mengetik...`;
+  } else {
+    const firstName = typingUsersList[0].userName;
+    const count = typingUsersList.length - 1;
+    status = `${firstName} dan ${count} lainnya sedang mengetik...`;
+  }
+  
+  ChatsLogger.log('debug', 'Typing status updated', {
+    typingUsersCount: typingUsersList.length,
+    status,
+    users: typingUsersList.map(u => ({ name: u.userName, id: u.userId }))
+  });
+  
+  return status;
+}, [typingUsers]);
+
+// 🔧 ENHANCED: Debug helper for typing data
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    window.debugTyping = {
+      currentTypingUsers: typingUsers,
+      typingStatus: getTypingStatus(),
+      extractNameTest: (testData) => {
+        console.log('🔍 Testing name extraction:', testData);
+        // Test the name extraction logic
+        const nameFields = [
+          testData.senderFullName,
+          testData.senderFullname, 
+          testData.fullName,
+          testData.userName,
+          testData.senderName,
+          testData.name,
+          testData.sender?.fullName,
+          testData.sender?.name,
+          testData.user?.fullName,
+          testData.user?.name
+        ];
+        
+        for (const nameField of nameFields) {
+          if (nameField && typeof nameField === 'string' && nameField.trim()) {
+            console.log('✅ Found name:', nameField.trim());
+            return nameField.trim();
+          }
+        }
+        
+        console.log('❌ No valid name found, using fallback');
+        return 'Someone';
+      },
+      clearAllTyping: () => {
+        setTypingUsers({});
+        console.log('🧹 Cleared all typing users');
+      }
+    };
+  }
+}, [typingUsers, getTypingStatus]);
   // ✅ ENHANCED: Unread count handler with debug logging and error handling
   const handleAblyUnreadCount = useCallback((unreadData) => {
     try {
@@ -573,25 +720,7 @@ export const useChats = () => {
     return messages.canSendMessageWithText(selectedSession);
   }, [selectedSession, messages.canSendMessageWithText]);
 
-  // ✅ ENHANCED: Typing status with debug logging
-  const getTypingStatus = useCallback(() => {
-    const typingUsersList = Object.values(typingUsers).filter(user => user.isTyping);
-    
-    if (typingUsersList.length === 0) {
-      return null;
-    }
-    
-    const status = typingUsersList.length === 1
-      ? `${typingUsersList[0].userName} sedang mengetik...`
-      : `${typingUsersList.length} orang sedang mengetik...`;
-    
-    ChatsLogger.log('debug', 'Typing status updated', {
-      typingUsersCount: typingUsersList.length,
-      status
-    });
-    
-    return status;
-  }, [typingUsers]);
+
 
   // Handle booking
   const handleBookingClick = useCallback(() => {
