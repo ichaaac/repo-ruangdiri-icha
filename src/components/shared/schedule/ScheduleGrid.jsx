@@ -1,21 +1,32 @@
-"use client"
-
-// src/components/shared/schedule/ScheduleGrid.jsx - FIXED CURRENT TIME & VIEWPORT
+// src/components/shared/schedule/ScheduleGrid.jsx - REFACTORED & BROKEN DOWN
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { toast } from "sonner" // Declare the toast variable
 
-const formatDateLocal = (date) => {
-  const year = date.getFullYear()
-  const month = (date.getMonth() + 1).toString().padStart(2, "0")
-  const day = date.getDate().toString().padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
+// Import broken down components
+import ScheduleDayColumn from "./ScheduleGrid/ScheduleDayColumn"
+import ScheduleTimeHeader from "./ScheduleGrid/ScheduleTimeHeader"
+import ScheduleEmptyStates from "./ScheduleGrid/ScheduleEmptyStates"
+import ScheduleEvent from "./ScheduleGrid/ScheduleEvent"
+import ScheduleEventRenderer from "./ScheduleGrid/ScheduleEventRenderer"
+import ScheduleHeader from "./ScheduleGrid/ScheduleHeader"
+import ScheduleSelectionBox from "./ScheduleGrid/ScheduleSelectionBox"
+import ScheduleTimeIndicator from "./ScheduleGrid/ScheduleTimeIndicator"
+import { useDragHandler } from "./ScheduleGrid/ScheduleDragHandler"
+
+
+// Import configuration
+import { 
+  GRID_CONFIG, 
+  Z_INDICES, 
+  DAYS, 
+  TIME_SLOTS, 
+  TYPE_COLORS 
+} from "./ScheduleGrid/scheduleGridConfig"
 
 const ScheduleGrid = ({
   onTimeSlotSelect,
   onScheduleClick,
-  containerWidth = 808,
+  containerWidth = GRID_CONFIG.baseWidth,
   sidebarExpanded = false,
   selectedDates = [],
   weekStartDate,
@@ -23,6 +34,7 @@ const ScheduleGrid = ({
   loading = false,
   getScheduleAtTime,
 }) => {
+  // State management
   const [selectedArea, setSelectedArea] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartPos, setDragStartPos] = useState(null)
@@ -30,92 +42,16 @@ const ScheduleGrid = ({
   const [scrollLeft, setScrollLeft] = useState(0)
   const [scrollTop, setScrollTop] = useState(0)
   const [dragTimeTooltip, setDragTimeTooltip] = useState(null)
-  const [showHelpTooltip, setShowHelpTooltip] = useState(false)
 
   const viewportRef = useRef(null)
 
-  // CONSTANTS
-  const baseWidth = 808
-  const baseHeight = 254
-  const actualWidth = Math.max(baseWidth, containerWidth)
-  const actualHeight = baseHeight
-  const HOUR_WIDTH = 120
-  const MIN_DAY_ROW_HEIGHT = 60
-
-  const SCHEDULE_BASE_HEIGHT = 44
-  const SCHEDULE_STACKED_HEIGHT = 38
-  const SCHEDULE_MARGIN = 2
-  const LANE_SPACING = 6
-  const MAX_VISIBLE_STACKS = 20
-  const DAY_PADDING_TOP = 12
-  const DAY_PADDING_BOTTOM = 8
-
-  const TIME_HEADER_HEIGHT = 30
-  const DAY_COLUMN_WIDTH = 70
-  const HEADER_HEIGHT = 66
-  const MAX_DRAG_DAYS = 2
-  const PADDING_OFFSET = 38
-
-  const Z_INDICES = {
-    BACKGROUND: 0,
-    GRID_LINES: 5,
-    DAY_ROW_LINES: 10,
-    SCHEDULE_EVENTS: 15,
-    STACKED_SCHEDULES: 20,
-    OVERFLOW_INDICATORS: 25,
-    SELECTION_BOX: 30,
-    SCROLL_CONTENT: 35,
-    TIME_HEADERS: 40,
-    CURRENT_TIME: 45,
-    DAY_HEADERS: 50,
-    HELP_ICON: 55,
-    TOOLTIP: 60,
-    MODALS: 100,
-  }
-
-  // Static data
-  const days = useMemo(
-    () => [
-      { short: "Sen", full: "Senin" },
-      { short: "Sel", full: "Selasa" },
-      { short: "Rab", full: "Rabu" },
-      { short: "Kam", full: "Kamis" },
-      { short: "Jum", full: "Jumat" },
-      { short: "Sab", full: "Sabtu" },
-      { short: "Min", full: "Minggu" },
-    ],
-    [],
-  )
-
-  const timeSlots = useMemo(() => {
-    const slots = []
-    for (let i = 6; i <= 23; i++) {
-      slots.push(`${i.toString().padStart(2, "0")}:00`)
-    }
-    slots.push("00:00")
-    return slots
-  }, [])
-
-  const halfHourDividers = useMemo(() => {
-    const dividers = []
-    for (let i = 0; i < timeSlots.length - 1; i++) {
-      const position = i * HOUR_WIDTH + HOUR_WIDTH / 2
-      dividers.push({ position, hourIndex: i, timeSlot: timeSlots[i] })
-    }
-    return dividers
-  }, [timeSlots, HOUR_WIDTH])
+  // Computed dimensions
+  const actualWidth = Math.max(GRID_CONFIG.baseWidth, containerWidth)
+  const actualHeight = GRID_CONFIG.baseHeight
 
   // Helper functions
   const getTypeColor = useCallback((type) => {
-    const colors = {
-      counseling: "#9986FF",
-      class: "#3CE69E",
-      seminar: "#FF886D",
-      meeting: "#3399E9",
-      other: "#979797",
-      others: "#979797",
-    }
-    return colors[type] || colors.other
+    return TYPE_COLORS[type] || TYPE_COLORS.other
   }, [])
 
   const getLocationDisplay = useCallback((schedule) => {
@@ -151,28 +87,26 @@ const ScheduleGrid = ({
 
   const getHourDisplayIndex = useCallback(
     (hour) => {
-      if (hour === 0) return timeSlots.length - 1
+      if (hour === 0) return TIME_SLOTS.length - 1
       return Math.max(0, Math.min(17, hour - 6))
     },
-    [timeSlots.length],
+    [],
   )
-
-  
 
   const getActualHour = useCallback(
     (index) => {
-      if (index === timeSlots.length - 1) return 0
+      if (index === TIME_SLOTS.length - 1) return 0
       if (index >= 0 && index <= 17) return index + 6
       return 6
     },
-    [timeSlots.length],
+    [],
   )
 
   const timeToPosition = useCallback(
     (hour, minute) => {
       const hourIndex = getHourDisplayIndex(hour)
-      const basePosition = hourIndex * HOUR_WIDTH
-      const minuteOffset = (minute / 60) * HOUR_WIDTH
+      const basePosition = hourIndex * GRID_CONFIG.hourWidth
+      const minuteOffset = (minute / 60) * GRID_CONFIG.hourWidth
       const totalPosition = basePosition + minuteOffset
 
       return totalPosition
@@ -180,7 +114,22 @@ const ScheduleGrid = ({
     [getHourDisplayIndex],
   )
 
-  // FIXED: Check if current date is in selected week - no logs
+  const getDateFromDayIndex = useCallback(
+    (dayIndex) => {
+      const baseDate = weekStartDate ? new Date(weekStartDate) : new Date()
+      const baseDayOfWeek = (baseDate.getDay() + 6) % 7
+      baseDate.setDate(baseDate.getDate() - baseDayOfWeek)
+      baseDate.setHours(0, 0, 0, 0)
+
+      const targetDate = new Date(baseDate)
+      targetDate.setDate(baseDate.getDate() + dayIndex)
+      targetDate.setHours(0, 0, 0, 0)
+      return targetDate
+    },
+    [weekStartDate],
+  )
+
+  // Check if current date is in selected week
   const isCurrentDateInSelectedWeek = useMemo(() => {
     if (!selectedDates || selectedDates.length === 0) return false
 
@@ -194,16 +143,16 @@ const ScheduleGrid = ({
     })
   }, [selectedDates])
 
+  // Process schedules with stacking logic
   const processedSchedules = useMemo(() => {
     const processed = {}
     const dayEvents = {}
 
-    days.forEach((day) => {
+    DAYS.forEach((day) => {
       processed[day.full] = {}
       dayEvents[day.full] = []
     })
 
-    // FIXED: Return empty if no dates selected
     if (!selectedDates || selectedDates.length === 0) {
       return processed
     }
@@ -213,7 +162,7 @@ const ScheduleGrid = ({
       const endDateTimeWIB = parseUTCToLocal(schedule.endDateTime)
 
       const dayIndex = (startDateTimeWIB.getDay() + 6) % 7
-      const dayName = days[dayIndex]?.full
+      const dayName = DAYS[dayIndex]?.full
 
       if (dayName) {
         const isDateSelected = selectedDates.some((date) => {
@@ -221,9 +170,7 @@ const ScheduleGrid = ({
           return selectedDateObj.toDateString() === startDateTimeWIB.toDateString()
         })
 
-        if (!isDateSelected) {
-          return
-        }
+        if (!isDateSelected) return
 
         const displaySchedule = {
           id: schedule.id,
@@ -317,12 +264,13 @@ const ScheduleGrid = ({
     })
 
     return processed
-  }, [schedules, selectedDates, days, parseUTCToLocal, getLocationDisplay, getTypeColor])
+  }, [schedules, selectedDates, parseUTCToLocal, getLocationDisplay, getTypeColor])
 
+  // Calculate day row heights
   const dayRowHeights = useMemo(() => {
     const heights = {}
 
-    days.forEach((day) => {
+    DAYS.forEach((day) => {
       let maxStacks = 1
       let hasEvents = false
 
@@ -338,430 +286,56 @@ const ScheduleGrid = ({
       })
 
       if (hasEvents) {
-        const visibleStacks = Math.min(maxStacks, MAX_VISIBLE_STACKS)
-        let totalHeight = DAY_PADDING_TOP + DAY_PADDING_BOTTOM
+        const visibleStacks = Math.min(maxStacks, GRID_CONFIG.maxVisibleStacks)
+        let totalHeight = GRID_CONFIG.dayPaddingTop + GRID_CONFIG.dayPaddingBottom
 
         for (let i = 0; i < visibleStacks; i++) {
           if (maxStacks === 1) {
-            totalHeight += SCHEDULE_BASE_HEIGHT
+            totalHeight += GRID_CONFIG.scheduleBaseHeight
           } else {
-            totalHeight += SCHEDULE_STACKED_HEIGHT
+            totalHeight += GRID_CONFIG.scheduleStackedHeight
           }
 
           if (i < visibleStacks - 1) {
-            totalHeight += LANE_SPACING
+            totalHeight += GRID_CONFIG.laneSpacing
           }
         }
 
-        heights[day.full] = Math.max(totalHeight, MIN_DAY_ROW_HEIGHT)
+        heights[day.full] = Math.max(totalHeight, GRID_CONFIG.minDayRowHeight)
       } else {
-        heights[day.full] = MIN_DAY_ROW_HEIGHT
+        heights[day.full] = GRID_CONFIG.minDayRowHeight
       }
     })
 
     return heights
-  }, [processedSchedules, days])
+  }, [processedSchedules])
 
-  
   const getDayRowTop = useCallback(
     (dayIndex) => {
       let top = 0
       for (let i = 0; i < dayIndex; i++) {
-        const dayName = days[i]?.full
-        top += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT
+        const dayName = DAYS[i]?.full
+        top += dayRowHeights[dayName] || GRID_CONFIG.minDayRowHeight
       }
       return top
     },
-    [days, dayRowHeights],
+    [dayRowHeights],
   )
 
-  // FIXED: Auto-scroll to current day when today is in selected week
-  useEffect(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    // Auto-scroll if today is part of the selected week
-    if (isCurrentDateInSelectedWeek && viewportRef.current) {
-      const currentDayIndex = (today.getDay() + 6) % 7 // Monday = 0
-
-      let dayTop = 0
-      for (let i = 0; i < currentDayIndex; i++) {
-        const dayName = days[i]?.full
-        dayTop += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT
-      }
-
-      const scrollContainer = viewportRef.current
-      // Position current day at the top of viewport (with small offset for better UX)
-      const targetScrollTop = Math.max(0, dayTop - 10)
-
-      scrollContainer.scrollTop = targetScrollTop
-    }
-  }, [isCurrentDateInSelectedWeek, days, dayRowHeights]) // Depend on proper conditions
+  const totalGridHeight = useMemo(() => {
+    return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0)
+  }, [dayRowHeights])
 
   const calculateEventWidth = useCallback(
     (startHour, startMinute, endHour, endMinute) => {
       const startPos = timeToPosition(startHour, startMinute)
       const endPos = timeToPosition(endHour, endMinute)
-      const width = Math.max(endPos - startPos, HOUR_WIDTH * 0.4)
+      const width = Math.max(endPos - startPos, GRID_CONFIG.hourWidth * 0.4)
 
       return width
     },
     [timeToPosition],
   )
-
-  const getCurrentTimePosition = useCallback(() => {
-    const now = currentTime
-    const hour = now.getHours()
-    const minutes = now.getMinutes()
-    return timeToPosition(hour, minutes)
-  }, [currentTime, timeToPosition])
-
-  const getCurrentTimeString = useCallback(() => {
-    const now = currentTime
-    const hours = now.getHours().toString().padStart(2, "0")
-    const minutes = now.getMinutes().toString().padStart(2, "0")
-    return `${hours}:${minutes}`
-  }, [currentTime])
-
-  const getTimeFromPosition = useCallback(
-    (clientX, clientY) => {
-      if (!viewportRef.current) return null
-
-      const rect = viewportRef.current.getBoundingClientRect()
-      const x = clientX - rect.left + scrollLeft
-      const y = clientY - rect.top + scrollTop
-      const gridX = x - PADDING_OFFSET
-      const gridY = y
-
-      if (gridX < 0 || gridY < 0) return null
-
-      const hourIndex = Math.floor(gridX / HOUR_WIDTH)
-      if (hourIndex < 0 || hourIndex >= timeSlots.length) return null
-
-      let dayIndex = -1
-      let currentTop = 0
-
-      for (let i = 0; i < days.length; i++) {
-        const dayHeight = dayRowHeights[days[i].full] || MIN_DAY_ROW_HEIGHT
-        if (gridY >= currentTop && gridY < currentTop + dayHeight) {
-          dayIndex = i
-          break
-        }
-        currentTop += dayHeight
-      }
-
-      if (dayIndex < 0) return null
-
-      let actualHour = getActualHour(hourIndex)
-      const pixelWithinHour = gridX - hourIndex * HOUR_WIDTH
-      const exactMinute = (pixelWithinHour / HOUR_WIDTH) * 60
-
-      // FIXED: Proper minute snapping with hour overflow handling
-      let snappedMinute = Math.round(exactMinute / 15) * 15
-
-      // Handle minute overflow (when snapping results in 60 minutes)
-      if (snappedMinute >= 60) {
-        snappedMinute = 0
-        actualHour += 1
-
-        // Handle hour overflow (24:00 becomes 00:00 next day)
-        if (actualHour >= 24) {
-          actualHour = 0
-          // Note: We don't change dayIndex here as it would complicate things
-          // Instead, we'll cap at 23:45 for the last selectable time
-          actualHour = 23
-          snappedMinute = 45
-        }
-      }
-
-      // FIXED: Calculate pixel position based on corrected hour/minute
-      const correctedHourIndex = getHourDisplayIndex(actualHour)
-      const pixelX = correctedHourIndex * HOUR_WIDTH + (snappedMinute / 60) * HOUR_WIDTH
-
-      return {
-        hour: actualHour,
-        minute: snappedMinute,
-        hourIndex: correctedHourIndex,
-        dayIndex: dayIndex,
-        exactMinute: exactMinute,
-        pixelX: pixelX,
-      }
-    },
-    [scrollLeft, scrollTop, dayRowHeights, days, timeSlots.length, getActualHour, getHourDisplayIndex],
-  )
-
-  const getDateFromDayIndex = useCallback(
-    (dayIndex) => {
-      const baseDate = weekStartDate ? new Date(weekStartDate) : new Date()
-      const baseDayOfWeek = (baseDate.getDay() + 6) % 7
-      baseDate.setDate(baseDate.getDate() - baseDayOfWeek)
-      baseDate.setHours(0, 0, 0, 0)
-
-      const targetDate = new Date(baseDate)
-      targetDate.setDate(baseDate.getDate() + dayIndex)
-      targetDate.setHours(0, 0, 0, 0)
-      return targetDate
-    },
-    [weekStartDate],
-  )
-
-  // Mouse handlers
-  const handleMouseDown = useCallback(
-    (e) => {
-      if (e.target.closest(".schedule-event") || e.target.closest(".help-icon")) return
-
-      e.preventDefault()
-      e.stopPropagation()
-
-      const timeInfo = getTimeFromPosition(e.clientX, e.clientY)
-      if (!timeInfo) return
-
-      setDragStartPos(timeInfo)
-      setSelectedArea({
-        startDay: timeInfo.dayIndex,
-        endDay: timeInfo.dayIndex,
-        startHour: timeInfo.hour,
-        endHour: timeInfo.hour,
-        startMinute: timeInfo.minute,
-        endMinute: timeInfo.minute,
-        startPixelX: timeInfo.pixelX,
-        endPixelX: timeInfo.pixelX,
-      })
-      setIsDragging(true)
-
-      const rect = viewportRef.current.getBoundingClientRect()
-      const relativeX = e.clientX - rect.left
-      const relativeY = e.clientY - rect.top
-
-      setDragTimeTooltip({
-        x: relativeX,
-        y: relativeY,
-        startTime: `${timeInfo.hour.toString().padStart(2, "0")}:${timeInfo.minute.toString().padStart(2, "0")}`,
-        endTime: `${timeInfo.hour.toString().padStart(2, "0")}:${(timeInfo.minute + 15).toString().padStart(2, "0")}`,
-      })
-    },
-    [getTimeFromPosition],
-  )
-
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!isDragging || !dragStartPos) return
-
-      const timeInfo = getTimeFromPosition(e.clientX, e.clientY)
-      if (!timeInfo) return
-
-      let constrainedDayIndex = timeInfo.dayIndex
-
-      if (timeInfo.dayIndex !== dragStartPos.dayIndex) {
-        const startDayIndex = dragStartPos.dayIndex
-        const maxEndDay = Math.min(startDayIndex + MAX_DRAG_DAYS - 1, days.length - 1)
-        const minEndDay = Math.max(startDayIndex - MAX_DRAG_DAYS + 1, 0)
-        constrainedDayIndex = Math.max(minEndDay, Math.min(maxEndDay, timeInfo.dayIndex))
-      }
-
-      setSelectedArea((prev) => ({
-        ...prev,
-        endDay: constrainedDayIndex,
-        endHour: timeInfo.hour,
-        endMinute: timeInfo.minute,
-        endPixelX: timeInfo.pixelX,
-      }))
-
-      // FIXED: Auto-scroll viewport to ensure drag area is visible
-      if (viewportRef.current) {
-        const viewport = viewportRef.current
-        const viewportRect = viewport.getBoundingClientRect()
-        
-        // Calculate if we need to scroll to show the drag area
-        const startDayTop = getDayRowTop(Math.min(dragStartPos.dayIndex, constrainedDayIndex))
-        const endDayTop = getDayRowTop(Math.max(dragStartPos.dayIndex, constrainedDayIndex))
-        const endDayHeight = dayRowHeights[days[Math.max(dragStartPos.dayIndex, constrainedDayIndex)]?.full] || MIN_DAY_ROW_HEIGHT
-        const dragAreaBottom = endDayTop + endDayHeight
-        
-        const currentScrollTop = viewport.scrollTop
-        const viewportHeight = viewport.clientHeight
-        const visibleTop = currentScrollTop
-        const visibleBottom = currentScrollTop + viewportHeight
-        
-        // Scroll down if drag area bottom is below visible area
-        if (dragAreaBottom > visibleBottom) {
-          const newScrollTop = dragAreaBottom - viewportHeight + 20 // 20px padding
-          viewport.scrollTop = Math.min(newScrollTop, viewport.scrollHeight - viewportHeight)
-        }
-        
-        // Scroll up if drag area top is above visible area
-        if (startDayTop < visibleTop) {
-          const newScrollTop = Math.max(0, startDayTop - 20) // 20px padding
-          viewport.scrollTop = newScrollTop
-        }
-      }
-      
-
-      const rect = viewportRef.current.getBoundingClientRect()
-      const relativeX = e.clientX - rect.left
-      const relativeY = e.clientY - rect.top
-
-      const time1 = { hour: dragStartPos.hour, minute: dragStartPos.minute, day: dragStartPos.dayIndex }
-      const time2 = { hour: timeInfo.hour, minute: timeInfo.minute, day: constrainedDayIndex }
-
-      const time1Minutes = time1.day * 1440 + time1.hour * 60 + time1.minute
-      const time2Minutes = time2.day * 1440 + time2.hour * 60 + time2.minute
-
-      let startTime, endTime
-      if (time1Minutes <= time2Minutes) {
-        startTime = `${time1.hour.toString().padStart(2, "0")}:${time1.minute.toString().padStart(2, "0")}`
-        endTime = `${time2.hour.toString().padStart(2, "0")}:${time2.minute.toString().padStart(2, "0")}`
-      } else {
-        startTime = `${time2.hour.toString().padStart(2, "0")}:${time2.minute.toString().padStart(2, "0")}`
-        endTime = `${time1.hour.toString().padStart(2, "0")}:${time1.minute.toString().padStart(2, "0")}`
-      }
-
-      setDragTimeTooltip({
-        x: relativeX,
-        y: relativeY - 10,
-        startTime: startTime,
-        endTime: endTime,
-      })
-    },
-    [isDragging, dragStartPos, days.length, getTimeFromPosition, getDayRowTop, dayRowHeights],
-  )
-
-  
-
-  const handleMouseUp = useCallback(() => {
-    if (!isDragging || !selectedArea || !dragStartPos) return
-    
-
-    // FIXED: Prevent creating schedules when no dates are selected
-    if (!selectedDates || selectedDates.length === 0) {
-      toast.error("Pilih minggu di kalender terlebih dahulu untuk membuat jadwal.")
-      setIsDragging(false)
-      setSelectedArea(null)
-      setDragStartPos(null)
-      setDragTimeTooltip(null)
-      return
-    }
-
-    
-
-    const isClick =
-      selectedArea.startDay === selectedArea.endDay &&
-      selectedArea.startHour === selectedArea.endHour &&
-      selectedArea.startMinute === selectedArea.endMinute
-
-    let finalStartDateTime, finalEndDateTime
-    let draggedDaysCount
-
-    if (isClick) {
-      const clickedDate = getDateFromDayIndex(selectedArea.startDay)
-      finalStartDateTime = new Date(clickedDate)
-      finalStartDateTime.setHours(selectedArea.startHour, selectedArea.startMinute, 0, 0)
-
-      finalEndDateTime = new Date(finalStartDateTime)
-      finalEndDateTime.setMinutes(finalEndDateTime.getMinutes() + 30) // Default 30 min for click
-      draggedDaysCount = 1
-    } else {
-      const startDay = Math.min(selectedArea.startDay, selectedArea.endDay)
-      const endDay = Math.max(selectedArea.startDay, selectedArea.endDay)
-
-      let startHour, startMinute, endHour, endMinute
-
-      const time1 = { hour: selectedArea.startHour, minute: selectedArea.startMinute, day: selectedArea.startDay }
-      const time2 = { hour: selectedArea.endHour, minute: selectedArea.endMinute, day: selectedArea.endDay }
-
-      const time1Minutes = time1.day * 1440 + time1.hour * 60 + time1.minute
-      const time2Minutes = time2.day * 1440 + time2.hour * 60 + time2.minute
-
-      if (time1Minutes <= time2Minutes) {
-        startHour = time1.hour
-        startMinute = time1.minute
-        endHour = time2.hour
-        endMinute = time2.minute
-      } else {
-        startHour = time2.hour
-        startMinute = time2.minute
-        endHour = time1.hour
-        endMinute = time1.minute
-      }
-
-      // Calculate total minutes for both start and end times
-      const startTotalMinutes = startDay * 1440 + startHour * 60 + startMinute
-      const endTotalMinutes = endDay * 1440 + endHour * 60 + endMinute
-
-      // Ensure minimum 15 minutes duration for any drag selection
-      if (startTotalMinutes >= endTotalMinutes) {
-        // If same time or end is before start, add 15 minutes to end
-        endMinute += 15
-        if (endMinute >= 60) {
-          endHour += 1
-          endMinute -= 60
-          // Handle hour overflow
-          if (endHour >= 24) {
-            endHour = 0
-            // For simplicity, cap at 23:45 if we would overflow to next day
-            if (endDay >= days.length - 1) {
-              endHour = 23
-              endMinute = 45
-            }
-          }
-        }
-      }
-
-      const startDate = getDateFromDayIndex(startDay)
-      finalStartDateTime = new Date(startDate)
-      finalStartDateTime.setHours(startHour, startMinute, 0, 0)
-
-      const endDate = getDateFromDayIndex(endDay)
-      finalEndDateTime = new Date(endDate)
-      finalEndDateTime.setHours(endHour, endMinute, 0, 0)
-
-      draggedDaysCount = endDay - startDay + 1
-    }
-
-    // FIXED: Prevent creating schedules in the past
-    if (finalStartDateTime < new Date()) {
-      toast.error("Tidak dapat membuat jadwal di masa lalu.")
-      setIsDragging(false)
-      setSelectedArea(null)
-      setDragStartPos(null)
-      setDragTimeTooltip(null)
-      return
-    }
-
-    const dates = []
-    for (
-      let dayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
-      dayIndex <= Math.max(selectedArea.startDay, selectedArea.endDay);
-      dayIndex++
-    ) {
-      const dayDate = getDateFromDayIndex(dayIndex)
-      dates.push({
-        date: formatDateLocal(dayDate),
-        startTime: `${finalStartDateTime.getHours().toString().padStart(2, "0")}:${finalStartDateTime.getMinutes().toString().padStart(2, "0")}`,
-        endTime: `${finalEndDateTime.getHours().toString().padStart(2, "0")}:${finalEndDateTime.getMinutes().toString().padStart(2, "0")}`,
-        timezone: "WIB",
-      })
-    }
-
-    onTimeSlotSelect &&
-      onTimeSlotSelect({
-        startDateTime: finalStartDateTime,
-        endDateTime: finalEndDateTime,
-        day: days[Math.min(selectedArea.startDay, selectedArea.endDay)]?.full,
-        isMultipleDays: draggedDaysCount > 1,
-        dates,
-        draggedDays: draggedDaysCount,
-      })
-
-    setIsDragging(false)
-    setSelectedArea(null)
-    setDragStartPos(null)
-    setDragTimeTooltip(null)
-  }, [isDragging, selectedArea, dragStartPos, days, getDateFromDayIndex, onTimeSlotSelect, selectedDates])
-
-  const totalGridHeight = useMemo(() => {
-    return Object.values(dayRowHeights).reduce((sum, height) => sum + height, 0)
-  }, [dayRowHeights])
 
   const handleScheduleClick = useCallback(
     (event, scheduleData) => {
@@ -780,153 +354,83 @@ const ScheduleGrid = ({
     setScrollTop(e.target.scrollTop)
   }, [])
 
-  const selectionBox = useMemo(() => {
-    if (!selectedArea || !isDragging) return null
+  // Initialize drag handler
+  const { getTimeFromPosition, handleMouseDown, handleMouseMove, handleMouseUp } = useDragHandler({
+    viewportRef,
+    scrollLeft,
+    scrollTop,
+    dayRowHeights,
+    getDateFromDayIndex,
+    selectedDates,
+    onTimeSlotSelect,
+  })
 
-    const startDayIndex = Math.min(selectedArea.startDay, selectedArea.endDay)
-    const endDayIndex = Math.max(selectedArea.startDay, selectedArea.endDay)
-    const startPixelX = Math.min(selectedArea.startPixelX, selectedArea.endPixelX)
-    const endPixelX = Math.max(selectedArea.startPixelX, selectedArea.endPixelX)
+  // Mouse event handlers
+  const onMouseDown = useCallback((e) => {
+    handleMouseDown(e, {
+      getTimeFromPosition: (x, y) => getTimeFromPosition(x, y, getHourDisplayIndex, getActualHour),
+      setDragStartPos,
+      setSelectedArea,
+      setIsDragging,
+      setDragTimeTooltip,
+    })
+  }, [handleMouseDown, getTimeFromPosition, getHourDisplayIndex, getActualHour])
 
-    const top = getDayRowTop(startDayIndex)
-    let height = 0
-    for (let i = startDayIndex; i <= endDayIndex; i++) {
-      const dayName = days[i]?.full
-      height += dayRowHeights[dayName] || MIN_DAY_ROW_HEIGHT
-    }
+  const onMouseMove = useCallback((e) => {
+    handleMouseMove(e, {
+      isDragging,
+      dragStartPos,
+      getTimeFromPosition: (x, y) => getTimeFromPosition(x, y, getHourDisplayIndex, getActualHour),
+      setSelectedArea,
+      setDragTimeTooltip,
+      getDayRowTop,
+    })
+  }, [handleMouseMove, isDragging, dragStartPos, getTimeFromPosition, getHourDisplayIndex, getActualHour, getDayRowTop])
 
-    const left = PADDING_OFFSET + startPixelX + 2 // Added 2px adjustment for better alignment
-    const width = Math.max(endPixelX - startPixelX, 30)
+  const onMouseUp = useCallback(() => {
+    handleMouseUp(isDragging, selectedArea, dragStartPos, () => {
+      setIsDragging(false)
+      setSelectedArea(null)
+      setDragStartPos(null)
+      setDragTimeTooltip(null)
+    })
+  }, [handleMouseUp, isDragging, selectedArea, dragStartPos])
 
-    return (
-      <div
-        className="absolute bg-blue-400/20 border border-blue-400 rounded pointer-events-none"
-        style={{
-          top,
-          left,
-          width,
-          height,
-          zIndex: Z_INDICES.SELECTION_BOX,
-        }}
-      />
-    )
-  }, [selectedArea, isDragging, getDayRowTop, days, dayRowHeights])
-
-  const ScheduleEventCard = ({ event, style, className, onClickEvent }) => {
-    const [isHovered, setIsHovered] = useState(false)
-
-    const isStacked = event.totalLanes > 1
-    const laneIndex = event.stackIndex || 0
-
-    const height = isStacked ? SCHEDULE_STACKED_HEIGHT : SCHEDULE_BASE_HEIGHT
-
-    const handleClick = (e) => {
-      e.stopPropagation()
-      onClickEvent && onClickEvent(event)
-    }
-    const handleMouseDown = (e) => e.stopPropagation()
-
-    if (laneIndex >= MAX_VISIBLE_STACKS) {
-      return null
-    }
-
-    const combinedStyle = {
-      ...style,
-      height: `${height}px`,
-      backgroundColor: event.color,
-      zIndex: isHovered ? style.zIndex + 50 : style.zIndex,
-      boxShadow: isHovered ? "0 4px 12px rgba(0,0,0,0.15)" : "0 1px 3px rgba(0,0,0,0.1)",
-    }
-
-    return (
-      <div
-        className={`absolute flex flex-col justify-center items-start cursor-pointer schedule-event ${className || ""}`}
-        style={{
-          ...combinedStyle,
-          borderRadius: "6px",
-          paddingLeft: "8px",
-          paddingRight: "8px",
-          overflow: "hidden",
-        }}
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <div className="w-full text-white text-[12px] font-semibold font-['Public_Sans'] truncate">{event.name}</div>
-        <div className="w-full flex items-center">
-          <span className="text-white text-[11px] font-normal font-['Public_Sans'] truncate">
-            {event.startTime} - {event.endTime} {event.timezone}
-          </span>
-          <span className="text-white text-[11px] font-normal font-['Public_Sans'] mx-1">|</span>
-          <span className="text-white text-[11px] font-semibold font-['Public_Sans'] truncate">{event.location}</span>
-        </div>
-      </div>
-    )
-  }
-
-  const HelpTooltip = () => (
-    <div className="w-20 h-24 p-2.5 bg-black/50 rounded-[5px] inline-flex flex-col justify-center items-center gap-2.5">
-      <div className="w-16 flex flex-col justify-end items-start gap-[5px]">
-        <div className="w-24 flex flex-col justify-center items-start gap-[5px]">
-          <div className="inline-flex justify-start items-center gap-[5px]">
-            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6.5" cy="7" r="6.5" fill="#9986FF" />
-            </svg>
-            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">
-              Konseling
-            </div>
-          </div>
-          <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
-            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6.5" cy="7" r="6.5" fill="#3CE69E" />
-            </svg>
-            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">
-              Kelas
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col justify-start items-start gap-[5px]">
-          <div className="inline-flex justify-start items-center gap-[5px]">
-            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6.5" cy="7" r="6.5" fill="#FF886D" />
-            </svg>
-            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">
-              Seminar
-            </div>
-          </div>
-          <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
-            <svg width="13" height="14" viewBox="0 0 13 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6.5" cy="7" r="6.5" fill="#979797" />
-            </svg>
-            <div className="justify-start text-white text-[10px] font-normal font-['Public_Sans'] leading-[14px]">
-              Lainnya
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
+  // Auto-scroll to current day when today is in selected week
   useEffect(() => {
-    const handleGlobalMouseMove = (e) => {
-      handleMouseMove(e)
-    }
-    const handleGlobalMouseUp = () => {
-      handleMouseUp()
-    }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
+    if (isCurrentDateInSelectedWeek && viewportRef.current) {
+      const currentDayIndex = (today.getDay() + 6) % 7
+
+      let dayTop = 0
+      for (let i = 0; i < currentDayIndex; i++) {
+        const dayName = DAYS[i]?.full
+        dayTop += dayRowHeights[dayName] || GRID_CONFIG.minDayRowHeight
+      }
+
+      const scrollContainer = viewportRef.current
+      const targetScrollTop = Math.max(0, dayTop - 10)
+
+      scrollContainer.scrollTop = targetScrollTop
+    }
+  }, [isCurrentDateInSelectedWeek, dayRowHeights])
+
+  // Global mouse event handlers
+  useEffect(() => {
     if (isDragging) {
-      document.addEventListener("mousemove", handleGlobalMouseMove)
-      document.addEventListener("mouseup", handleGlobalMouseUp)
+      document.addEventListener("mousemove", onMouseMove)
+      document.addEventListener("mouseup", onMouseUp)
     }
 
     return () => {
-      document.removeEventListener("mousemove", handleGlobalMouseMove)
-      document.removeEventListener("mouseup", handleGlobalMouseUp)
+      document.removeEventListener("mousemove", onMouseMove)
+      document.removeEventListener("mouseup", onMouseUp)
     }
-  }, [isDragging, handleMouseMove, handleMouseUp])
+  }, [isDragging, onMouseMove, onMouseUp])
 
+  // Update current time
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
@@ -958,140 +462,31 @@ const ScheduleGrid = ({
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3" style={{ height: `${HEADER_HEIGHT}px` }}>
-        <div className="flex items-center">
-          <div className="w-[30px] h-[30px] bg-[#488BBA] rounded flex items-center justify-center">
-            <span className="material-icons text-white text-lg">calendar_month</span>
-          </div>
-          <h2 className="text-xl font-semibold text-[#488BBA]" style={{ marginLeft: "15px" }}>
-            Jadwal
-          </h2>
-        </div>
-
-        <div className="relative help-icon" style={{ marginRight: "38px" }}>
-          <div
-            className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center cursor-help transition-colors hover:bg-gray-200"
-            onMouseEnter={() => setShowHelpTooltip(true)}
-            onMouseLeave={() => setShowHelpTooltip(false)}
-          >
-            <span className="text-gray-600 text-sm font-medium">?</span>
-          </div>
-
-          {showHelpTooltip && (
-            <div className="absolute top-8 left-0" style={{ zIndex: Z_INDICES.TOOLTIP }}>
-              <HelpTooltip />
-            </div>
-          )}
-        </div>
-      </div>
+      <ScheduleHeader headerHeight={GRID_CONFIG.headerHeight} />
 
       {/* Grid Container */}
-      <div className="relative overflow-hidden" style={{ height: `${actualHeight - HEADER_HEIGHT}px` }}>
+      <div className="relative overflow-hidden" style={{ height: `${actualHeight - GRID_CONFIG.headerHeight}px` }}>
         {/* Time Header */}
-        <div
-          className="absolute top-0 bg-white"
-          style={{
-            left: `${DAY_COLUMN_WIDTH}px`,
-            right: "0px",
-            height: `${TIME_HEADER_HEIGHT}px`,
-            overflow: "hidden",
-            zIndex: Z_INDICES.TIME_HEADERS,
-          }}
-        >
-          <div className="h-full" style={{ overflow: "hidden" }}>
-            <div
-              className="flex relative h-full"
-              style={{
-                width: `${timeSlots.length * HOUR_WIDTH}px`,
-                minWidth: `${timeSlots.length * HOUR_WIDTH}px`,
-                transform: `translateX(-${scrollLeft}px)`,
-                paddingLeft: `${PADDING_OFFSET}px`,
-              }}
-            >
-              {timeSlots.map((time, i) => (
-                <div
-                  key={time}
-                  className="flex-shrink-0 relative"
-                  style={{ width: `${HOUR_WIDTH}px`, height: `${TIME_HEADER_HEIGHT}px` }}
-                >
-                  <span className="text-sm text-neutral-600 absolute top-1/2 left-0 transform -translate-y-1/2">
-                    {time}
-                  </span>
-                </div>
-              ))}
-
-              {halfHourDividers.map((divider, i) => (
-                <div
-                  key={`divider-30min-${i}`}
-                  className="absolute pointer-events-none bg-red-400"
-                  style={{
-                    left: `${PADDING_OFFSET + divider.position + 15}px`,
-                    top: "35%",
-                    width: "1px",
-                    height: "10px",
-                    zIndex: Z_INDICES.GRID_LINES,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        <ScheduleTimeHeader 
+          dayColumnWidth={GRID_CONFIG.dayColumnWidth} 
+          scrollLeft={scrollLeft} 
+        />
 
         {/* Day Column */}
-        <div
-          className="absolute top-0 bg-white"
-          style={{
-            left: "0px",
-            width: `${DAY_COLUMN_WIDTH}px`,
-            height: "100%",
-            zIndex: Z_INDICES.DAY_HEADERS,
-          }}
-        >
-          <div style={{ height: `${TIME_HEADER_HEIGHT}px` }} />
-
-          <div
-            className="absolute overflow-hidden"
-            style={{
-              top: `${TIME_HEADER_HEIGHT}px`,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-          >
-            <div
-              style={{
-                transform: `translateY(-${scrollTop}px)`,
-              }}
-            >
-              {days.map((day, index) => {
-                const dayDate = getDateFromDayIndex(index)
-                const isTodayDay = dayDate.toDateString() === today.toDateString()
-                return (
-                  <div
-                    key={day.short}
-                    className="flex items-center justify-center bg-white"
-                    style={{
-                      height: `${dayRowHeights[day.full]}px`,
-                    }}
-                  >
-                    <span
-                      className={`text-sm font-semibold text-neutral-700 ${isTodayDay && isTodayInCurrentWeek ? "font-bold" : ""}`}
-                    >
-                      {day.short}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+        <ScheduleDayColumn
+          dayRowHeights={dayRowHeights}
+          scrollTop={scrollTop}
+          getDateFromDayIndex={getDateFromDayIndex}
+          today={today}
+          isTodayInCurrentWeek={isTodayInCurrentWeek}
+        />
 
         {/* Scrollable Content Area */}
         <div
           className="absolute"
           style={{
-            left: `${DAY_COLUMN_WIDTH}px`,
-            top: `${TIME_HEADER_HEIGHT}px`,
+            left: `${GRID_CONFIG.dayColumnWidth}px`,
+            top: `${GRID_CONFIG.timeHeaderHeight}px`,
             right: "0px",
             bottom: "0px",
             zIndex: Z_INDICES.SCROLL_CONTENT,
@@ -1101,10 +496,10 @@ const ScheduleGrid = ({
             <div
               className="relative"
               style={{
-                width: `${timeSlots.length * HOUR_WIDTH}px`,
+                width: `${TIME_SLOTS.length * GRID_CONFIG.hourWidth}px`,
                 height: `${totalGridHeight}px`,
-                minWidth: `${timeSlots.length * HOUR_WIDTH}px`,
-                paddingLeft: `${PADDING_OFFSET}px`,
+                minWidth: `${TIME_SLOTS.length * GRID_CONFIG.hourWidth}px`,
+                paddingLeft: `${GRID_CONFIG.paddingOffset}px`,
               }}
             >
               <div
@@ -1114,11 +509,11 @@ const ScheduleGrid = ({
                   backgroundColor: "transparent",
                   cursor: isDragging ? "grabbing" : "cell",
                 }}
-                onMouseDown={handleMouseDown}
+                onMouseDown={onMouseDown}
               />
 
               {/* Day separator lines */}
-              {days.map((day, i) => {
+              {DAYS.map((day, i) => {
                 if (i === 0) return null
                 const top = getDayRowTop(i)
                 return (
@@ -1136,137 +531,44 @@ const ScheduleGrid = ({
               })}
 
               {/* Schedule events */}
-              {Object.entries(processedSchedules).map(([dayName, timeSlotStacks]) => {
-                const dayIndex = days.findIndex((d) => d.full === dayName)
-                if (dayIndex === -1) return null
+              <ScheduleEventRenderer
+                processedSchedules={processedSchedules}
+                timeToPosition={timeToPosition}
+                calculateEventWidth={calculateEventWidth}
+                getDayRowTop={getDayRowTop}
+                handleScheduleClick={handleScheduleClick}
+              />
 
-                const dayTop = getDayRowTop(dayIndex)
+              {/* Empty states */}
+              <ScheduleEmptyStates
+                selectedDates={selectedDates}
+                processedSchedules={processedSchedules}
+                dayRowHeights={dayRowHeights}
+                getDayRowTop={getDayRowTop}
+              />
 
-                return Object.entries(timeSlotStacks).map(([timeSlot, eventsInSlot]) => {
-                  if (eventsInSlot.length === 0) return null
-
-                  return eventsInSlot.map((event, eventIndex) => {
-                    const leftPosition = timeToPosition(event.startHour, event.startMinute)
-                    const width = calculateEventWidth(
-                      event.startHour,
-                      event.startMinute,
-                      event.endHour,
-                      event.endMinute,
-                    )
-
-                    const laneIndex = event.stackIndex || 0
-
-                    let laneOffset = 0
-                    if (event.totalLanes > 1) {
-                      laneOffset = laneIndex * (SCHEDULE_STACKED_HEIGHT + LANE_SPACING)
-                    }
-
-                    const top = dayTop + DAY_PADDING_TOP + laneOffset
-
-                    return (
-                      <ScheduleEventCard
-                        key={`${event.id}-${laneIndex}`}
-                        event={event}
-                        style={{
-                          left: `${leftPosition + 55}px`,
-                          top: `${top}px`,
-                          width: `${width}px`,
-                          zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,
-                        }}
-                        onClickEvent={(scheduleData) =>
-                          handleScheduleClick({ preventDefault: () => {}, stopPropagation: () => {} }, scheduleData)
-                        }
-                      />
-                    )
-                  })
-                })
-              })}
-
-              {/* Empty state messages */}
-              {selectedDates.length > 0 &&
-                days.map((day, dayIndex) => {
-                  const hasEvents = Object.values(processedSchedules[day.full] || {}).some(
-                    (events) => events.length > 0,
-                  )
-                  const isDaySelected = selectedDates.some((date) => {
-                    const selectedDateObj = new Date(date)
-                    const selectedDayIndex = (selectedDateObj.getDay() + 6) % 7
-                    return selectedDayIndex === dayIndex
-                  })
-
-                  if (isDaySelected && !hasEvents) {
-                    const dayTop = getDayRowTop(dayIndex)
-                    const dayHeight = dayRowHeights[day.full]
-
-                    return (
-                      <div
-                        key={`empty-${dayIndex}`}
-                        className="absolute pointer-events-none flex items-center justify-center"
-                        style={{
-                          left: "120px",
-                          top: `${dayTop + DAY_PADDING_TOP}px`,
-                          width: "240px",
-                          height: `${dayHeight - DAY_PADDING_TOP - DAY_PADDING_BOTTOM}px`,
-                          zIndex: Z_INDICES.BACKGROUND + 1,
-                        }}
-                      >
-                        <div className="text-gray-400 text-xs font-medium bg-gray-50 px-3 py-1 rounded-md">
-                          Belum ada jadwal
-                        </div>
-                      </div>
-                    )
-                  }
-                  return null
-                })}
-
-              {/* No week selected message */}
-              {selectedDates.length === 0 && (
-                <div
-                  className="absolute pointer-events-none flex items-center justify-center"
-                  style={{
-                    left: "50%",
-                    top: "50%",
-                    transform: "translate(-50%, -50%)",
-                    zIndex: Z_INDICES.BACKGROUND + 1,
-                  }}
-                >
-                  {/* <div className="text-gray-400 text-sm font-medium bg-gray-50 px-4 py-2 rounded-md">
-                    Pilih minggu di kalender untuk melihat jadwal
-                  </div> */}
-                </div>
-              )}
-
-              {selectionBox}
+              {/* Selection box */}
+              <ScheduleSelectionBox
+                selectedArea={selectedArea}
+                isDragging={isDragging}
+                getDayRowTop={getDayRowTop}
+                dayRowHeights={dayRowHeights}
+              />
             </div>
           </div>
         </div>
 
-        {/* FIXED: Current time line - only show if current date is in selected week */}
-        {isCurrentDateInSelectedWeek && (
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              left: `${DAY_COLUMN_WIDTH + PADDING_OFFSET + getCurrentTimePosition() + 15 - scrollLeft}px`,
-              top: `${TIME_HEADER_HEIGHT}px`,
-              height: `${totalGridHeight}px`,
-              zIndex: Z_INDICES.CURRENT_TIME,
-              width: "2px",
-            }}
-          >
-            <div className="relative w-full h-full bg-red-500 shadow-sm">
-              <div
-                className="absolute w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm"
-                style={{ top: "-5px", left: "50%", transform: "translateX(-50%)" }}
-              />
-
-              <div className="absolute" style={{ left: "4px", top: "2px" }}>
-                <div className="bg-black bg-opacity-90 rounded text-white text-xs font-mono px-1.5 py-1 whitespace-nowrap shadow-md">
-                  {getCurrentTimeString()}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Current time line */}
+        <ScheduleTimeIndicator
+          isCurrentDateInSelectedWeek={isCurrentDateInSelectedWeek}
+          timeToPosition={timeToPosition}
+          dayColumnWidth={GRID_CONFIG.dayColumnWidth}
+          paddingOffset={GRID_CONFIG.paddingOffset}
+          totalGridHeight={totalGridHeight}
+          timeHeaderHeight={GRID_CONFIG.timeHeaderHeight}
+          scrollLeft={scrollLeft}
+          zIndex={Z_INDICES.CURRENT_TIME}
+        />
 
         {/* Tooltip */}
         {dragTimeTooltip && (
