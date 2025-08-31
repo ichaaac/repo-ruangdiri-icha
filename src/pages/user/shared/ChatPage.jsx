@@ -1,4 +1,4 @@
-// src/pages/user/shared/ChatPage.jsx - FIXED: Missing props and function calls
+// src/pages/user/shared/ChatPage.jsx - PARENT PAGES OF CHATS
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
