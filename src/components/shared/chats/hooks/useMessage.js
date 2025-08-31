@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useMessages.js - FIXED: WhatsApp-like File Upload System
+// src/components/shared/chats/hooks/useMessages.js - FIXED: No Duplicate Messages
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -55,30 +55,11 @@ export const useMessages = (sessionId, ably = null) => {
     refetchOnMount: true
   });
 
-  // Send text message mutation
+  // FIXED: Send text message mutation - No Ably broadcast to prevent duplicates
   const sendMutation = useMutation({
     mutationFn: async ({ sessionId, content }) => {
-      // Try broadcasting via Ably first
-      if (ably && sessionId !== 'team-ruangdiri') {
-        const currentUserId = getCurrentUserId();
-        const messageData = {
-          sessionId,
-          message: content,
-          messageType: 'text',
-          senderId: currentUserId,
-          timestamp: new Date().toISOString()
-        };
-        
-        try {
-          const sentViaAbly = await ably.sendMessageViaAbly(sessionId, messageData);
-          if (sentViaAbly) {
-            console.log('📤 Message broadcasted via Ably');
-          }
-        } catch (error) {
-          console.warn('⚠️ Ably broadcast failed, API will handle:', error);
-        }
-      }
-      
+      // REMOVED: Ably broadcast here to prevent duplicates
+      // Ably will receive the message from backend and add it via handleAblyMessage
       return chatsApi.sendMessage(sessionId, content);
     },
     onMutate: async ({ sessionId, content }) => {
@@ -86,8 +67,10 @@ export const useMessages = (sessionId, ably = null) => {
       const previousMessages = queryClient.getQueryData(['chat-messages', sessionId]);
 
       const currentUserId = getCurrentUserId();
+      const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+      
       const optimisticMessage = {
-        id: `temp-${Date.now()}`,
+        id: optimisticId,
         text: content,
         time: getCurrentTime(),
         timestamp: getCurrentTimestamp(),
@@ -100,6 +83,7 @@ export const useMessages = (sessionId, ably = null) => {
         },
         messageType: 'text',
         isOptimistic: true,
+        optimisticId, // Track for removal
         isRead: false,
         isSending: true
       };
@@ -138,7 +122,7 @@ export const useMessages = (sessionId, ably = null) => {
         }, 1500);
       }
 
-      return { previousMessages };
+      return { previousMessages, optimisticId };
     },
     onError: (err, { sessionId }, context) => {
       if (context?.previousMessages) {
@@ -146,11 +130,17 @@ export const useMessages = (sessionId, ably = null) => {
       }
       console.error('Failed to send message:', err);
     },
-    onSuccess: (newMessage, { sessionId }) => {
+    onSuccess: (newMessage, { sessionId }, context) => {
       console.log('✅ Message sent successfully, backend response:', newMessage);
       
+      // FIXED: Remove optimistic message and add real message without duplicates
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
-        const withoutOptimistic = old.filter(msg => !msg.isOptimistic);
+        // Remove optimistic message with matching ID
+        const withoutOptimistic = old.filter(msg => 
+          msg.optimisticId !== context?.optimisticId && !msg.isOptimistic
+        );
+        
+        // Check if real message already exists (from Ably)
         const exists = withoutOptimistic.some(msg => msg.id === newMessage.id);
         
         if (!exists) {
@@ -169,10 +159,10 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // FIXED: Send file mutation with WhatsApp-like behavior
+  // FIXED: Send file mutation using correct endpoint
   const sendFileMutation = useMutation({
     mutationFn: async ({ sessionId, file, messageType, caption }) => {
-      console.log('📤 Starting file upload...', {
+      console.log('📤 Starting file upload to /chat/messages/upload...', {
         fileName: file.name,
         fileSize: file.size,
         sessionId,
@@ -180,6 +170,7 @@ export const useMessages = (sessionId, ably = null) => {
         hasCaption: !!caption
       });
       
+      // Use correct upload endpoint
       return chatsApi.sendFileMessage(sessionId, file, messageType, caption || '');
     },
     onMutate: async ({ sessionId, file, messageType, caption }) => {
@@ -187,9 +178,11 @@ export const useMessages = (sessionId, ably = null) => {
       const previousMessages = queryClient.getQueryData(['chat-messages', sessionId]);
 
       const currentUserId = getCurrentUserId();
+      const optimisticId = `temp-file-${Date.now()}-${Math.random()}`;
+      
       const optimisticMessage = {
-        id: `temp-file-${Date.now()}`,
-        text: caption || `Uploading ${file.name}...`,
+        id: optimisticId,
+        text: caption || `📎 ${file.name}`,
         time: getCurrentTime(),
         timestamp: getCurrentTimestamp(),
         isUser: true,
@@ -201,13 +194,14 @@ export const useMessages = (sessionId, ably = null) => {
         },
         messageType: messageType,
         isOptimistic: true,
+        optimisticId, // Track for removal
         isRead: false,
         isUploading: true,
         // Add file preview data for immediate display
         attachmentName: file.name,
         attachmentSize: file.size,
         attachmentType: file.type,
-        // Create preview URL for images
+        // Create preview URL for images (client-side upload preview)
         attachmentUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
       };
 
@@ -215,7 +209,7 @@ export const useMessages = (sessionId, ably = null) => {
         return [...old, optimisticMessage];
       });
 
-      return { previousMessages };
+      return { previousMessages, optimisticId };
     },
     onError: (err, { sessionId }, context) => {
       if (context?.previousMessages) {
@@ -226,7 +220,7 @@ export const useMessages = (sessionId, ably = null) => {
       // Show error in optimistic message
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         return old.map(msg => {
-          if (msg.isOptimistic && msg.isUploading) {
+          if (msg.optimisticId === context?.optimisticId && msg.isUploading) {
             return {
               ...msg,
               isUploading: false,
@@ -238,11 +232,23 @@ export const useMessages = (sessionId, ably = null) => {
         });
       });
     },
-    onSuccess: (newMessage, { sessionId, file }) => {
-      console.log('✅ File sent successfully, backend response:', newMessage);
+    onSuccess: (newMessage, { sessionId, file }, context) => {
+      console.log('✅ File sent successfully via /chat/messages/upload:', newMessage);
       
+      // FIXED: Remove optimistic message and add real message without duplicates
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
-        const withoutOptimistic = old.filter(msg => !msg.isOptimistic);
+        // Remove optimistic message
+        const withoutOptimistic = old.filter(msg => 
+          msg.optimisticId !== context?.optimisticId && !msg.isOptimistic
+        );
+        
+        // Clean up preview URL if it was created
+        const optimisticMsg = old.find(msg => msg.optimisticId === context?.optimisticId);
+        if (optimisticMsg?.attachmentUrl && optimisticMsg.attachmentUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(optimisticMsg.attachmentUrl);
+        }
+        
+        // Check if real message already exists (from Ably)
         const exists = withoutOptimistic.some(msg => msg.id === newMessage.id);
         
         if (!exists) {
@@ -251,13 +257,6 @@ export const useMessages = (sessionId, ably = null) => {
             isUploading: false,
             isSent: true
           };
-          
-          // Clean up preview URL if it was created
-          const optimisticMsg = old.find(msg => msg.isOptimistic && msg.isUploading);
-          if (optimisticMsg?.attachmentUrl && optimisticMsg.attachmentUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(optimisticMsg.attachmentUrl);
-          }
-          
           return [...withoutOptimistic, finalMessage];
         }
         
@@ -295,7 +294,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, sendMutation.mutateAsync]);
 
-  // FIXED: Send file function with caption support
+  // FIXED: Send file function with caption support - uses upload endpoint
   const sendFile = useCallback(async (file, fileType = 'file', caption = '') => {
     if (!sessionId || !file) {
       console.warn('Cannot send file: missing sessionId or file');
@@ -313,7 +312,7 @@ export const useMessages = (sessionId, ably = null) => {
       // Get message type from file or use provided fileType
       const messageType = fileType || chatsApi.getFileTypeCategory(file);
       
-      console.log('📤 Sending file...', {
+      console.log('📤 Sending file to /chat/messages/upload...', {
         fileName: file.name,
         messageType,
         hasCaption: !!caption
@@ -326,7 +325,7 @@ export const useMessages = (sessionId, ably = null) => {
         caption: caption?.trim() || ''
       });
       
-      console.log('✅ File sent successfully');
+      console.log('✅ File sent successfully via upload endpoint');
     } catch (error) {
       console.error('Send file failed:', error);
       throw error;
@@ -350,13 +349,22 @@ export const useMessages = (sessionId, ably = null) => {
     markAsReadMutation.mutate(sessionId);
   }, [sessionId, markAsReadMutation.mutate]);
 
-  // Memoize add message function
+  // FIXED: Add message function - prevent duplicates
   const addMessage = useCallback((message) => {
     if (!sessionId) return;
 
     queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
-      const exists = old.some(msg => msg.id === message.id);
-      if (exists) return old;
+      // Check for duplicates by ID and timestamp
+      const exists = old.some(msg => 
+        msg.id === message.id || 
+        (msg.timestamp === message.timestamp && msg.text === message.text && msg.senderId === message.senderId)
+      );
+      
+      if (exists) {
+        console.log('🔄 Duplicate message prevented:', message.id);
+        return old;
+      }
+      
       return [...old, message];
     });
   }, [sessionId, queryClient]);
@@ -541,7 +549,7 @@ export const useMessages = (sessionId, ably = null) => {
     messageText,
     setMessageText,
     sendMessage,
-    sendFile, // FIXED: Supports caption now
+    sendFile, // Uses /chat/messages/upload endpoint
     sendCurrentMessage,
     markAsRead,
     addMessage,

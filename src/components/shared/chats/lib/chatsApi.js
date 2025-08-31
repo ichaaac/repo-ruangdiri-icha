@@ -1,4 +1,4 @@
-// src/components/shared/chats/lib/chatsApi.js - FIXED: WhatsApp-like Upload System
+// src/components/shared/chats/lib/chatsApi.js - FIXED: Correct Upload Endpoint & No Duplicates
 
 import { apiClient } from "../../../../lib/api.js";
 import { formatChatTime, getCurrentTime, getCurrentTimestamp } from "../utils/dateUtils";
@@ -291,7 +291,7 @@ export const chatsApi = {
     }
   },
 
-  // Send message with encryption
+  // FIXED: Send message with encryption - NO ABLY BROADCAST
   async sendMessage(sessionId, content, messageType = 'text') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -327,6 +327,7 @@ export const chatsApi = {
         console.warn('Failed to encrypt message, sending plaintext:', error);
       }
 
+      console.log('📤 Sending to POST /chat/messages...');
       const response = await apiClient.post('/chat/messages', {
         sessionId,
         message: encryptedContent,
@@ -346,7 +347,7 @@ export const chatsApi = {
           console.warn('Failed to decrypt returned message:', error);
         }
         
-        return {
+        const result = {
           id: msg.id,
           text: displayMessage,
           time: formatChatTime(msg.createdAt),
@@ -366,6 +367,9 @@ export const chatsApi = {
           attachmentSize: msg.attachmentSize,
           wasEncrypted: isEncrypted
         };
+        
+        console.log('✅ Message sent via /chat/messages:', result);
+        return result;
       }
       
       throw new Error(response.data?.message || 'Failed to send message');
@@ -375,7 +379,7 @@ export const chatsApi = {
     }
   },
 
-  // FIXED: Send file message with proper FormData handling
+  // FIXED: Send file message using CORRECT /chat/messages/upload endpoint
   async sendFileMessage(sessionId, file, messageType = 'file', caption = '') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -387,31 +391,36 @@ export const chatsApi = {
 
       const formData = new FormData();
       formData.append('sessionId', sessionId);
-      formData.append('file', file); // Use 'file' field name as per backend
+      formData.append('file', file); // The actual file
       formData.append('messageType', messageType);
       
-      // Add caption if provided (encrypt it)
-      if (caption && caption.trim()) {
+      // Add caption/message if provided (encrypt it)
+      let messageToSend = caption?.trim() || file.name || 'File attachment';
+      
+      if (messageToSend && messageToSend !== file.name) {
         try {
-          const encryptedCaption = chatEncryption.encrypt(caption.trim(), sessionId);
-          formData.append('message', encryptedCaption);
+          const encryptedMessage = chatEncryption.encrypt(messageToSend, sessionId);
+          formData.append('message', encryptedMessage);
+          console.log('🔒 Caption encrypted before upload');
         } catch (error) {
           console.warn('Failed to encrypt caption:', error);
-          formData.append('message', caption.trim());
+          formData.append('message', messageToSend);
         }
       } else {
-        formData.append('message', file.name); // Default to filename
+        formData.append('message', messageToSend);
       }
 
-      console.log('📤 Uploading file to backend:', {
+      console.log('📤 FIXED: Uploading file to /chat/messages/upload:', {
         name: file.name,
         size: file.size,
         type: file.type,
         sessionId,
         messageType,
-        hasCaption: !!caption
+        hasCaption: !!caption?.trim(),
+        endpoint: '/chat/messages/upload'
       });
 
+      // FIXED: Use correct upload endpoint
       const response = await apiClient.post('/chat/messages/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -427,16 +436,17 @@ export const chatsApi = {
         // Decrypt message/caption if it exists
         let displayMessage = msg.message || `Uploaded: ${file.name}`;
         try {
-          if (msg.message && msg.message !== file.name) {
+          if (msg.message && msg.message !== file.name && msg.message !== messageToSend) {
             displayMessage = chatEncryption.decrypt(msg.message, sessionId);
+            console.log('🔓 File caption decrypted');
           }
         } catch (error) {
           console.warn('Failed to decrypt file caption:', error);
         }
         
-        console.log('✅ File uploaded successfully:', response.data);
+        console.log('✅ File uploaded successfully via /chat/messages/upload:', response.data);
         
-        return {
+        const result = {
           id: msg.id,
           text: displayMessage,
           time: formatChatTime(msg.createdAt),
@@ -456,11 +466,14 @@ export const chatsApi = {
           attachmentName: msg.attachmentName || file.name,
           attachmentSize: msg.attachmentSize || file.size
         };
+        
+        console.log('✅ Processed upload result:', result);
+        return result;
       }
       
       throw new Error(response.data?.message || 'Failed to upload file');
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('❌ Error uploading file to /chat/messages/upload:', error);
       
       // Provide more specific error messages
       if (error.code === 'ECONNABORTED') {
