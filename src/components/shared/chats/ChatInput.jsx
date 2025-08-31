@@ -1,48 +1,10 @@
-// src/components/shared/chats/components/ChatInput.jsx - FIXED: Client-side Upload with Preview
+// src/components/shared/chats/components/ChatInput.jsx - WORKING: Client Upload to Endpoint
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// FIXED: Upload Status Component with better states
-const UploadStatus = ({ status, progress, onRetry, fileName, error }) => {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      {status === 'uploading' && (
-        <>
-          <div className="animate-spin rounded-full h-3 w-3 border border-blue-400 border-t-transparent"></div>
-          <span className="text-blue-600">Preparing {fileName}... {progress}%</span>
-        </>
-      )}
-      {status === 'ready' && (
-        <>
-          <span className="material-icons text-green-500 text-sm">check_circle</span>
-          <span className="text-green-600">Ready to send</span>
-        </>
-      )}
-      {status === 'sending' && (
-        <>
-          <div className="animate-spin rounded-full h-3 w-3 border border-orange-400 border-t-transparent"></div>
-          <span className="text-orange-600">Sending to server...</span>
-        </>
-      )}
-      {status === 'error' && (
-        <>
-          <span className="material-icons text-red-500 text-sm">error</span>
-          <span className="text-red-600">Error: {error || 'Upload failed'}</span>
-          <button 
-            onClick={onRetry}
-            className="text-blue-600 underline ml-1 hover:text-blue-800"
-          >
-            Retry
-          </button>
-        </>
-      )}
-    </div>
-  );
-};
-
-// FIXED: File Preview Component with better preview handling
-const FilePreview = ({ fileItem, onRemove, onRetry, onEditCaption }) => {
+// File Preview Component
+const FilePreview = ({ fileItem, onRemove, onEditCaption }) => {
   const [caption, setCaption] = useState(fileItem.caption || '');
   const [isEditingCaption, setIsEditingCaption] = useState(false);
   
@@ -62,7 +24,6 @@ const FilePreview = ({ fileItem, onRemove, onRetry, onEditCaption }) => {
     if (type.includes('pdf')) return 'picture_as_pdf';
     if (type.includes('word')) return 'description';
     if (type.includes('excel') || type.includes('sheet')) return 'table_chart';
-    if (type.includes('powerpoint') || type.includes('presentation')) return 'slideshow';
     return 'attach_file';
   };
 
@@ -71,108 +32,76 @@ const FilePreview = ({ fileItem, onRemove, onRetry, onEditCaption }) => {
     setIsEditingCaption(false);
   };
 
-  const handleCaptionCancel = () => {
-    setCaption(fileItem.caption || '');
-    setIsEditingCaption(false);
-  };
-
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      className={`relative bg-white border rounded-lg p-3 shadow-sm ${
-        fileItem.status === 'error' ? 'border-red-300 bg-red-50' : 
-        fileItem.status === 'ready' ? 'border-green-300 bg-green-50' :
-        'border-gray-200'
-      }`}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className="relative bg-white border-2 border-green-300 bg-green-50 rounded-lg p-3 shadow-sm"
     >
-      {/* Remove button */}
       <button
         onClick={() => onRemove(fileItem.id)}
-        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
-        title="Remove file"
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 text-sm font-bold"
       >
-        <span className="material-icons text-xs">close</span>
+        ×
       </button>
 
       <div className="flex items-start gap-3">
-        {/* Preview/Icon */}
-        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border">
           {isImage && previewUrl ? (
-            <img 
-              src={previewUrl} 
-              alt={fileItem.file.name}
-              className="w-full h-full object-cover"
-            />
+            <img src={previewUrl} alt={fileItem.fileName} className="w-full h-full object-cover" />
           ) : (
-            <span 
-              className="material-icons text-gray-600"
-              style={{ color: '#488BBA' }}
-            >
+            <span className="material-icons text-gray-600 text-2xl" style={{ color: '#488BBA' }}>
               {getFileIcon(fileItem.file.type)}
             </span>
           )}
         </div>
 
-        {/* File Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800 truncate">
-            {fileItem.file.name}
-          </p>
-          <p className="text-xs text-gray-500">
-            {formatFileSize(fileItem.file.size)}
-          </p>
+          <p className="text-sm font-medium text-gray-800 truncate">{fileItem.fileName}</p>
+          <p className="text-xs text-gray-500 mt-1">{formatFileSize(fileItem.fileSize)}</p>
           
-          {/* Upload Status */}
-          <UploadStatus 
-            status={fileItem.status}
-            progress={fileItem.progress}
-            onRetry={() => onRetry(fileItem)}
-            fileName={fileItem.file.name}
-            error={fileItem.error}
-          />
+          <div className="mt-1">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="material-icons text-green-500 text-sm">check_circle</span>
+              <span className="text-green-600">Ready to send</span>
+            </div>
+          </div>
 
-          {/* Caption Input */}
           {isEditingCaption ? (
-            <div className="mt-2 space-y-2">
+            <div className="mt-3 space-y-2">
               <input
                 type="text"
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Add a caption..."
-                className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') handleCaptionSave();
-                  if (e.key === 'Escape') handleCaptionCancel();
                 }}
               />
               <div className="flex gap-2">
-                <button
-                  onClick={handleCaptionSave}
-                  className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
+                <button onClick={handleCaptionSave} className="text-xs px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600">
                   Save
                 </button>
-                <button
-                  onClick={handleCaptionCancel}
-                  className="text-xs px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                >
+                <button onClick={() => setIsEditingCaption(false)} className="text-xs px-3 py-1 bg-gray-300 text-gray-700 rounded-md">
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <div className="mt-2 flex items-center gap-2">
-              {fileItem.caption ? (
-                <p className="text-xs text-gray-600 italic">"{fileItem.caption}"</p>
-              ) : (
-                <p className="text-xs text-gray-400">No caption</p>
-              )}
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex-1">
+                {fileItem.caption ? (
+                  <p className="text-sm text-gray-700 italic bg-gray-50 px-2 py-1 rounded">"{fileItem.caption}"</p>
+                ) : (
+                  <p className="text-xs text-gray-400">No caption</p>
+                )}
+              </div>
               <button
                 onClick={() => setIsEditingCaption(true)}
-                className="text-xs text-blue-500 hover:text-blue-700"
+                className="ml-2 text-blue-500 hover:text-blue-700 p-1"
                 title="Edit caption"
               >
                 <span className="material-icons text-sm">edit</span>
@@ -185,7 +114,7 @@ const FilePreview = ({ fileItem, onRemove, onRetry, onEditCaption }) => {
   );
 };
 
-// Upload Dropdown Component (unchanged)
+// Upload Dropdown Component
 const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
   const dropdownRef = useRef(null);
   const imageInputRef = useRef(null);
@@ -220,7 +149,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
   const handleImageChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (selectedFiles.length > 0) {
-      onFilesSelect(selectedFiles, 'image');
+      onFilesSelect(selectedFiles);
     }
     e.target.value = '';
   };
@@ -228,7 +157,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (selectedFiles.length > 0) {
-      onFilesSelect(selectedFiles, 'file');
+      onFilesSelect(selectedFiles);
     }
     e.target.value = '';
   };
@@ -236,38 +165,15 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
   if (!isOpen) return null;
 
   return (
-    <div 
-      ref={dropdownRef}
-      className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-48 z-50"
-    >
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleImageChange}
-        className="hidden"
-      />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
-        multiple
-        onChange={handleFileChange}
-        className="hidden"
-      />
+    <div ref={dropdownRef} className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-2 w-48 z-50">
+      <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" />
+      <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip,.rar" multiple onChange={handleFileChange} className="hidden" />
       
-      <button 
-        onClick={handleImageSelect}
-        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-      >
+      <button onClick={handleImageSelect} className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
         <span className="material-icons text-gray-600 text-sm">image</span>
         Upload Images (Max 15MB)
       </button>
-      <button 
-        onClick={handleFileSelect}
-        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-      >
+      <button onClick={handleFileSelect} className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
         <span className="material-icons text-gray-600 text-sm">attach_file</span>
         Upload Documents (Max 15MB)
       </button>
@@ -275,7 +181,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect }) => {
   );
 };
 
-// FIXED: Main ChatInput Component with proper client-side upload
+// MAIN ChatInput Component
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
@@ -285,73 +191,20 @@ const ChatInput = ({
   isSending,
   isAIChat,
   onKeyPress,
-  onFileUpload,
+  onFileUpload, // This should be the function that hits the endpoint
   selectedConversation
 }) => {
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
 
-  // FIXED: Client-side file processing with preview generation
-  const processFileForClient = useCallback(async (file) => {
-    const fileId = `${Date.now()}-${Math.random()}-${file.name}`;
-    
-    // Create preview URL for images
-    let previewUrl = null;
-    if (file.type.startsWith('image/')) {
-      previewUrl = URL.createObjectURL(file);
-    }
+  console.log('ChatInput render:', {
+    pendingFilesCount: pendingFiles.length,
+    hasOnFileUpload: !!onFileUpload,
+    canSendMessage: typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage,
+    sessionId: selectedConversation?.sessionId
+  });
 
-    // Simulate client processing (in real app, you might compress, resize, etc.)
-    const fileItem = {
-      id: fileId,
-      file: file,
-      fileType: file.type.startsWith('image/') ? 'image' : 'file',
-      previewUrl: previewUrl,
-      status: 'uploading',
-      progress: 0,
-      caption: '',
-      error: null,
-      timestamp: Date.now()
-    };
-
-    return fileItem;
-  }, []);
-
-  // FIXED: Simulate client-side processing progress
-  const simulateProcessing = useCallback(async (fileItem) => {
-    setPendingFiles(prev => 
-      prev.map(item => 
-        item.id === fileItem.id 
-          ? { ...item, status: 'uploading', progress: 0 }
-          : item
-      )
-    );
-
-    // Simulate processing progress
-    for (let progress = 0; progress <= 100; progress += 25) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      setPendingFiles(prev => 
-        prev.map(item => 
-          item.id === fileItem.id 
-            ? { ...item, progress }
-            : item
-        )
-      );
-    }
-
-    // Mark as ready
-    setPendingFiles(prev => 
-      prev.map(item => 
-        item.id === fileItem.id 
-          ? { ...item, status: 'ready', progress: 100 }
-          : item
-      )
-    );
-
-    console.log('✅ File processed on client:', fileItem.file.name);
-  }, []);
-
-  // Validate file function
+  // Validate file
   const validateFile = (file) => {
     const maxSize = 15 * 1024 * 1024; // 15MB
     const allowedTypes = [
@@ -374,52 +227,48 @@ const ChatInput = ({
     return true;
   };
 
-  // FIXED: Handle file selection with client-side processing
-  const handleFilesSelect = useCallback(async (files, fileType) => {
-    console.log('📁 Processing files on client...', files.length);
+  // Handle file selection - immediate client preview
+  const handleFilesSelect = useCallback((files) => {
+    console.log('ChatInput: Files selected:', files.length);
     
     for (const file of files) {
       try {
-        // Validate file
         validateFile(file);
         
-        // Process file on client-side
-        const fileItem = await processFileForClient(file);
+        const fileId = `chatinput-${Date.now()}-${Math.random()}`;
+        const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
         
-        // Add to pending files
+        const fileItem = {
+          id: fileId,
+          file: file,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type.startsWith('image/') ? 'image' : 'file',
+          previewUrl: previewUrl,
+          status: 'ready',
+          caption: ''
+        };
+        
         setPendingFiles(prev => [...prev, fileItem]);
-        
-        // Start client-side processing
-        simulateProcessing(fileItem).catch(error => {
-          console.error('Client processing failed:', error);
-          setPendingFiles(prev => 
-            prev.map(item => 
-              item.id === fileItem.id 
-                ? { ...item, status: 'error', error: error.message }
-                : item
-            )
-          );
-        });
+        console.log('ChatInput: File added to preview:', file.name);
         
       } catch (error) {
-        console.error('File validation failed:', file.name, error.message);
+        console.error('File validation failed:', error);
         alert(`${file.name}: ${error.message}`);
       }
     }
-  }, [processFileForClient, simulateProcessing]);
+  }, []);
 
-  // Remove file from pending list
+  // Remove file from preview
   const handleRemoveFile = useCallback((fileId) => {
     setPendingFiles(prev => {
       const fileToRemove = prev.find(f => f.id === fileId);
-      
-      // Clean up preview URL if exists
       if (fileToRemove?.previewUrl) {
         URL.revokeObjectURL(fileToRemove.previewUrl);
       }
-      
       return prev.filter(f => f.id !== fileId);
     });
+    console.log('ChatInput: File removed:', fileId);
   }, []);
 
   // Edit file caption
@@ -431,80 +280,61 @@ const ChatInput = ({
           : item
       )
     );
+    console.log('ChatInput: Caption updated for file:', fileId, newCaption);
   }, []);
 
-  // Retry file processing
-  const handleRetryFile = useCallback(async (fileItem) => {
-    console.log('🔄 Retrying file processing:', fileItem.file.name);
-    await simulateProcessing(fileItem);
-  }, [simulateProcessing]);
-
-  // FIXED: Send message with attachments using correct endpoint
+  // MAIN SEND FUNCTION - Upload files to endpoint
   const handleSendMessage = useCallback(async () => {
     const hasText = messageText?.trim();
     const hasFiles = pendingFiles.length > 0;
-    const allFilesReady = pendingFiles.every(f => f.status === 'ready');
 
-    console.log('📤 Send attempt:', {
+    console.log('ChatInput: Send clicked:', {
       hasText,
       hasFiles,
-      allFilesReady,
-      filesCount: pendingFiles.length
+      filesCount: pendingFiles.length,
+      hasOnFileUpload: !!onFileUpload,
+      sessionId: selectedConversation?.sessionId
     });
 
-    // Check if we can send
     if (!hasText && !hasFiles) {
-      console.warn('Nothing to send');
-      return;
-    }
-
-    // If we have files, make sure they're all ready
-    if (hasFiles && !allFilesReady) {
-      alert('Please wait for all files to finish processing');
+      console.warn('ChatInput: Nothing to send');
       return;
     }
 
     try {
-      // Send text message first if exists (without files)
+      // Send text message first if exists and no files
       if (hasText && !hasFiles) {
+        console.log('ChatInput: Sending text only');
         await onSendMessage();
+        return;
       }
       
-      // Send files using correct upload endpoint
-      if (hasFiles && allFilesReady) {
-        console.log('📤 Sending files via /chat/messages/upload...');
+      // Upload files to endpoint
+      if (hasFiles) {
+        console.log('ChatInput: Starting file uploads...');
         
-        // Mark files as sending
-        setPendingFiles(prev => 
-          prev.map(item => ({ ...item, status: 'sending' }))
-        );
-        
-        // Send each file individually to /chat/messages/upload
+        if (!onFileUpload) {
+          throw new Error('onFileUpload function not provided');
+        }
+
+        // Upload each file to endpoint
         for (const fileItem of pendingFiles) {
           try {
-            console.log(`📤 Uploading: ${fileItem.file.name} with caption: "${fileItem.caption}"`);
+            console.log(`ChatInput: Uploading ${fileItem.fileName} to endpoint...`);
             
-            // Use onFileUpload which should call chatsApi.sendFileMessage -> /chat/messages/upload
+            // Hit the endpoint with file + caption
             await onFileUpload(fileItem.file, fileItem.fileType, fileItem.caption);
             
-            console.log(`✅ File uploaded successfully: ${fileItem.file.name}`);
+            console.log(`ChatInput: Successfully uploaded ${fileItem.fileName}`);
           } catch (error) {
-            console.error(`❌ File upload failed: ${fileItem.file.name}`, error);
-            // Mark specific file as error
-            setPendingFiles(prev => 
-              prev.map(item => 
-                item.id === fileItem.id 
-                  ? { ...item, status: 'error', error: error.message }
-                  : item
-              )
-            );
-            throw error; // Stop further uploads
+            console.error(`ChatInput: Failed to upload ${fileItem.fileName}:`, error);
+            alert(`Failed to upload ${fileItem.fileName}: ${error.message}`);
+            throw error;
           }
         }
         
-        // Clear pending files after successful upload
+        // Clear files after successful upload
         setPendingFiles(prev => {
-          // Clean up preview URLs
           prev.forEach(item => {
             if (item.previewUrl) {
               URL.revokeObjectURL(item.previewUrl);
@@ -513,23 +343,24 @@ const ChatInput = ({
           return [];
         });
         
-        console.log('✅ All files sent successfully');
+        console.log('ChatInput: All files uploaded successfully');
       }
 
-      // Send text with files (if both exist)
-      if (hasText && hasFiles && allFilesReady) {
-        await onSendMessage(); // Send the text message
+      // Send text after files (if both exist)
+      if (hasText && hasFiles) {
+        console.log('ChatInput: Sending text after files');
+        await onSendMessage();
       }
 
     } catch (error) {
-      console.error('❌ Send failed:', error);
+      console.error('ChatInput: Send failed:', error);
       alert('Failed to send. Please try again.');
     }
-  }, [messageText, pendingFiles, onSendMessage, onFileUpload]);
+  }, [messageText, pendingFiles, onSendMessage, onFileUpload, selectedConversation?.sessionId]);
 
   const canUploadFiles = !isAIChat && (typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage);
   const canSend = (typeof canSendMessageWithText === 'function' ? canSendMessageWithText() : canSendMessageWithText) || 
-                  (pendingFiles.length > 0 && pendingFiles.every(f => f.status === 'ready'));
+                  (pendingFiles.length > 0);
 
   return (
     <div className="flex-shrink-0 bg-white border-solid border-y-[0.25px] border-y-zinc-500 px-4 sm:px-[19px] py-4 sm:py-[19px]">
@@ -540,14 +371,16 @@ const ChatInput = ({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="mb-4 space-y-2 max-h-60 overflow-y-auto"
+            className="mb-4 space-y-3 max-h-80 overflow-y-auto rounded-lg"
           >
+            <div className="text-xs text-gray-600 font-medium px-2">
+              {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''} ready to send to endpoint
+            </div>
             {pendingFiles.map((fileItem) => (
               <FilePreview
                 key={fileItem.id}
                 fileItem={fileItem}
                 onRemove={handleRemoveFile}
-                onRetry={handleRetryFile}
                 onEditCaption={handleEditCaption}
               />
             ))}
@@ -582,7 +415,7 @@ const ChatInput = ({
                   aria-label="Add attachment"
                   disabled={!canUploadFiles}
                   onClick={() => setShowUploadDropdown(!showUploadDropdown)}
-                  title={!canUploadFiles ? (isAIChat ? "File upload not supported for AI assistant" : "Cannot upload files in current session") : "Upload files (Max 15MB)"}
+                  title={!canUploadFiles ? (isAIChat ? "File upload not supported for AI assistant" : "Cannot upload files in current session") : "Upload files to endpoint (Max 15MB)"}
                 >
                   <span className="material-icons text-zinc-500 text-lg sm:text-xl">add_circle_outline</span>
                 </button>
@@ -607,7 +440,7 @@ const ChatInput = ({
               disabled={!canSend || isSending}
               className="p-2 disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors" 
               aria-label="Send message"
-              title={!canSend ? "Cannot send message" : "Send message"}
+              title={!canSend ? "Cannot send message" : "Send message and upload files to endpoint"}
             >
               {isSending ? (
                 <div 
@@ -626,6 +459,13 @@ const ChatInput = ({
           </div>
         </div>
       </div>
+
+      {/* Debug Info */}
+      {pendingFiles.length > 0 && (
+        <div className="mt-2 text-xs text-gray-500">
+          Debug: {pendingFiles.length} files ready, onFileUpload: {!!onFileUpload ? 'available' : 'missing'}
+        </div>
+      )}
     </div>
   );
 };
