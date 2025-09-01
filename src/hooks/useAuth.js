@@ -1,8 +1,10 @@
-// src/hooks/useAuth.js - UPDATED WITH TIMEZONE SUPPORT
+// src/hooks/useAuth.js - UPDATED WITH E2E SUPPORT
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
 import api, { getMe } from "../lib/api"
+import e2eEncryption from '../components/shared/chats/lib/encryption'
+import { chatsApi } from '../components/shared/chats/lib/chatsApi'
 
 export const useAuth = () => {
   const queryClient = useQueryClient()
@@ -25,7 +27,7 @@ export const useAuth = () => {
         if (response?.status === "success") {
           const userData = response.data
 
-          // ✅ NEW: Store timezone from user profile
+          // Store timezone from user profile
           if (userData?.timezone) {
             localStorage.setItem("userTimezone", userData.timezone)
           }
@@ -52,7 +54,10 @@ export const useAuth = () => {
           localStorage.removeItem("token")
           localStorage.removeItem("organizationType")
           localStorage.removeItem("userRole")
-          localStorage.removeItem("userTimezone") // ✅ NEW: Clear timezone on auth error
+          localStorage.removeItem("userTimezone")
+          // 🔐 E2E: Clear E2E keys on auth error
+          localStorage.removeItem("e2e_private_key")
+          e2eEncryption.clearAllSessionKeys()
         }
         return null
       }
@@ -64,14 +69,61 @@ export const useAuth = () => {
     cacheTime: 15 * 60 * 1000, // 15 minutes
   })
 
+  // 🔐 E2E: Setup E2E keys during login
+  const setupE2EKeys = async (userPassword) => {
+    try {
+      console.log('🔐 Setting up E2E keys during login...')
+
+      // Check if user already has E2E keys
+      if (e2eEncryption.hasAccountKeyPair()) {
+        console.log('✅ E2E keys already exist, retrieving...')
+        
+        try {
+          const privateKey = e2eEncryption.retrievePrivateKey(userPassword)
+          console.log('✅ E2E private key retrieved successfully')
+          return true
+        } catch (error) {
+          console.error('❌ Failed to retrieve existing E2E key:', error)
+          // If password fails, might be corrupted - generate new keys
+        }
+      }
+
+      // Generate new E2E keypair
+      console.log('🔑 Generating new E2E keypair...')
+      const keyPair = await chatsApi.generateAccountKeyPair()
+      
+      // Store encrypted private key locally
+      e2eEncryption.storePrivateKey(keyPair.privateKey, userPassword)
+      
+      // Register public key with backend
+      const encryptedPrivateKeyData = JSON.stringify({
+        encrypted: keyPair.privateKey,
+        keyVersion: keyPair.keyVersion,
+        algorithm: 'AES-256-CBC'
+      })
+      
+      await chatsApi.registerAccountKey(
+        keyPair.publicKey, 
+        encryptedPrivateKeyData, 
+        keyPair.keyVersion
+      )
+      
+      console.log('✅ E2E keypair setup completed successfully')
+      return true
+    } catch (error) {
+      console.error('❌ E2E key setup failed:', error)
+      throw new Error('Failed to setup E2E encryption: ' + error.message)
+    }
+  }
+
   const login = useMutation({
     mutationFn: async (credentials) => {
       try {
-        // ✅ UPDATED: Include timezone in login request
+        // Include timezone in login request
         const loginPayload = {
           email: credentials.email,
           password: credentials.password,
-          timezone: credentials.timezone // ✅ NEW: Send timezone to server
+          timezone: credentials.timezone
         }
 
         console.log("Login payload:", loginPayload)
@@ -98,12 +150,28 @@ export const useAuth = () => {
           localStorage.setItem("userRole", userRole)
         }
 
-        // ✅ NEW: Store timezone from login request
+        // Store timezone from login request
         if (credentials.timezone) {
           localStorage.setItem("userTimezone", credentials.timezone)
         }
 
-        return { accessToken, organizationType, userRole, timezone: credentials.timezone }
+        // 🔐 E2E: Setup E2E keys after successful login
+        try {
+          await setupE2EKeys(credentials.password)
+          console.log('✅ E2E keys setup completed during login')
+        } catch (e2eError) {
+          console.error('❌ E2E setup failed during login:', e2eError)
+          // Don't fail login due to E2E setup failure, but warn user
+          console.warn('⚠️ E2E encryption setup failed - chat will work but may not be encrypted')
+        }
+
+        return { 
+          accessToken, 
+          organizationType, 
+          userRole, 
+          timezone: credentials.timezone,
+          e2eSetup: true
+        }
       } catch (error) {
         console.error("Login error:", error)
         throw error
@@ -119,15 +187,15 @@ export const useAuth = () => {
           const userData = userResponse.data
           queryClient.setQueryData(["currentUser"], userData)
 
-          // ✅ UPDATED: Store timezone from user profile (server response takes priority)
+          // Store timezone from user profile (server response takes priority)
           if (userData?.timezone) {
             localStorage.setItem("userTimezone", userData.timezone)
             console.log("Timezone stored from server:", userData.timezone)
           }
 
-          console.log("User data:", userData)
+          console.log("User data with E2E support:", userData)
 
-          // ✅ FIXED: Better redirect logic with loop prevention
+          // Redirect logic with loop prevention
           redirectAfterLogin(userData, location.pathname)
         } else {
           queryClient.invalidateQueries({ queryKey: ["currentUser"] })
@@ -144,11 +212,14 @@ export const useAuth = () => {
       localStorage.removeItem("token")
       localStorage.removeItem("organizationType")
       localStorage.removeItem("userRole")
-      localStorage.removeItem("userTimezone") // ✅ NEW: Clear timezone on login error
+      localStorage.removeItem("userTimezone")
+      // 🔐 E2E: Clear E2E keys on login error
+      localStorage.removeItem("e2e_private_key")
+      e2eEncryption.clearAllSessionKeys()
     },
   })
 
-  // ✅ IMPROVED: Smart redirect logic with loop prevention
+  // Smart redirect logic with loop prevention
   const redirectAfterLogin = (userData, currentPath) => {
     // Prevent redirect if already on correct page
     if (currentPath.includes('/onboarding') && userData.isOnboarded === false) {
@@ -166,7 +237,7 @@ export const useAuth = () => {
     }
   }
 
-  // ✅ HELPER: Get dashboard path based on user role/org
+  // Get dashboard path based on user role/org
   const getDashboardPath = (userData) => {
     const userRole = userData.role
     const orgType = userData.organization?.type
@@ -202,6 +273,25 @@ export const useAuth = () => {
     mutationFn: async ({ oldPassword, newPassword }) => {
       try {
         const response = await api.auth.changePassword(oldPassword, newPassword)
+        
+        // 🔐 E2E: Update E2E keys with new password
+        if (response.status === 'success' && e2eEncryption.hasAccountKeyPair()) {
+          try {
+            console.log('🔐 Updating E2E keys with new password...')
+            
+            // Retrieve current private key with old password
+            const privateKey = e2eEncryption.retrievePrivateKey(oldPassword)
+            
+            // Re-encrypt with new password
+            e2eEncryption.storePrivateKey(privateKey, newPassword)
+            
+            console.log('✅ E2E keys updated with new password')
+          } catch (e2eError) {
+            console.error('❌ Failed to update E2E keys with new password:', e2eError)
+            // Don't fail password change due to E2E update failure
+          }
+        }
+        
         return response
       } catch (error) {
         if (error.response?.status === 401) {
@@ -225,9 +315,13 @@ export const useAuth = () => {
       localStorage.removeItem("user")
       localStorage.removeItem("organizationType")
       localStorage.removeItem("userRole")
-      localStorage.removeItem("userTimezone") // ✅ NEW: Clear timezone on logout
+      localStorage.removeItem("userTimezone")
+      // 🔐 E2E: Clear all E2E data on logout
+      localStorage.removeItem("e2e_private_key")
+      e2eEncryption.clearAllSessionKeys()
       queryClient.clear()
       navigate("/login")
+      console.log('🔐 All E2E data cleared on logout')
     },
   })
 
@@ -254,7 +348,7 @@ export const useAuth = () => {
     return userRole || storedRole || null
   }
 
-  // ✅ NEW: Timezone helper functions
+  // Timezone helper functions
   const getUserTimezone = () => {
     const userTimezone = user?.timezone
     const storedTimezone = localStorage.getItem("userTimezone")
@@ -290,7 +384,54 @@ export const useAuth = () => {
     }
   }
 
-  // ✅ IMPROVED: More precise onboarding check
+  // 🔐 E2E: Helper functions
+  const hasE2EKeys = () => {
+    return e2eEncryption.hasAccountKeyPair()
+  }
+
+  const getE2EStatus = () => {
+    return e2eEncryption.getStatus()
+  }
+
+  const rotateE2EKeys = async (currentPassword) => {
+    try {
+      console.log('🔄 Rotating E2E keys...')
+      
+      // Generate new keypair
+      const newKeyPair = await chatsApi.generateAccountKeyPair()
+      
+      // Store new encrypted private key locally
+      e2eEncryption.storePrivateKey(newKeyPair.privateKey, currentPassword)
+      
+      // Register new keys with backend
+      const encryptedPrivateKeyData = JSON.stringify({
+        encrypted: newKeyPair.privateKey,
+        keyVersion: newKeyPair.keyVersion + 1,
+        algorithm: 'AES-256-CBC'
+      })
+      
+      await chatsApi.rotateAccountKeys(
+        newKeyPair.publicKey, 
+        encryptedPrivateKeyData, 
+        newKeyPair.keyVersion + 1
+      )
+      
+      console.log('✅ E2E keys rotated successfully')
+      return true
+    } catch (error) {
+      console.error('❌ E2E key rotation failed:', error)
+      throw error
+    }
+  }
+
+  const clearE2EData = () => {
+    console.log('🧹 Clearing all E2E data...')
+    localStorage.removeItem("e2e_private_key")
+    e2eEncryption.clearAllSessionKeys()
+    console.log('✅ All E2E data cleared')
+  }
+
+  // More precise onboarding check
   const needsOnboarding = () => {
     // Only check if user data is loaded
     if (!user) return false
@@ -337,14 +478,20 @@ export const useAuth = () => {
     isAuthenticated,
     getOrganizationType,
     getUserRole,
-    getUserTimezone, // ✅ NEW: Export timezone functions
-    getTimezoneLabel, // ✅ NEW: Get timezone label
-    formatTimeWithTimezone, // ✅ NEW: Format time with timezone
+    getUserTimezone,
+    getTimezoneLabel,
+    formatTimeWithTimezone,
     needsOnboarding,
     isOrganizationAdmin,
     isRegularUser,
     getUserTypeLabel,
     getDefaultRoute,
     refetchUser: refetch,
+    // 🔐 E2E: Export E2E functions
+    hasE2EKeys,
+    getE2EStatus,
+    rotateE2EKeys,
+    clearE2EData,
+    setupE2EKeys
   }
 }

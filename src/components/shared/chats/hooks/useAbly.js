@@ -1,14 +1,13 @@
-// src/components/shared/chats/hooks/useAbly.js - ENHANCED: With Frontend-Only Encryption
+// src/components/shared/chats/hooks/useAbly.js - E2E ENHANCED: With Complete E2E Message Processing
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Ably from 'ably';
 import { chatsApi } from '../lib/chatsApi';
 import notificationSocket from '../../notifications/lib/socket';
-import chatEncryption from '../lib/encryption'; // 🔐 NEW: Import encryption utilities
+import e2eEncryption from '../lib/encryption';
 
-// 🆕 ENHANCED: Detailed Ably Event Logger
+// E2E Enhanced Ably Event Logger
 const AblyLogger = {
-  // Log with styled colors for better readability
   log: (level, category, message, data = null) => {
     const timestamp = new Date().toLocaleTimeString('id-ID');
     const styles = {
@@ -18,21 +17,21 @@ const AblyLogger = {
       success: 'color: #66BB6A; font-weight: bold;',
       debug: 'color: #9575CD; font-weight: bold;',
       event: 'color: #26A69A; font-weight: bold;',
-      crypto: 'color: #FF9800; font-weight: bold;' // 🔐 NEW: Crypto operations
+      crypto: 'color: #FF9800; font-weight: bold;',
+      e2e: 'color: #E91E63; font-weight: bold;'
     };
 
     console.log(
-      `%c[${timestamp}] ABLY-${category.toUpperCase()}:`,
+      `%c[${timestamp}] ABLY-E2E-${category.toUpperCase()}:`,
       styles[level] || styles.info,
       message,
-      data ? '\n🔦 Data:' : '',
+      data ? '\n🔐 E2E Data:' : '',
       data || ''
     );
   },
 
-  // Log encryption/decryption operations
   logCrypto: (operation, details) => {
-    console.group(`🔐 CRYPTO ${operation.toUpperCase()}`);
+    console.group(`🔐 E2E ABLY ${operation.toUpperCase()}`);
     console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
     Object.entries(details).forEach(([key, value]) => {
       console.log(`${key}:`, value);
@@ -40,9 +39,8 @@ const AblyLogger = {
     console.groupEnd();
   },
 
-  // Log raw Ably message structure
-  logAblyMessage: (message, channelName, eventType) => {
-    console.group(`📡 ABLY MESSAGE RECEIVED`);
+  logAblyMessage: (message, channelName, eventType, isE2E = false) => {
+    console.group(`📡 ${isE2E ? 'E2E ' : ''}ABLY MESSAGE RECEIVED`);
     console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
     console.log('📡 Channel:', channelName);
     console.log('🎯 Event Type:', eventType);
@@ -52,13 +50,13 @@ const AblyLogger = {
     console.log('📤 Encoding:', message.encoding);
     console.log('🏷️ Name:', message.name);
     console.log('🕐 Message Timestamp:', message.timestamp);
+    console.log('🔐 Is Encrypted:', message.data?.isEncrypted || false);
     console.log('📦 Raw Data:', message.data);
-    console.log('🔍 Full Message Object:', message);
+    console.log('📋 Full Message Object:', message);
     console.groupEnd();
   },
 
-  // Log connection state changes
-  logConnection: (state, reason = null) => {
+  logConnection: (state, reason = null, isE2E = false) => {
     const stateColors = {
       connected: 'success',
       connecting: 'info', 
@@ -71,66 +69,48 @@ const AblyLogger = {
     AblyLogger.log(
       stateColors[state] || 'info',
       'CONNECTION',
-      `State changed to: ${state.toUpperCase()}`,
+      `${isE2E ? 'E2E ' : ''}State changed to: ${state.toUpperCase()}`,
       reason ? { reason } : null
     );
-  },
-
-  // Log channel events
-  logChannel: (channelName, eventType, details) => {
-    AblyLogger.log('event', 'CHANNEL', `${channelName} - ${eventType}`, details);
-  },
-
-  // Log typing events with details
-  logTyping: (data, channelName) => {
-    // Uncomment for detailed typing logs
-    // console.group(`⌨️ TYPING EVENT`);
-    // console.log('📡 Channel:', channelName);
-    // console.log('👤 User ID:', data.userId);
-    // console.log('📝 User Name:', data.userName || data.senderName || 'Unknown');
-    // console.log('⌨️ Is Typing:', data.isTyping);
-    // console.log('🆔 Session ID:', data.sessionId);
-    // console.log('⏰ Timestamp:', data.timestamp);
-    // console.log('📦 Full Data:', data);
-    // console.groupEnd();
-  },
-
-  // Log message send attempts
-  logSendAttempt: (type, data) => {
-    console.group(`📤 SENDING ${type.toUpperCase()}`);
-    console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
-    console.log('📦 Data being sent:', data);
-    console.groupEnd();
   }
 };
 
-// 🔐 ENHANCED: Message processing with frontend-only encryption
-const MessageProcessor = {
+// E2E Message Processor for Ably
+const E2EMessageProcessor = {
   /**
-   * Process outgoing message - encrypt before sending via Ably
+   * Process outgoing message - encrypt before broadcasting via Ably
    */
-  process: (message, sessionId = '') => {
+  processOutgoing: (message, sessionId = '') => {
     AblyLogger.logCrypto('ENCRYPT_OUTGOING', {
       'Session ID': sessionId?.slice(-8) || 'none',
       'Original Length': message?.content?.length || 0,
       'Has Content': !!message?.content,
-      'Message Type': message?.messageType || 'unknown'
+      'Message Type': message?.messageType || 'unknown',
+      'Has Session Key': !!e2eEncryption.getSessionKey(sessionId)
     });
     
     try {
-      // 🔐 ENCRYPT: Message content before broadcasting via Ably
-      if (message.content && typeof message.content === 'string') {
-        const encryptedContent = chatEncryption.encrypt(message.content, sessionId);
+      // Skip encryption for team chat
+      if (sessionId === 'team-ruangdiri' || !message.content) {
+        return message;
+      }
+
+      // Encrypt message content if we have session key
+      if (e2eEncryption.getSessionKey(sessionId)) {
+        const encryptedContent = e2eEncryption.encryptMessage(message.content, sessionId);
         
         const encryptedMessage = {
           ...message,
-          content: encryptedContent
+          content: encryptedContent,
+          isEncrypted: true,
+          originalContent: undefined // Don't send plaintext
         };
         
         AblyLogger.logCrypto('ENCRYPT_SUCCESS', {
           'Original Length': message.content.length,
           'Encrypted Length': encryptedContent.length,
-          'Encryption Status': chatEncryption.getStatus()
+          'Session ID': sessionId?.slice(-8),
+          'Encryption Status': e2eEncryption.getStatus()
         });
         
         return encryptedMessage;
@@ -138,45 +118,59 @@ const MessageProcessor = {
       
       return message;
     } catch (error) {
-      AblyLogger.log('error', 'CRYPTO', 'Encryption failed, sending plaintext', error);
+      AblyLogger.log('error', 'CRYPTO', 'Outgoing encryption failed, sending plaintext', error);
       return message; // Fallback to unencrypted
     }
   },
 
   /**
-   * Unprocess incoming message - decrypt received data from Ably
+   * Process incoming message - decrypt received data from Ably
    */
-  unprocess: (processedMessage, sessionId = '') => {
+  processIncoming: (processedMessage, sessionId = '') => {
     AblyLogger.logCrypto('DECRYPT_INCOMING', {
       'Session ID': sessionId?.slice(-8) || 'none',
-      'Encrypted Length': processedMessage?.content?.length || 0,
       'Has Content': !!processedMessage?.content,
-      'Message Type': processedMessage?.messageType || 'unknown'
+      'Is Encrypted': !!processedMessage?.isEncrypted,
+      'Message Type': processedMessage?.messageType || 'unknown',
+      'Has Session Key': !!e2eEncryption.getSessionKey(sessionId)
     });
     
     try {
-      // 🔓 DECRYPT: Message content after receiving from Ably
-      if (processedMessage.content && typeof processedMessage.content === 'string') {
-        const decryptedContent = chatEncryption.decrypt(processedMessage.content, sessionId);
+      // Skip decryption for team chat or non-encrypted messages
+      if (sessionId === 'team-ruangdiri' || !processedMessage.isEncrypted || !processedMessage.content) {
+        return processedMessage;
+      }
+
+      // Decrypt message content if encrypted
+      if (e2eEncryption.getSessionKey(sessionId)) {
+        const decryptedContent = e2eEncryption.decryptMessage(processedMessage.content, sessionId);
         
         const decryptedMessage = {
           ...processedMessage,
           content: decryptedContent,
-          message: decryptedContent // Also map to message field for consistency
+          message: decryptedContent, // Also map to message field for consistency
+          wasEncrypted: true
         };
         
         AblyLogger.logCrypto('DECRYPT_SUCCESS', {
           'Encrypted Length': processedMessage.content.length,
           'Decrypted Length': decryptedContent.length,
-          'Was Encrypted': processedMessage.content !== decryptedContent
+          'Session ID': sessionId?.slice(-8),
+          'Was Successfully Decrypted': processedMessage.content !== decryptedContent
         });
         
         return decryptedMessage;
+      } else {
+        AblyLogger.log('warn', 'CRYPTO', 'No session key available for decryption', {
+          sessionId: sessionId?.slice(-8),
+          isEncrypted: processedMessage.isEncrypted
+        });
+        
+        return processedMessage; // Return encrypted if no key
       }
       
-      return processedMessage;
     } catch (error) {
-      AblyLogger.log('error', 'CRYPTO', 'Decryption failed, returning as-is', error);
+      AblyLogger.log('error', 'CRYPTO', 'Incoming decryption failed, returning as-is', error);
       return processedMessage; // Fallback to encrypted text
     }
   }
@@ -198,12 +192,13 @@ export const useAbly = () => {
   const onTypingRef = useRef(null);
   const onUnreadCountRef = useRef(null);
 
-  // 🆕 ENHANCED: Enhanced connection status handler
+  // E2E Enhanced connection status handler
   const handleConnectionStatusChange = useCallback((state, reason = null) => {
-    AblyLogger.logConnection(state, reason);
+    const isE2E = currentSessionRef.current !== 'team-ruangdiri';
+    AblyLogger.logConnection(state, reason, isE2E);
     setConnectionStatus(state);
     
-    // Store connection info for debugging
+    // Store enhanced connection info for debugging
     if (typeof window !== 'undefined') {
       window.ablyConnectionInfo = {
         state,
@@ -212,14 +207,16 @@ export const useAbly = () => {
         ablyState: ablyRef.current?.connection?.state,
         channels: Object.keys(channelsRef.current),
         currentSession: currentSessionRef.current,
-        encryptionStatus: chatEncryption.getStatus() // 🔐 NEW: Add encryption status
+        encryptionStatus: e2eEncryption.getStatus(),
+        isE2ESession: isE2E,
+        hasSessionKey: !!e2eEncryption.getSessionKey(currentSessionRef.current)
       };
     }
   }, []);
 
-  // ✅ FIXED: Memoize setCallbacks to prevent re-renders
+  // Memoize setCallbacks to prevent re-renders
   const setCallbacks = useCallback((callbacks) => {
-    AblyLogger.log('info', 'SETUP', 'Setting Ably callbacks', {
+    AblyLogger.log('info', 'SETUP', 'Setting E2E Ably callbacks', {
       hasMessage: !!callbacks.onMessage,
       hasSessionStatus: !!callbacks.onSessionStatus,
       hasTyping: !!callbacks.onTyping,
@@ -232,28 +229,31 @@ export const useAbly = () => {
     onUnreadCountRef.current = callbacks.onUnreadCount || null;
   }, []);
 
-  // ✅ FIXED: Memoize connect function to prevent re-renders
+  // E2E Enhanced connect function
   const connect = useCallback(async (sessionId, userId) => {
     try {
       currentSessionRef.current = sessionId;
+      const isE2E = sessionId !== 'team-ruangdiri';
       
-      AblyLogger.log('info', 'CONNECT', `Connecting to session: ${sessionId}`, { 
+      AblyLogger.log('info', 'CONNECT', `Connecting to ${isE2E ? 'E2E' : 'AI'} session: ${sessionId}`, { 
         userId,
-        encryptionEnabled: chatEncryption.getStatus().isEnabled // 🔐 NEW: Log encryption status
+        encryptionEnabled: e2eEncryption.getStatus().isEnabled,
+        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
+        sessionType: isE2E ? 'E2E Counseling' : 'AI Chat'
       });
 
-      // Handle AI Team RuangDiri session
+      // Handle AI Team RuangDiri session (no E2E)
       if (sessionId === 'team-ruangdiri') {
         handleConnectionStatusChange('ai');
-        AblyLogger.log('success', 'CONNECT', 'Connected to AI Team RuangDiri');
+        AblyLogger.log('success', 'CONNECT', 'Connected to AI Team RuangDiri (no E2E)');
         return true;
       }
 
       handleConnectionStatusChange('connecting');
 
-      // 🆕 ENHANCED: Setup Socket.io with detailed logging
+      // E2E Enhanced Socket.io setup
       try {
-        AblyLogger.log('info', 'SOCKET', 'Setting up Socket.io connection...');
+        AblyLogger.log('info', 'SOCKET', 'Setting up Socket.io with E2E support...');
         
         if (!notificationSocket.isSocketConnected()) {
           await notificationSocket.connect();
@@ -263,9 +263,12 @@ export const useAbly = () => {
         notificationSocket.off('chat:enable-chat');
         notificationSocket.off('chat:initial-message');
         
-        // Register new listeners with enhanced logging
+        // Register E2E enhanced listeners
         notificationSocket.on('chat:enable-chat', (payload) => {
-          AblyLogger.log('event', 'SOCKET', 'chat:enable-chat received', payload);
+          AblyLogger.log('event', 'SOCKET', 'chat:enable-chat received (E2E)', {
+            ...payload,
+            hasSessionKey: !!e2eEncryption.getSessionKey(payload.sessionId)
+          });
           if (onSessionStatusRef.current) {
             onSessionStatusRef.current({
               sessionId: payload.sessionId,
@@ -277,13 +280,20 @@ export const useAbly = () => {
         });
 
         notificationSocket.on('chat:initial-message', (payload) => {
-          AblyLogger.log('event', 'SOCKET', 'chat:initial-message received', payload);
+          AblyLogger.log('event', 'SOCKET', 'chat:initial-message received (E2E)', {
+            ...payload,
+            hasSessionKey: !!e2eEncryption.getSessionKey(payload.sessionId)
+          });
+          
+          // Process E2E message if encrypted
+          const processedPayload = E2EMessageProcessor.processIncoming(payload, payload.sessionId);
+          
           if (onMessageRef.current) {
-            onMessageRef.current(payload);
+            onMessageRef.current(processedPayload);
           }
         });
 
-        AblyLogger.log('success', 'SOCKET', 'Socket.io connected and listeners registered');
+        AblyLogger.log('success', 'SOCKET', 'Socket.io connected with E2E support');
       } catch (error) {
         AblyLogger.log('warn', 'SOCKET', 'Socket.io setup failed, continuing with Ably only', error);
       }
@@ -300,26 +310,26 @@ export const useAbly = () => {
       }
       channelsRef.current = {};
 
-      // Get Ably token
-      AblyLogger.log('info', 'TOKEN', 'Requesting Ably token...');
+      // Get Ably token for E2E session
+      AblyLogger.log('info', 'TOKEN', 'Requesting Ably token for E2E session...');
       const tokenData = await chatsApi.getAblyToken(sessionId);
       
       if (!tokenData) {
-        AblyLogger.log('warn', 'TOKEN', 'No Ably token available');
+        AblyLogger.log('warn', 'TOKEN', 'No Ably token available for E2E session');
         handleConnectionStatusChange('disconnected');
         return false;
       }
 
-      AblyLogger.log('success', 'TOKEN', 'Ably token received', {
+      AblyLogger.log('success', 'TOKEN', 'E2E Ably token received', {
         sessionId: tokenData.sessionId,
         channels: tokenData.channels,
         expiresAt: tokenData.expiresAt
       });
 
-      // Create REAL Ably client with enhanced logging
+      // Create REAL Ably client with E2E enhanced logging
       const ably = new Ably.Realtime({
         authCallback: (tokenParams, callback) => {
-          AblyLogger.log('info', 'AUTH', 'Ably auth callback triggered');
+          AblyLogger.log('info', 'AUTH', 'E2E Ably auth callback triggered');
           callback(null, tokenData.token);
         },
         clientId: userId,
@@ -328,7 +338,7 @@ export const useAbly = () => {
         autoConnect: true,
         echoMessages: false,
         log: {
-          level: 4, // Enable verbose logging
+          level: 4,
           handler: (msg) => {
             AblyLogger.log('debug', 'ABLY-SDK', msg.toString());
           }
@@ -348,28 +358,30 @@ export const useAbly = () => {
         typingChannelName: tokenData.channels.typing
       };
 
-      AblyLogger.log('info', 'CHANNELS', 'Setting up Ably channels', {
+      AblyLogger.log('info', 'CHANNELS', 'Setting up E2E Ably channels', {
         chatChannel: tokenData.channels.chat,
-        typingChannel: tokenData.channels.typing
+        typingChannel: tokenData.channels.typing,
+        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
       });
 
-      // 🔐 ENHANCED: Message handlers with encryption support
+      // E2E Enhanced message handlers
       const handleChatMessage = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'CHAT_MESSAGE');
+        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'CHAT_MESSAGE', true);
         
-        // 🔓 DECRYPT: Process incoming encrypted message from other users
-        const processedData = MessageProcessor.unprocess(message.data, sessionId);
+        // Process incoming E2E encrypted message
+        const processedData = E2EMessageProcessor.processIncoming(message.data, sessionId);
         
         if (processedData.senderId !== userId && onMessageRef.current) {
-          AblyLogger.log('info', 'MESSAGE', 'Processing incoming chat message', {
+          AblyLogger.log('info', 'MESSAGE', 'Processing incoming E2E chat message', {
             senderId: processedData.senderId,
             currentUserId: userId,
             messageType: processedData.messageType,
-            hasText: !!(processedData.content || processedData.message)
+            hasText: !!(processedData.content || processedData.message),
+            wasEncrypted: processedData.wasEncrypted || false
           });
           onMessageRef.current(processedData);
         } else {
-          AblyLogger.log('debug', 'MESSAGE', 'Ignoring own message or no handler', {
+          AblyLogger.log('debug', 'MESSAGE', 'Ignoring own E2E message or no handler', {
             isOwnMessage: processedData.senderId === userId,
             hasHandler: !!onMessageRef.current
           });
@@ -377,17 +389,17 @@ export const useAbly = () => {
       };
 
       const handleSessionStatus = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'SESSION_STATUS');
+        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'SESSION_STATUS', true);
         if (onSessionStatusRef.current) {
           onSessionStatusRef.current(message.data);
         }
       };
 
       const handleAutomatedMessage = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'AUTOMATED_MESSAGE');
+        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'AUTOMATED_MESSAGE', true);
         if (onMessageRef.current) {
-          // 🔓 DECRYPT: Automated messages might also be encrypted
-          const processedData = MessageProcessor.unprocess({
+          // Process automated messages (might be encrypted)
+          const processedData = E2EMessageProcessor.processIncoming({
             ...message.data,
             isAutomated: true,
             messageType: 'automated'
@@ -398,14 +410,18 @@ export const useAbly = () => {
       };
 
       const handleUnreadCount = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'UNREAD_COUNT');
+        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'UNREAD_COUNT', true);
         if (onUnreadCountRef.current) {
           onUnreadCountRef.current(message.data);
         }
       };
 
       const handleTypingIndicator = (message) => {
-        AblyLogger.logTyping(message.data, tokenData.channels.typing);
+        AblyLogger.log('event', 'TYPING', 'E2E typing indicator received', {
+          userId: message.data?.userId,
+          isTyping: message.data?.isTyping,
+          sessionId: message.data?.sessionId
+        });
         
         const { isTyping: typing, userId: typingUserId } = message.data;
         
@@ -427,28 +443,28 @@ export const useAbly = () => {
             }
             typingTimeoutRef.current = setTimeout(() => {
               setIsTyping(false);
-              AblyLogger.log('debug', 'TYPING', 'Auto-cleared typing indicator after timeout');
+              AblyLogger.log('debug', 'TYPING', 'Auto-cleared E2E typing indicator after timeout');
             }, 5000);
           }
         }
       };
 
-      // 🆕 ENHANCED: Channel event handlers with logging
+      // Enhanced channel event handlers with E2E logging
       const setupChannelLogging = (channel, channelName) => {
         channel.on('attached', () => {
-          AblyLogger.logChannel(channelName, 'ATTACHED', 'Channel successfully attached');
+          AblyLogger.log('success', 'CHANNEL', `E2E ${channelName} channel successfully attached`);
         });
 
         channel.on('detached', () => {
-          AblyLogger.logChannel(channelName, 'DETACHED', 'Channel detached');
+          AblyLogger.log('warn', 'CHANNEL', `E2E ${channelName} channel detached`);
         });
 
         channel.on('failed', (error) => {
-          AblyLogger.logChannel(channelName, 'FAILED', { error });
+          AblyLogger.log('error', 'CHANNEL', `E2E ${channelName} channel failed`, { error });
         });
 
         channel.on('suspended', () => {
-          AblyLogger.logChannel(channelName, 'SUSPENDED', 'Channel suspended');
+          AblyLogger.log('warn', 'CHANNEL', `E2E ${channelName} channel suspended`);
         });
       };
 
@@ -456,8 +472,8 @@ export const useAbly = () => {
       setupChannelLogging(chatChannel, 'CHAT');
       setupChannelLogging(typingChannel, 'TYPING');
 
-      // Subscribe to channels with enhanced logging
-      AblyLogger.log('info', 'SUBSCRIBE', 'Subscribing to Ably channels...');
+      // Subscribe to E2E channels
+      AblyLogger.log('info', 'SUBSCRIBE', 'Subscribing to E2E Ably channels...');
       
       chatChannel.subscribe('message', handleChatMessage);
       chatChannel.subscribe('session_status', handleSessionStatus);
@@ -465,13 +481,15 @@ export const useAbly = () => {
       chatChannel.subscribe('unread_count_update', handleUnreadCount);
       typingChannel.subscribe('typing', handleTypingIndicator);
 
-      // 🆕 ENHANCED: Connection handlers with detailed logging
+      // E2E Enhanced connection handlers
       ably.connection.on('connected', () => {
         handleConnectionStatusChange('connected');
-        AblyLogger.log('success', 'CONNECTION', 'Ably connection established', {
+        AblyLogger.log('success', 'CONNECTION', 'E2E Ably connection established', {
           connectionId: ably.connection.id,
           connectionKey: ably.connection.key,
-          clientId: ably.connection.clientId
+          clientId: ably.connection.clientId,
+          sessionId: sessionId?.slice(-8),
+          hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
         });
       });
 
@@ -481,7 +499,7 @@ export const useAbly = () => {
 
       ably.connection.on('failed', (error) => {
         handleConnectionStatusChange('failed', error);
-        AblyLogger.log('error', 'CONNECTION', 'Connection failed', error);
+        AblyLogger.log('error', 'CONNECTION', 'E2E connection failed', error);
       });
 
       ably.connection.on('suspended', () => {
@@ -492,35 +510,36 @@ export const useAbly = () => {
         handleConnectionStatusChange('disconnected');
       });
 
-      // 🆕 ENHANCED: Setup token refresh with logging
+      // E2E Enhanced token refresh
       if (tokenRefreshIntervalRef.current) {
         clearInterval(tokenRefreshIntervalRef.current);
       }
       
       tokenRefreshIntervalRef.current = setInterval(async () => {
         try {
-          AblyLogger.log('info', 'TOKEN', 'Refreshing Ably token...');
+          AblyLogger.log('info', 'TOKEN', 'Refreshing E2E Ably token...');
           const newTokenData = await chatsApi.getAblyToken(sessionId);
           if (newTokenData && ablyRef.current) {
             await ablyRef.current.auth.authorize(newTokenData.token);
-            AblyLogger.log('success', 'TOKEN', 'Token refreshed successfully');
+            AblyLogger.log('success', 'TOKEN', 'E2E token refreshed successfully');
           }
         } catch (error) {
-          AblyLogger.log('error', 'TOKEN', 'Token refresh failed', error);
+          AblyLogger.log('error', 'TOKEN', 'E2E token refresh failed', error);
         }
       }, 25 * 60 * 1000);
 
       return true;
     } catch (error) {
-      AblyLogger.log('error', 'CONNECT', 'Chat connection failed', error);
+      AblyLogger.log('error', 'CONNECT', 'E2E chat connection failed', error);
       handleConnectionStatusChange('failed');
       return false;
     }
-  }, []); // ✅ FIXED: Empty dependency array
+  }, []);
 
-  // ✅ FIXED: Memoize disconnect function
+  // E2E Enhanced disconnect function
   const disconnect = useCallback(() => {
-    AblyLogger.log('info', 'DISCONNECT', 'Disconnecting chat...');
+    const isE2E = currentSessionRef.current !== 'team-ruangdiri';
+    AblyLogger.log('info', 'DISCONNECT', `Disconnecting ${isE2E ? 'E2E' : 'AI'} chat...`);
     
     // Clear intervals and timeouts
     if (tokenRefreshIntervalRef.current) {
@@ -540,19 +559,19 @@ export const useAbly = () => {
     // Unsubscribe from Ably channels
     if (channelsRef.current.chat) {
       try {
-        AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from chat channel...');
+        AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from E2E chat channel...');
         channelsRef.current.chat.unsubscribe();
       } catch (error) {
-        AblyLogger.log('error', 'UNSUBSCRIBE', 'Error unsubscribing chat', error);
+        AblyLogger.log('error', 'UNSUBSCRIBE', 'Error unsubscribing E2E chat', error);
       }
     }
 
     if (channelsRef.current.typing) {
       try {
-        AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from typing channel...');
+        AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from E2E typing channel...');
         channelsRef.current.typing.unsubscribe();
       } catch (error) {
-        AblyLogger.log('error', 'UNSUBSCRIBE', 'Error unsubscribing typing', error);
+        AblyLogger.log('error', 'UNSUBSCRIBE', 'Error unsubscribing E2E typing', error);
       }
     }
 
@@ -561,10 +580,10 @@ export const useAbly = () => {
     // Close Ably connection
     if (ablyRef.current) {
       try {
-        AblyLogger.log('info', 'CLOSE', 'Closing Ably connection...');
+        AblyLogger.log('info', 'CLOSE', 'Closing E2E Ably connection...');
         ablyRef.current.close();
       } catch (error) {
-        AblyLogger.log('error', 'CLOSE', 'Error closing Ably', error);
+        AblyLogger.log('error', 'CLOSE', 'Error closing E2E Ably', error);
       }
       ablyRef.current = null;
     }
@@ -574,10 +593,10 @@ export const useAbly = () => {
     handleConnectionStatusChange('disconnected');
     setIsTyping(false);
     
-    AblyLogger.log('success', 'DISCONNECT', 'Chat disconnected successfully');
-  }, []); // ✅ FIXED: Empty dependency array
+    AblyLogger.log('success', 'DISCONNECT', `${isE2E ? 'E2E' : 'AI'} chat disconnected successfully`);
+  }, []);
 
-  // ✅ FIXED: Memoize sendTyping function
+  // E2E Enhanced sendTyping function
   const sendTyping = useCallback(async (sessionId, isTyping, userId) => {
     if (sessionId === 'team-ruangdiri') return;
 
@@ -588,70 +607,79 @@ export const useAbly = () => {
       timestamp: new Date().toISOString()
     };
 
-    AblyLogger.logSendAttempt('TYPING', typingData);
+    AblyLogger.log('info', 'TYPING', 'Sending E2E typing indicator', {
+      sessionId: sessionId?.slice(-8),
+      isTyping,
+      hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
+    });
 
     try {
       // Send via Ably if available
       if (ablyRef.current && channelsRef.current.typing && connectionStatus === 'connected') {
-        AblyLogger.log('info', 'TYPING', 'Sending typing via Ably');
+        AblyLogger.log('info', 'TYPING', 'Sending typing via E2E Ably');
         await channelsRef.current.typing.publish('typing', typingData);
-        AblyLogger.log('success', 'TYPING', 'Typing sent via Ably successfully');
+        AblyLogger.log('success', 'TYPING', 'E2E typing sent via Ably successfully');
       } else {
         // Fallback to API
-        AblyLogger.log('info', 'TYPING', 'Sending typing via API fallback');
+        AblyLogger.log('info', 'TYPING', 'Sending typing via API fallback (E2E)');
         await chatsApi.sendTypingIndicator(sessionId, isTyping);
-        AblyLogger.log('success', 'TYPING', 'Typing sent via API successfully');
+        AblyLogger.log('success', 'TYPING', 'E2E typing sent via API successfully');
       }
     } catch (error) {
-      AblyLogger.log('error', 'TYPING', 'Error sending typing', error);
+      AblyLogger.log('error', 'TYPING', 'Error sending E2E typing', error);
       // Fallback to API
       try {
         await chatsApi.sendTypingIndicator(sessionId, isTyping);
-        AblyLogger.log('success', 'TYPING', 'API fallback succeeded');
+        AblyLogger.log('success', 'TYPING', 'E2E API fallback succeeded');
       } catch (apiError) {
-        AblyLogger.log('error', 'TYPING', 'API fallback failed', apiError);
+        AblyLogger.log('error', 'TYPING', 'E2E API fallback failed', apiError);
       }
     }
   }, [connectionStatus]);
 
-  // 🔐 ENHANCED: Memoize sendMessageViaAbly function with encryption
+  // E2E Enhanced sendMessageViaAbly function with encryption
   const sendMessageViaAbly = useCallback(async (sessionId, messageData) => {
     if (sessionId === 'team-ruangdiri') return false;
 
-    AblyLogger.logSendAttempt('MESSAGE', messageData);
+    AblyLogger.log('crypto', 'SEND_MESSAGE', 'Preparing E2E message for Ably broadcast', {
+      sessionId: sessionId?.slice(-8),
+      hasContent: !!messageData?.content,
+      hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
+    });
 
     try {
       if (ablyRef.current && channelsRef.current.chat && connectionStatus === 'connected') {
-        // 🔒 ENCRYPT: Process outgoing message with encryption for Ably broadcast
-        const processedData = MessageProcessor.process(messageData, sessionId);
+        // Process outgoing message with E2E encryption for Ably broadcast
+        const processedData = E2EMessageProcessor.processOutgoing(messageData, sessionId);
         
-        AblyLogger.log('info', 'MESSAGE', 'Broadcasting encrypted message via Ably');
+        AblyLogger.log('info', 'MESSAGE', 'Broadcasting E2E encrypted message via Ably');
         await channelsRef.current.chat.publish('message', processedData);
-        AblyLogger.log('success', 'MESSAGE', 'Encrypted message broadcasted via Ably successfully');
+        AblyLogger.log('success', 'MESSAGE', 'E2E encrypted message broadcasted successfully');
         return true;
       } else {
-        AblyLogger.log('warn', 'MESSAGE', 'Ably not available for message broadcast', {
+        AblyLogger.log('warn', 'MESSAGE', 'E2E Ably not available for message broadcast', {
           hasAbly: !!ablyRef.current,
           hasChannel: !!channelsRef.current.chat,
           connectionStatus
         });
       }
     } catch (error) {
-      AblyLogger.log('error', 'MESSAGE', 'Ably broadcast failed', error);
+      AblyLogger.log('error', 'MESSAGE', 'E2E Ably broadcast failed', error);
     }
     
     return false;
   }, [connectionStatus]);
 
-  // ✅ FIXED: Memoize handleTyping function
+  // E2E Enhanced handleTyping function
   const handleTyping = useCallback((sessionId, userId, text) => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
 
-    AblyLogger.log('debug', 'TYPING', 'Handling typing indicator', {
-      sessionId,
+    AblyLogger.log('debug', 'TYPING', 'Handling E2E typing indicator', {
+      sessionId: sessionId?.slice(-8),
       userId,
       textLength: text?.length || 0,
-      hasText: !!text?.trim()
+      hasText: !!text?.trim(),
+      hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
     });
 
     if (typingTimeoutRef.current) {
@@ -669,7 +697,7 @@ export const useAbly = () => {
     }
   }, [sendTyping]);
 
-  // ✅ FIXED: Memoize simulateAITyping function
+  // Simulate AI typing (unchanged)
   const simulateAITyping = useCallback((callback) => {
     AblyLogger.log('info', 'AI', 'Simulating AI typing...');
     setIsTyping(true);
@@ -681,12 +709,15 @@ export const useAbly = () => {
     }, 1000 + Math.random() * 2000);
   }, []);
 
-  // ✅ FIXED: Memoize getConnectionInfo function
+  // E2E Enhanced getConnectionInfo function
   const getConnectionInfo = useCallback(() => {
+    const currentSession = currentSessionRef.current;
+    const isE2E = currentSession !== 'team-ruangdiri';
+    
     const info = {
       status: connectionStatus,
       isConnected: ['connected', 'ai'].includes(connectionStatus),
-      currentSession: currentSessionRef.current,
+      currentSession: currentSession,
       channels: channelsRef.current,
       hasAbly: !!ablyRef.current?.connection?.state,
       hasNotificationSocket: notificationSocket.isSocketConnected(),
@@ -694,53 +725,106 @@ export const useAbly = () => {
       hasRealtime: connectionStatus === 'connected',
       connectionId: ablyRef.current?.connection?.id,
       clientId: ablyRef.current?.connection?.clientId,
-      // 🔐 NEW: Add encryption status to connection info
-      encryption: chatEncryption.getStatus()
+      // E2E specific info
+      isE2ESession: isE2E,
+      hasSessionKey: !!e2eEncryption.getSessionKey(currentSession),
+      encryptionStatus: e2eEncryption.getStatus(),
+      sessionKeys: e2eEncryption.sessionKeys?.size || 0
     };
     
-    AblyLogger.log('debug', 'INFO', 'Connection info requested', info);
+    AblyLogger.log('debug', 'INFO', 'E2E Connection info requested', info);
     return info;
   }, [connectionStatus]);
 
-  // 🔐 ENHANCED: Debug utilities for window access with encryption
+  // E2E Enhanced debug utilities
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.ablyDebug = {
         logger: AblyLogger,
-        processor: MessageProcessor,
-        encryption: chatEncryption, // 🔐 NEW: Expose encryption utilities
+        processor: E2EMessageProcessor,
+        encryption: e2eEncryption,
         connection: getConnectionInfo,
         ably: ablyRef.current,
         channels: channelsRef.current,
         forceLog: (level, category, message, data) => {
           AblyLogger.log(level, category, message, data);
         },
-        // 🔐 NEW: Test message encryption/decryption
-        testEncryption: (message = 'Test message', sessionId = 'test-session') => {
+        // E2E test utilities
+        testE2EEncryption: (message = 'Test E2E message', sessionId = 'test-session') => {
           const testData = { content: message, sessionId, messageType: 'text' };
-          const encrypted = MessageProcessor.process(testData, sessionId);
-          const decrypted = MessageProcessor.unprocess(encrypted, sessionId);
-          console.log('🔐 Encryption test:', { 
+          const encrypted = E2EMessageProcessor.processOutgoing(testData, sessionId);
+          const decrypted = E2EMessageProcessor.processIncoming(encrypted, sessionId);
+          console.log('🔐 E2E Ably encryption test:', { 
             original: testData, 
             encrypted, 
             decrypted,
             success: testData.content === decrypted.content
           });
           return { encrypted, decrypted };
+        },
+        testMessage: (sessionId, message = 'Test from debugChat') => {
+          if (sessionId && ablyRef.current && channelsRef.current.chat) {
+            const testData = E2EMessageProcessor.processOutgoing({
+              content: message,
+              senderId: 'debug-user',
+              messageType: 'text'
+            }, sessionId);
+            
+            channelsRef.current.chat.publish('message', testData);
+            console.log('📤 Test E2E message sent:', testData);
+          }
+        },
+        testTyping: (sessionId, duration = 3000) => {
+          if (sessionId && ablyRef.current && channelsRef.current.typing) {
+            const typingData = {
+              sessionId,
+              isTyping: true,
+              userId: 'debug-user',
+              timestamp: new Date().toISOString()
+            };
+            
+            channelsRef.current.typing.publish('typing', typingData);
+            console.log('⌨️ Test E2E typing sent:', typingData);
+            
+            setTimeout(() => {
+              channelsRef.current.typing.publish('typing', { ...typingData, isTyping: false });
+              console.log('⌨️ Test E2E typing stopped');
+            }, duration);
+          }
+        },
+        // Performance monitoring
+        monitor: {
+          messageCount: 0,
+          errorCount: 0,
+          startTime: Date.now(),
+          recordMessage: (messageData) => {
+            window.ablyDebug.monitor.messageCount++;
+          },
+          recordError: (error) => {
+            window.ablyDebug.monitor.errorCount++;
+          },
+          getSummary: () => ({
+            uptime: Date.now() - window.ablyDebug.monitor.startTime,
+            messageCount: window.ablyDebug.monitor.messageCount,
+            errorCount: window.ablyDebug.monitor.errorCount,
+            connectionStatus,
+            isE2ESession: currentSessionRef.current !== 'team-ruangdiri',
+            hasSessionKey: !!e2eEncryption.getSessionKey(currentSessionRef.current)
+          })
         }
       };
     }
-  }, [getConnectionInfo]);
+  }, [getConnectionInfo, connectionStatus]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount with E2E cleanup
   useEffect(() => {
     return () => {
-      AblyLogger.log('info', 'CLEANUP', 'Component unmounting, cleaning up...');
+      AblyLogger.log('info', 'CLEANUP', 'Component unmounting, cleaning up E2E...');
       disconnect();
     };
   }, [disconnect]);
 
-  // ✅ FIXED: Memoize return object to prevent re-renders
+  // Memoize return object with E2E enhancements
   return useMemo(() => ({
     connectionStatus,
     isTyping,
@@ -755,10 +839,19 @@ export const useAbly = () => {
     simulateAITyping,
     setCallbacks,
     getConnectionInfo,
-    // 🔐 ENHANCED: Expose utilities for debugging with encryption
+    // E2E Enhanced utilities
     logger: AblyLogger,
-    processor: MessageProcessor,
-    encryption: chatEncryption // 🔐 NEW: Expose encryption instance
+    processor: E2EMessageProcessor,
+    encryption: e2eEncryption,
+    // E2E specific properties
+    isE2ESession: currentSessionRef.current !== 'team-ruangdiri',
+    hasSessionKey: !!e2eEncryption.getSessionKey(currentSessionRef.current),
+    getE2EStatus: () => ({
+      isE2ESession: currentSessionRef.current !== 'team-ruangdiri',
+      hasSessionKey: !!e2eEncryption.getSessionKey(currentSessionRef.current),
+      encryptionStatus: e2eEncryption.getStatus(),
+      currentSession: currentSessionRef.current
+    })
   }), [
     connectionStatus,
     isTyping,

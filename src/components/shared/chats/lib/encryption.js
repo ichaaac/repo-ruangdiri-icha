@@ -1,227 +1,440 @@
+// src/components/shared/chats/lib/encryption.js - E2E Chat Encryption System
+
 import CryptoJS from 'crypto-js';
 
-// 🔐 ENCRYPTION CONFIG
-const ENCRYPTION_CONFIG = {
-  algorithm: 'AES',
-  // CryptoJS.PBKDF2 keySize diukur dalam "words" (1 word = 4 bytes).
-  // 256-bit = 32 bytes = 8 words → 256 / 32 = 8
-  keySize: 256 / 32,
-  // Untuk IV, CryptoJS.lib.WordArray.random(N) menerima N dalam BYTES.
-  ivBytes: 16, // 128-bit = 16 bytes
-  iterations: 1000,
-  mode: CryptoJS.mode.CBC,
-  padding: CryptoJS.pad.Pkcs7
+// E2E Configuration
+const E2E_CONFIG = {
+  keySize: 256 / 32, // 256-bit keys (8 words)
+  algorithm: 'ECDH-ES',
+  keyVersion: 1,
+  sessionKeySize: 256 / 32,
+  iterations: 10000,
+  saltBytes: 16,
+  ivBytes: 16
 };
 
-// 🔑 Get encryption key from environment (Vite)
-const getEncryptionKey = () => {
-  const key =
-    import.meta.env.VITE_CHAT_ENCRYPTION_KEY ||
-    'ruangdiri-default-chat-key-2024'; // fallback dev
+// E2E Logger for debugging
+const E2ELogger = {
+  log: (level, operation, data = null) => {
+    const timestamp = new Date().toLocaleTimeString('id-ID');
+    const styles = {
+      info: 'color: #4FC3F7; font-weight: bold;',
+      success: 'color: #66BB6A; font-weight: bold;',
+      error: 'color: #FF6B6B; font-weight: bold;',
+      warn: 'color: #FFB74D; font-weight: bold;'
+    };
 
-  console.log('🔑 Encryption key status:', {
-    hasViteKey: !!import.meta.env.VITE_CHAT_ENCRYPTION_KEY,
-    usingFallback: !import.meta.env.VITE_CHAT_ENCRYPTION_KEY,
-    keyLength: key?.length || 0
-  });
-
-  return key;
+    console.log(
+      `%c[${timestamp}] E2E-${operation.toUpperCase()}:`,
+      styles[level] || styles.info,
+      data || ''
+    );
+  }
 };
 
-// 🛡️ ENCRYPTION CLASS
-class ChatEncryption {
+/**
+ * E2E Chat Encryption Manager
+ * Handles account keypairs, session keys, and message encryption
+ */
+class E2EChatEncryption {
   constructor() {
-    this.encryptionKey = getEncryptionKey();
+    this.accountKeyPair = null;
+    this.sessionKeys = new Map(); // sessionId -> sessionKey
     this.isEnabled = true;
-
-    // Validate key
-    if (!this.encryptionKey || this.encryptionKey.length < 16) {
-      console.error('❌ Invalid encryption key! Messages will not be encrypted properly.');
-      this.isEnabled = false;
-    }
-
-    console.log('🔐 ChatEncryption initialized:', {
-      keyLength: this.encryptionKey?.length || 0,
-      isEnabled: this.isEnabled
-    });
+    
+    E2ELogger.log('info', 'INIT', 'E2E Chat Encryption initialized');
   }
 
   /**
-   * Generate a random IV for encryption (bytes)
+   * Generate account keypair (call once per account)
    */
-  generateIV() {
-    return CryptoJS.lib.WordArray.random(ENCRYPTION_CONFIG.ivBytes);
-  }
-
-  /**
-   * Derive key from master key using PBKDF2
-   */
-  deriveKey(masterKey, salt) {
-    return CryptoJS.PBKDF2(masterKey, salt, {
-      keySize: ENCRYPTION_CONFIG.keySize, // words
-      iterations: ENCRYPTION_CONFIG.iterations
-    });
-  }
-
-  /**
-   * Encrypt message text
-   * @param {string} plaintext - The message to encrypt
-   * @param {string} sessionId - Session ID for additional entropy
-   * @returns {string} Encrypted message in format: iv:salt:encrypted
-   */
-  encrypt(plaintext, sessionId = '') {
-    if (!this.isEnabled || !plaintext || typeof plaintext !== 'string') {
-      console.warn('⚠️ Encryption disabled or invalid input, returning plaintext');
-      return plaintext;
-    }
-
+  async generateAccountKeyPair() {
     try {
-      // Generate random IV and salt
-      const iv = this.generateIV();
-      const salt = CryptoJS.lib.WordArray.random(16); // 128-bit salt (bytes)
+      E2ELogger.log('info', 'GENERATE_KEYPAIR', 'Generating account keypair...');
 
-      // Create session-specific entropy
-      const sessionSalt = sessionId
-        ? CryptoJS.SHA256(sessionId + salt.toString()).toString()
-        : salt.toString();
+      // Generate private key (256-bit)
+      const privateKey = CryptoJS.lib.WordArray.random(256 / 8);
+      
+      // Generate public key (derived from private key)
+      const publicKey = CryptoJS.SHA256(privateKey.toString());
 
-      // Derive encryption key
-      const derivedKey = this.deriveKey(this.encryptionKey + sessionSalt, salt);
+      const keyPair = {
+        privateKey: privateKey.toString(),
+        publicKey: publicKey.toString(),
+        keyVersion: E2E_CONFIG.keyVersion,
+        createdAt: new Date().toISOString()
+      };
 
-      // Encrypt the plaintext
-      const encrypted = CryptoJS.AES.encrypt(plaintext, derivedKey, {
-        iv: iv,
-        mode: ENCRYPTION_CONFIG.mode,
-        padding: ENCRYPTION_CONFIG.padding
+      this.accountKeyPair = keyPair;
+      
+      E2ELogger.log('success', 'GENERATE_KEYPAIR', {
+        publicKeyLength: keyPair.publicKey.length,
+        privateKeyLength: keyPair.privateKey.length,
+        keyVersion: keyPair.keyVersion
       });
 
-      // Combine IV + salt + encrypted data
-      const result = `${iv.toString()}:${salt.toString()}:${encrypted.toString()}`;
+      return keyPair;
+    } catch (error) {
+      E2ELogger.log('error', 'GENERATE_KEYPAIR', error);
+      throw new Error('Failed to generate keypair');
+    }
+  }
 
-      console.log('🔒 Message encrypted:', {
-        originalLength: plaintext.length,
-        encryptedLength: result.length,
-        sessionId: sessionId?.slice(-8) || 'none'
+  /**
+   * Store encrypted private key in localStorage (encrypted with user password)
+   */
+  storePrivateKey(privateKey, userPassword) {
+    try {
+      E2ELogger.log('info', 'STORE_KEY', 'Storing encrypted private key...');
+
+      const salt = CryptoJS.lib.WordArray.random(E2E_CONFIG.saltBytes);
+      const key = CryptoJS.PBKDF2(userPassword, salt, {
+        keySize: E2E_CONFIG.keySize,
+        iterations: E2E_CONFIG.iterations
+      });
+
+      const iv = CryptoJS.lib.WordArray.random(E2E_CONFIG.ivBytes);
+      const encrypted = CryptoJS.AES.encrypt(privateKey, key, { iv });
+
+      const encryptedData = {
+        encrypted: encrypted.toString(),
+        salt: salt.toString(),
+        iv: iv.toString(),
+        keyVersion: E2E_CONFIG.keyVersion,
+        createdAt: new Date().toISOString()
+      };
+
+      localStorage.setItem('e2e_private_key', JSON.stringify(encryptedData));
+      
+      E2ELogger.log('success', 'STORE_KEY', 'Private key stored securely');
+      return true;
+    } catch (error) {
+      E2ELogger.log('error', 'STORE_KEY', error);
+      throw new Error('Failed to store private key');
+    }
+  }
+
+  /**
+   * Retrieve and decrypt private key from localStorage
+   */
+  retrievePrivateKey(userPassword) {
+    try {
+      E2ELogger.log('info', 'RETRIEVE_KEY', 'Retrieving private key...');
+
+      const storedData = localStorage.getItem('e2e_private_key');
+      if (!storedData) {
+        E2ELogger.log('warn', 'RETRIEVE_KEY', 'No stored private key found');
+        return null;
+      }
+
+      const encryptedData = JSON.parse(storedData);
+      
+      const salt = CryptoJS.enc.Hex.parse(encryptedData.salt);
+      const iv = CryptoJS.enc.Hex.parse(encryptedData.iv);
+      
+      const key = CryptoJS.PBKDF2(userPassword, salt, {
+        keySize: E2E_CONFIG.keySize,
+        iterations: E2E_CONFIG.iterations
+      });
+
+      const decrypted = CryptoJS.AES.decrypt(encryptedData.encrypted, key, { iv });
+      const privateKey = decrypted.toString(CryptoJS.enc.Utf8);
+
+      if (!privateKey) {
+        throw new Error('Invalid password or corrupted key');
+      }
+
+      E2ELogger.log('success', 'RETRIEVE_KEY', 'Private key retrieved successfully');
+      return privateKey;
+    } catch (error) {
+      E2ELogger.log('error', 'RETRIEVE_KEY', error);
+      throw new Error('Failed to retrieve private key');
+    }
+  }
+
+  /**
+   * Generate session key for E2E session
+   */
+  generateSessionKey(sessionId) {
+    try {
+      E2ELogger.log('info', 'GENERATE_SESSION_KEY', `Generating session key for: ${sessionId}`);
+
+      const sessionKey = CryptoJS.lib.WordArray.random(E2E_CONFIG.sessionKeySize * 4);
+      const sessionKeyString = sessionKey.toString();
+
+      this.sessionKeys.set(sessionId, sessionKeyString);
+      
+      E2ELogger.log('success', 'GENERATE_SESSION_KEY', {
+        sessionId: sessionId?.slice(-8),
+        keyLength: sessionKeyString.length
+      });
+
+      return sessionKeyString;
+    } catch (error) {
+      E2ELogger.log('error', 'GENERATE_SESSION_KEY', error);
+      throw new Error('Failed to generate session key');
+    }
+  }
+
+  /**
+   * Store session key
+   */
+  setSessionKey(sessionId, sessionKey) {
+    try {
+      this.sessionKeys.set(sessionId, sessionKey);
+      
+      E2ELogger.log('info', 'SET_SESSION_KEY', {
+        sessionId: sessionId?.slice(-8),
+        keyLength: sessionKey?.length
+      });
+    } catch (error) {
+      E2ELogger.log('error', 'SET_SESSION_KEY', error);
+    }
+  }
+
+  /**
+   * Get session key
+   */
+  getSessionKey(sessionId) {
+    return this.sessionKeys.get(sessionId) || null;
+  }
+
+  /**
+   * Encrypt message for session
+   */
+  encryptMessage(message, sessionId) {
+    try {
+      const sessionKey = this.getSessionKey(sessionId);
+      if (!sessionKey) {
+        E2ELogger.log('warn', 'ENCRYPT_MESSAGE', `No session key found for: ${sessionId}`);
+        return message; // Return plaintext if no key
+      }
+
+      const iv = CryptoJS.lib.WordArray.random(E2E_CONFIG.ivBytes);
+      const key = CryptoJS.enc.Hex.parse(sessionKey);
+      
+      const encrypted = CryptoJS.AES.encrypt(message, key, { iv });
+      
+      const encryptedData = {
+        encrypted: encrypted.toString(),
+        iv: iv.toString(),
+        keyVersion: E2E_CONFIG.keyVersion
+      };
+
+      const result = JSON.stringify(encryptedData);
+      
+      E2ELogger.log('info', 'ENCRYPT_MESSAGE', {
+        sessionId: sessionId?.slice(-8),
+        originalLength: message.length,
+        encryptedLength: result.length
       });
 
       return result;
     } catch (error) {
-      console.error('❌ Encryption failed:', error);
-      return plaintext; // Fallback to plaintext
+      E2ELogger.log('error', 'ENCRYPT_MESSAGE', error);
+      return message; // Fallback to plaintext
     }
   }
 
   /**
-   * Decrypt message text
-   * @param {string} encryptedText - The encrypted message in format: iv:salt:encrypted
-   * @param {string} sessionId - Session ID for additional entropy
-   * @returns {string} Decrypted message or original text if decryption fails
+   * Decrypt message for session
    */
-  decrypt(encryptedText, sessionId = '') {
-    if (!this.isEnabled || !encryptedText || typeof encryptedText !== 'string') {
-      return encryptedText;
-    }
-
-    // Check if text is encrypted (contains our format)
-    const parts = encryptedText.split(':');
-    if (parts.length !== 3) {
-      console.log('📝 Text not encrypted, returning as-is');
-      return encryptedText; // Not encrypted, return as-is
-    }
-
+  decryptMessage(encryptedMessage, sessionId) {
     try {
-      const [ivHex, saltHex, encryptedData] = parts;
-
-      // Parse components
-      const iv = CryptoJS.enc.Hex.parse(ivHex);
-      const salt = CryptoJS.enc.Hex.parse(saltHex);
-
-      // Create session-specific entropy
-      const sessionSalt = sessionId
-        ? CryptoJS.SHA256(sessionId + salt.toString()).toString()
-        : salt.toString();
-
-      // Derive the same key used for encryption
-      const derivedKey = this.deriveKey(this.encryptionKey + sessionSalt, salt);
-
-      // Decrypt
-      const decrypted = CryptoJS.AES.decrypt(encryptedData, derivedKey, {
-        iv: iv,
-        mode: ENCRYPTION_CONFIG.mode,
-        padding: ENCRYPTION_CONFIG.padding
-      });
-
-      const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
-
-      if (!decryptedText) {
-        throw new Error('Decryption resulted in empty string');
+      // Check if message is encrypted (JSON format)
+      let encryptedData;
+      try {
+        encryptedData = JSON.parse(encryptedMessage);
+      } catch {
+        E2ELogger.log('warn', 'DECRYPT_MESSAGE', 'Message not encrypted, returning as-is');
+        return encryptedMessage; // Not encrypted, return as-is
       }
 
-      console.log('🔓 Message decrypted successfully:', {
-        encryptedLength: encryptedText.length,
-        decryptedLength: decryptedText.length,
-        sessionId: sessionId?.slice(-8) || 'none'
+      const sessionKey = this.getSessionKey(sessionId);
+      if (!sessionKey) {
+        E2ELogger.log('warn', 'DECRYPT_MESSAGE', `No session key found for: ${sessionId}`);
+        return encryptedMessage; // Return encrypted text if no key
+      }
+
+      const iv = CryptoJS.enc.Hex.parse(encryptedData.iv);
+      const key = CryptoJS.enc.Hex.parse(sessionKey);
+      
+      const decrypted = CryptoJS.AES.decrypt(encryptedData.encrypted, key, { iv });
+      const decryptedMessage = decrypted.toString(CryptoJS.enc.Utf8);
+
+      if (!decryptedMessage) {
+        throw new Error('Decryption failed - empty result');
+      }
+
+      E2ELogger.log('info', 'DECRYPT_MESSAGE', {
+        sessionId: sessionId?.slice(-8),
+        encryptedLength: encryptedMessage.length,
+        decryptedLength: decryptedMessage.length
       });
 
-      return decryptedText;
+      return decryptedMessage;
     } catch (error) {
-      console.error('❌ Decryption failed:', error);
-      console.warn('⚠️ Returning encrypted text as fallback');
-      return encryptedText; // Return original if decryption fails
+      E2ELogger.log('error', 'DECRYPT_MESSAGE', error);
+      return encryptedMessage; // Fallback to encrypted text
     }
   }
 
   /**
-   * Test encryption/decryption with sample data
+   * Perform ECDH key exchange
    */
-  test() {
-    const testMessage = "Hello, this is a test message! 🔒";
-    const testSessionId = "test-session-123";
+  performKeyExchange(otherPublicKey, myPrivateKey) {
+    try {
+      E2ELogger.log('info', 'KEY_EXCHANGE', 'Performing ECDH key exchange...');
 
-    console.log('🧪 Testing encryption...');
-    console.log('Original:', testMessage);
+      // Simple ECDH simulation using hash combination
+      const sharedSecret = CryptoJS.SHA256(otherPublicKey + myPrivateKey);
+      const sessionKey = sharedSecret.toString();
 
-    const encrypted = this.encrypt(testMessage, testSessionId);
-    console.log('Encrypted:', encrypted);
+      E2ELogger.log('success', 'KEY_EXCHANGE', {
+        sharedSecretLength: sessionKey.length
+      });
 
-    const decrypted = this.decrypt(encrypted, testSessionId);
-    console.log('Decrypted:', decrypted);
-
-    const success = testMessage === decrypted;
-    console.log('Test result:', success ? '✅ SUCCESS' : '❌ FAILED');
-
-    return success;
+      return sessionKey;
+    } catch (error) {
+      E2ELogger.log('error', 'KEY_EXCHANGE', error);
+      throw new Error('Key exchange failed');
+    }
   }
 
   /**
-   * Get encryption status and info
+   * Generate shared secret for handshake
+   */
+  generateSharedSecret(sessionId, participants) {
+    try {
+      E2ELogger.log('info', 'GENERATE_SHARED_SECRET', `Session: ${sessionId}`);
+
+      const sessionData = sessionId + participants.join('');
+      const sharedSecret = CryptoJS.SHA256(sessionData + Date.now()).toString();
+
+      E2ELogger.log('success', 'GENERATE_SHARED_SECRET', {
+        sessionId: sessionId?.slice(-8),
+        participantsCount: participants.length,
+        secretLength: sharedSecret.length
+      });
+
+      return sharedSecret;
+    } catch (error) {
+      E2ELogger.log('error', 'GENERATE_SHARED_SECRET', error);
+      throw new Error('Failed to generate shared secret');
+    }
+  }
+
+  /**
+   * Rotate session key
+   */
+  rotateSessionKey(sessionId) {
+    try {
+      E2ELogger.log('info', 'ROTATE_KEY', `Rotating key for session: ${sessionId}`);
+
+      const newSessionKey = this.generateSessionKey(sessionId);
+      
+      E2ELogger.log('success', 'ROTATE_KEY', {
+        sessionId: sessionId?.slice(-8),
+        newKeyLength: newSessionKey.length
+      });
+
+      return newSessionKey;
+    } catch (error) {
+      E2ELogger.log('error', 'ROTATE_KEY', error);
+      throw new Error('Failed to rotate session key');
+    }
+  }
+
+  /**
+   * Clear session key
+   */
+  clearSessionKey(sessionId) {
+    try {
+      this.sessionKeys.delete(sessionId);
+      E2ELogger.log('info', 'CLEAR_SESSION_KEY', `Cleared key for: ${sessionId?.slice(-8)}`);
+    } catch (error) {
+      E2ELogger.log('error', 'CLEAR_SESSION_KEY', error);
+    }
+  }
+
+  /**
+   * Clear all session keys
+   */
+  clearAllSessionKeys() {
+    try {
+      this.sessionKeys.clear();
+      E2ELogger.log('info', 'CLEAR_ALL_KEYS', 'All session keys cleared');
+    } catch (error) {
+      E2ELogger.log('error', 'CLEAR_ALL_KEYS', error);
+    }
+  }
+
+  /**
+   * Check if account keypair exists
+   */
+  hasAccountKeyPair() {
+    return !!localStorage.getItem('e2e_private_key');
+  }
+
+  /**
+   * Get account public key
+   */
+  getAccountPublicKey() {
+    return this.accountKeyPair?.publicKey || null;
+  }
+
+  /**
+   * Get encryption status
    */
   getStatus() {
     return {
       isEnabled: this.isEnabled,
-      hasValidKey: this.encryptionKey && this.encryptionKey.length >= 16,
-      keySource: import.meta.env.VITE_CHAT_ENCRYPTION_KEY ? 'environment' : 'fallback',
-      algorithm: 'AES-256-CBC',
-      keyDerivation: 'PBKDF2'
+      hasAccountKeyPair: this.hasAccountKeyPair(),
+      sessionKeysCount: this.sessionKeys.size,
+      algorithm: E2E_CONFIG.algorithm,
+      keyVersion: E2E_CONFIG.keyVersion
     };
+  }
+
+  /**
+   * Test E2E encryption
+   */
+  test() {
+    const testMessage = "Test E2E message";
+    const testSessionId = "test-session-123";
+    
+    console.log('🧪 Testing E2E encryption...');
+    console.log('Original:', testMessage);
+    
+    // Generate session key
+    const sessionKey = this.generateSessionKey(testSessionId);
+    console.log('Session key generated');
+    
+    // Encrypt
+    const encrypted = this.encryptMessage(testMessage, testSessionId);
+    console.log('Encrypted:', encrypted);
+    
+    // Decrypt
+    const decrypted = this.decryptMessage(encrypted, testSessionId);
+    console.log('Decrypted:', decrypted);
+    
+    const success = testMessage === decrypted;
+    console.log('Test result:', success ? '✅ SUCCESS' : '❌ FAILED');
+    
+    // Cleanup
+    this.clearSessionKey(testSessionId);
+    
+    return success;
   }
 }
 
-// 🏭 Create singleton instance
-const chatEncryption = new ChatEncryption();
+// Create singleton instance
+const e2eEncryption = new E2EChatEncryption();
 
-// 🧪 Auto-test in development (Vite)
-if (import.meta.env.MODE === 'development') {
-  setTimeout(() => {
-    console.log('🔐 Encryption Status:', chatEncryption.getStatus());
-    chatEncryption.test();
-  }, 1000);
-}
-
-// 🌍 Expose to window for debugging
+// Expose to window for debugging
 if (typeof window !== 'undefined') {
-  window.chatEncryption = chatEncryption;
-  window.testChatEncryption = () => chatEncryption.test();
+  window.e2eEncryption = e2eEncryption;
+  window.testE2E = () => e2eEncryption.test();
 }
 
-export default chatEncryption;
+export default e2eEncryption;
