@@ -1,39 +1,14 @@
-// src/components/shared/schedule/lib/scheduleApi.js - FIXED BULK ATTACHMENT UPLOAD & VALIDATION
+// src/components/shared/schedule/lib/scheduleApi.js - COMPLETE FIXED VERSION
 
 import { apiClient } from "../../../../lib/api.js"
+import { getCurrentUserTimezone, parseDateTimeForDisplay } from "../../../../utils/timezoneUtils.js"
 
 export const createScheduleApi = (organizationType = "school") => {
   
-  // Get timezone display
+  // Get timezone display - now uses user's timezone
   const getTimezoneDisplay = (timezone) => {
-    if (timezone === "WIB" || timezone === "WITA" || timezone === "WIT") {
-      return timezone;
-    }
-    
-    if (typeof timezone === 'string' && timezone.includes('+')) {
-      const offset = timezone.split('+')[1];
-      switch (offset) {
-        case '07': return 'WIB';
-        case '08': return 'WITA'; 
-        case '09': return 'WIT';
-        default: return 'WIB';
-      }
-    }
-    
-    if (typeof timezone === 'string' && (timezone.includes('T') || timezone.includes(' '))) {
-      const offsetMatch = timezone.match(/([+-]\d{2})/);
-      if (offsetMatch) {
-        const offset = offsetMatch[1].replace('+', '');
-        switch (offset) {
-          case '07': return 'WIB';
-          case '08': return 'WITA';
-          case '09': return 'WIT';
-          default: return 'WIB';
-        }
-      }
-    }
-    
-    return 'WIB';
+    // Use provided timezone or fallback to user's timezone
+    return timezone || getCurrentUserTimezone();
   }
 
   // Location display logic
@@ -88,56 +63,88 @@ export const createScheduleApi = (organizationType = "school") => {
     }
   };
 
-  // Transform schedule data with proper error handling
+  // FIXED: Transform schedule data using backend display values
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
-      // Validate and safely convert UTC times to local
-      let startDateTimeLocal, endDateTimeLocal;
+      // FIXED: Use backend display values if available, otherwise parse datetime
+      let startDateTimeLocal, endDateTimeLocal, startTime, endTime, dateString;
       
       try {
-        // Handle various datetime formats from backend
-        const startDateTime = schedule.startDateTime;
-        const endDateTime = schedule.endDateTime;
-        
-        // Check if datetime values are valid
-        if (!startDateTime || !endDateTime) {
-          console.error('Missing datetime values in schedule:', schedule);
-          // Use current time as fallback
-          startDateTimeLocal = new Date();
-          endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000); // +1 hour
-        } else {
-          startDateTimeLocal = new Date(startDateTime);
-          endDateTimeLocal = new Date(endDateTime);
+        // Check if backend provides pre-calculated display values
+        if (schedule.displayStartDateTime && schedule.displayEndDateTime) {
+          console.log('Using backend display values:', {
+            displayStart: schedule.displayStartDateTime,
+            displayEnd: schedule.displayEndDateTime
+          });
           
-          // Validate that the dates are actually valid
+          // Parse backend display format "2025-09-06 21:30"
+          const [startDateStr, startTimeStr] = schedule.displayStartDateTime.split(' ');
+          const [endDateStr, endTimeStr] = schedule.displayEndDateTime.split(' ');
+          
+          dateString = startDateStr;
+          startTime = startTimeStr;
+          endTime = endTimeStr;
+          
+          // Create Date objects for compatibility (but we'll use the display times)
+          startDateTimeLocal = new Date(`${startDateStr}T${startTimeStr}:00`);
+          endDateTimeLocal = new Date(`${endDateStr}T${endTimeStr}:00`);
+          
           if (isNaN(startDateTimeLocal.getTime()) || isNaN(endDateTimeLocal.getTime())) {
-            console.error('Invalid datetime format in schedule:', { startDateTime, endDateTime, schedule });
-            // Use current time as fallback
-            startDateTimeLocal = new Date();
-            endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000); // +1 hour
+            throw new Error('Invalid display datetime format');
           }
+        } else {
+          // Fallback: Parse UTC timestamps 
+          const startDateTime = schedule.startDateTime;
+          const endDateTime = schedule.endDateTime;
+          
+          if (!startDateTime || !endDateTime) {
+            console.error('Missing datetime values in schedule:', schedule);
+            startDateTimeLocal = new Date();
+            endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000);
+          } else {
+            startDateTimeLocal = new Date(startDateTime);
+            endDateTimeLocal = new Date(endDateTime);
+            
+            if (isNaN(startDateTimeLocal.getTime()) || isNaN(endDateTimeLocal.getTime())) {
+              console.error('Invalid datetime format in schedule:', { startDateTime, endDateTime, schedule });
+              startDateTimeLocal = new Date();
+              endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000);
+            }
+          }
+          
+          // Use JavaScript's time formatting as fallback
+          startTime = startDateTimeLocal.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          endTime = endDateTimeLocal.toLocaleTimeString('en-GB', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          dateString = startDateTimeLocal.toISOString().split('T')[0];
         }
       } catch (error) {
         console.error('Error parsing datetime in schedule:', error, schedule);
-        // Use current time as fallback
         startDateTimeLocal = new Date();
-        endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000); // +1 hour
+        endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000);
+        startTime = startDateTimeLocal.toLocaleTimeString('en-GB', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        endTime = endDateTimeLocal.toLocaleTimeString('en-GB', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+        dateString = startDateTimeLocal.toISOString().split('T')[0];
       }
       
       const baseTransform = {
         ...schedule,
         displayName: schedule.agenda,
-        // Safe ISO conversion with fallback
         startDateTime: startDateTimeLocal.toISOString(),
         endDateTime: endDateTimeLocal.toISOString(),
-        startTime: startDateTimeLocal.toLocaleTimeString('en-GB', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }),
-        endTime: endDateTimeLocal.toLocaleTimeString('en-GB', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }),
+        startTime: startTime, // FIXED: Use parsed display time directly
+        endTime: endTime, // FIXED: Use parsed display time directly
         locationDisplay: getLocationDisplay(schedule),
         participants: schedule.usersSchedules?.map((us) => ({
           ...us.user,
@@ -157,23 +164,17 @@ export const createScheduleApi = (organizationType = "school") => {
                 position: us.user.profile?.position,
               }),
         })) || [],
-        timezoneDisplay: getTimezoneDisplay(schedule.timezone || schedule.startDateTime),
+        timezoneDisplay: getTimezoneDisplay(schedule.originalTimezone || schedule.timezone || getCurrentUserTimezone()), // FIXED: Use original timezone
         attachmentCount: schedule.attachments?.length || 0,
         attachments: schedule.attachments || [],
         hasZoomMeeting: !!(schedule.zoomJoinUrl || schedule.zoomStartUrl),
         zoomJoinUrl: schedule.zoomJoinUrl || null,
         zoomStartUrl: schedule.zoomStartUrl || null,
         dates: [{
-          date: startDateTimeLocal.toISOString().split('T')[0],
-          startTime: startDateTimeLocal.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          endTime: endDateTimeLocal.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          timezone: 'WIB'
+          date: dateString, // FIXED: Use parsed date string
+          startTime: startTime, // FIXED: Use parsed start time
+          endTime: endTime, // FIXED: Use parsed end time
+          timezone: getTimezoneDisplay(schedule.originalTimezone || schedule.timezone || getCurrentUserTimezone()) // FIXED: Use original timezone
         }]
       }
 
@@ -273,7 +274,7 @@ export const createScheduleApi = (organizationType = "school") => {
     return labels[status] || "Normal"
   }
 
-  // FIXED: Data validation helper for create - more specific validation
+  // Data validation helper for create
   const validateScheduleData = (data) => {
     const errors = [];
     
@@ -290,18 +291,15 @@ export const createScheduleApi = (organizationType = "school") => {
       errors.push('Description cannot exceed 255 characters');
     }
     
-    // FIXED: Allow 'others' as valid type
     if (!data.type || !['counseling', 'class', 'seminar', 'others'].includes(data.type)) {
       console.error('Invalid type:', data.type);
       errors.push(`Invalid schedule type: ${data.type}. Must be one of: counseling, class, seminar, others`);
     }
     
-    // FIXED: Better dates validation
     if (!data.dates || !Array.isArray(data.dates) || data.dates.length === 0) {
       console.error('Invalid dates:', data.dates);
       errors.push('At least one date is required');
     } else {
-      // Validate each date object
       data.dates.forEach((dateItem, index) => {
         if (!dateItem.date) {
           errors.push(`Date is required for item ${index + 1}`);
@@ -331,11 +329,10 @@ export const createScheduleApi = (organizationType = "school") => {
     return errors;
   };
 
-  // Data validation helper for update - only validate changed fields
+  // Data validation helper for update
   const validateScheduleUpdateData = (data) => {
     const errors = [];
     
-    // Only validate fields that are being updated
     if (data.hasOwnProperty('agenda')) {
       if (!data.agenda || data.agenda.trim().length === 0) {
         errors.push('Agenda cannot be empty');
@@ -356,7 +353,6 @@ export const createScheduleApi = (organizationType = "school") => {
       errors.push('At least one date is required');
     }
     
-    // If participants are being updated, validate them
     if (data.hasOwnProperty('participants')) {
       if (!data.participants || !data.participants.psychologistId) {
         errors.push('Psychologist is required for counseling');
@@ -366,7 +362,6 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     }
     
-    // If location is being updated for counseling, validate it
     if (data.hasOwnProperty('location') && !data.location) {
       errors.push('Location is required for counseling');
     }
@@ -378,10 +373,12 @@ export const createScheduleApi = (organizationType = "school") => {
   return {
     async getSchedules(params = {}) {
       try {
+        const userTimezone = getCurrentUserTimezone();
+        
         const formattedParams = {
           from: params.from,
           to: params.to,
-          timezone: params.timezone || "WIB",
+          timezone: userTimezone, // Use user's timezone
         }
 
         const response = await apiClient.get("/schedules", {
@@ -408,11 +405,13 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async checkScheduleExists(params) {
       try {
+        const userTimezone = getCurrentUserTimezone();
+        
         const response = await apiClient.post("/schedules/check-exists", {
           date: params.date,
           startTime: params.startTime,
           endTime: params.endTime,
-          timezone: params.timezone || "WIB",
+          timezone: userTimezone, // Use user's timezone
         })
 
         if (response.data?.status === "success") {
@@ -440,7 +439,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // FIXED: createSchedule with better validation and error handling
+    // UPDATED: createSchedule with user timezone
     async createSchedule(scheduleData) {
       try {
         console.log('=== createSchedule API call ===');
@@ -453,17 +452,20 @@ export const createScheduleApi = (organizationType = "school") => {
           throw new Error(errorMessage);
         }
 
-        // FIXED: Build the payload correctly
+        const userTimezone = getCurrentUserTimezone();
+
+        // FIXED: Build payload with user timezone, no manual timezone conversion
         const transformedData = {
           agenda: scheduleData.agenda.trim(),
           description: (scheduleData.description || "").trim(),
           notificationOffset: scheduleData.notificationOffset || 60,
           type: scheduleData.type,
+          timezone: userTimezone, // Add user's timezone to payload
           dates: scheduleData.dates.map((dateItem) => ({
             date: dateItem.date,
             startTime: dateItem.startTime,
             endTime: dateItem.endTime,
-            timezone: dateItem.timezone || "WIB",
+            timezone: userTimezone, // Use user's timezone instead of form timezone
           })),
         }
 
@@ -492,10 +494,7 @@ export const createScheduleApi = (organizationType = "school") => {
           if (standardLocations.includes(scheduleData.location)) {
             transformedData.location = scheduleData.location;
           } else {
-            transformedData.location = "offline";
-            if (scheduleData.actualLocationName) {
-              transformedData.actualLocationName = scheduleData.actualLocationName;
-            }
+            transformedData.location = scheduleData.location; // Send actual location
           }
           console.log('Added location:', transformedData.location);
         } else {
@@ -511,10 +510,8 @@ export const createScheduleApi = (organizationType = "school") => {
         
         console.log('Backend response:', response);
         
-        // Handle response transformation with better error handling
         if (response.data?.status === "success") {
           try {
-            // FIXED: Handle array response from backend
             const scheduleArray = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
             console.log('Schedule array to transform:', scheduleArray);
             
@@ -525,12 +522,11 @@ export const createScheduleApi = (organizationType = "school") => {
               ...response,
               data: {
                 ...response.data,
-                data: transformedResponse[0] || transformedResponse // Return first item if array
+                data: transformedResponse[0] || transformedResponse
               }
             };
           } catch (transformError) {
             console.error("Error transforming create response, using raw data:", transformError);
-            // Return raw response if transformation fails
             return {
               ...response,
               data: {
@@ -548,23 +544,21 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Updated updateSchedule to support selective updates
+    // UPDATED: updateSchedule with user timezone
     async updateSchedule(scheduleId, scheduleData) {
       try {
         console.log('=== updateSchedule API call ===');
         console.log('Schedule ID:', scheduleId);
         console.log('Update data received:', scheduleData);
 
-        // Use selective validation for update
         const validationErrors = validateScheduleUpdateData(scheduleData);
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
         }
 
-        // Build payload with only provided fields (selective update)
+        const userTimezone = getCurrentUserTimezone();
         const transformedData = {};
 
-        // Only include fields that are actually being updated
         if (scheduleData.hasOwnProperty('agenda')) {
           transformedData.agenda = scheduleData.agenda.trim();
         }
@@ -581,16 +575,18 @@ export const createScheduleApi = (organizationType = "school") => {
           transformedData.type = scheduleData.type;
         }
 
+        // FIXED: Always include user timezone in dates
         if (scheduleData.hasOwnProperty('dates')) {
           transformedData.dates = scheduleData.dates.map((dateItem) => ({
             date: dateItem.date,
             startTime: dateItem.startTime,
             endTime: dateItem.endTime,
-            timezone: dateItem.timezone || "WIB",
+            timezone: userTimezone, // Use user's timezone instead of form timezone
           }));
+          transformedData.timezone = userTimezone; // Add timezone to root level too
         }
 
-        // Handle participants update (only if provided)
+        // Handle participants update
         if (scheduleData.hasOwnProperty('participants')) {
           if (scheduleData.participants.psychologistId && scheduleData.participants.patientIds) {
             transformedData.participants = {
@@ -605,16 +601,13 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        // Handle location update (only if provided)
+        // Handle location update
         if (scheduleData.hasOwnProperty('location')) {
           const standardLocations = ["online", "offline", "organization"];
           if (standardLocations.includes(scheduleData.location)) {
             transformedData.location = scheduleData.location;
           } else {
-            transformedData.location = "offline";
-            if (scheduleData.actualLocationName) {
-              transformedData.actualLocationName = scheduleData.actualLocationName;
-            }
+            transformedData.location = scheduleData.location; // Send actual location
           }
         }
 
@@ -628,10 +621,8 @@ export const createScheduleApi = (organizationType = "school") => {
         
         console.log('Backend response:', response.data);
 
-        // Handle response transformation with better error handling
         if (response.data?.status === "success") {
           try {
-            // Attempt to transform the response data
             const transformedResponse = transformScheduleData([response.data.data], organizationType)[0];
             return {
               ...response,
@@ -642,12 +633,11 @@ export const createScheduleApi = (organizationType = "school") => {
             };
           } catch (transformError) {
             console.error("Error transforming update response, using raw data:", transformError);
-            // Return raw response if transformation fails
             return {
               ...response,
               data: {
                 ...response.data,
-                data: response.data.data // Use raw data from backend
+                data: response.data.data
               }
             };
           }
@@ -666,7 +656,6 @@ export const createScheduleApi = (organizationType = "school") => {
         const response = await apiClient.delete(`/schedules/${scheduleId}`);
         console.log('Delete response:', response);
         
-        // Return success response
         return {
           success: true,
           scheduleId: scheduleId,
@@ -675,7 +664,6 @@ export const createScheduleApi = (organizationType = "school") => {
       } catch (error) {
         console.error("Error deleting schedule:", error);
         
-        // Enhanced error handling
         if (error.response) {
           console.error("Delete error response:", error.response.data);
           throw new Error(error.response.data?.message || `HTTP ${error.response.status}: Failed to delete schedule`);
@@ -689,14 +677,12 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Get schedule detail by ID with proper error handling
     async getScheduleById(scheduleId) {
       try {
         const response = await apiClient.get(`/schedules/${scheduleId}`)
 
         if (response.data?.status === "success") {
           try {
-            // Attempt to transform the response data
             const transformedData = transformScheduleData([response.data.data], organizationType)[0];
             return {
               ...response,
@@ -707,12 +693,11 @@ export const createScheduleApi = (organizationType = "school") => {
             }
           } catch (transformError) {
             console.error("Error transforming schedule detail, using raw data:", transformError);
-            // Return raw response if transformation fails
             return {
               ...response,
               data: {
                 ...response.data,
-                data: response.data.data // Use raw data from backend
+                data: response.data.data
               }
             };
           }
@@ -724,14 +709,13 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // FIXED: Upload attachments using correct bulk endpoint
+    // Upload attachments using bulk endpoint
     async uploadAttachments(scheduleIds, files) {
       try {
         console.log('=== uploadAttachments API call (BULK ENDPOINT) ===');
         console.log('Schedule IDs:', scheduleIds);
         console.log('Files:', files);
         
-        // Validate inputs
         if (!scheduleIds || (Array.isArray(scheduleIds) && scheduleIds.length === 0)) {
           throw new Error('Schedule IDs are required for attachment upload');
         }
@@ -742,7 +726,6 @@ export const createScheduleApi = (organizationType = "school") => {
         
         const formData = new FormData();
         
-        // Validate file sizes and types
         const maxSize = 15 * 1024 * 1024; // 15MB per file
         const allowedTypes = [
           'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
@@ -755,12 +738,10 @@ export const createScheduleApi = (organizationType = "school") => {
         ];
         
         for (const file of files) {
-          // Validate file size
           if (file.size > maxSize) {
             throw new Error(`File ${file.name} exceeds 15MB limit (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
           }
           
-          // Validate file type
           if (!allowedTypes.includes(file.type)) {
             throw new Error(`File type ${file.type} is not allowed for ${file.name}`);
           }
@@ -769,24 +750,21 @@ export const createScheduleApi = (organizationType = "school") => {
           formData.append('files', file);
         }
 
-        // FIXED: Add scheduleIds to form data correctly
         const idArray = Array.isArray(scheduleIds) ? scheduleIds : [scheduleIds];
         idArray.forEach((scheduleId) => {
           formData.append('scheduleIds', scheduleId);
         });
 
-        // Log FormData contents for debugging
         console.log('FormData entries:');
         for (let [key, value] of formData.entries()) {
           console.log(key, value instanceof File ? `File: ${value.name}` : value);
         }
 
-        // FIXED: Use the correct bulk endpoint /schedules/attachments
         const response = await apiClient.post('/schedules/attachments', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
-          timeout: 60000, // 60 second timeout for large files
+          timeout: 60000,
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             console.log(`Upload progress: ${percentCompleted}%`);
@@ -809,7 +787,6 @@ export const createScheduleApi = (organizationType = "school") => {
       } catch (error) {
         console.error("Error uploading attachments:", error);
         
-        // Enhanced error handling
         if (error.response) {
           console.error("Upload error response:", error.response.data);
           const errorMessage = error.response.data?.message || 
@@ -826,7 +803,6 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Get schedule attachments
     async getScheduleAttachments(scheduleId) {
       try {
         const response = await apiClient.get(`/schedules/${scheduleId}/attachments`);
@@ -837,7 +813,6 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Delete schedule attachment
     async deleteAttachment(scheduleId, attachmentId) {
       try {
         const response = await apiClient.delete(`/schedules/${scheduleId}/attachments/${attachmentId}`);
@@ -850,7 +825,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async getCounselingQueue(params = {}) {
       try {
-        const response = await apiClient.get("/counselings/schedules", { params })
+        const response = await apiClient.get("/counselings/schedules/psychologist", { params })
 
         if (response.data?.status === "success") {
           return {
@@ -868,7 +843,6 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Get psychologist locations for dropdown
     async getPsychologistLocations() {
       try {
         const response = await apiClient.get('/psychologists/locations');
@@ -879,7 +853,6 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Get psychologists with optional location filter
     async getPsychologists(params = {}) {
       try {
         const response = await apiClient.get('/psychologists', { params });
@@ -895,7 +868,6 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // Get users/participants with search
     async getUsers(params = {}) {
       try {
         const response = await apiClient.get('/users', { params });
@@ -913,9 +885,6 @@ export const createScheduleApi = (organizationType = "school") => {
   }
 }
 
-/**
- * Get configuration for organization type
- */
 export const getScheduleConfig = (organizationType) => {
   const baseConfig = {
     showMiniCalendar: true,
@@ -926,8 +895,8 @@ export const getScheduleConfig = (organizationType) => {
     enableDragDrop: true,
     enableScheduleEdit: true,
     enableScheduleDelete: true,
-    timeSlotDuration: 5, // 5 minutes intervals
-    maxAttachmentSize: 15 * 1024 * 1024, // 15MB
+    timeSlotDuration: 5,
+    maxAttachmentSize: 15 * 1024 * 1024,
     allowedFileTypes: [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
       'application/pdf',
@@ -949,7 +918,7 @@ export const getScheduleConfig = (organizationType) => {
       startHour: 7,
       endHour: 16,
       defaultLocations: ["offline", "online", "organization"],
-      defaultTimezone: "WIB",
+      defaultTimezone: getCurrentUserTimezone(),
     }
   } else {
     return {
@@ -957,7 +926,7 @@ export const getScheduleConfig = (organizationType) => {
       startHour: 8,
       endHour: 18,
       defaultLocations: ["organization", "online", "offline"],
-      defaultTimezone: "WIB",
+      defaultTimezone: getCurrentUserTimezone(),
     }
   }
 }

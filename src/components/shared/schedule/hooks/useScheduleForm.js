@@ -1,26 +1,30 @@
-// src/components/shared/schedule/hooks/useScheduleForm.js - REFACTORED VERSION
+// src/components/shared/schedule/hooks/useScheduleForm.js - FIXED INFINITE RENDERING
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
 import { parseScheduleDateTime } from "../utils/timezoneHandler";
+import { getCurrentUserTimezone, getCurrentUserAsPsychologist, isCurrentUserPsychologist, formatDateLocal } from "../../../../utils/timezoneUtils";
 
 // Import the new modular hooks
 import { useFormValidation } from "./useFormValidation";
 import { useAttachmentHandler } from "./useAttachmentHandler";
 import { useParticipantHandler } from "./useParticipantHandler";
 
-const formatDateLocal = (date) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const day = date.getDate().toString().padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 export const useScheduleForm = (mode = "create", initialData = null, isOpen = false, organizationType = "school") => {
-  // Form data state
-  const [formData, setFormData] = useState(() => ({
+  // FIXED: Memoize user data to prevent re-renders
+  const currentUserTimezone = useMemo(() => getCurrentUserTimezone(), []);
+  const currentUserAsPsychologist = useMemo(() => getCurrentUserAsPsychologist(), []);
+  const isUserPsychologist = useMemo(() => isCurrentUserPsychologist(), []);
+
+  console.log('=== useScheduleForm Initialization ===');
+  console.log('Current user timezone:', currentUserTimezone);
+  console.log('Is user psychologist:', isUserPsychologist);
+  console.log('Current user as psychologist:', currentUserAsPsychologist);
+
+  // FIXED: Memoize initial form data to prevent re-creation
+  const getInitialFormData = useCallback(() => ({
     agenda: "",
     type: "counseling",
     dates: [
@@ -28,17 +32,20 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         date: formatDateLocal(new Date()),
         startTime: "09:00",
         endTime: "10:00",
-        timezone: "WIB",
+        timezone: currentUserTimezone,
       },
     ],
     notificationOffset: 60,
-    selectedPsychologist: null,
+    selectedPsychologist: isUserPsychologist ? currentUserAsPsychologist : null,
     selectedParticipants: [],
     location: "",
     customLocation: "",
     description: "",
     multipleDate: false,
-  }));
+  }), [currentUserTimezone, isUserPsychologist, currentUserAsPsychologist]);
+
+  // Form data state
+  const [formData, setFormData] = useState(getInitialFormData);
 
   // UI state
   const [dropdowns, setDropdowns] = useState({});
@@ -79,37 +86,31 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     removeParticipant: removeParticipantBase,
     clearParticipantSearch,
     getAvailableParticipants,
-  } = useParticipantHandler(formData, isOpen);
+  } = useParticipantHandler(formData, isOpen, currentUserAsPsychologist);
 
-  // Event types and options
-  const eventTypes = [
+  // Event types and options - FIXED: Memoize to prevent re-creation
+  const eventTypes = useMemo(() => [
     { label: "Konseling", value: "counseling", textColor: "#9986FF" },
     ...(organizationType === "school" ? [{ label: "Kelas", value: "class", textColor: "#3CE69E" }] : []),
     { label: "Seminar", value: "seminar", textColor: "#FF886D" },
     { label: "Lainnya", value: "others", textColor: "#979797" },
-  ];
+  ], [organizationType]);
 
-  const notificationOptions = [
+  const notificationOptions = useMemo(() => [
     { label: "1 jam", value: 60 },
     { label: "12 jam", value: 720 },
     { label: "1 hari", value: 1440 },
     { label: "3 hari", value: 4320 },
-  ];
+  ], []);
 
-  const timezoneOptions = [
-    { label: "WIB", value: "WIB" },
-    { label: "WITA", value: "WITA" },
-    { label: "WIT", value: "WIT" },
-  ];
-
-  const fixedLocationOptions = [
+  const fixedLocationOptions = useMemo(() => [
     { label: "Online", value: "online" },
     { label: "Offline", value: "offline" },
     { label: "Sit-in", value: "organization" },
-  ];
+  ], []);
 
-  // Generate time options
-  const timeOptions = (() => {
+  // Generate time options - FIXED: Memoize to prevent re-creation
+  const timeOptions = useMemo(() => {
     const times = [];
     for (let hour = 6; hour <= 23; hour++) {
       for (let minute = 0; minute < 60; minute += 5) {
@@ -117,7 +118,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       }
     }
     return times;
-  })();
+  }, []);
 
   // Fetch psychologist locations
   const { data: backendLocations = [] } = useQuery({
@@ -156,159 +157,175 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     retry: 1,
   });
 
-  // Initialize form data
-  useEffect(() => {
-    if (isOpen) {
-      try {
-        if (mode === "edit" && initialData) {
-          // Initialize edit form
-          let dates = [];
-          if (initialData.dates && initialData.dates.length > 0) {
-            dates = initialData.dates.map((dateInfo) => ({
-              ...dateInfo,
-              timezone: dateInfo.timezone || "WIB",
-            }));
-          } else if (initialData.startDateTime) {
-            const scheduleData = parseScheduleDateTime(
-              initialData.startDateTime,
-              initialData.endDateTime,
-              initialData.timezone
-            );
+  // FIXED: Memoize initial data processing to prevent infinite loops
+  const processedInitialData = useMemo(() => {
+    if (!initialData) return null;
 
-            dates = [
-              {
-                date: scheduleData.date,
-                startTime: scheduleData.startTime,
-                endTime: scheduleData.endTime,
-                timezone: scheduleData.timezone || "WIB",
-              },
-            ];
-          }
+    // Process initial data only once
+    if (mode === "edit") {
+      let dates = [];
+      if (initialData.dates && initialData.dates.length > 0) {
+        dates = initialData.dates.map((dateInfo) => ({
+          ...dateInfo,
+          timezone: currentUserTimezone,
+        }));
+      } else if (initialData.startDateTime) {
+        const scheduleData = parseScheduleDateTime(
+          initialData.startDateTime,
+          initialData.endDateTime,
+          currentUserTimezone
+        );
 
-          const transformedData = {
-            agenda: initialData.agenda || "",
-            type: initialData.type || "counseling",
-            description: initialData.description || "",
-            notificationOffset: initialData.notificationOffset || 60,
-            dates: dates.length > 0 ? dates : [
-              {
-                date: formatDateLocal(new Date()),
-                startTime: "09:00",
-                endTime: "10:00",
-                timezone: "WIB",
-              },
-            ],
-            location: initialData.type === "counseling" ? (initialData.location || "") : "",
-            customLocation: initialData.type !== "counseling" ? (initialData.customLocation || "") : "",
-            selectedPsychologist: initialData.selectedPsychologist || null,
-            selectedParticipants: Array.isArray(initialData.selectedParticipants)
-              ? initialData.selectedParticipants
-              : [],
-            multipleDate: dates.length > 1 || initialData.multipleDate || false,
-          };
-
-          setFormData(transformedData);
-          initializeAttachments(initialData);
-
-          if (editorRef.current && transformedData.description) {
-            editorRef.current.innerHTML = transformedData.description;
-          }
-        } else {
-          // Initialize create form
-          let defaultDates = [
-            {
-              date: formatDateLocal(new Date()),
-              startTime: "09:00",
-              endTime: "10:00",
-              timezone: "WIB",
-            },
-          ];
-
-          if (initialData?.dates && Array.isArray(initialData.dates) && initialData.dates.length > 0) {
-            defaultDates = initialData.dates.map((dateInfo) => {
-              let dateString = dateInfo.date;
-              if (dateInfo.date instanceof Date) {
-                dateString = formatDateLocal(dateInfo.date);
-              }
-
-              return {
-                date: dateString,
-                startTime: dateInfo.startTime || "09:00",
-                endTime: dateInfo.endTime || "10:00",
-                timezone: dateInfo.timezone || "WIB",
-              };
-            });
-          } else if (initialData?.startDateTime && initialData?.endDateTime) {
-            const startDate = new Date(initialData.startDateTime);
-            const endDate = new Date(initialData.endDateTime);
-
-            defaultDates = [
-              {
-                date: formatDateLocal(startDate),
-                startTime: startDate.toTimeString().slice(0, 5),
-                endTime: endDate.toTimeString().slice(0, 5),
-                timezone: "WIB",
-              },
-            ];
-          }
-
-          const createModeData = {
-            agenda: "",
-            type: "counseling",
-            dates: defaultDates,
-            notificationOffset: 60,
-            selectedPsychologist: null,
-            selectedParticipants: [],
-            location: "",
-            customLocation: "",
-            description: "",
-            multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
-          };
-
-          setFormData(createModeData);
-          clearAttachments();
-
-          if (editorRef.current) {
-            editorRef.current.innerHTML = "";
-          }
-        }
-
-        setDropdowns({});
-        clearParticipantSearch();
-        setHasShownUnsavedToast(false);
-        setPreviewAttachment(null);
-      } catch (error) {
-        console.error("Error initializing form data:", error);
-        toast.error("Gagal memuat form, silakan coba lagi");
-        
-        // Fallback to safe default state
-        setFormData({
-          agenda: "",
-          type: "counseling",
-          dates: [
-            {
-              date: formatDateLocal(new Date()),
-              startTime: "09:00",
-              endTime: "10:00",
-              timezone: "WIB",
-            },
-          ],
-          notificationOffset: 60,
-          selectedPsychologist: null,
-          selectedParticipants: [],
-          location: "",
-          customLocation: "",
-          description: "",
-          multipleDate: false,
-        });
-        clearAttachments();
+        dates = [
+          {
+            date: scheduleData.date,
+            startTime: scheduleData.startTime,
+            endTime: scheduleData.endTime,
+            timezone: currentUserTimezone,
+          },
+        ];
       }
-    }
-  }, [isOpen, mode, initialData]);
 
-  // Event handlers
-  const handleInputChange = (field, value) => {
+      return {
+        agenda: initialData.agenda || "",
+        type: initialData.type || "counseling",
+        description: initialData.description || "",
+        notificationOffset: initialData.notificationOffset || 60,
+        dates: dates.length > 0 ? dates : [
+          {
+            date: formatDateLocal(new Date()),
+            startTime: "09:00",
+            endTime: "10:00",
+            timezone: currentUserTimezone,
+          },
+        ],
+        location: initialData.type === "counseling" ? (initialData.location || "") : "",
+        customLocation: initialData.type !== "counseling" ? (initialData.customLocation || "") : "",
+        selectedPsychologist: isUserPsychologist ? currentUserAsPsychologist : (initialData.selectedPsychologist || null),
+        selectedParticipants: Array.isArray(initialData.selectedParticipants)
+          ? initialData.selectedParticipants
+          : [],
+        multipleDate: dates.length > 1 || initialData.multipleDate || false,
+      };
+    } else {
+      // Create mode
+      let defaultDates = [
+        {
+          date: formatDateLocal(new Date()),
+          startTime: "09:00",
+          endTime: "10:00",
+          timezone: currentUserTimezone,
+        },
+      ];
+
+      if (initialData?.dates && Array.isArray(initialData.dates) && initialData.dates.length > 0) {
+        defaultDates = initialData.dates.map((dateInfo) => {
+          let dateString = dateInfo.date;
+          if (dateInfo.date instanceof Date) {
+            dateString = formatDateLocal(dateInfo.date);
+          }
+
+          return {
+            date: dateString,
+            startTime: dateInfo.startTime || "09:00",
+            endTime: dateInfo.endTime || "10:00",
+            timezone: currentUserTimezone,
+          };
+        });
+      } else if (initialData?.startDateTime && initialData?.endDateTime) {
+        const startDate = new Date(initialData.startDateTime);
+        const endDate = new Date(initialData.endDateTime);
+
+        defaultDates = [
+          {
+            date: formatDateLocal(startDate),
+            startTime: startDate.toTimeString().slice(0, 5),
+            endTime: endDate.toTimeString().slice(0, 5),
+            timezone: currentUserTimezone,
+          },
+        ];
+      }
+
+      return {
+        agenda: "",
+        type: "counseling",
+        dates: defaultDates,
+        notificationOffset: 60,
+        selectedPsychologist: isUserPsychologist ? currentUserAsPsychologist : null,
+        selectedParticipants: [],
+        location: "",
+        customLocation: "",
+        description: "",
+        multipleDate: initialData?.multipleDate || initialData?.draggedDays > 1 || defaultDates.length > 1,
+      };
+    }
+  }, [
+    initialData, 
+    mode, 
+    currentUserTimezone, 
+    isUserPsychologist, 
+    currentUserAsPsychologist
+  ]);
+
+  // FIXED: Initialize form data only when necessary, with proper dependencies
+  useEffect(() => {
+    if (!isOpen) return;
+
+    try {
+      console.log('=== Form Data Initialization Effect ===');
+      console.log('Mode:', mode);
+      console.log('Is open:', isOpen);
+      console.log('Processed initial data:', processedInitialData);
+
+      if (processedInitialData) {
+        setFormData(processedInitialData);
+        initializeAttachments(initialData);
+
+        if (editorRef.current && processedInitialData.description) {
+          editorRef.current.innerHTML = processedInitialData.description;
+        }
+      } else {
+        // Fallback to initial state
+        const fallbackData = getInitialFormData();
+        setFormData(fallbackData);
+        clearAttachments();
+
+        if (editorRef.current) {
+          editorRef.current.innerHTML = "";
+        }
+      }
+
+      // Reset UI state
+      setDropdowns({});
+      clearParticipantSearch();
+      setHasShownUnsavedToast(false);
+      setPreviewAttachment(null);
+
+    } catch (error) {
+      console.error("Error initializing form data:", error);
+      toast.error("Gagal memuat form, silakan coba lagi");
+      
+      // Fallback to safe default state
+      const fallbackData = getInitialFormData();
+      setFormData(fallbackData);
+      clearAttachments();
+    }
+  }, [
+    isOpen, 
+    processedInitialData, 
+    getInitialFormData,
+    // Note: Do NOT include formData in dependencies - it will cause infinite loop
+  ]); // FIXED: Stable dependencies only
+
+  // Event handlers - FIXED: Memoize to prevent re-creation
+  const handleInputChange = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+    // FIXED: Prevent psychologist field changes if current user is psychologist
+    if (field === "selectedPsychologist" && isUserPsychologist) {
+      console.log('Psychologist change blocked: Current user is psychologist');
+      return;
+    }
 
     if (field === "selectedPsychologist" && formData.type === "counseling") {
       setFormData((prev) => ({ ...prev, selectedPsychologist: value, location: "" }));
@@ -316,28 +333,30 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     }
 
     if (field === "multipleDate") {
-      if (value) {
-        const firstDate = formData.dates[0];
-        const nextDay = new Date(firstDate.date);
-        nextDay.setDate(nextDay.getDate() + 1);
+      setFormData((prev) => {
+        if (value) {
+          const firstDate = prev.dates[0];
+          const nextDay = new Date(firstDate.date);
+          nextDay.setDate(nextDay.getDate() + 1);
 
-        const secondDate = {
-          ...firstDate,
-          date: formatDateLocal(nextDay),
-        };
+          const secondDate = {
+            ...firstDate,
+            date: formatDateLocal(nextDay),
+          };
 
-        setFormData((prev) => ({
-          ...prev,
-          multipleDate: true,
-          dates: [firstDate, secondDate],
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          multipleDate: false,
-          dates: [prev.dates[0]],
-        }));
-      }
+          return {
+            ...prev,
+            multipleDate: true,
+            dates: [firstDate, secondDate],
+          };
+        } else {
+          return {
+            ...prev,
+            multipleDate: false,
+            dates: [prev.dates[0]],
+          };
+        }
+      });
       return;
     }
 
@@ -351,7 +370,10 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
             endTime: timeOptions[Math.min(startIndex + 1, timeOptions.length - 1)],
           };
         }
-        return date;
+        return {
+          ...date,
+          timezone: currentUserTimezone,
+        };
       });
       setFormData((prev) => ({
         ...prev,
@@ -360,9 +382,15 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       }));
       return;
     }
-  };
+  }, [isUserPsychologist, timeOptions, currentUserTimezone]);
 
-  const toggleDropdown = (dropdown) => {
+  const toggleDropdown = useCallback((dropdown) => {
+    // FIXED: Prevent psychologist dropdown if current user is psychologist
+    if (dropdown === "psychologist" && isUserPsychologist) {
+      console.log('Psychologist dropdown blocked: Current user is psychologist');
+      return;
+    }
+
     setDropdowns((prev) => {
       const newState = {
         ...Object.keys(prev).reduce((acc, key) => ({ ...acc, [key]: false }), {}),
@@ -375,10 +403,10 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
 
       return newState;
     });
-  };
+  }, [isUserPsychologist, clearParticipantSearch]);
 
-  // Location options
-  const getAvailableLocations = () => {
+  // Location options - FIXED: Memoize to prevent re-calculation
+  const getAvailableLocations = useCallback(() => {
     if (formData.selectedPsychologist) {
       return fixedLocationOptions;
     } else {
@@ -403,21 +431,25 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         })
         .filter((location) => location.label && location.value);
     }
-  };
+  }, [formData.selectedPsychologist, fixedLocationOptions, backendLocations]);
 
-  // Wrapped participant handlers
-  const handleParticipantSelect = (participant, slotIndex) => {
+  // Wrapped participant handlers - FIXED: Memoize to prevent re-creation
+  const handleParticipantSelect = useCallback((participant, slotIndex) => {
     handleParticipantSelectBase(participant, slotIndex, handleInputChange);
-  };
+  }, [handleParticipantSelectBase, handleInputChange]);
 
-  const removeParticipant = (participantId) => {
+  const removeParticipant = useCallback((participantId) => {
     removeParticipantBase(participantId, handleInputChange);
-  };
+  }, [removeParticipantBase, handleInputChange]);
 
-  // Date handlers
-  const updateAdditionalDate = (index, field, value) => {
+  // Date handlers - FIXED: Memoize to prevent re-creation
+  const updateAdditionalDate = useCallback((index, field, value) => {
     const newDates = [...formData.dates];
-    newDates[index] = { ...newDates[index], [field]: value };
+    newDates[index] = { 
+      ...newDates[index], 
+      [field]: value,
+      timezone: currentUserTimezone
+    };
 
     if (field === "startTime") {
       const startTimeIndex = timeOptions.indexOf(value);
@@ -440,16 +472,16 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     }
 
     handleInputChange("dates", newDates);
-  };
+  }, [formData.dates, currentUserTimezone, timeOptions, handleInputChange]);
 
-  // Unsaved changes detection
-  const hasUnsavedChanges = () => {
+  // Unsaved changes detection - FIXED: Memoize to prevent re-calculation
+  const hasUnsavedChanges = useCallback(() => {
     if (mode !== "edit" || !initialData) {
       return (
         formData.agenda.trim() !== "" ||
         formData.description.trim() !== "" ||
         formData.selectedParticipants.length > 0 ||
-        formData.selectedPsychologist !== null ||
+        (formData.selectedPsychologist !== null && (!isUserPsychologist || formData.selectedPsychologist !== currentUserAsPsychologist)) ||
         attachments.length > 0
       );
     }
@@ -477,12 +509,20 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     };
 
     return JSON.stringify(current) !== JSON.stringify(initial) || getNewAttachments().length > 0;
-  };
+  }, [
+    mode, 
+    initialData, 
+    formData, 
+    isUserPsychologist, 
+    currentUserAsPsychologist, 
+    attachments.length, 
+    getNewAttachments
+  ]);
 
-  // Validation wrapper
-  const validateFormData = () => {
+  // Validation wrapper - FIXED: Memoize to prevent re-creation
+  const validateFormData = useCallback(() => {
     return validateForm(formData, mode, initialData);
-  };
+  }, [validateForm, formData, mode, initialData]);
 
   return {
     // Form state
@@ -493,6 +533,11 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     participantSearch,
     hasShownUnsavedToast,
     previewAttachment,
+
+    // User data
+    currentUserTimezone,
+    isUserPsychologist,
+    currentUserAsPsychologist,
 
     // Refs
     editorRef,
@@ -508,7 +553,6 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     // Options and constants
     eventTypes,
     notificationOptions,
-    timezoneOptions,
     fixedLocationOptions,
     timeOptions,
 

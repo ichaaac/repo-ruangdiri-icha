@@ -1,9 +1,8 @@
-// src/hooks/useAuth.js - UPDATED WITH E2E SUPPORT
+// src/hooks/useAuth.js - FIXED E2E SETUP
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
 import api, { getMe } from "../lib/api"
-import e2eEncryption from '../components/shared/chats/lib/encryption'
 import { chatsApi } from '../components/shared/chats/lib/chatsApi'
 
 export const useAuth = () => {
@@ -56,8 +55,8 @@ export const useAuth = () => {
           localStorage.removeItem("userRole")
           localStorage.removeItem("userTimezone")
           // 🔐 E2E: Clear E2E keys on auth error
+          localStorage.removeItem("e2e_account_keys")
           localStorage.removeItem("e2e_private_key")
-          e2eEncryption.clearAllSessionKeys()
         }
         return null
       }
@@ -69,50 +68,103 @@ export const useAuth = () => {
     cacheTime: 15 * 60 * 1000, // 15 minutes
   })
 
-  // 🔐 E2E: Setup E2E keys during login
+  // 🔐 FIXED: Setup E2E keys during login (check server status first)
   const setupE2EKeys = async (userPassword) => {
     try {
-      console.log('🔐 Setting up E2E keys during login...')
+      console.log('🔑 Checking E2E setup status...')
 
-      // Check if user already has E2E keys
-      if (e2eEncryption.hasAccountKeyPair()) {
-        console.log('✅ E2E keys already exist, retrieving...')
+      // Get fresh user data to check E2E status
+      const userResponse = await getMe()
+      const userData = userResponse?.data
+      const e2eStatus = userData?.e2eEncryption
+
+      console.log('📊 E2E Status from server:', e2eStatus)
+
+      // Check if user already has E2E keys registered on server
+      if (e2eStatus?.hasE2EKeys === true && e2eStatus?.publicKeyRegistered === true) {
+        console.log('✅ E2E keys already registered on server, skipping setup')
         
-        try {
-          const privateKey = e2eEncryption.retrievePrivateKey(userPassword)
-          console.log('✅ E2E private key retrieved successfully')
-          return true
-        } catch (error) {
-          console.error('❌ Failed to retrieve existing E2E key:', error)
-          // If password fails, might be corrupted - generate new keys
+        // Store basic info locally for reference
+        const keyData = {
+          hasKeys: true,
+          registered: true,
+          lastUsedAt: e2eStatus.lastUsedAt,
+          keyCount: e2eStatus.keyCount,
+          serverConfirmed: true
         }
+        localStorage.setItem('e2e_status', JSON.stringify(keyData))
+        
+        return true
       }
 
-      // Generate new E2E keypair
-      console.log('🔑 Generating new E2E keypair...')
-      const keyPair = await chatsApi.generateAccountKeyPair()
-      
-      // Store encrypted private key locally
-      e2eEncryption.storePrivateKey(keyPair.privateKey, userPassword)
-      
-      // Register public key with backend
-      const encryptedPrivateKeyData = JSON.stringify({
-        encrypted: keyPair.privateKey,
-        keyVersion: keyPair.keyVersion,
-        algorithm: 'AES-256-CBC'
-      })
-      
-      await chatsApi.registerAccountKey(
-        keyPair.publicKey, 
-        encryptedPrivateKeyData, 
-        keyPair.keyVersion
-      )
-      
-      console.log('✅ E2E keypair setup completed successfully')
+      // Only generate and register if server says we don't have keys
+      if (e2eStatus?.hasE2EKeys === false || e2eStatus?.publicKeyRegistered === false) {
+        console.log('🔑 Server confirms no E2E keys, starting setup...')
+
+        // STEP 1: Generate new E2E keypair from backend
+        console.log('🔑 Generating new E2E keypair from backend...')
+        const keyPair = await chatsApi.generateAccountKeyPair()
+        
+        if (!keyPair.publicKey || !keyPair.privateKey) {
+          throw new Error('Invalid keypair received from backend')
+        }
+
+        console.log('✅ Keypair generated:', {
+          publicKeyLength: keyPair.publicKey?.length,
+          privateKeyLength: keyPair.privateKey?.length,
+          keyVersion: keyPair.keyVersion
+        })
+
+        // STEP 2: Store keypair locally
+        const keyData = {
+          publicKey: keyPair.publicKey,
+          privateKey: keyPair.privateKey,
+          keyVersion: keyPair.keyVersion,
+          createdAt: new Date().toISOString(),
+          registered: false
+        }
+
+        localStorage.setItem('e2e_account_keys', JSON.stringify(keyData))
+        console.log('💾 E2E keys stored locally')
+
+        // STEP 3: Register public key with backend
+        console.log('📝 Registering public key with backend...')
+        await chatsApi.registerAccountKey(
+          keyPair.publicKey, 
+          keyPair.privateKey,  // Backend will handle encryption
+          keyPair.keyVersion
+        )
+
+        // Update local status
+        keyData.registered = true
+        localStorage.setItem('e2e_account_keys', JSON.stringify(keyData))
+
+        console.log('✅ E2E keypair setup completed successfully')
+        return true
+      }
+
+      console.log('ℹ️ E2E status unclear from server, skipping setup')
       return true
+
     } catch (error) {
       console.error('❌ E2E key setup failed:', error)
-      throw new Error('Failed to setup E2E encryption: ' + error.message)
+      
+      // Handle specific errors
+      if (error.message?.includes('User already has account key registered')) {
+        console.log('ℹ️ Keys already registered (detected from error), marking as complete')
+        const keyData = {
+          hasKeys: true,
+          registered: true,
+          serverConfirmed: true,
+          detectedFromError: true
+        }
+        localStorage.setItem('e2e_status', JSON.stringify(keyData))
+        return true
+      }
+      
+      // Don't fail login due to E2E setup failure
+      console.warn('⚠️ E2E encryption setup failed - chat will work but may not be encrypted')
+      return false
     }
   }
 
@@ -155,13 +207,14 @@ export const useAuth = () => {
           localStorage.setItem("userTimezone", credentials.timezone)
         }
 
-        // 🔐 E2E: Setup E2E keys after successful login
+        // 🔐 FIXED: Setup E2E keys after successful login
+        let e2eSetupSuccess = false
         try {
-          await setupE2EKeys(credentials.password)
+          e2eSetupSuccess = await setupE2EKeys(credentials.password)
           console.log('✅ E2E keys setup completed during login')
         } catch (e2eError) {
           console.error('❌ E2E setup failed during login:', e2eError)
-          // Don't fail login due to E2E setup failure, but warn user
+          // Don't fail login due to E2E setup failure
           console.warn('⚠️ E2E encryption setup failed - chat will work but may not be encrypted')
         }
 
@@ -170,7 +223,7 @@ export const useAuth = () => {
           organizationType, 
           userRole, 
           timezone: credentials.timezone,
-          e2eSetup: true
+          e2eSetup: e2eSetupSuccess
         }
       } catch (error) {
         console.error("Login error:", error)
@@ -195,6 +248,13 @@ export const useAuth = () => {
 
           console.log("User data with E2E support:", userData)
 
+          // Show E2E setup status
+          if (data.e2eSetup) {
+            console.log('🔐 E2E encryption is ready for secure chat')
+          } else {
+            console.warn('⚠️ E2E encryption setup incomplete')
+          }
+
           // Redirect logic with loop prevention
           redirectAfterLogin(userData, location.pathname)
         } else {
@@ -214,8 +274,8 @@ export const useAuth = () => {
       localStorage.removeItem("userRole")
       localStorage.removeItem("userTimezone")
       // 🔐 E2E: Clear E2E keys on login error
+      localStorage.removeItem("e2e_account_keys")
       localStorage.removeItem("e2e_private_key")
-      e2eEncryption.clearAllSessionKeys()
     },
   })
 
@@ -274,18 +334,24 @@ export const useAuth = () => {
       try {
         const response = await api.auth.changePassword(oldPassword, newPassword)
         
-        // 🔐 E2E: Update E2E keys with new password
-        if (response.status === 'success' && e2eEncryption.hasAccountKeyPair()) {
+        // 🔐 FIXED: Update E2E keys with new password
+        if (response.status === 'success') {
           try {
-            console.log('🔐 Updating E2E keys with new password...')
+            console.log('🔑 Updating E2E keys with new password...')
             
-            // Retrieve current private key with old password
-            const privateKey = e2eEncryption.retrievePrivateKey(oldPassword)
-            
-            // Re-encrypt with new password
-            e2eEncryption.storePrivateKey(privateKey, newPassword)
-            
-            console.log('✅ E2E keys updated with new password')
+            const existingKeys = localStorage.getItem('e2e_account_keys')
+            if (existingKeys) {
+              const keyData = JSON.parse(existingKeys)
+              
+              // Re-register keys with new password
+              await chatsApi.registerAccountKey(
+                keyData.publicKey,
+                keyData.privateKey,  // Backend will re-encrypt with new credentials
+                keyData.keyVersion
+              )
+              
+              console.log('✅ E2E keys updated with new password')
+            }
           } catch (e2eError) {
             console.error('❌ Failed to update E2E keys with new password:', e2eError)
             // Don't fail password change due to E2E update failure
@@ -317,8 +383,8 @@ export const useAuth = () => {
       localStorage.removeItem("userRole")
       localStorage.removeItem("userTimezone")
       // 🔐 E2E: Clear all E2E data on logout
+      localStorage.removeItem("e2e_account_keys")
       localStorage.removeItem("e2e_private_key")
-      e2eEncryption.clearAllSessionKeys()
       queryClient.clear()
       navigate("/login")
       console.log('🔐 All E2E data cleared on logout')
@@ -384,37 +450,120 @@ export const useAuth = () => {
     }
   }
 
-  // 🔐 E2E: Helper functions
+  // 🔐 FIXED: E2E Helper functions
   const hasE2EKeys = () => {
-    return e2eEncryption.hasAccountKeyPair()
+    // Check localStorage first
+    const keys = localStorage.getItem('e2e_account_keys')
+    const status = localStorage.getItem('e2e_status')
+    
+    if (keys) {
+      try {
+        const keyData = JSON.parse(keys)
+        return !!(keyData.publicKey && keyData.privateKey)
+      } catch {
+        return false
+      }
+    }
+    
+    if (status) {
+      try {
+        const statusData = JSON.parse(status)
+        return statusData.hasKeys === true
+      } catch {
+        return false
+      }
+    }
+    
+    // Check from user data if available
+    return user?.e2eEncryption?.hasE2EKeys === true
   }
 
   const getE2EStatus = () => {
-    return e2eEncryption.getStatus()
+    const hasKeys = hasE2EKeys()
+    const keyData = hasKeys ? JSON.parse(localStorage.getItem('e2e_account_keys') || '{}') : null
+    const statusData = localStorage.getItem('e2e_status') ? JSON.parse(localStorage.getItem('e2e_status')) : null
+    
+    return {
+      isEnabled: hasKeys,
+      hasAccountKeys: hasKeys,
+      keyVersion: keyData?.keyVersion || statusData?.keyVersion || 0,
+      createdAt: keyData?.createdAt || statusData?.createdAt || null,
+      lastUsedAt: statusData?.lastUsedAt || user?.e2eEncryption?.lastUsedAt || null,
+      serverStatus: user?.e2eEncryption || null,
+      algorithm: 'ECDH-ES'
+    }
   }
 
-  const rotateE2EKeys = async (currentPassword) => {
+  const getE2EKeys = () => {
     try {
-      console.log('🔄 Rotating E2E keys...')
+      // First try to get from localStorage
+      const keys = localStorage.getItem('e2e_account_keys')
+      if (keys) {
+        const keyData = JSON.parse(keys)
+        if (keyData.publicKey && keyData.privateKey) {
+          return keyData
+        }
+      }
+      
+      // If no local keys but server says we have keys, try to use server info
+      const serverE2E = user?.e2eEncryption
+      if (serverE2E?.hasE2EKeys === true && serverE2E?.publicKeyRegistered === true) {
+        console.warn('⚠️ Server has E2E keys but local keys missing')
+        
+        // Return a placeholder that indicates we need to get the key from server
+        // This is a temporary solution - ideally we'd fetch the public key from server
+        return {
+          hasServerKeys: true,
+          publicKey: null, // Will need to fetch from participants API
+          privateKey: null,
+          keyVersion: serverE2E.keyCount || 1,
+          serverStatus: serverE2E
+        }
+      }
+      
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  const rotateE2EKeys = async (currentPassword, reason = 'manual_rotation') => {
+    try {
+      console.log('🔄 Rotating E2E keys...', { reason })
+      
+      // Check if we have existing keys to rotate from
+      const existingKeys = getE2EKeys()
+      if (!existingKeys && user?.e2eEncryption?.hasE2EKeys === false) {
+        console.log('ℹ️ No existing keys found, performing initial setup instead')
+        return await setupE2EKeys(currentPassword)
+      }
       
       // Generate new keypair
       const newKeyPair = await chatsApi.generateAccountKeyPair()
       
-      // Store new encrypted private key locally
-      e2eEncryption.storePrivateKey(newKeyPair.privateKey, currentPassword)
-      
-      // Register new keys with backend
-      const encryptedPrivateKeyData = JSON.stringify({
-        encrypted: newKeyPair.privateKey,
-        keyVersion: newKeyPair.keyVersion + 1,
-        algorithm: 'AES-256-CBC'
-      })
-      
+      // Use rotation endpoint
+      const currentKeyVersion = existingKeys?.keyVersion || user?.e2eEncryption?.keyCount || 1
       await chatsApi.rotateAccountKeys(
-        newKeyPair.publicKey, 
-        encryptedPrivateKeyData, 
-        newKeyPair.keyVersion + 1
+        newKeyPair.publicKey,
+        newKeyPair.privateKey,
+        currentKeyVersion + 1
       )
+      
+      // Update local storage
+      const newKeyData = {
+        publicKey: newKeyPair.publicKey,
+        privateKey: newKeyPair.privateKey,
+        keyVersion: currentKeyVersion + 1,
+        createdAt: new Date().toISOString(),
+        rotatedAt: new Date().toISOString(),
+        rotationReason: reason,
+        registered: true
+      }
+      
+      localStorage.setItem('e2e_account_keys', JSON.stringify(newKeyData))
+      
+      // Clear old status
+      localStorage.removeItem('e2e_status')
       
       console.log('✅ E2E keys rotated successfully')
       return true
@@ -426,8 +575,9 @@ export const useAuth = () => {
 
   const clearE2EData = () => {
     console.log('🧹 Clearing all E2E data...')
+    localStorage.removeItem("e2e_account_keys")
     localStorage.removeItem("e2e_private_key")
-    e2eEncryption.clearAllSessionKeys()
+    localStorage.removeItem("e2e_status")
     console.log('✅ All E2E data cleared')
   }
 
@@ -487,9 +637,10 @@ export const useAuth = () => {
     getUserTypeLabel,
     getDefaultRoute,
     refetchUser: refetch,
-    // 🔐 E2E: Export E2E functions
+    // 🔐 FIXED: Export E2E functions
     hasE2EKeys,
     getE2EStatus,
+    getE2EKeys,
     rotateE2EKeys,
     clearE2EData,
     setupE2EKeys

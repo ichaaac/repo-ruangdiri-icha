@@ -1,4 +1,4 @@
-// src/components/shared/schedule/ScheduleFormFields.jsx
+// src/components/shared/schedule/ScheduleFormFields.jsx - FIXED NESTED BUTTONS & INFINITE RENDER
 
 import { useState } from "react"
 
@@ -56,7 +56,6 @@ const ScheduleFormFields = ({
   fileInputRef,
   eventTypes,
   notificationOptions,
-  timezoneOptions,
   timeOptions,
   psychologists,
   participants,
@@ -74,6 +73,10 @@ const ScheduleFormFields = ({
   setPreviewAttachment,
   uploadingAttachments,
   loading,
+  // ADDED: Psychologist-specific props
+  isUserPsychologist,
+  currentUserAsPsychologist,
+  currentUserTimezone,
 }) => {
   const selectedEventType = eventTypes.find((type) => type.value === formData.type) || eventTypes[0]
   const showParticipants = formData.type === "counseling"
@@ -197,7 +200,7 @@ const ScheduleFormFields = ({
         </div>
       </div>
 
-      {/* Date & Time section */}
+      {/* Date & Time section - REMOVED TIMEZONE SELECTOR */}
       <div className="flex gap-4 items-start">
         <span className="material-icons text-[#488BBA] text-[25px] mt-1">schedule</span>
         <div className="flex-1 space-y-3">
@@ -243,18 +246,10 @@ const ScheduleFormFields = ({
                 ))}
               </select>
 
-              <select
-                value={dateInfo.timezone}
-                onChange={(e) => updateAdditionalDate(index, "timezone", e.target.value)}
-                disabled={loading}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              >
-                {timezoneOptions.map((tz) => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </option>
-                ))}
-              </select>
+              {/* ADDED: Display user's timezone (read-only) */}
+              <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600 text-sm">
+                {currentUserTimezone || 'WIB'}
+              </div>
             </div>
           ))}
 
@@ -310,47 +305,82 @@ const ScheduleFormFields = ({
             <span className="material-icons text-[#488BBA] text-[25px] mt-1">account_circle</span>
             <div className="flex-1">
               <div className="flex flex-col gap-4">
-                {/* Psychologist Field */}
+                {/* Psychologist Field - FIXED: REMOVED NESTED BUTTON */}
                 <div>
                   <div className="relative">
                     {!formData.selectedPsychologist && (
                       <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
                     )}
-                    <button
-                      onClick={() => !loading && handleDropdownToggle("psychologist")}
-                      disabled={loading}
-                      className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
-                        formData.selectedPsychologist ? "px-3 py-2" : "pl-6"
-                      }`}
-                      style={{ minHeight: "42px" }}
-                    >
-                      {!formData.selectedPsychologist ? (
-                        <span className="text-gray-500">Email/nama Psikolog</span>
-                      ) : (
-                        <div className="flex items-center gap-2 py-1">
+                    
+                    {/* FIXED: Use div instead of button when showing selected psychologist */}
+                    {formData.selectedPsychologist ? (
+                      <div className={`relative w-full px-3 py-2 border rounded-md min-h-[42px] flex items-center ${
+                        isUserPsychologist 
+                          ? "bg-gray-100 border-gray-300" // Disabled style for psychologists
+                          : "border-gray-300"
+                      }`}>
+                        <div className="flex items-center gap-2 py-1 flex-1">
                           <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
                             <div className="text-[#535353] text-sm font-normal truncate">
                               {formData.selectedPsychologist.fullName}
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleInputChange("selectedPsychologist", null)
-                                handleInputChange("location", "")
-                              }}
-                              disabled={loading}
-                              className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
-                            >
-                              <span className="material-icons text-xs">close</span>
-                            </button>
+                            {/* FIXED: Remove button - use span with click handler instead */}
+                            {!isUserPsychologist && (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleInputChange("selectedPsychologist", null)
+                                  handleInputChange("location", "")
+                                }}
+                                className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0 cursor-pointer"
+                                title="Remove psychologist"
+                              >
+                                <span className="material-icons text-xs">close</span>
+                              </span>
+                            )}
                           </div>
+                          {/* ADDED: Current user indicator */}
+                          {isUserPsychologist && (
+                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                              (Anda)
+                            </span>
+                          )}
                         </div>
-                      )}
-                      <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
-                        keyboard_arrow_down
-                      </span>
-                    </button>
-                    {dropdowns.psychologist && !loading && (
+                        {!isUserPsychologist && (
+                          <button
+                            onClick={() => !loading && handleDropdownToggle("psychologist")}
+                            disabled={loading}
+                            className="ml-2 p-1 hover:bg-gray-200 rounded transition-colors"
+                          >
+                            <span className="material-icons text-sm text-gray-400">
+                              keyboard_arrow_down
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => !loading && !isUserPsychologist && handleDropdownToggle("psychologist")}
+                        disabled={loading || isUserPsychologist}
+                        className={`relative w-full py-2 text-left border rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] ${
+                          isUserPsychologist 
+                            ? "bg-gray-100 border-gray-300 cursor-not-allowed" // Disabled style for psychologists
+                            : "border-gray-300 disabled:bg-gray-100"
+                        } pl-6`}
+                        style={{ minHeight: "42px" }}
+                      >
+                        <span className={isUserPsychologist ? "text-gray-400" : "text-gray-500"}>
+                          Email/nama Psikolog
+                        </span>
+                        {!isUserPsychologist && (
+                          <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
+                            keyboard_arrow_down
+                          </span>
+                        )}
+                      </button>
+                    )}
+
+                    {dropdowns.psychologist && !loading && !isUserPsychologist && (
                       <div 
                         className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
                         onMouseLeave={handleTooltipLeave}
@@ -384,6 +414,12 @@ const ScheduleFormFields = ({
                       </div>
                     )}
                   </div>
+                  {/* ADDED: Help text for psychologists */}
+                  {isUserPsychologist && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      Anda terpilih sebagai psikolog untuk jadwal ini
+                    </div>
+                  )}
                 </div>
 
                 {/* Participant 1 Field */}
@@ -412,16 +448,16 @@ const ScheduleFormFields = ({
                             <div className="text-[#535353] text-sm font-normal truncate">
                               {formData.selectedParticipants[0].fullName}
                             </div>
-                            <button
+                            <span
                               onClick={(e) => {
                                 e.stopPropagation()
                                 removeParticipant(formData.selectedParticipants[0].id)
                               }}
-                              disabled={loading}
-                              className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
+                              className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0 cursor-pointer"
+                              title="Remove participant"
                             >
                               <span className="material-icons text-xs">close</span>
-                            </button>
+                            </span>
                           </div>
                         </div>
                       )}
@@ -476,7 +512,7 @@ const ScheduleFormFields = ({
                   </div>
                 </div>
 
-                {/* Participant 2 Field (Optional) */}
+                {/* Participant 2 Field (Optional) - SIMILAR FIXES */}
                 <div>
                   <div className="relative">
                     <button
@@ -499,16 +535,16 @@ const ScheduleFormFields = ({
                             <div className="text-[#535353] text-sm font-normal truncate">
                               {formData.selectedParticipants[1].fullName}
                             </div>
-                            <button
+                            <span
                               onClick={(e) => {
                                 e.stopPropagation()
                                 removeParticipant(formData.selectedParticipants[1].id)
                               }}
-                              disabled={loading}
-                              className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0"
+                              className="w-4 h-4 flex items-center justify-center text-[#535353] hover:text-gray-700 shrink-0 cursor-pointer"
+                              title="Remove participant"
                             >
                               <span className="material-icons text-xs">close</span>
-                            </button>
+                            </span>
                           </div>
                         </div>
                       )}
