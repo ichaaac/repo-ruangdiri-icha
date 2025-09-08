@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - E2E ENHANCED: With Complete E2E Flow Integration
+// src/components/shared/chats/hooks/useChats.js - UPDATED: Clean & File Upload Support
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,9 +7,8 @@ import { chatsApi } from '../lib/chatsApi';
 import { useAbly } from './useAbly';
 import { useMessages } from './useMessage';
 import notificationSocket from '../../notifications/lib/socket';
-import e2eEncryption from '../lib/encryption';
 
-// E2E Enhanced Debug Logger
+// Debug Logger
 const ChatsLogger = {
   log: (level, message, data = null) => {
     try {
@@ -19,30 +18,29 @@ const ChatsLogger = {
         warn: 'color: #FFB74D; font-weight: bold;',
         info: 'color: #4FC3F7; font-weight: bold;',
         success: 'color: #66BB6A; font-weight: bold;',
-        debug: 'color: #9575CD; font-weight: bold;',
-        e2e: 'color: #FF9800; font-weight: bold;' // E2E specific logs
+        debug: 'color: #9575CD; font-weight: bold;'
       };
 
       console.log(
-        `%c[${timestamp}] CHATS-E2E:`,
+        `%c[${timestamp}] CHATS:`,
         styles[level] || styles.info,
         message,
-        data ? '\n🔐 E2E Data:' : '',
+        data ? '\n📦 Data:' : '',
         data || ''
       );
     } catch (error) {
-      console.log('[CHATS-E2E]', level.toUpperCase(), message, data);
+      console.log('[CHATS]', level.toUpperCase(), message, data);
     }
   },
 
   error: (message, error) => {
     try {
-      console.error(`[CHATS-E2E] ERROR: ${message}`, error);
+      console.error(`[CHATS] ERROR: ${message}`, error);
       if (typeof window !== 'undefined') {
-        window.lastChatE2EError = { message, error, timestamp: new Date().toISOString() };
+        window.lastChatError = { message, error, timestamp: new Date().toISOString() };
       }
     } catch (e) {
-      console.error('[CHATS-E2E] CRITICAL:', message, error);
+      console.error('[CHATS] CRITICAL:', message, error);
     }
   }
 };
@@ -52,193 +50,25 @@ export const useChats = () => {
   const queryClient = useQueryClient();
   const [selectedSession, setSelectedSession] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
-  const [e2eFlowStatus, setE2eFlowStatus] = useState({}); // Track E2E setup status per session
   
   const ably = useAbly();
   const messages = useMessages(selectedSession?.sessionId, ably);
 
-  // Memoize user ID to prevent re-renders
+  // Memoize user ID
   const userId = useMemo(() => user?.id, [user?.id]);
 
   // Store user data for API access
   useEffect(() => {
     if (user && user.id) {
-      ChatsLogger.log('debug', 'Storing user data with E2E support', { userId: user.id, role: user.role });
       localStorage.setItem('user', JSON.stringify(user));
     }
   }, [user]);
 
-  // ===================================
-  // E2E FLOW MANAGEMENT FUNCTIONS
-  // ===================================
-
-  /**
-   * Handle automated message trigger (10 minutes before session)
-   */
-  const handleAutomatedE2ESetup = useCallback(async (sessionId, participants) => {
-    try {
-      ChatsLogger.log('e2e', 'Starting automated E2E setup', { 
-        sessionId: sessionId?.slice(-8),
-        participantsCount: participants.length 
-      });
-
-      setE2eFlowStatus(prev => ({
-        ...prev,
-        [sessionId]: { status: 'setting_up', step: 'automated_trigger' }
-      }));
-
-      // Step 1: Setup E2E session
-      await chatsApi.setupE2ESession(sessionId, participants);
-      
-      setE2eFlowStatus(prev => ({
-        ...prev,
-        [sessionId]: { status: 'setting_up', step: 'session_setup_complete' }
-      }));
-
-      // Step 2: Initiate handshake (both user and psychologist can initiate)
-      const publicKey = e2eEncryption.getAccountPublicKey();
-      if (publicKey) {
-        await chatsApi.initiateHandshake(sessionId, publicKey);
-        
-        setE2eFlowStatus(prev => ({
-          ...prev,
-          [sessionId]: { status: 'setting_up', step: 'handshake_initiated' }
-        }));
-      }
-
-      // Step 3: Generate session key and prepare for chat
-      const sessionKey = e2eEncryption.generateSessionKey(sessionId);
-      
-      setE2eFlowStatus(prev => ({
-        ...prev,
-        [sessionId]: { status: 'ready', step: 'ready_for_chat', sessionKey }
-      }));
-
-      ChatsLogger.log('success', 'Automated E2E setup completed', { 
-        sessionId: sessionId?.slice(-8),
-        hasSessionKey: !!sessionKey
-      });
-
-      return { sessionKey, status: 'ready' };
-    } catch (error) {
-      ChatsLogger.error('Automated E2E setup failed', error);
-      
-      setE2eFlowStatus(prev => ({
-        ...prev,
-        [sessionId]: { status: 'failed', error: error.message }
-      }));
-      
-      throw error;
-    }
-  }, []);
-
-  /**
-   * Complete handshake (after 15 minutes or session end)
-   */
-  const completeE2EHandshake = useCallback(async (sessionId, participants) => {
-    try {
-      ChatsLogger.log('e2e', 'Completing E2E handshake', { 
-        sessionId: sessionId?.slice(-8) 
-      });
-
-      const sharedSecret = e2eEncryption.generateSharedSecret(sessionId, participants);
-      await chatsApi.completeHandshake(sessionId, sharedSecret, participants);
-
-      // Clear session key after handshake completion
-      e2eEncryption.clearSessionKey(sessionId);
-      
-      setE2eFlowStatus(prev => ({
-        ...prev,
-        [sessionId]: { status: 'completed', step: 'handshake_completed' }
-      }));
-
-      ChatsLogger.log('success', 'E2E handshake completed and session key cleared', { 
-        sessionId: sessionId?.slice(-8) 
-      });
-
-      return true;
-    } catch (error) {
-      ChatsLogger.error('E2E handshake completion failed', error);
-      throw error;
-    }
-  }, []);
-
-  /**
-   * Handle key rotation for returning participants
-   */
-  const handleE2EKeyRotation = useCallback(async (sessionId) => {
-    try {
-      ChatsLogger.log('e2e', 'Handling E2E key rotation', { 
-        sessionId: sessionId?.slice(-8) 
-      });
-
-      // Rotate session key for continued conversation
-      const newSessionKey = e2eEncryption.rotateSessionKey(sessionId);
-      
-      setE2eFlowStatus(prev => ({
-        ...prev,
-        [sessionId]: { status: 'rotated', step: 'key_rotated', sessionKey: newSessionKey }
-      }));
-
-      ChatsLogger.log('success', 'E2E key rotation completed', { 
-        sessionId: sessionId?.slice(-8) 
-      });
-
-      return newSessionKey;
-    } catch (error) {
-      ChatsLogger.error('E2E key rotation failed', error);
-      throw error;
-    }
-  }, []);
-
-  /**
-   * Setup E2E for new chat session
-   */
-  const initializeE2EForSession = useCallback(async (sessionData) => {
-    if (!sessionData || sessionData.isTeamChat) {
-      return; // Skip E2E for team chat
-    }
-
-    try {
-      const sessionId = sessionData.sessionId;
-      const participants = [sessionData.clientId, sessionData.psychologistId].filter(Boolean);
-
-      ChatsLogger.log('e2e', 'Initializing E2E for session', {
-        sessionId: sessionId?.slice(-8),
-        isE2EEnabled: sessionData.isE2EEnabled,
-        participantsCount: participants.length
-      });
-
-      // Check if E2E is already setup for this session
-      const currentStatus = e2eFlowStatus[sessionId];
-      if (currentStatus?.status === 'ready' || currentStatus?.status === 'completed') {
-        ChatsLogger.log('debug', 'E2E already setup for session', { sessionId: sessionId?.slice(-8) });
-        return;
-      }
-
-      // Check if we have existing session key (key rotation scenario)
-      if (e2eEncryption.getSessionKey(sessionId)) {
-        await handleE2EKeyRotation(sessionId);
-        return;
-      }
-
-      // Initialize E2E flow
-      await handleAutomatedE2ESetup(sessionId, participants);
-
-    } catch (error) {
-      ChatsLogger.error('E2E initialization failed for session', error);
-    }
-  }, [e2eFlowStatus, handleAutomatedE2ESetup, handleE2EKeyRotation]);
-
-  // ===================================
-  // SESSION QUERIES & MANAGEMENT
-  // ===================================
-
-  // Get sessions query with E2E support
+  // Get sessions query
   const sessionsQuery = useQuery({
     queryKey: ['chat-sessions'],
     queryFn: async () => {
-      ChatsLogger.log('info', 'Fetching E2E chat sessions...');
+      ChatsLogger.log('info', 'Fetching chat sessions...');
       
       try {
         const [histories, activeSessions] = await Promise.all([
@@ -246,7 +76,7 @@ export const useChats = () => {
           chatsApi.getActiveSessions()
         ]);
         
-        ChatsLogger.log('success', 'E2E sessions fetched successfully', {
+        ChatsLogger.log('success', 'Sessions fetched successfully', {
           historiesCount: histories?.length || 0,
           activeSessionsCount: activeSessions?.length || 0
         });
@@ -254,7 +84,7 @@ export const useChats = () => {
         return histories;
         
       } catch (error) {
-        ChatsLogger.log('error', 'Error fetching E2E sessions', error);
+        ChatsLogger.log('error', 'Error fetching sessions', error);
         return chatsApi.getChatHistories();
       }
     },
@@ -262,17 +92,15 @@ export const useChats = () => {
     cacheTime: 300000,
     retry: (failureCount, error) => {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
-        ChatsLogger.log('error', 'Authentication error, stopping retries', error);
         return false;
       }
-      ChatsLogger.log('warn', `Retry attempt ${failureCount + 1}`, error);
       return failureCount < 2;
     },
     refetchOnWindowFocus: true,
     refetchOnMount: true
   });
 
-  // Memoize filtered sessions with E2E support
+  // Memoize filtered sessions
   const filteredSessions = useMemo(() => {
     const sessions = (sessionsQuery.data || []).filter(session => {
       const userRole = user?.role;
@@ -288,34 +116,16 @@ export const useChats = () => {
       }
     });
 
-    ChatsLogger.log('debug', 'E2E sessions filtered', {
-      totalSessions: sessionsQuery.data?.length || 0,
-      filteredCount: sessions.length,
-      userRole: user?.role,
-      userId
-    });
-
     return sessions;
   }, [sessionsQuery.data, user?.role, userId]);
 
-  // ===================================
-  // SOCKET EVENT HANDLERS
-  // ===================================
-
+  // Socket.io event handlers
   const handleChatEnableDisable = useCallback((payload) => {
     try {
       ChatsLogger.log('event', 'Socket: chat:enable-chat event received', payload);
       
       setSelectedSession(prev => {
         if (prev && payload.sessionId === prev.sessionId) {
-          ChatsLogger.log('info', 'Updating selected session status', {
-            sessionId: payload.sessionId,
-            oldStatus: prev.status,
-            newStatus: payload.status,
-            isActive: payload.isActive,
-            isChatEnabled: payload.isChatEnabled
-          });
-          
           return {
             ...prev,
             isActive: payload.isActive,
@@ -335,20 +145,6 @@ export const useChats = () => {
   const handleInitialMessage = useCallback((payload) => {
     try {
       ChatsLogger.log('event', 'Socket: chat:initial-message event received', payload);
-      
-      // Check if this is the automated message for E2E setup
-      if (payload.messageType === 'automated' || payload.isAutomated) {
-        ChatsLogger.log('e2e', 'Automated message received, triggering E2E setup', {
-          sessionId: payload.sessionId?.slice(-8)
-        });
-        
-        // Trigger E2E setup for this session
-        const sessionData = filteredSessions.find(s => s.sessionId === payload.sessionId);
-        if (sessionData) {
-          initializeE2EForSession(sessionData);
-        }
-      }
-      
       sessionsQuery.refetch();
       
       if (selectedSession && payload.sessionId === selectedSession.sessionId) {
@@ -357,7 +153,7 @@ export const useChats = () => {
     } catch (error) {
       ChatsLogger.error('Failed to handle initial message event', error);
     }
-  }, [sessionsQuery, selectedSession?.sessionId, messages, filteredSessions, initializeE2EForSession]);
+  }, [sessionsQuery, selectedSession?.sessionId, messages]);
 
   const handleChatInvalidate = useCallback((payload) => {
     try {
@@ -372,55 +168,38 @@ export const useChats = () => {
     }
   }, [sessionsQuery, selectedSession?.sessionId, messages]);
 
-  // Setup Socket.io with E2E event handling
+  // Setup Socket.io
   useEffect(() => {
-    ChatsLogger.log('info', 'Setting up Socket.io event listeners with E2E support...');
-    
     if (!notificationSocket.isSocketConnected()) {
-      ChatsLogger.log('info', 'Connecting notification socket...');
       notificationSocket.connect().catch(err => {
         ChatsLogger.log('error', 'Failed to connect notification socket', err);
       });
     }
 
+    // Remove existing listeners
     notificationSocket.off('chat:enable-chat');
     notificationSocket.off('chat:initial-message'); 
     notificationSocket.off('chat:invalidate');
 
+    // Register event listeners
     notificationSocket.on('chat:enable-chat', handleChatEnableDisable);
     notificationSocket.on('chat:initial-message', handleInitialMessage);
     notificationSocket.on('chat:invalidate', handleChatInvalidate);
 
-    ChatsLogger.log('success', 'Socket.io event listeners registered with E2E support');
-
     return () => {
-      ChatsLogger.log('info', 'Cleaning up Socket.io event listeners...');
       notificationSocket.off('chat:enable-chat', handleChatEnableDisable);
       notificationSocket.off('chat:initial-message', handleInitialMessage);
       notificationSocket.off('chat:invalidate', handleChatInvalidate);
     };
   }, [handleChatEnableDisable, handleInitialMessage, handleChatInvalidate]);
 
-  // ===================================
-  // SESSION SELECTION & E2E INITIALIZATION
-  // ===================================
-
+  // Select session
   const selectSession = useCallback(async (session, shouldMarkAsRead = true) => {
     if (!session) {
-      ChatsLogger.log('warn', 'Attempted to select null session');
       return;
     }
     
-    ChatsLogger.log('info', 'Selecting E2E session', {
-      sessionName: session.name,
-      sessionId: session.sessionId,
-      isTeamChat: session.isTeamChat,
-      isE2EEnabled: session.isE2EEnabled,
-      shouldMarkAsRead
-    });
-    
     if (selectedSession?.sessionId === session.sessionId) {
-      ChatsLogger.log('debug', 'Session already selected, skipping');
       return;
     }
     
@@ -430,7 +209,10 @@ export const useChats = () => {
         await chatsApi.markAsRead(session.sessionId);
         session.hasUnread = false;
         session.unreadCount = 0;
-        setTimeout(() => sessionsQuery.refetch(), 500);
+        
+        setTimeout(() => {
+          sessionsQuery.refetch();
+        }, 500);
       } catch (error) {
         ChatsLogger.log('error', 'Failed to mark session as read', error);
       }
@@ -447,74 +229,33 @@ export const useChats = () => {
     // Set selected session
     setSelectedSession(session);
     
-    // Initialize E2E for the session
-    if (!session.isTeamChat && session.isE2EEnabled !== false) {
-      await initializeE2EForSession(session);
-    }
-    
-    // Connect to Ably
+    // Connect to Ably if needed
     if (userId && !session.isTeamChat && session.status !== 'completed') {
-      ChatsLogger.log('info', 'Connecting to Ably for E2E session', {
-        sessionId: session.sessionId,
-        status: session.status,
-        isE2EEnabled: session.isE2EEnabled
-      });
       await ably.connect(session.sessionId, userId);
     } else if (session.status === 'completed') {
       ably.disconnect();
     } else if (session.isTeamChat) {
       await ably.connect(session.sessionId, userId);
     }
-  }, [selectedSession?.sessionId, ably, userId, sessionsQuery, initializeE2EForSession]);
+  }, [selectedSession?.sessionId, ably, userId, sessionsQuery]);
 
   // Auto-select Team RuangDiri
   useEffect(() => {
     if (filteredSessions.length > 0 && !selectedSession) {
       const teamSession = filteredSessions.find(s => s.isTeamChat);
       if (teamSession) {
-        ChatsLogger.log('info', 'Auto-selecting team session');
         selectSession(teamSession, false);
       } else if (filteredSessions.length > 0) {
-        ChatsLogger.log('info', 'Auto-selecting first available E2E session');
         selectSession(filteredSessions[0], false);
       }
     }
   }, [filteredSessions, selectedSession, selectSession]);
 
-  // ===================================
-  // ABLY MESSAGE HANDLING WITH E2E
-  // ===================================
-
+  // Message handling
   const handleAblyMessage = useCallback((messageData) => {
-    ChatsLogger.log('event', 'Ably E2E message received', {
-      messageId: messageData.id,
-      senderId: messageData.senderId,
-      messageType: messageData.messageType,
-      hasText: !!messageData.message,
-      isOwnMessage: messageData.senderId === userId,
-      isEncrypted: !!messageData.isEncrypted
-    });
-    
-    // Transform and decrypt E2E message
-    let decryptedContent = messageData.message || messageData.text || messageData.content || '';
-    
-    // Decrypt if encrypted and we have session key
-    if (messageData.isEncrypted && selectedSession?.sessionId) {
-      try {
-        decryptedContent = e2eEncryption.decryptMessage(decryptedContent, selectedSession.sessionId);
-        ChatsLogger.log('success', 'E2E message decrypted', {
-          messageId: messageData.id,
-          originalLength: messageData.message?.length,
-          decryptedLength: decryptedContent?.length
-        });
-      } catch (error) {
-        ChatsLogger.log('warn', 'Failed to decrypt E2E message', error);
-      }
-    }
-    
     const transformedMessage = {
       id: messageData.id || `realtime-${Date.now()}`,
-      text: decryptedContent,
+      text: messageData.message || messageData.text || messageData.content || '',
       time: messageData.time || new Date().toLocaleTimeString("id-ID", {
         hour: '2-digit',
         minute: '2-digit',
@@ -535,27 +276,15 @@ export const useChats = () => {
       attachmentUrl: messageData.attachmentUrl || null,
       attachmentType: messageData.attachmentType || null,
       attachmentName: messageData.attachmentName || null,
-      attachmentSize: messageData.attachmentSize || null,
-      isEncrypted: !!messageData.isEncrypted
+      attachmentSize: messageData.attachmentSize || null
     };
     
     if (transformedMessage.text?.trim() || transformedMessage.attachmentUrl) {
-      ChatsLogger.log('success', 'Adding valid E2E realtime message', {
-        messageId: transformedMessage.id,
-        hasText: !!transformedMessage.text,
-        hasAttachment: !!transformedMessage.attachmentUrl,
-        wasEncrypted: !!messageData.isEncrypted
-      });
-      
       messages.addMessage(transformedMessage);
-    } else {
-      ChatsLogger.log('warn', 'Skipping empty E2E message', messageData);
     }
-  }, [userId, messages, selectedSession?.sessionId]);
+  }, [userId, messages]);
 
   const handleAblySessionStatus = useCallback((statusData) => {
-    ChatsLogger.log('event', 'Ably session status change', statusData);
-    
     setSelectedSession(prev => {
       if (prev && statusData.sessionId === prev.sessionId) {
         return {
@@ -569,13 +298,8 @@ export const useChats = () => {
     });
   }, []);
 
+  // Typing handler with proper name extraction
   const handleAblyTyping = useCallback((typingData) => {
-    ChatsLogger.log('event', 'Ably typing indicator received', {
-      userId: typingData.userId,
-      isTyping: typingData.isTyping,
-      sessionId: typingData.sessionId
-    });
-    
     const { userId: typingUserId, isTyping, sessionId } = typingData;
     
     if (typingUserId !== userId && sessionId === selectedSession?.sessionId) {
@@ -607,8 +331,7 @@ export const useChats = () => {
               if (clientName && clientName !== 'Unknown') {
                 return clientName;
               }
-            }
-            else if (user?.role !== 'psychologist' && currentSession.psychologistId === typingUserId) {
+            } else if (user?.role !== 'psychologist' && currentSession.psychologistId === typingUserId) {
               const psychName = currentSession.name;
               if (psychName && psychName !== 'Unknown') {
                 return psychName;
@@ -655,6 +378,7 @@ export const useChats = () => {
     }
   }, [userId, selectedSession?.sessionId, filteredSessions, user?.role]);
 
+  // Get typing status
   const getTypingStatus = useCallback(() => {
     const typingUsersList = Object.values(typingUsers).filter(user => user.isTyping);
     
@@ -678,24 +402,18 @@ export const useChats = () => {
     return status;
   }, [typingUsers]);
 
+  // Unread count handler
   const handleAblyUnreadCount = useCallback((unreadData) => {
     try {
-      ChatsLogger.log('event', 'Ably unread count update', unreadData);
       queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     } catch (error) {
       ChatsLogger.error('Failed to handle unread count update', error);
     }
   }, [queryClient]);
 
-  // Setup Ably callbacks with E2E support
+  // Setup Ably callbacks
   useEffect(() => {
     if (!selectedSession || selectedSession.isTeamChat) return;
-
-    ChatsLogger.log('info', 'Setting up Ably callbacks for E2E session', {
-      sessionId: selectedSession.sessionId,
-      isTeamChat: selectedSession.isTeamChat,
-      isE2EEnabled: selectedSession.isE2EEnabled
-    });
 
     ably.setCallbacks({
       onMessage: handleAblyMessage,
@@ -706,10 +424,7 @@ export const useChats = () => {
 
   }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount]);
 
-  // ===================================
-  // MESSAGE HANDLING WITH E2E
-  // ===================================
-
+  // UPDATED: Typing handler - simplified
   const handleTyping = useCallback((text) => {
     messages.setMessageText(text);
     
@@ -718,70 +433,59 @@ export const useChats = () => {
     }
   }, [selectedSession?.sessionId, userId, ably, messages.setMessageText]);
 
+  // UPDATED: Send message - simplified
   const sendCurrentMessage = useCallback(async () => {
     if (!selectedSession || !messages.canSendMessage(selectedSession)) {
-      ChatsLogger.log('warn', 'Cannot send E2E message', {
-        hasSession: !!selectedSession,
-        canSend: messages.canSendMessage(selectedSession)
-      });
+      ChatsLogger.log('warn', 'Cannot send message');
       return;
     }
 
     try {
-      ChatsLogger.log('info', 'Sending E2E message...', {
-        sessionId: selectedSession.sessionId,
-        messageLength: messages.messageText?.length || 0,
-        hasSessionKey: !!e2eEncryption.getSessionKey(selectedSession.sessionId)
-      });
-      
       await messages.sendCurrentMessage();
-      ChatsLogger.log('success', 'E2E message sent successfully');
-      
+      ChatsLogger.log('success', 'Message sent successfully');
     } catch (error) {
-      ChatsLogger.log('error', 'Failed to send E2E message', error);
+      ChatsLogger.log('error', 'Failed to send message', error);
       throw error;
     }
   }, [selectedSession, messages]);
 
-  const sendFile = useCallback(async (file, fileType) => {
+  // UPDATED: Send file - proper integration with useMessages
+  const sendFile = useCallback(async (file, fileType = null, caption = '') => {
     if (!selectedSession || !messages.canSendFile(selectedSession)) {
-      ChatsLogger.log('warn', 'Cannot send E2E file', {
-        hasSession: !!selectedSession,
-        canSendFile: messages.canSendFile(selectedSession)
-      });
+      ChatsLogger.log('warn', 'Cannot send file');
       return;
     }
 
     try {
-      ChatsLogger.log('info', 'Sending E2E file...', {
-        sessionId: selectedSession.sessionId,
+      ChatsLogger.log('info', 'Sending file...', {
         fileName: file.name,
         fileSize: file.size,
-        fileType
+        fileType: fileType || 'auto-detect',
+        hasCaption: !!caption
       });
       
-      await messages.sendFile(file, fileType);
-      ChatsLogger.log('success', 'E2E file sent successfully');
+      await messages.sendFile(file, fileType, caption);
+      ChatsLogger.log('success', 'File sent successfully');
       
     } catch (error) {
-      ChatsLogger.log('error', 'Failed to send E2E file', error);
+      ChatsLogger.log('error', 'Failed to send file', error);
       throw error;
     }
   }, [selectedSession, messages]);
 
-  // Handle AI service selection (unchanged)
+  // AI service selection
   const handleAIServiceSelection = useCallback(async (option) => {
     if (selectedSession?.isTeamChat) {
-      ChatsLogger.log('info', 'Handling AI service selection', { option });
       await messages.handleAIServiceSelection(option);
     }
   }, [selectedSession?.isTeamChat, messages.handleAIServiceSelection]);
 
-  // Session status and validation functions
+  // Get session status
   const getSessionStatus = useCallback(() => {
     return messages.getSessionStatus(selectedSession);
   }, [selectedSession, messages.getSessionStatus]);
 
+  // Can send message functions - return functions that can be called
   const canSendMessage = useCallback(() => {
     return messages.canSendMessage(selectedSession);
   }, [selectedSession, messages.canSendMessage]);
@@ -790,82 +494,52 @@ export const useChats = () => {
     return messages.canSendMessageWithText(selectedSession);
   }, [selectedSession, messages.canSendMessageWithText]);
 
+  // UPDATED: Can send file function
+  const canSendFile = useCallback((session) => {
+    return messages.canSendFile(session || selectedSession);
+  }, [selectedSession, messages.canSendFile]);
+
+  // Handle booking
   const handleBookingClick = useCallback(() => {
     const userType = user?.role || 'student';
-    ChatsLogger.log('info', 'Opening booking page', { userType });
     window.open(`/booking-session/${userType}`, '_blank');
   }, [user?.role]);
 
+  // Refresh sessions
   const refreshSessions = useCallback(async () => {
     try {
-      ChatsLogger.log('info', 'Refreshing E2E sessions...');
       await sessionsQuery.refetch();
-      ChatsLogger.log('success', 'E2E sessions refreshed successfully');
     } catch (error) {
-      ChatsLogger.log('error', 'Failed to refresh E2E sessions', error);
+      ChatsLogger.log('error', 'Failed to refresh sessions', error);
     }
   }, [sessionsQuery.refetch]);
 
-  // Cleanup with E2E session cleanup
+  // Cleanup
   useEffect(() => {
     return () => {
-      ChatsLogger.log('info', 'Cleaning up useChats with E2E...');
-      
-      // Complete handshake for any active E2E sessions
-      Object.keys(e2eFlowStatus).forEach(sessionId => {
-        const status = e2eFlowStatus[sessionId];
-        if (status?.status === 'ready') {
-          const session = filteredSessions.find(s => s.sessionId === sessionId);
-          if (session) {
-            const participants = [session.clientId, session.psychologistId].filter(Boolean);
-            completeE2EHandshake(sessionId, participants).catch(console.error);
-          }
-        }
-      });
-      
       ably.disconnect();
       setTypingUsers({});
-      setE2eFlowStatus({});
     };
-  }, []); 
+  }, [ably]);
 
+  // User display data
   const getUserDisplayData = useCallback(() => {
     const userRole = user?.role;
     
     if (userRole === 'psychologist') {
       return {
         title: 'Chat Klien',
-        subtitle: 'Professional E2E encrypted client communication'
+        subtitle: 'Professional client communication'
       };
     }
     
     return {
       title: 'Pesan',
-      subtitle: 'E2E encrypted chat with counselors and support team'
+      subtitle: 'Chat with counselors and support team'
     };
   }, [user?.role]);
 
-  // Debug info with E2E status
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.selectedSession = selectedSession;
-      window.debugChatE2E = {
-        selectedSession,
-        messageText: messages.messageText,
-        canSendMessage: canSendMessage(),
-        canSendMessageWithText: canSendMessageWithText(),
-        connectionStatus: ably.connectionStatus,
-        sessionsCount: filteredSessions.length,
-        typingUsers,
-        typingStatus: getTypingStatus(),
-        e2eFlowStatus,
-        e2eEncryptionStatus: e2eEncryption.getStatus(),
-        socketConnected: notificationSocket.isSocketConnected()
-      };
-    }
-  }, [selectedSession, messages.messageText, canSendMessage, canSendMessageWithText, ably.connectionStatus, filteredSessions.length, typingUsers, getTypingStatus, e2eFlowStatus]);
-
-  // Memoize return object with E2E enhancements
+  // Return object - cleaned and organized
   return useMemo(() => ({
     // Data
     sessions: filteredSessions,
@@ -877,7 +551,7 @@ export const useChats = () => {
     isLoadingSessions: sessionsQuery.isLoading,
     isLoadingMessages: messages.isLoading,
     isSendingMessage: messages.isSending,
-    isUploadingFile: messages.isUploadingFile,
+    isUploadingFile: messages.isUploadingFile, // UPDATED: File upload status
     
     // Connection status
     connectionStatus: ably.connectionStatus,
@@ -897,13 +571,13 @@ export const useChats = () => {
     // Actions  
     selectSession,
     sendCurrentMessage,
-    sendFile,
+    sendFile, // UPDATED: File upload support
     handleTyping,
     handleAIServiceSelection,
     handleBookingClick,
     canSendMessage,
     canSendMessageWithText,
-    canSendFile: (session) => messages.canSendFile(session || selectedSession),
+    canSendFile, // UPDATED: File sending capability
     getSessionStatus,
     refetchSessions: refreshSessions,
     
@@ -918,23 +592,7 @@ export const useChats = () => {
     isEmpty: (filteredSessions.length || 0) === 0 && !sessionsQuery.isLoading,
     hasMessages: messages.messages.length > 0,
     isTeamSession: selectedSession?.isTeamChat || false,
-    isPsychologist: user?.role === 'psychologist',
-    
-    // E2E specific
-    e2eFlowStatus,
-    isE2EEnabled: selectedSession?.isE2EEnabled !== false,
-    
-    // E2E Actions
-    initializeE2EForSession,
-    completeE2EHandshake,
-    handleE2EKeyRotation,
-    
-    // Debug utilities
-    debug: {
-      logger: ChatsLogger,
-      ably: ably,
-      e2eEncryption: e2eEncryption
-    }
+    isPsychologist: user?.role === 'psychologist'
   }), [
     filteredSessions,
     selectedSession,
@@ -962,13 +620,10 @@ export const useChats = () => {
     handleBookingClick,
     canSendMessage,
     canSendMessageWithText,
+    canSendFile,
     getSessionStatus,
     refreshSessions,
     getUserDisplayData,
-    user?.role,
-    e2eFlowStatus,
-    initializeE2EForSession,
-    completeE2EHandshake,
-    handleE2EKeyRotation
+    user?.role
   ]);
 };

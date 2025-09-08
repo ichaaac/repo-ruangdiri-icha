@@ -1,10 +1,10 @@
-// src/components/shared/chats/hooks/useMessage.js - E2E ENHANCED: With Complete E2E Message Encryption
+// src/components/shared/chats/hooks/useMessage.js - UPDATED: File Upload Support & Clean
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
 import { getCurrentTime, getCurrentTimestamp } from '../utils/dateUtils';
-import e2eEncryption from '../lib/encryption';
+import chatEncryption from '../lib/encryption'; // FIXED: Use new encryption
 
 // Get current user ID
 const getCurrentUserId = () => {
@@ -16,8 +16,8 @@ const getCurrentUserId = () => {
   }
 };
 
-// E2E Message Logger
-const E2EMessageLogger = {
+// Message Logger
+const MessageLogger = {
   log: (level, operation, data = null) => {
     const timestamp = new Date().toLocaleTimeString('id-ID');
     const styles = {
@@ -29,7 +29,7 @@ const E2EMessageLogger = {
     };
 
     console.log(
-      `%c[${timestamp}] E2E-MSG-${operation.toUpperCase()}:`,
+      `%c[${timestamp}] MSG-${operation.toUpperCase()}:`,
       styles[level] || styles.info,
       data || ''
     );
@@ -42,13 +42,12 @@ export const useMessages = (sessionId, ably = null) => {
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
 
-  // Get messages query with E2E decryption support
+  // Get messages query 
   const messagesQuery = useQuery({
     queryKey: ['chat-messages', sessionId],
     queryFn: async () => {
-      E2EMessageLogger.log('info', 'FETCH_MESSAGES', {
+      MessageLogger.log('info', 'FETCH_MESSAGES', {
         sessionId: sessionId?.slice(-8),
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
         isTeamChat: sessionId === 'team-ruangdiri'
       });
 
@@ -82,17 +81,15 @@ export const useMessages = (sessionId, ably = null) => {
     refetchOnMount: true
   });
 
-  // E2E Enhanced send text message mutation
+  // Send text message mutation
   const sendMutation = useMutation({
     mutationFn: async ({ sessionId, content }) => {
-      E2EMessageLogger.log('crypto', 'SEND_MESSAGE', {
+      MessageLogger.log('crypto', 'SEND_MESSAGE', {
         sessionId: sessionId?.slice(-8),
         contentLength: content?.length || 0,
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
         isTeamChat: sessionId === 'team-ruangdiri'
       });
 
-      // Use chatsApi.sendMessage which handles E2E encryption internally
       return chatsApi.sendMessage(sessionId, content);
     },
     onMutate: async ({ sessionId, content }) => {
@@ -104,7 +101,7 @@ export const useMessages = (sessionId, ably = null) => {
       
       const optimisticMessage = {
         id: optimisticId,
-        text: content, // Show plaintext in UI
+        text: content,
         time: getCurrentTime(),
         timestamp: getCurrentTimestamp(),
         isUser: true,
@@ -118,15 +115,14 @@ export const useMessages = (sessionId, ably = null) => {
         isOptimistic: true,
         optimisticId,
         isRead: false,
-        isSending: true,
-        isEncrypted: sessionId !== 'team-ruangdiri' && !!e2eEncryption.getSessionKey(sessionId)
+        isSending: true
       };
 
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         return [...old, optimisticMessage];
       });
 
-      // AI response for team session (unchanged)
+      // AI response for team session
       if (sessionId === 'team-ruangdiri') {
         setTimeout(() => {
           const aiResponseText = chatsApi.generateAIResponse(content);
@@ -162,16 +158,15 @@ export const useMessages = (sessionId, ably = null) => {
       if (context?.previousMessages) {
         queryClient.setQueryData(['chat-messages', sessionId], context.previousMessages);
       }
-      E2EMessageLogger.log('error', 'SEND_FAILED', err);
+      MessageLogger.log('error', 'SEND_FAILED', err);
     },
     onSuccess: (newMessage, { sessionId }, context) => {
-      E2EMessageLogger.log('success', 'SEND_SUCCESS', {
+      MessageLogger.log('success', 'SEND_SUCCESS', {
         messageId: newMessage.id,
-        wasEncrypted: newMessage.isEncrypted,
         sessionId: sessionId?.slice(-8)
       });
       
-      // Remove optimistic message and add real message without duplicates
+      // Remove optimistic message and add real message
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         const withoutOptimistic = old.filter(msg => 
           msg.optimisticId !== context?.optimisticId && !msg.isOptimistic
@@ -195,20 +190,18 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // E2E Enhanced send file mutation
+  // UPDATED: File upload mutation with proper optimistic updates
   const sendFileMutation = useMutation({
     mutationFn: async ({ sessionId, file, messageType, caption }) => {
-      E2EMessageLogger.log('crypto', 'SEND_FILE', {
+      MessageLogger.log('crypto', 'SEND_FILE', {
         fileName: file.name,
         fileSize: file.size,
         sessionId: sessionId?.slice(-8),
         messageType,
         hasCaption: !!caption,
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
         isTeamChat: sessionId === 'team-ruangdiri'
       });
       
-      // Use chatsApi.sendFileMessage which handles E2E encryption internally
       return chatsApi.sendFileMessage(sessionId, file, messageType, caption || '');
     },
     onMutate: async ({ sessionId, file, messageType, caption }) => {
@@ -238,8 +231,7 @@ export const useMessages = (sessionId, ably = null) => {
         attachmentName: file.name,
         attachmentSize: file.size,
         attachmentType: file.type,
-        attachmentUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-        isEncrypted: sessionId !== 'team-ruangdiri' && !!e2eEncryption.getSessionKey(sessionId)
+        attachmentUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
       };
 
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
@@ -253,7 +245,7 @@ export const useMessages = (sessionId, ably = null) => {
         queryClient.setQueryData(['chat-messages', sessionId], context.previousMessages);
       }
       
-      E2EMessageLogger.log('error', 'FILE_SEND_FAILED', err);
+      MessageLogger.log('error', 'FILE_SEND_FAILED', err);
       
       // Show error in optimistic message
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
@@ -271,14 +263,13 @@ export const useMessages = (sessionId, ably = null) => {
       });
     },
     onSuccess: (newMessage, { sessionId, file }, context) => {
-      E2EMessageLogger.log('success', 'FILE_SEND_SUCCESS', {
+      MessageLogger.log('success', 'FILE_SEND_SUCCESS', {
         messageId: newMessage.id,
         fileName: file.name,
-        wasEncrypted: newMessage.isEncrypted,
         sessionId: sessionId?.slice(-8)
       });
       
-      // Remove optimistic message and add real message without duplicates
+      // Remove optimistic message and add real message
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
         const withoutOptimistic = old.filter(msg => 
           msg.optimisticId !== context?.optimisticId && !msg.isOptimistic
@@ -310,25 +301,24 @@ export const useMessages = (sessionId, ably = null) => {
   const markAsReadMutation = useMutation({
     mutationFn: (sessionId) => chatsApi.markAsRead(sessionId),
     onError: (error) => {
-      E2EMessageLogger.log('error', 'MARK_READ_FAILED', error);
+      MessageLogger.log('error', 'MARK_READ_FAILED', error);
     }
   });
 
-  // Memoize current messages to prevent re-renders
+  // Memoize current messages
   const currentMessages = useMemo(() => messagesQuery.data || [], [messagesQuery.data]);
 
-  // E2E Enhanced send message function
+  // Send message function
   const sendMessage = useCallback(async (content) => {
     if (!sessionId || !content?.trim()) {
-      E2EMessageLogger.log('warn', 'SEND_INVALID', 'Missing sessionId or content');
+      MessageLogger.log('warn', 'SEND_INVALID', 'Missing sessionId or content');
       return;
     }
 
     try {
-      E2EMessageLogger.log('info', 'SEND_ATTEMPT', {
+      MessageLogger.log('info', 'SEND_ATTEMPT', {
         sessionId: sessionId?.slice(-8),
-        contentLength: content.trim().length,
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
+        contentLength: content.trim().length
       });
 
       await sendMutation.mutateAsync({ 
@@ -336,15 +326,15 @@ export const useMessages = (sessionId, ably = null) => {
         content: content.trim() 
       });
     } catch (error) {
-      E2EMessageLogger.log('error', 'SEND_ERROR', error);
+      MessageLogger.log('error', 'SEND_ERROR', error);
       throw error;
     }
   }, [sessionId, sendMutation.mutateAsync]);
 
-  // E2E Enhanced send file function
-  const sendFile = useCallback(async (file, fileType = 'file', caption = '') => {
+  // UPDATED: File upload function with proper type detection
+  const sendFile = useCallback(async (file, fileType = null, caption = '') => {
     if (!sessionId || !file) {
-      E2EMessageLogger.log('warn', 'FILE_SEND_INVALID', 'Missing sessionId or file');
+      MessageLogger.log('warn', 'FILE_SEND_INVALID', 'Missing sessionId or file');
       return;
     }
 
@@ -356,15 +346,14 @@ export const useMessages = (sessionId, ably = null) => {
       // Validate file before upload
       chatsApi.validateFile(file);
       
-      // Get message type from file or use provided fileType
+      // Auto-detect message type if not provided
       const messageType = fileType || chatsApi.getFileTypeCategory(file);
       
-      E2EMessageLogger.log('info', 'FILE_SEND_ATTEMPT', {
+      MessageLogger.log('info', 'FILE_SEND_ATTEMPT', {
         fileName: file.name,
         messageType,
         hasCaption: !!caption,
-        sessionId: sessionId?.slice(-8),
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
+        sessionId: sessionId?.slice(-8)
       });
       
       await sendFileMutation.mutateAsync({ 
@@ -374,9 +363,9 @@ export const useMessages = (sessionId, ably = null) => {
         caption: caption?.trim() || ''
       });
       
-      E2EMessageLogger.log('success', 'FILE_SEND_COMPLETE', file.name);
+      MessageLogger.log('success', 'FILE_SEND_COMPLETE', file.name);
     } catch (error) {
-      E2EMessageLogger.log('error', 'FILE_SEND_ERROR', error);
+      MessageLogger.log('error', 'FILE_SEND_ERROR', error);
       throw error;
     }
   }, [sessionId, sendFileMutation.mutateAsync]);
@@ -384,7 +373,7 @@ export const useMessages = (sessionId, ably = null) => {
   // Send current message function
   const sendCurrentMessage = useCallback(async () => {
     if (!messageText.trim()) {
-      E2EMessageLogger.log('warn', 'SEND_CURRENT_EMPTY', 'Cannot send empty message');
+      MessageLogger.log('warn', 'SEND_CURRENT_EMPTY', 'Cannot send empty message');
       return;
     }
     
@@ -398,14 +387,13 @@ export const useMessages = (sessionId, ably = null) => {
     markAsReadMutation.mutate(sessionId);
   }, [sessionId, markAsReadMutation.mutate]);
 
-  // E2E Enhanced add message function - prevent duplicates and handle encryption
+  // Add message function - prevent duplicates
   const addMessage = useCallback((message) => {
     if (!sessionId) return;
 
-    E2EMessageLogger.log('info', 'ADD_MESSAGE', {
+    MessageLogger.log('info', 'ADD_MESSAGE', {
       messageId: message.id,
       sessionId: sessionId?.slice(-8),
-      isEncrypted: message.isEncrypted,
       hasText: !!message.text
     });
 
@@ -417,7 +405,7 @@ export const useMessages = (sessionId, ably = null) => {
       );
       
       if (exists) {
-        E2EMessageLogger.log('warn', 'DUPLICATE_PREVENTED', message.id);
+        MessageLogger.log('warn', 'DUPLICATE_PREVENTED', message.id);
         return old;
       }
       
@@ -425,7 +413,7 @@ export const useMessages = (sessionId, ably = null) => {
     });
   }, [sessionId, queryClient]);
 
-  // AI service selection handler (unchanged)
+  // AI service selection handler
   const handleAIServiceSelection = useCallback(async (option) => {
     if (sessionId !== 'team-ruangdiri') return;
 
@@ -472,81 +460,50 @@ export const useMessages = (sessionId, ably = null) => {
         addMessage(responseMessage);
       }, 1000);
     } catch (error) {
-      E2EMessageLogger.log('error', 'AI_SERVICE_FAILED', error);
+      MessageLogger.log('error', 'AI_SERVICE_FAILED', error);
     }
   }, [sessionId, addMessage]);
 
-  // Enhanced canSendMessage function with E2E session check
+  // UPDATED: Session checks for sending capabilities
   const canSendMessage = useCallback((session) => {
     if (!sessionId) {
-      E2EMessageLogger.log('debug', 'CAN_SEND_CHECK', 'No sessionId');
       return false;
     }
     
-    // AI Team RuangDiri always available (no E2E)
+    // AI Team RuangDiri always available
     if (sessionId === 'team-ruangdiri') {
-      E2EMessageLogger.log('debug', 'CAN_SEND_CHECK', 'Team RuangDiri - always available');
       return true;
     }
     
-    // For E2E counseling sessions
+    // For counseling sessions
     if (session) {
       const isActiveSession = session.status === 'active' && session.isActive === true;
       const isChatEnabled = session.isChatEnabled === true;
       const isReadyStatus = session.status === 'active' || session.status === 'ready';
       
-      const canSend = isActiveSession || isChatEnabled || isReadyStatus;
-      
-      E2EMessageLogger.log('debug', 'CAN_SEND_CHECK', {
-        sessionId: session.sessionId?.slice(-8),
-        status: session.status,
-        isActive: session.isActive,
-        isChatEnabled: session.isChatEnabled,
-        isE2EEnabled: session.isE2EEnabled,
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
-        result: canSend
-      });
-      
-      return canSend;
+      return isActiveSession || isChatEnabled || isReadyStatus;
     }
     
-    E2EMessageLogger.log('debug', 'CAN_SEND_CHECK', 'No session data');
     return false;
   }, [sessionId]);
 
-  // Enhanced canSendFile function with E2E support
+  // UPDATED: File sending capability check
   const canSendFile = useCallback((session) => {
     if (!sessionId) return false;
     if (sessionId === 'team-ruangdiri') return false; // AI doesn't support files
     
-    const canSend = canSendMessage(session);
-    
-    E2EMessageLogger.log('debug', 'CAN_SEND_FILE_CHECK', {
-      sessionId: sessionId?.slice(-8),
-      canSend,
-      hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
-    });
-    
-    return canSend;
+    return canSendMessage(session);
   }, [sessionId, canSendMessage]);
 
-  // Enhanced canSendMessageWithText function
+  // Text message capability check
   const canSendMessageWithText = useCallback((session) => {
     const hasText = !!messageText?.trim();
     const canSend = canSendMessage(session);
     
-    E2EMessageLogger.log('debug', 'CAN_SEND_WITH_TEXT_CHECK', {
-      hasText,
-      canSend,
-      messageTextLength: messageText?.length || 0,
-      sessionId: sessionId?.slice(-8),
-      result: hasText && canSend
-    });
-    
     return hasText && canSend;
-  }, [messageText, canSendMessage, sessionId]);
+  }, [messageText, canSendMessage]);
 
-  // Enhanced getSessionStatus function with E2E context
+  // Get session status
   const getSessionStatus = useCallback((session) => {
     if (!sessionId) return 'no_session';
     if (sessionId === 'team-ruangdiri') return 'ai_chat';
@@ -561,23 +518,17 @@ export const useMessages = (sessionId, ably = null) => {
     return 'chat_disabled';
   }, [sessionId]);
 
-  // Enhanced load more messages with E2E support
+  // Load more messages
   const loadMoreMessages = useCallback(async () => {
     if (!sessionId || sessionId === 'team-ruangdiri' || !hasMore || messagesQuery.isLoading) {
-      E2EMessageLogger.log('debug', 'LOAD_MORE_SKIP', {
-        sessionId: sessionId?.slice(-8),
-        hasMore,
-        isLoading: messagesQuery.isLoading
-      });
       return;
     }
     
     try {
-      E2EMessageLogger.log('info', 'LOAD_MORE_MESSAGES', {
+      MessageLogger.log('info', 'LOAD_MORE_MESSAGES', {
         cursor,
         hasMore,
-        sessionId: sessionId?.slice(-8),
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId)
+        sessionId: sessionId?.slice(-8)
       });
       
       const response = await chatsApi.getMessages(sessionId, cursor, 20);
@@ -595,13 +546,6 @@ export const useMessages = (sessionId, ably = null) => {
         newCursor = metadata.nextCursor || null;
       }
       
-      E2EMessageLogger.log('success', 'LOAD_MORE_SUCCESS', {
-        count: olderMessages.length,
-        hasNextPage,
-        newCursor,
-        sessionId: sessionId?.slice(-8)
-      });
-      
       if (olderMessages.length > 0) {
         queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
           const existingIds = new Set(old.map(msg => msg.id));
@@ -616,51 +560,33 @@ export const useMessages = (sessionId, ably = null) => {
         setCursor(null);
       }
     } catch (error) {
-      E2EMessageLogger.log('error', 'LOAD_MORE_FAILED', error);
+      MessageLogger.log('error', 'LOAD_MORE_FAILED', error);
     }
   }, [sessionId, cursor, hasMore, messagesQuery.isLoading, queryClient]);
 
-  // Memoize return object to prevent re-renders with E2E enhancements
+  // Return object
   return useMemo(() => ({
     messages: currentMessages,
     messageText,
     setMessageText,
     sendMessage,
-    sendFile,
+    sendFile, // UPDATED: File upload support
     sendCurrentMessage,
     markAsRead,
     addMessage,
     handleAIServiceSelection,
     canSendMessage,
-    canSendFile,
+    canSendFile, // UPDATED: File sending capability
     canSendMessageWithText,
     getSessionStatus,
     loadMoreMessages,
     isLoading: messagesQuery.isLoading,
     isSending: sendMutation.isPending || sendFileMutation.isPending,
-    isUploadingFile: sendFileMutation.isPending,
+    isUploadingFile: sendFileMutation.isPending, // UPDATED: File upload status
     error: messagesQuery.error || sendMutation.error || sendFileMutation.error,
     refetch: messagesQuery.refetch,
     hasMore,
-    isLoadingMore: false,
-    
-    // E2E specific
-    getE2EMessageStatus: (messageId) => {
-      const message = currentMessages.find(m => m.id === messageId);
-      return {
-        isEncrypted: message?.isEncrypted || false,
-        hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
-        sessionId: sessionId?.slice(-8)
-      };
-    },
-    
-    // Debug utilities
-    debug: {
-      logger: E2EMessageLogger,
-      sessionId: sessionId?.slice(-8),
-      hasSessionKey: !!e2eEncryption.getSessionKey(sessionId),
-      e2eStatus: e2eEncryption.getStatus()
-    }
+    isLoadingMore: false
   }), [
     currentMessages,
     messageText,

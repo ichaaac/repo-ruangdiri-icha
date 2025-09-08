@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/MessageBubble.jsx
+// src/components/shared/chats/components/MessageBubble.jsx - FIXED: Dynamic Bubble Width
 import React from 'react';
 import { motion } from 'framer-motion';
 
@@ -93,6 +93,59 @@ const MessageBubble = ({
   const isImage = attachmentType?.startsWith('image/');
   const isDocument = attachmentType?.includes('pdf') || attachmentType?.includes('word') || attachmentType?.includes('text');
 
+  // FIXED: Calculate dynamic width based on content
+  const getMessageWidth = () => {
+    const hasText = message && message.trim().length > 0;
+    const hasAttachment = !!attachmentUrl;
+    const hasOptions = showOptions && !isOwn;
+    const hasActions = actions && actions.length > 0;
+    
+    // Base calculations for different content types
+    if (hasAttachment && isImage) {
+      return 'max-w-[300px] sm:max-w-[400px]'; // Larger for images
+    }
+    
+    if (hasAttachment && !isImage) {
+      return 'max-w-[280px] sm:max-w-[350px]'; // Medium for documents
+    }
+    
+    if (hasOptions || hasActions) {
+      return 'max-w-[320px] sm:max-w-[400px]'; // Wider for option buttons
+    }
+    
+    if (hasText) {
+      const textLength = message.length;
+      
+      // Very short messages - tight bubble
+      if (textLength <= 20) {
+        return 'max-w-[120px] sm:max-w-[150px]';
+      }
+      
+      // Short messages - small bubble
+      if (textLength <= 50) {
+        return 'max-w-[200px] sm:max-w-[250px]';
+      }
+      
+      // Medium messages - medium bubble  
+      if (textLength <= 100) {
+        return 'max-w-[280px] sm:max-w-[350px]';
+      }
+      
+      // Long messages - large bubble
+      if (textLength <= 200) {
+        return 'max-w-[350px] sm:max-w-[420px]';
+      }
+      
+      // Very long messages - max bubble
+      return 'max-w-[400px] sm:max-w-[480px]';
+    }
+    
+    // Default fallback
+    return 'max-w-[250px] sm:max-w-[320px]';
+  };
+
+  const messageWidthClass = getMessageWidth();
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -128,12 +181,16 @@ const MessageBubble = ({
               </div>
           </div>
           )}
-          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end' : 'items-start'} max-w-[80%] sm:max-w-[454px] min-w-0`}>
+          
+          {/* FIXED: Dynamic width message container */}
+          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end' : 'items-start'} ${messageWidthClass} min-w-0`}>
             <p className={`text-xs font-light text-zinc-500 ${isOwn ? 'text-right' : ''}`}>
               {isOwn ? 'You' : (sender?.name || 'Unknown')}
             </p>
+            
+            {/* FIXED: Message bubble with dynamic padding and width */}
             <div className={`
-              flex flex-col items-start px-4 py-3 min-h-[47px] w-full
+              flex flex-col items-start px-4 py-3 min-h-[47px] w-fit
               ${isOwn
                 ? 'bg-sky-100 rounded-xl'
                 : 'bg-white rounded-3xl'
@@ -222,9 +279,6 @@ const MessageBubble = ({
                   ))}
                 </div>
               )}
-              
-              {/* Message Status for own messages */}
-              <MessageStatus messageData={messageData} isOwn={isOwn} />
             </div>
             
             <div className="flex items-center gap-2">
