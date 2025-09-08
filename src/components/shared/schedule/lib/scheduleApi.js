@@ -1,4 +1,4 @@
-// src/components/shared/schedule/lib/scheduleApi.js - COMPLETE FIXED VERSION
+// src/components/shared/schedule/lib/scheduleApi.js - FIXED TIMEZONE ISSUES
 
 import { apiClient } from "../../../../lib/api.js"
 import { getCurrentUserTimezone, parseDateTimeForDisplay } from "../../../../utils/timezoneUtils.js"
@@ -63,21 +63,28 @@ export const createScheduleApi = (organizationType = "school") => {
     }
   };
 
-  // FIXED: Transform schedule data using backend display values
+  // FIXED: Transform schedule data - PREVENT DOUBLE TIMEZONE CONVERSION
   const transformScheduleData = (schedules, orgType) => {
     return schedules.map((schedule) => {
-      // FIXED: Use backend display values if available, otherwise parse datetime
+      // FIXED: Parse datetime correctly without double conversion
       let startDateTimeLocal, endDateTimeLocal, startTime, endTime, dateString;
       
       try {
-        // Check if backend provides pre-calculated display values
+        console.log('=== Processing schedule ===', {
+          id: schedule.id,
+          agenda: schedule.agenda,
+          startDateTime: schedule.startDateTime,
+          displayStartDateTime: schedule.displayStartDateTime
+        });
+
+        // Check if backend provides pre-calculated display values (PREFERRED)
         if (schedule.displayStartDateTime && schedule.displayEndDateTime) {
-          console.log('Using backend display values:', {
+          console.log('✅ Using backend display values:', {
             displayStart: schedule.displayStartDateTime,
             displayEnd: schedule.displayEndDateTime
           });
           
-          // Parse backend display format "2025-09-06 21:30"
+          // Parse backend display format "2025-09-14 15:30"
           const [startDateStr, startTimeStr] = schedule.displayStartDateTime.split(' ');
           const [endDateStr, endTimeStr] = schedule.displayEndDateTime.split(' ');
           
@@ -85,57 +92,84 @@ export const createScheduleApi = (organizationType = "school") => {
           startTime = startTimeStr;
           endTime = endTimeStr;
           
-          // Create Date objects for compatibility (but we'll use the display times)
+          // Create Date objects for compatibility
           startDateTimeLocal = new Date(`${startDateStr}T${startTimeStr}:00`);
           endDateTimeLocal = new Date(`${endDateStr}T${endTimeStr}:00`);
           
-          if (isNaN(startDateTimeLocal.getTime()) || isNaN(endDateTimeLocal.getTime())) {
-            throw new Error('Invalid display datetime format');
-          }
+          console.log('✅ Parsed display values:', { dateString, startTime, endTime });
+          
         } else {
-          // Fallback: Parse UTC timestamps 
+          // FIXED: Parse UTC timestamps and convert to user's local time CORRECTLY
           const startDateTime = schedule.startDateTime;
           const endDateTime = schedule.endDateTime;
           
           if (!startDateTime || !endDateTime) {
-            console.error('Missing datetime values in schedule:', schedule);
+            console.error('❌ Missing datetime values in schedule:', schedule);
             startDateTimeLocal = new Date();
             endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000);
           } else {
-            startDateTimeLocal = new Date(startDateTime);
-            endDateTimeLocal = new Date(endDateTime);
+            console.log('⚠️ Fallback: Converting UTC to local time');
+            console.log('UTC startDateTime:', startDateTime);
             
-            if (isNaN(startDateTimeLocal.getTime()) || isNaN(endDateTimeLocal.getTime())) {
-              console.error('Invalid datetime format in schedule:', { startDateTime, endDateTime, schedule });
+            // CRUCIAL FIX: Parse UTC time correctly
+            const utcStart = new Date(startDateTime);
+            const utcEnd = new Date(endDateTime);
+            
+            console.log('Parsed UTC Date objects:', {
+              utcStart: utcStart.toISOString(),
+              utcEnd: utcEnd.toISOString()
+            });
+            
+            if (isNaN(utcStart.getTime()) || isNaN(utcEnd.getTime())) {
+              console.error('❌ Invalid datetime format:', { startDateTime, endDateTime });
               startDateTimeLocal = new Date();
               endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000);
+            } else {
+              // FIXED: Let JavaScript handle timezone conversion automatically
+              // JavaScript Date.toLocaleTimeString() will convert from UTC to local timezone
+              startDateTimeLocal = utcStart; // Keep as-is, let display functions handle conversion
+              endDateTimeLocal = utcEnd;
+              
+              // CRUCIAL: Use JavaScript's built-in timezone conversion
+              startTime = utcStart.toLocaleTimeString('en-GB', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'Asia/Jakarta' // Force WIB timezone
+              });
+              endTime = utcEnd.toLocaleTimeString('en-GB', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                timeZone: 'Asia/Jakarta' // Force WIB timezone  
+              });
+              
+              // Use local date for display
+              dateString = utcStart.toLocaleDateString('en-CA', {
+                timeZone: 'Asia/Jakarta' // Force WIB timezone
+              }); // YYYY-MM-DD format
+              
+              console.log('✅ Converted to WIB:', { dateString, startTime, endTime });
             }
           }
-          
-          // Use JavaScript's time formatting as fallback
-          startTime = startDateTimeLocal.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-          endTime = endDateTimeLocal.toLocaleTimeString('en-GB', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-          dateString = startDateTimeLocal.toISOString().split('T')[0];
         }
       } catch (error) {
-        console.error('Error parsing datetime in schedule:', error, schedule);
-        startDateTimeLocal = new Date();
-        endDateTimeLocal = new Date(startDateTimeLocal.getTime() + 60 * 60 * 1000);
-        startTime = startDateTimeLocal.toLocaleTimeString('en-GB', { 
+        console.error('❌ Error parsing datetime in schedule:', error, schedule);
+        // Fallback to safe values
+        const now = new Date();
+        startDateTimeLocal = now;
+        endDateTimeLocal = new Date(now.getTime() + 60 * 60 * 1000);
+        startTime = now.toLocaleTimeString('en-GB', { 
           hour: '2-digit', 
-          minute: '2-digit' 
+          minute: '2-digit',
+          timeZone: 'Asia/Jakarta'
         });
         endTime = endDateTimeLocal.toLocaleTimeString('en-GB', { 
           hour: '2-digit', 
-          minute: '2-digit' 
+          minute: '2-digit',
+          timeZone: 'Asia/Jakarta'
         });
-        dateString = startDateTimeLocal.toISOString().split('T')[0];
+        dateString = now.toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Jakarta'
+        });
       }
       
       const baseTransform = {
@@ -439,7 +473,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // UPDATED: createSchedule with user timezone
+    // CRUCIAL FIX: createSchedule - SEND LOCAL TIME WITHOUT CONVERSION
     async createSchedule(scheduleData) {
       try {
         console.log('=== createSchedule API call ===');
@@ -452,24 +486,22 @@ export const createScheduleApi = (organizationType = "school") => {
           throw new Error(errorMessage);
         }
 
-        const userTimezone = getCurrentUserTimezone();
-
-        // FIXED: Build payload with user timezone, no manual timezone conversion
+        // CRUCIAL FIX: Build payload WITHOUT timezone conversion - send local time as-is
         const transformedData = {
           agenda: scheduleData.agenda.trim(),
           description: (scheduleData.description || "").trim(),
           notificationOffset: scheduleData.notificationOffset || 60,
           type: scheduleData.type,
-          timezone: userTimezone, // Add user's timezone to payload
+          // FIXED: Send dates with local time and timezone info - let backend handle conversion
           dates: scheduleData.dates.map((dateItem) => ({
-            date: dateItem.date,
-            startTime: dateItem.startTime,
-            endTime: dateItem.endTime,
-            timezone: userTimezone, // Use user's timezone instead of form timezone
+            date: dateItem.date,           // "2025-09-13"
+            startTime: dateItem.startTime, // "10:30" (LOCAL TIME)
+            endTime: dateItem.endTime,     // "11:00" (LOCAL TIME)
+            timezone: dateItem.timezone || getCurrentUserTimezone(), // "WIB"
           })),
         }
 
-        console.log('Base transformed data:', transformedData);
+        console.log('CRUCIAL: Dates being sent to backend (LOCAL TIME):', transformedData.dates);
 
         // Handle participants structure properly
         if (scheduleData.type === "counseling" && scheduleData.participants) {
@@ -504,7 +536,7 @@ export const createScheduleApi = (organizationType = "school") => {
           }
         }
 
-        console.log('Final payload to send:', transformedData);
+        console.log('FINAL PAYLOAD TO BACKEND (NO TIMEZONE CONVERSION):', transformedData);
 
         const response = await apiClient.post("/schedules", transformedData)
         
@@ -544,7 +576,7 @@ export const createScheduleApi = (organizationType = "school") => {
       }
     },
 
-    // UPDATED: updateSchedule with user timezone
+    // CRUCIAL FIX: updateSchedule - SEND LOCAL TIME WITHOUT CONVERSION
     async updateSchedule(scheduleId, scheduleData) {
       try {
         console.log('=== updateSchedule API call ===');
@@ -556,7 +588,6 @@ export const createScheduleApi = (organizationType = "school") => {
           throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
         }
 
-        const userTimezone = getCurrentUserTimezone();
         const transformedData = {};
 
         if (scheduleData.hasOwnProperty('agenda')) {
@@ -575,15 +606,15 @@ export const createScheduleApi = (organizationType = "school") => {
           transformedData.type = scheduleData.type;
         }
 
-        // FIXED: Always include user timezone in dates
+        // CRUCIAL FIX: Send dates with local time - no conversion
         if (scheduleData.hasOwnProperty('dates')) {
           transformedData.dates = scheduleData.dates.map((dateItem) => ({
-            date: dateItem.date,
-            startTime: dateItem.startTime,
-            endTime: dateItem.endTime,
-            timezone: userTimezone, // Use user's timezone instead of form timezone
+            date: dateItem.date,           // "2025-09-13"
+            startTime: dateItem.startTime, // "10:30" (LOCAL TIME)
+            endTime: dateItem.endTime,     // "11:00" (LOCAL TIME)
+            timezone: dateItem.timezone || getCurrentUserTimezone(), // "WIB"
           }));
-          transformedData.timezone = userTimezone; // Add timezone to root level too
+          console.log('CRUCIAL: Dates being sent to backend (LOCAL TIME):', transformedData.dates);
         }
 
         // Handle participants update
@@ -615,7 +646,7 @@ export const createScheduleApi = (organizationType = "school") => {
           transformedData.customLocation = scheduleData.customLocation;
         }
 
-        console.log('Final payload sent to backend:', transformedData);
+        console.log('FINAL PAYLOAD TO BACKEND (NO TIMEZONE CONVERSION):', transformedData);
 
         const response = await apiClient.patch(`/schedules/${scheduleId}`, transformedData)
         

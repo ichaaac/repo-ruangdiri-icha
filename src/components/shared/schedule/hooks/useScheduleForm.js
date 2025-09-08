@@ -1,4 +1,4 @@
-// src/components/shared/schedule/hooks/useScheduleForm.js - FIXED INFINITE RENDERING
+// src/components/shared/schedule/hooks/useScheduleForm.js - FIXED TIMEZONE & PSYCHOLOGIST
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -32,10 +32,11 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         date: formatDateLocal(new Date()),
         startTime: "09:00",
         endTime: "10:00",
-        timezone: currentUserTimezone,
+        timezone: currentUserTimezone, // FIXED: Always use user's timezone without conversion
       },
     ],
     notificationOffset: 60,
+    // FIXED: Auto-fill psychologist if current user is psychologist
     selectedPsychologist: isUserPsychologist ? currentUserAsPsychologist : null,
     selectedParticipants: [],
     location: "",
@@ -167,7 +168,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       if (initialData.dates && initialData.dates.length > 0) {
         dates = initialData.dates.map((dateInfo) => ({
           ...dateInfo,
-          timezone: currentUserTimezone,
+          timezone: currentUserTimezone, // FIXED: Keep user's timezone, don't convert
         }));
       } else if (initialData.startDateTime) {
         const scheduleData = parseScheduleDateTime(
@@ -181,7 +182,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
             date: scheduleData.date,
             startTime: scheduleData.startTime,
             endTime: scheduleData.endTime,
-            timezone: currentUserTimezone,
+            timezone: currentUserTimezone, // FIXED: Keep user's timezone
           },
         ];
       }
@@ -201,6 +202,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         ],
         location: initialData.type === "counseling" ? (initialData.location || "") : "",
         customLocation: initialData.type !== "counseling" ? (initialData.customLocation || "") : "",
+        // FIXED: Auto-fill psychologist if current user is psychologist
         selectedPsychologist: isUserPsychologist ? currentUserAsPsychologist : (initialData.selectedPsychologist || null),
         selectedParticipants: Array.isArray(initialData.selectedParticipants)
           ? initialData.selectedParticipants
@@ -214,7 +216,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
           date: formatDateLocal(new Date()),
           startTime: "09:00",
           endTime: "10:00",
-          timezone: currentUserTimezone,
+          timezone: currentUserTimezone, // FIXED: Use user's timezone
         },
       ];
 
@@ -229,7 +231,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
             date: dateString,
             startTime: dateInfo.startTime || "09:00",
             endTime: dateInfo.endTime || "10:00",
-            timezone: currentUserTimezone,
+            timezone: currentUserTimezone, // FIXED: Always use user's timezone
           };
         });
       } else if (initialData?.startDateTime && initialData?.endDateTime) {
@@ -241,7 +243,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
             date: formatDateLocal(startDate),
             startTime: startDate.toTimeString().slice(0, 5),
             endTime: endDate.toTimeString().slice(0, 5),
-            timezone: currentUserTimezone,
+            timezone: currentUserTimezone, // FIXED: Use user's timezone
           },
         ];
       }
@@ -251,6 +253,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
         type: "counseling",
         dates: defaultDates,
         notificationOffset: 60,
+        // FIXED: Auto-fill psychologist if current user is psychologist
         selectedPsychologist: isUserPsychologist ? currentUserAsPsychologist : null,
         selectedParticipants: [],
         location: "",
@@ -314,12 +317,23 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     isOpen, 
     processedInitialData, 
     getInitialFormData,
-    // Note: Do NOT include formData in dependencies - it will cause infinite loop
-  ]); // FIXED: Stable dependencies only
+  ]);
+
+  // FIXED: Auto-fill psychologist when form type changes to counseling
+  useEffect(() => {
+    if (formData.type === "counseling" && isUserPsychologist && !formData.selectedPsychologist) {
+      console.log('Auto-filling psychologist for counseling schedule');
+      setFormData(prev => ({
+        ...prev,
+        selectedPsychologist: currentUserAsPsychologist
+      }));
+    }
+  }, [formData.type, isUserPsychologist, currentUserAsPsychologist, formData.selectedPsychologist]);
 
   // Event handlers - FIXED: Memoize to prevent re-creation
   const handleInputChange = useCallback((field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    console.log(`=== handleInputChange ===`);
+    console.log(`Field: ${field}, Value:`, value);
 
     // FIXED: Prevent psychologist field changes if current user is psychologist
     if (field === "selectedPsychologist" && isUserPsychologist) {
@@ -342,6 +356,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
           const secondDate = {
             ...firstDate,
             date: formatDateLocal(nextDay),
+            timezone: currentUserTimezone, // FIXED: Keep user's timezone
           };
 
           return {
@@ -368,11 +383,12 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
           return {
             ...date,
             endTime: timeOptions[Math.min(startIndex + 1, timeOptions.length - 1)],
+            timezone: currentUserTimezone, // FIXED: Always keep user's timezone
           };
         }
         return {
           ...date,
-          timezone: currentUserTimezone,
+          timezone: currentUserTimezone, // FIXED: Always keep user's timezone
         };
       });
       setFormData((prev) => ({
@@ -382,7 +398,19 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       }));
       return;
     }
-  }, [isUserPsychologist, timeOptions, currentUserTimezone]);
+
+    // FIXED: Auto-fill psychologist when switching to counseling
+    if (field === "type" && value === "counseling" && isUserPsychologist && !formData.selectedPsychologist) {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+        selectedPsychologist: currentUserAsPsychologist
+      }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  }, [isUserPsychologist, timeOptions, currentUserTimezone, currentUserAsPsychologist, formData.type]);
 
   const toggleDropdown = useCallback((dropdown) => {
     // FIXED: Prevent psychologist dropdown if current user is psychologist
@@ -442,13 +470,15 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     removeParticipantBase(participantId, handleInputChange);
   }, [removeParticipantBase, handleInputChange]);
 
-  // Date handlers - FIXED: Memoize to prevent re-creation
+  // FIXED: Date handlers - NO TIMEZONE CONVERSION
   const updateAdditionalDate = useCallback((index, field, value) => {
     const newDates = [...formData.dates];
+    
+    // CRUCIAL: Keep original timezone, DO NOT convert
     newDates[index] = { 
       ...newDates[index], 
       [field]: value,
-      timezone: currentUserTimezone
+      timezone: currentUserTimezone // Keep user's timezone as-is
     };
 
     if (field === "startTime") {
@@ -471,6 +501,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
       }
     }
 
+    console.log('📅 UPDATED DATE (NO CONVERSION):', newDates[index]);
     handleInputChange("dates", newDates);
   }, [formData.dates, currentUserTimezone, timeOptions, handleInputChange]);
 
@@ -534,7 +565,7 @@ export const useScheduleForm = (mode = "create", initialData = null, isOpen = fa
     hasShownUnsavedToast,
     previewAttachment,
 
-    // User data
+    // FIXED: User data for psychologist auto-fill
     currentUserTimezone,
     isUserPsychologist,
     currentUserAsPsychologist,
