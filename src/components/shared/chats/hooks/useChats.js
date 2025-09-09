@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - ENHANCED: Error Handling & Retry Integration
+// src/components/shared/chats/hooks/useChats.js - FIXED: Prevent Infinite Retries for Inactive Sessions
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,6 +54,9 @@ export const useChats = () => {
   const [typingUsers, setTypingUsers] = useState({});
   const [connectionRetryCount, setConnectionRetryCount] = useState(0);
   const [isRecoveringConnection, setIsRecoveringConnection] = useState(false);
+  
+  // FIXED: Track failed sessions to prevent infinite retries
+  const [failedSessions, setFailedSessions] = useState(new Set());
   
   const ably = useAbly();
   const messages = useMessages(selectedSession?.sessionId, ably);
@@ -255,7 +258,17 @@ export const useChats = () => {
     };
   }, [handleChatEnableDisable, handleInitialMessage, handleChatInvalidate]);
 
-  // Enhanced session selection with connection recovery
+  // FIXED: Check if session should be skipped for Ably connection
+  const shouldSkipAblyConnection = useCallback((session) => {
+    if (!session) return true;
+    if (session.isTeamChat) return false; // Team chat always connects
+    if (session.status === 'completed') return true;
+    if (session.status === 'ended') return true;
+    if (failedSessions.has(session.sessionId)) return true; // Skip previously failed sessions
+    return false;
+  }, [failedSessions]);
+
+  // FIXED: Enhanced session selection with better error handling and no infinite retries
   const selectSession = useCallback(async (session, shouldMarkAsRead = true) => {
     if (!session) {
       return;
@@ -294,47 +307,77 @@ export const useChats = () => {
       // Set selected session
       setSelectedSession(session);
       
-      // Connect to Ably with retry logic
-      if (userId && !session.isTeamChat && session.status !== 'completed') {
+      // FIXED: Check if should skip Ably connection
+      if (shouldSkipAblyConnection(session)) {
+        ChatsLogger.log('info', 'Skipping Ably connection for session', {
+          sessionId: session.sessionId,
+          reason: session.isTeamChat ? 'team chat' : 
+                  session.status === 'completed' ? 'completed' :
+                  session.status === 'ended' ? 'ended' :
+                  failedSessions.has(session.sessionId) ? 'previously failed' : 'unknown'
+        });
+        
+        if (session.isTeamChat) {
+          await ably.connect(session.sessionId, userId);
+        }
+        return;
+      }
+      
+      // Connect to Ably with improved retry logic
+      if (userId) {
         ChatsLogger.log('info', 'Connecting to Ably for session', session.sessionId);
         
-        const maxRetries = 3;
-        let retryCount = 0;
-        
-        while (retryCount < maxRetries) {
-          try {
-            const connected = await ably.connect(session.sessionId, userId);
-            if (connected) {
-              ChatsLogger.log('success', 'Successfully connected to Ably');
-              setConnectionRetryCount(0);
-              break;
-            }
-          } catch (error) {
-            retryCount++;
-            ChatsLogger.log('retry', `Ably connection attempt ${retryCount} failed`, error);
-            
-            if (retryCount >= maxRetries) {
-              ChatsLogger.log('error', 'All Ably connection attempts failed');
-              setConnectionRetryCount(retryCount);
-              
-              // Show retry option to user
-              toast.error('Failed to connect to chat', {
-                description: 'Connection to real-time chat failed',
-                action: {
-                  label: 'Retry',
-                  onClick: () => selectSession(session, false)
+        try {
+          const connected = await ably.connect(session.sessionId, userId);
+          if (connected) {
+            ChatsLogger.log('success', 'Successfully connected to Ably');
+            setConnectionRetryCount(0);
+            // FIXED: Remove from failed sessions if connection succeeds
+            setFailedSessions(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(session.sessionId);
+              return newSet;
+            });
+          } else {
+            ChatsLogger.log('warn', 'Ably connection returned false (likely inactive session)');
+            // FIXED: Add to failed sessions to prevent future retries
+            setFailedSessions(prev => new Set([...prev, session.sessionId]));
+          }
+        } catch (error) {
+          ChatsLogger.log('error', 'Ably connection failed', error);
+          setConnectionRetryCount(1);
+          
+          // FIXED: Add to failed sessions to prevent infinite retries
+          setFailedSessions(prev => new Set([...prev, session.sessionId]));
+          
+          // FIXED: Only show error toast for unexpected errors, not inactive sessions
+          const errorMessage = error.message || '';
+          const isInactiveError = [
+            'is not active',
+            'not active', 
+            'inactive',
+            'completed',
+            'ended'
+          ].some(pattern => errorMessage.toLowerCase().includes(pattern.toLowerCase()));
+          
+          if (!isInactiveError) {
+            toast.error('Failed to connect to chat', {
+              description: 'Connection to real-time chat failed',
+              action: {
+                label: 'Retry',
+                onClick: () => {
+                  // FIXED: Remove from failed sessions and retry
+                  setFailedSessions(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(session.sessionId);
+                    return newSet;
+                  });
+                  selectSession(session, false);
                 }
-              });
-            } else {
-              // Wait before retry
-              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-            }
+              }
+            });
           }
         }
-      } else if (session.status === 'completed') {
-        ably.disconnect();
-      } else if (session.isTeamChat) {
-        await ably.connect(session.sessionId, userId);
       }
     } catch (error) {
       ChatsLogger.error('Failed to select session', error);
@@ -348,7 +391,7 @@ export const useChats = () => {
     } finally {
       setIsRecoveringConnection(false);
     }
-  }, [selectedSession?.sessionId, ably, userId, sessionsQuery]);
+  }, [selectedSession?.sessionId, ably, userId, sessionsQuery, shouldSkipAblyConnection]);
 
   // Auto-select Team RuangDiri with error handling
   useEffect(() => {
@@ -675,11 +718,32 @@ export const useChats = () => {
     }
   }, [sessionsQuery.refetch, selectedSession, messages]);
 
+  // FIXED: Clear failed sessions periodically
+  useEffect(() => {
+    const clearFailedSessions = () => {
+      setFailedSessions(new Set());
+      ChatsLogger.log('info', 'Cleared failed sessions cache');
+    };
+
+    // Clear failed sessions every 5 minutes
+    const interval = setInterval(clearFailedSessions, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   // Enhanced cleanup with error handling
   useEffect(() => {
     return () => {
       try {
-        ably.disconnect();
+        // Use setTimeout to avoid blocking cleanup
+        setTimeout(async () => {
+          try {
+            await ably.disconnect();
+          } catch (error) {
+            ChatsLogger.error('Error during cleanup disconnect', error);
+          }
+        }, 0);
+        
         setTypingUsers({});
       } catch (error) {
         ChatsLogger.error('Error during cleanup', error);
@@ -753,6 +817,12 @@ export const useChats = () => {
     // Enhanced recovery actions
     retryConnection: () => {
       if (selectedSession && userId) {
+        // FIXED: Clear from failed sessions before retry
+        setFailedSessions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(selectedSession.sessionId);
+          return newSet;
+        });
         return selectSession(selectedSession, false);
       }
     },
@@ -776,7 +846,8 @@ export const useChats = () => {
       ably: ably.getConnectionInfo(),
       sessions: sessionsQuery,
       messages: messages,
-      lastError: window.lastChatError
+      lastError: window.lastChatError,
+      failedSessions: Array.from(failedSessions) // Convert Set to Array for debugging
     }
   }), [
     filteredSessions,
@@ -813,6 +884,7 @@ export const useChats = () => {
     refreshSessions,
     getUserDisplayData,
     user?.role,
-    userId
+    userId,
+    failedSessions
   ]);
 };
