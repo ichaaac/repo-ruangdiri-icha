@@ -1,8 +1,8 @@
-// src/components/shared/chats/components/ChatMessages.jsx - FIXED: Proper Input Spacing
+// src/components/shared/chats/components/ChatMessages.jsx - FIXED: WhatsApp-style Date Grouping
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatChatDateHeader } from './utils/dateUtils';
+import { groupMessagesByDate } from './utils/dateUtils';
 import MessageBubble from './MessageBubble';
 
 const ChatMessages = ({ 
@@ -20,12 +20,8 @@ const ChatMessages = ({
 
   const sessionStatus = getSessionStatus?.() || 'ready';
 
-  const getDateHeader = () => {
-    if (messages.length > 0) {
-      return formatChatDateHeader(messages[0]?.timestamp);
-    }
-    return 'Hari ini';
-  };
+  // Group messages by date for WhatsApp-style date headers
+  const messageGroups = groupMessagesByDate(messages);
 
   // Infinite scroll handler
   const handleScroll = useCallback(() => {
@@ -63,7 +59,7 @@ const ChatMessages = ({
           scrollbarColor: '#6B7280 #E5E7EB'
         }}
       >
-        <div className="flex flex-col gap-2.5 items-center py-4 min-h-full">
+        <div className="flex flex-col items-center py-4 min-h-full">
           {/* Load More Button/Indicator */}
           {hasMoreMessages && (
             <div className="w-full flex justify-center py-4">
@@ -85,12 +81,8 @@ const ChatMessages = ({
             </div>
           )}
 
-          <time className="mb-4 text-xs font-light leading-5 text-center text-zinc-500">
-            {getDateHeader()}
-          </time>
-
           {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md mb-4">
               <div className="flex items-center gap-2 text-center">
                 <span className="text-yellow-600">⚠️</span>
                 <div className="text-sm text-yellow-800">
@@ -102,33 +94,60 @@ const ChatMessages = ({
             </div>
           )}
 
-          {/* Messages Container - FIXED: Proper bottom padding for input */}
-          <div className="flex flex-col gap-4 w-full max-w-full pb-32">
-            <AnimatePresence>
-              {messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  message={message.text}
-                  isOwn={message.isUser}
-                  sender={message.sender}
-                  time={message.time}
-                  showOptions={message.showOptions}
-                  actions={message.actions}
-                  onOptionClick={onAIServiceSelection}
-                  attachmentUrl={message.attachmentUrl}
-                  attachmentType={message.attachmentType}
-                  attachmentName={message.attachmentName}
-                  attachmentSize={message.attachmentSize}
-                  messageData={message} // Pass full message data for status
-                />
-              ))}
-            </AnimatePresence>
+          {/* FIXED: Render messages grouped by date with individual date headers */}
+          <div className="flex flex-col gap-6 w-full max-w-full pb-32">
+            {messageGroups.length > 0 ? (
+              messageGroups.map((group, groupIndex) => (
+                <div key={group.date || groupIndex} className="w-full">
+                  {/* Date Header - WhatsApp style floating header */}
+                  <div className="flex justify-center mb-4">
+                    <time className="text-[11px] font-medium text-gray-400 tracking-wide">
+                      {group.dateHeader}
+                    </time>
+                  </div>
+                  {/* Messages in this date group */}
+                  <div className="flex flex-col gap-4">
+                    <AnimatePresence>
+                      {group.messages.map((message) => (
+                        <MessageBubble
+                          key={message.id}
+                          message={message.text}
+                          isOwn={message.isUser}
+                          sender={message.sender}
+                          time={message.time}
+                          showOptions={message.showOptions}
+                          actions={message.actions}
+                          onOptionClick={onAIServiceSelection}
+                          attachmentUrl={message.attachmentUrl}
+                          attachmentType={message.attachmentType}
+                          attachmentName={message.attachmentName}
+                          attachmentSize={message.attachmentSize}
+                          messageData={message} // Pass full message data for status
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              ))
+            ) : (
+              // No messages yet - show welcome state
+              <div className="flex flex-col items-center justify-center text-center p-8 text-gray-500">
+                <div className="text-4xl mb-4">💬</div>
+                <h3 className="text-lg font-medium mb-2">No messages yet</h3>
+                <p className="text-sm">
+                  {selectedConversation?.isTeamChat 
+                    ? 'Start a conversation with our AI assistant'
+                    : 'Send your first message to start the conversation'
+                  }
+                </p>
+              </div>
+            )}
 
-            {/* Auto-scroll anchor - FIXED: Proper spacing */}
+            {/* Auto-scroll anchor - FIXED: Minimal spacing */}
             <div 
               ref={messagesEndRef} 
               style={{ 
-                height: '100px', // Ensure enough space for input
+                height: '20px', // Minimal space for input
                 visibility: 'hidden' 
               }} 
             />
