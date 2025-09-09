@@ -1,4 +1,4 @@
-// src/components/shared/chats/MediaUploadPreview.jsx - Fixed WhatsApp-Style Upload Preview
+// src/components/shared/chats/MediaUploadPreview.jsx - Updated Design System Match
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,7 +15,6 @@ const MediaUploadPreview = ({
 }) => {
   const messageInputRef = useRef(null);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
-  const [uploadProgress, setUploadProgress] = useState({});
 
   // Auto focus message input when opened
   useEffect(() => {
@@ -100,20 +99,21 @@ const MediaUploadPreview = ({
         className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-black bg-opacity-50 text-white">
+        <div className="flex items-center justify-between p-4 bg-white shadow-sm">
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               disabled={isUploading}
+              style={{ color: '#488BBA' }}
             >
               <span className="material-icons">close</span>
             </button>
             <div>
-              <h3 className="text-lg font-medium">
+              <h3 className="text-lg font-semibold text-gray-800">
                 {files.length > 1 ? `${currentFileIndex + 1} of ${files.length}` : 'Send Media'}
               </h3>
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-gray-600">
                 {currentFile?.file.name} • {formatFileSize(currentFile?.file.size)}
               </p>
             </div>
@@ -124,15 +124,17 @@ const MediaUploadPreview = ({
               <>
                 <button
                   onClick={() => setCurrentFileIndex(prev => (prev > 0 ? prev - 1 : files.length - 1))}
-                  className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                   disabled={isUploading}
+                  style={{ color: '#488BBA' }}
                 >
                   <span className="material-icons">chevron_left</span>
                 </button>
                 <button
                   onClick={() => setCurrentFileIndex(prev => (prev < files.length - 1 ? prev + 1 : 0))}
-                  className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                   disabled={isUploading}
+                  style={{ color: '#488BBA' }}
                 >
                   <span className="material-icons">chevron_right</span>
                 </button>
@@ -141,7 +143,7 @@ const MediaUploadPreview = ({
             
             <button
               onClick={handleRemoveCurrentFile}
-              className="p-2 hover:bg-red-500 hover:bg-opacity-20 rounded-full transition-colors text-red-400"
+              className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500"
               disabled={isUploading}
             >
               <span className="material-icons">delete</span>
@@ -150,7 +152,7 @@ const MediaUploadPreview = ({
         </div>
 
         {/* Preview Area */}
-        <div className="flex-1 flex items-center justify-center p-4">
+        <div className="flex-1 flex items-center justify-center p-4 bg-gray-100">
           <div className="max-w-4xl max-h-full w-full h-full flex items-center justify-center">
             {isImage ? (
               <motion.img
@@ -166,7 +168,7 @@ const MediaUploadPreview = ({
                 key={currentFile?.id}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-lg p-8 text-center shadow-lg"
+                className="bg-white rounded-lg p-8 text-center shadow-lg max-w-md"
               >
                 <div className="flex flex-col items-center gap-4">
                   <span 
@@ -176,7 +178,7 @@ const MediaUploadPreview = ({
                     {getFileIcon(currentFile?.file.type)}
                   </span>
                   <div>
-                    <h4 className="text-lg font-medium text-gray-800 mb-1">
+                    <h4 className="text-lg font-medium text-gray-800 mb-1 break-words">
                       {currentFile?.file.name}
                     </h4>
                     <p className="text-sm text-gray-600">
@@ -191,7 +193,7 @@ const MediaUploadPreview = ({
 
         {/* File Thumbnails (if multiple files) */}
         {files.length > 1 && (
-          <div className="bg-black bg-opacity-50 p-4">
+          <div className="bg-white border-t border-gray-200 p-4">
             <div className="flex gap-2 overflow-x-auto max-w-full">
               {files.map((fileItem, index) => (
                 <button
@@ -200,10 +202,14 @@ const MediaUploadPreview = ({
                   className={`
                     relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all
                     ${index === currentFileIndex 
-                      ? 'border-blue-500 ring-2 ring-blue-300' 
-                      : 'border-gray-500 hover:border-gray-300'
+                      ? 'ring-2 ring-opacity-50' 
+                      : 'border-gray-300 hover:border-gray-400'
                     }
                   `}
+                  style={{
+                    borderColor: index === currentFileIndex ? '#488BBA' : undefined,
+                    '--tw-ring-color': index === currentFileIndex ? '#488BBA' : undefined
+                  }}
                   disabled={isUploading}
                 >
                   {fileItem.file.type.startsWith('image/') ? (
@@ -213,8 +219,11 @@ const MediaUploadPreview = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                      <span className="material-icons text-white text-sm">
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <span 
+                        className="material-icons text-sm"
+                        style={{ color: '#488BBA' }}
+                      >
                         {getFileIcon(fileItem.file.type)}
                       </span>
                     </div>
@@ -229,10 +238,10 @@ const MediaUploadPreview = ({
                         setCurrentFileIndex(prev => prev > 0 ? prev - 1 : 0);
                       }
                     }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors text-xs"
                     disabled={isUploading}
                   >
-                    <span className="material-icons text-white text-xs">close</span>
+                    <span className="material-icons text-xs">close</span>
                   </button>
                 </button>
               ))}
@@ -249,7 +258,11 @@ const MediaUploadPreview = ({
                 value={messageText}
                 onChange={(e) => onMessageChange(e.target.value)}
                 placeholder="Add a caption..."
-                className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ 
+                  '--tw-ring-color': '#488BBA',
+                  'focus': { borderColor: '#488BBA' }
+                }}
                 rows="3"
                 disabled={isUploading}
               />
@@ -258,7 +271,8 @@ const MediaUploadPreview = ({
             <button
               onClick={handleSend}
               disabled={isUploading || files.length === 0}
-              className="px-6 py-3 bg-green-500 text-white rounded-full hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className="px-6 py-3 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 font-medium"
+              style={{ backgroundColor: '#488BBA' }}
             >
               {isUploading ? (
                 <>

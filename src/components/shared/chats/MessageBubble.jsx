@@ -1,15 +1,74 @@
-// src/components/shared/chats/components/MessageBubble.jsx - FIXED: WhatsApp-style Read Indicators
+// src/components/shared/chats/components/MessageBubble.jsx - Simple Working Version
 
 import React from 'react';
 import { motion } from 'framer-motion';
 
-// FIXED: WhatsApp-style Message Status Component
+// Simple Media Display Component
+const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmentSize }) => {
+  if (!attachmentUrl) return null;
+
+  const isImage = attachmentType?.startsWith('image/');
+  
+  const handleMediaClick = () => {
+    window.open(attachmentUrl, '_blank');
+  };
+
+  const getFileIcon = (type) => {
+    if (type?.includes('pdf')) return 'picture_as_pdf';
+    if (type?.includes('word')) return 'description';
+    if (type?.includes('excel') || type?.includes('sheet')) return 'table_chart';
+    if (type?.includes('zip') || type?.includes('rar')) return 'archive';
+    return 'attach_file';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    const mb = (bytes / 1024 / 1024).toFixed(1);
+    return `${mb} MB`;
+  };
+
+  return (
+    <div className="mt-2 w-full max-w-xs">
+      {isImage ? (
+        <img
+          src={attachmentUrl}
+          alt={attachmentName || 'Image'}
+          className="w-full h-48 rounded-lg cursor-pointer hover:opacity-80 transition-opacity object-cover"
+          onClick={handleMediaClick}
+        />
+      ) : (
+        <div 
+          className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-full"
+          onClick={handleMediaClick}
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-icons text-gray-600">
+              {getFileIcon(attachmentType)}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800 truncate">
+                {attachmentName || 'Document'}
+              </p>
+              {attachmentSize && (
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(attachmentSize)}
+                </p>
+              )}
+            </div>
+            <span className="material-icons text-gray-400 text-sm">download</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Message Status Component
 const MessageStatus = ({ messageData, isOwn }) => {
-  if (!isOwn) return null; // Only show for own messages
+  if (!isOwn) return null;
   
   const getStatusIcon = () => {
-    // Loading state - spinning circle
-    if (messageData.isSending || messageData.isUploading) {
+    if (messageData?.isSending || messageData?.isUploading) {
       return (
         <div className="flex items-center ml-2">
           <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
@@ -17,8 +76,7 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
-    // Error state - red X
-    if (messageData.uploadError || messageData.sendError) {
+    if (messageData?.uploadError || messageData?.sendError) {
       return (
         <div className="flex items-center ml-2" title="Failed to send">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -29,52 +87,28 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
-    // Success states - checkmarks
-    const isRead = messageData.isRead === true;
-    const isSent = messageData.isSent === true || messageData.id;
+    const isRead = messageData?.isRead === true;
+    const isSent = messageData?.isSent === true || messageData?.id;
     
     if (isRead) {
-      // Double checkmarks in blue (read)
       return (
         <div className="flex items-center ml-2" title="Read">
           <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-            {/* First checkmark */}
-            <path 
-              d="M1.5 5L4 7.5L7.5 4" 
-              stroke="#4FC3F7" 
-              strokeWidth="1.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            />
-            {/* Second checkmark (offset to the right) */}
-            <path 
-              d="M5.5 5L8 7.5L11.5 4" 
-              stroke="#4FC3F7" 
-              strokeWidth="1.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            />
+            <path d="M1.5 5L4 7.5L7.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M5.5 5L8 7.5L11.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       );
     } else if (isSent) {
-      // Single checkmark in gray (sent but not read)
       return (
         <div className="flex items-center ml-2" title="Sent">
           <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-            <path 
-              d="M1.5 5L4 7.5L10.5 1" 
-              stroke="#9CA3AF" 
-              strokeWidth="1.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            />
+            <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       );
     }
     
-    // Pending/unsent state - clock icon
     return (
       <div className="flex items-center ml-2" title="Pending">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -102,71 +136,33 @@ const MessageBubble = ({
   attachmentSize,
   messageData
 }) => {
-  const handleAttachmentClick = () => {
-    if (attachmentUrl) {
-      window.open(attachmentUrl, '_blank');
-    }
-  };
+  const hasMedia = !!(attachmentUrl && attachmentUrl.trim());
+  const hasText = message && message.trim().length > 0;
 
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Byte';
-    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-  };
-
-  const isImage = attachmentType?.startsWith('image/');
-  const isDocument = attachmentType?.includes('pdf') || attachmentType?.includes('word') || attachmentType?.includes('text');
-
-  // FIXED: Calculate dynamic width based on content
+  // Calculate dynamic width based on content
   const getMessageWidth = () => {
-    const hasText = message && message.trim().length > 0;
-    const hasAttachment = !!attachmentUrl;
-    const hasOptions = showOptions && !isOwn;
-    const hasActions = actions && actions.length > 0;
-    
-    // Base calculations for different content types
-    if (hasAttachment && isImage) {
-      return 'max-w-[300px] sm:max-w-[400px]'; // Larger for images
+    if (hasMedia) {
+      return 'max-w-xs';
     }
     
-    if (hasAttachment && !isImage) {
-      return 'max-w-[280px] sm:max-w-[350px]'; // Medium for documents
+    if (showOptions && !isOwn) {
+      return 'max-w-[320px] sm:max-w-[400px]';
     }
     
-    if (hasOptions || hasActions) {
-      return 'max-w-[320px] sm:max-w-[400px]'; // Wider for option buttons
+    if (actions && actions.length > 0) {
+      return 'max-w-[320px] sm:max-w-[400px]';
     }
     
     if (hasText) {
       const textLength = message.length;
       
-      // Very short messages - tight bubble
-      if (textLength <= 20) {
-        return 'max-w-[120px] sm:max-w-[150px]';
-      }
-      
-      // Short messages - small bubble
-      if (textLength <= 50) {
-        return 'max-w-[200px] sm:max-w-[250px]';
-      }
-      
-      // Medium messages - medium bubble  
-      if (textLength <= 100) {
-        return 'max-w-[280px] sm:max-w-[350px]';
-      }
-      
-      // Long messages - large bubble
-      if (textLength <= 200) {
-        return 'max-w-[350px] sm:max-w-[420px]';
-      }
-      
-      // Very long messages - max bubble
+      if (textLength <= 20) return 'max-w-[120px] sm:max-w-[150px]';
+      if (textLength <= 50) return 'max-w-[200px] sm:max-w-[250px]';
+      if (textLength <= 100) return 'max-w-[280px] sm:max-w-[350px]';
+      if (textLength <= 200) return 'max-w-[350px] sm:max-w-[420px]';
       return 'max-w-[400px] sm:max-w-[480px]';
     }
     
-    // Default fallback
     return 'max-w-[250px] sm:max-w-[320px]';
   };
 
@@ -205,67 +201,40 @@ const MessageBubble = ({
                   />
                 )}
               </div>
-          </div>
+            </div>
           )}
           
-          {/* FIXED: Dynamic width message container */}
           <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end' : 'items-start'} ${messageWidthClass} min-w-0`}>
             <p className={`text-xs font-light text-zinc-500 ${isOwn ? 'text-right' : ''}`}>
               {isOwn ? 'You' : (sender?.name || 'Unknown')}
             </p>
             
-            {/* FIXED: Message bubble with dynamic padding and width */}
             <div className={`
-              flex flex-col items-start px-4 py-3 min-h-[47px] w-fit
+              flex flex-col items-start w-fit
               ${isOwn
                 ? 'bg-sky-100 rounded-xl'
                 : 'bg-white rounded-3xl'
               }
+              ${hasMedia ? 'p-2' : 'px-4 py-3 min-h-[47px]'}
             `}>
-              {message && (
-                <p className="text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full">
+              {/* Media Display */}
+              {hasMedia && (
+                <MediaDisplay 
+                  attachmentUrl={attachmentUrl}
+                  attachmentType={attachmentType}
+                  attachmentName={attachmentName}
+                  attachmentSize={attachmentSize}
+                />
+              )}
+
+              {/* Text message */}
+              {hasText && (
+                <p className={`text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full ${hasMedia ? 'mt-2 px-2 pb-1' : ''}`}>
                   {message}
                 </p>
               )}
 
-              {isImage && attachmentUrl && (
-                <div className="mt-2 w-full">
-                  <img
-                    src={attachmentUrl}
-                    alt={attachmentName || 'Uploaded image'}
-                    className="max-w-full max-h-48 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={handleAttachmentClick}
-                  />
-                  {attachmentName && (
-                    <p className="text-xs text-gray-500 mt-1">{attachmentName}</p>
-                  )}
-                </div>
-              )}
-
-              {!isImage && attachmentUrl && (
-                <div 
-                  className="mt-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-full"
-                  onClick={handleAttachmentClick}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="material-icons text-gray-600">
-                      {isDocument ? 'description' : 'attach_file'}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">
-                        {attachmentName || 'Uploaded file'}
-                      </p>
-                      {attachmentSize && (
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(attachmentSize)}
-                        </p>
-                      )}
-                    </div>
-                    <span className="material-icons text-gray-400 text-sm">download</span>
-                  </div>
-                </div>
-              )}
-
+              {/* Service options */}
               {showOptions && !isOwn && (
                 <div className="mt-3 w-full border-t border-gray-200 pt-3">
                   <div className="space-y-1">
@@ -288,6 +257,7 @@ const MessageBubble = ({
                 </div>
               )}
 
+              {/* Action buttons */}
               {actions && actions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {actions.map((action, index) => (
@@ -307,13 +277,12 @@ const MessageBubble = ({
               )}
             </div>
             
-            {/* FIXED: Time and Status Row - WhatsApp Style */}
+            {/* Time and Status Row */}
             <div className={`flex items-center gap-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
               <time className="text-xs font-light text-zinc-500">
                 {time}
               </time>
               
-              {/* FIXED: Status indicators next to time like WhatsApp */}
               <MessageStatus messageData={messageData} isOwn={isOwn} />
             </div>
           </div>

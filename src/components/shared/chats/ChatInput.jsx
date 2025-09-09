@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/ChatInput.jsx - FIXED: Visibility & Upload Flow
+// src/components/shared/chats/components/ChatInput.jsx - WhatsApp-Style Simple Preview
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,29 +6,23 @@ import { toast } from 'sonner';
 
 // File Upload States
 const UPLOAD_STATES = {
-  SELECTING: 'selecting',
-  CLIENT_UPLOADED: 'client_uploaded', 
-  TYPING: 'typing',
-  SENDING: 'sending',
-  BACKEND_UPLOADING: 'backend_uploading',
+  READY: 'ready',
+  UPLOADING: 'uploading', 
   SUCCESS: 'success',
   FAILED: 'failed'
 };
 
-// File Preview Component - Shows upload state
-const FilePreview = ({ fileItem, onRemove, onEditCaption, onRetry }) => {
-  const [caption, setCaption] = useState(fileItem.caption || '');
-  const [isEditingCaption, setIsEditingCaption] = useState(false);
-  
+// Simple File Preview Component (WhatsApp-style)
+const SimpleFilePreview = ({ fileItem, onRemove, index }) => {
   const isImage = fileItem.file.type.startsWith('image/');
   const previewUrl = fileItem.previewUrl;
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return '0B';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + sizes[i];
   };
 
   const getFileIcon = (type) => {
@@ -40,174 +34,58 @@ const FilePreview = ({ fileItem, onRemove, onEditCaption, onRetry }) => {
     return 'attach_file';
   };
 
-  const getStatusIcon = () => {
-    switch (fileItem.uploadState) {
-      case UPLOAD_STATES.CLIENT_UPLOADED:
-        return <span className="material-icons text-green-500 text-sm">check_circle</span>;
-      case UPLOAD_STATES.BACKEND_UPLOADING:
-        return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>;
-      case UPLOAD_STATES.SUCCESS:
-        return <span className="material-icons text-green-500 text-sm">cloud_done</span>;
-      case UPLOAD_STATES.FAILED:
-        return <span className="material-icons text-red-500 text-sm">error</span>;
-      default:
-        return <span className="material-icons text-gray-500 text-sm">schedule</span>;
-    }
-  };
-
-  const getStatusText = () => {
-    switch (fileItem.uploadState) {
-      case UPLOAD_STATES.CLIENT_UPLOADED:
-        return 'Ready to send';
-      case UPLOAD_STATES.BACKEND_UPLOADING:
-        return 'Uploading to server...';
-      case UPLOAD_STATES.SUCCESS:
-        return 'Uploaded successfully';
-      case UPLOAD_STATES.FAILED:
-        return 'Upload failed';
-      default:
-        return 'Processing...';
-    }
-  };
-
-  const handleCaptionSave = () => {
-    onEditCaption(fileItem.id, caption);
-    setIsEditingCaption(false);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleCaptionSave();
-    } else if (e.key === 'Escape') {
-      setIsEditingCaption(false);
-      setCaption(fileItem.caption || '');
-    }
-  };
-
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9, y: 10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9, y: -10 }}
-      className={`relative bg-white border-2 rounded-xl p-4 shadow-sm ${
-        fileItem.uploadState === UPLOAD_STATES.FAILED ? 'border-red-200 bg-red-50' : 
-        fileItem.uploadState === UPLOAD_STATES.SUCCESS ? 'border-green-200 bg-green-50' :
-        'border-blue-200 bg-blue-50'
-      }`}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      transition={{ duration: 0.2 }}
+      className="relative bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+      style={{ width: '80px', height: '80px' }}
     >
       {/* Remove Button */}
       <button
         onClick={() => onRemove(fileItem.id)}
-        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center hover:bg-red-600 transition-colors shadow-md z-10"
+        className="absolute top-1 right-1 bg-black/60 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-black/80 transition-colors z-10"
         title="Remove file"
       >
-        <span className="material-icons text-sm">close</span>
+        <span className="material-icons text-xs">close</span>
       </button>
 
-      <div className="flex items-start gap-4">
-        {/* File Preview */}
-        <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border flex-shrink-0">
-          {isImage && previewUrl ? (
-            <img 
-              src={previewUrl} 
-              alt={fileItem.fileName} 
-              className="w-full h-full object-cover"
-            />
-          ) : (
+      {/* File Preview */}
+      <div className="relative w-full h-full">
+        {isImage && previewUrl ? (
+          <img 
+            src={previewUrl} 
+            alt={fileItem.fileName} 
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center p-1">
             <span 
-              className="material-icons text-3xl"
+              className="material-icons text-xl mb-1"
               style={{ color: '#488BBA' }}
             >
               {getFileIcon(fileItem.file.type)}
             </span>
-          )}
-        </div>
-
-        {/* File Info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800 truncate mb-1">
-            {fileItem.fileName}
-          </p>
-          
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-xs text-gray-500">{formatFileSize(fileItem.fileSize)}</p>
-            <span className="text-xs text-gray-400">•</span>
-            <div className="flex items-center gap-1">
-              {getStatusIcon()}
-              <span className={`text-xs font-medium ${
-                fileItem.uploadState === UPLOAD_STATES.FAILED ? 'text-red-600' :
-                fileItem.uploadState === UPLOAD_STATES.SUCCESS ? 'text-green-600' :
-                'text-blue-600'
-              }`}>
-                {getStatusText()}
-              </span>
-            </div>
+            <p className="text-xs text-gray-600 text-center truncate w-full px-1">
+              {formatFileSize(fileItem.fileSize)}
+            </p>
           </div>
+        )}
 
-          {/* Retry Button for Failed Uploads */}
-          {fileItem.uploadState === UPLOAD_STATES.FAILED && (
-            <button
-              onClick={() => onRetry(fileItem.id)}
-              className="mb-2 px-3 py-1 bg-red-100 text-red-700 text-xs rounded-md hover:bg-red-200 transition-colors border border-red-300"
-            >
-              Retry Upload
-            </button>
-          )}
+        {/* Upload Status Overlay */}
+        {fileItem.uploadState === UPLOAD_STATES.UPLOADING && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+          </div>
+        )}
 
-          {/* Caption Input */}
-          {isEditingCaption ? (
-            <div className="space-y-2">
-              <textarea
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Add a caption..."
-                className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                rows="2"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <button 
-                  onClick={handleCaptionSave} 
-                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  Save
-                </button>
-                <button 
-                  onClick={() => {
-                    setIsEditingCaption(false);
-                    setCaption(fileItem.caption || '');
-                  }}
-                  className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-400 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div className="flex-1 mr-2">
-                {fileItem.caption ? (
-                  <p className="text-sm text-gray-700 bg-gray-50 px-3 py-1 rounded-lg italic">
-                    "{fileItem.caption}"
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-400">No caption</p>
-                )}
-              </div>
-              {fileItem.uploadState === UPLOAD_STATES.CLIENT_UPLOADED && (
-                <button
-                  onClick={() => setIsEditingCaption(true)}
-                  className="text-blue-500 hover:text-blue-700 p-1 rounded transition-colors"
-                  title="Edit caption"
-                >
-                  <span className="material-icons text-sm">edit</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        {fileItem.uploadState === UPLOAD_STATES.FAILED && (
+          <div className="absolute inset-0 bg-red-500/80 flex items-center justify-center">
+            <span className="material-icons text-white text-sm">error</span>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -238,19 +116,18 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
   const handleImageSelect = () => {
     if (disabled) return;
     imageInputRef.current?.click();
-    onClose();
   };
 
   const handleFileSelect = () => {
     if (disabled) return;
     fileInputRef.current?.click();
-    onClose();
   };
 
   const handleImageChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (selectedFiles.length > 0) {
       onFilesSelect(selectedFiles);
+      onClose();
     }
     e.target.value = '';
   };
@@ -259,6 +136,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
     const selectedFiles = Array.from(e.target.files);
     if (selectedFiles.length > 0) {
       onFilesSelect(selectedFiles);
+      onClose();
     }
     e.target.value = '';
   };
@@ -273,7 +151,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
         accept="image/*" 
         multiple 
         onChange={handleImageChange} 
-        className="hidden" 
+        className="hidden"
       />
       <input 
         ref={fileInputRef} 
@@ -281,7 +159,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
         accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z" 
         multiple 
         onChange={handleFileChange} 
-        className="hidden" 
+        className="hidden"
       />
       
       <button 
@@ -292,7 +170,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
         <span className="material-icons text-green-500 text-lg">image</span>
         <div>
           <p className="font-medium text-gray-800">Photos & Images</p>
-          <p className="text-xs text-gray-500">JPG, PNG, GIF, WebP (Max 15MB)</p>
+          <p className="text-xs text-gray-500">JPG, PNG, GIF, WebP</p>
         </div>
       </button>
       
@@ -304,14 +182,14 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
         <span className="material-icons text-blue-500 text-lg">attach_file</span>
         <div>
           <p className="font-medium text-gray-800">Documents</p>
-          <p className="text-xs text-gray-500">PDF, DOC, XLS, PPT, ZIP (Max 15MB)</p>
+          <p className="text-xs text-gray-500">PDF, DOC, XLS, PPT, ZIP</p>
         </div>
       </button>
     </div>
   );
 };
 
-// MAIN ChatInput Component - FIXED: Upload Flow & Visibility
+// MAIN ChatInput Component
 const ChatInput = ({ 
   messageText, 
   onMessageChange, 
@@ -322,23 +200,34 @@ const ChatInput = ({
   isAIChat,
   onKeyPress,
   onFileUpload,
-  selectedConversation,
-  e2eFlowStatus
+  selectedConversation
 }) => {
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
-  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
-  console.log('💬 ChatInput render:', {
-    pendingFilesCount: pendingFiles.length,
-    hasOnFileUpload: !!onFileUpload,
-    canSendMessage: typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage,
-    sessionId: selectedConversation?.sessionId
-  });
+  // Calculate total size of all pending files
+  const totalSize = useMemo(() => {
+    return pendingFiles.reduce((total, file) => total + file.fileSize, 0);
+  }, [pendingFiles]);
 
-  // Enhanced file validation
-  const validateFile = (file) => {
+  // Validate total size (15MB max for all files combined)
+  const validateTotalSize = (newFiles, existingFiles = []) => {
+    const existingSize = existingFiles.reduce((total, file) => total + file.fileSize, 0);
+    const newSize = newFiles.reduce((total, file) => total + file.size, 0);
+    const totalSizeAfter = existingSize + newSize;
     const maxSize = 15 * 1024 * 1024; // 15MB
+
+    if (totalSizeAfter > maxSize) {
+      const totalMB = (totalSizeAfter / (1024 * 1024)).toFixed(1);
+      throw new Error(`Total size would be ${totalMB}MB. Maximum allowed is 15MB.`);
+    }
+
+    return true;
+  };
+
+  // Validate individual file types
+  const validateFileType = (file) => {
     const allowedTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
       'application/pdf', 'text/plain',
@@ -348,10 +237,6 @@ const ChatInput = ({
       'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
     ];
 
-    if (file.size > maxSize) {
-      throw new Error(`${file.name}: File size must be less than 15MB`);
-    }
-
     if (!allowedTypes.includes(file.type)) {
       throw new Error(`${file.name}: File type not supported`);
     }
@@ -359,19 +244,20 @@ const ChatInput = ({
     return true;
   };
 
-  // STEP 1: Upload to client immediately when selected
+  // Handle file selection
   const handleFilesSelect = useCallback(async (files) => {
-    console.log('📁 STEP 1: Files selected for CLIENT upload:', files.length);
-    setIsProcessingFiles(true);
-    
-    let successCount = 0;
-    let errorCount = 0;
-    const errors = [];
+    console.log('📎 Files selected:', files.length);
     
     try {
+      // Validate total size first
+      validateTotalSize(files, pendingFiles);
+      
+      let successCount = 0;
+      const errors = [];
+      
       for (const file of files) {
         try {
-          validateFile(file);
+          validateFileType(file);
           
           const fileId = `file-${Date.now()}-${Math.random()}`;
           const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
@@ -383,41 +269,39 @@ const ChatInput = ({
             fileSize: file.size,
             fileType: file.type.startsWith('image/') ? 'image' : 'file',
             previewUrl: previewUrl,
-            uploadState: UPLOAD_STATES.CLIENT_UPLOADED, // CLIENT UPLOADED
-            caption: ''
+            uploadState: UPLOAD_STATES.READY
           };
           
-          // Add to client immediately
           setPendingFiles(prev => [...prev, fileItem]);
-          console.log('✅ STEP 1: File uploaded to CLIENT:', file.name);
           successCount++;
           
         } catch (error) {
           console.error('File validation failed:', error);
           errors.push(error.message);
-          errorCount++;
         }
       }
 
       if (successCount > 0) {
-        toast.success(`${successCount} file(s) uploaded to client`, {
-          description: 'Files ready. Type message and click send to upload to server.'
+        toast.success(`${successCount} file(s) selected`);
+      }
+      
+      if (errors.length > 0) {
+        toast.error('Some files rejected', {
+          description: errors.slice(0, 2).join(', '),
+          duration: 4000
         });
       }
       
-      if (errorCount > 0) {
-        toast.error(`${errorCount} file(s) failed validation`, {
-          description: errors.slice(0, 3).join(', '),
-          duration: 5000
-        });
-      }
-      
-    } finally {
-      setIsProcessingFiles(false);
+    } catch (error) {
+      console.error('Total size validation failed:', error);
+      toast.error('Cannot add files', {
+        description: error.message,
+        duration: 4000
+      });
     }
-  }, []);
+  }, [pendingFiles]);
 
-  // Remove file from client
+  // Remove file
   const handleRemoveFile = useCallback((fileId) => {
     setPendingFiles(prev => {
       const fileToRemove = prev.find(f => f.id === fileId);
@@ -426,180 +310,71 @@ const ChatInput = ({
       }
       return prev.filter(f => f.id !== fileId);
     });
-    console.log('🗑️ File removed from CLIENT:', fileId);
-    toast.info('File removed');
   }, []);
 
-  // Edit file caption
-  const handleEditCaption = useCallback((fileId, newCaption) => {
-    setPendingFiles(prev => 
-      prev.map(item => 
-        item.id === fileId 
-          ? { ...item, caption: newCaption.trim() }
-          : item
-      )
-    );
-    console.log('✏️ Caption updated:', fileId, newCaption);
-  }, []);
-
-  // Retry failed upload
-  const handleRetryUpload = useCallback(async (fileId) => {
-    const fileItem = pendingFiles.find(f => f.id === fileId);
-    if (!fileItem) return;
-
-    console.log('🔄 RETRY: Retrying upload for:', fileItem.fileName);
-    
-    // Reset state to uploading
-    setPendingFiles(prev => 
-      prev.map(item => 
-        item.id === fileId 
-          ? { ...item, uploadState: UPLOAD_STATES.BACKEND_UPLOADING }
-          : item
-      )
-    );
-
-    try {
-      const messageToSend = fileItem.caption || fileItem.fileName;
-      await onFileUpload(fileItem.file, fileItem.fileType, messageToSend);
-      
-      // Mark as success
-      setPendingFiles(prev => 
-        prev.map(item => 
-          item.id === fileId 
-            ? { ...item, uploadState: UPLOAD_STATES.SUCCESS }
-            : item
-        )
-      );
-      
-      toast.success('File uploaded successfully');
-      
-      // Remove after success
-      setTimeout(() => {
-        handleRemoveFile(fileId);
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Retry upload failed:', error);
-      
-      // Mark as failed again
-      setPendingFiles(prev => 
-        prev.map(item => 
-          item.id === fileId 
-            ? { ...item, uploadState: UPLOAD_STATES.FAILED }
-            : item
-        )
-      );
-      
-      toast.error('Retry failed', {
-        description: error.message
-      });
-    }
-  }, [pendingFiles, onFileUpload, handleRemoveFile]);
-
-  // Send message validation
-  const getCanSendState = useCallback(() => {
-    const hasText = !!messageText?.trim();
-    const hasFiles = pendingFiles.length > 0;
-    const hasReadyFiles = pendingFiles.some(f => f.uploadState === UPLOAD_STATES.CLIENT_UPLOADED);
-    
-    if (!selectedConversation) {
-      return { canSend: false, reason: 'No conversation selected' };
-    }
-    
-    if (isSending || isProcessingFiles) {
-      return { canSend: false, reason: 'Currently processing...' };
-    }
-
-    if (isAIChat) {
-      if (hasFiles) {
-        return { canSend: false, reason: 'AI chat does not support file uploads' };
-      }
-      if (!hasText) {
-        return { canSend: false, reason: 'Please enter a message' };
-      }
-      return { canSend: true, reason: 'Ready to send to AI' };
-    }
-
-    const currentE2EStatus = e2eFlowStatus?.[selectedConversation.sessionId]?.status;
-    if (currentE2EStatus === 'setting_up') {
-      return { canSend: false, reason: 'Setting up secure chat...' };
-    }
-    
-    if (currentE2EStatus === 'failed') {
-      return { canSend: false, reason: 'Secure chat setup failed' };
-    }
-
-    const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
-    if (!baseCanSend) {
-      return { canSend: false, reason: 'Chat is not available' };
-    }
-
-    if (!hasText && !hasReadyFiles) {
-      return { canSend: false, reason: '' }; // Don't show this message
-    }
-
-    return { canSend: true, reason: 'Ready to send' };
-  }, [messageText, pendingFiles, selectedConversation, isSending, isProcessingFiles, isAIChat, e2eFlowStatus, canSendMessage]);
-
-  // STEP 2: Handle typing and STEP 3: Send message with backend upload
+  // Send message with files
   const handleSendMessage = useCallback(async () => {
-    const sendState = getCanSendState();
-    
-    if (!sendState.canSend) {
-      console.warn('❌ Cannot send:', sendState.reason);
-      if (sendState.reason) {
-        toast.warning(sendState.reason);
-      }
-      return;
-    }
+    const hasText = !!messageText?.trim();
+    const hasReadyFiles = pendingFiles.filter(f => f.uploadState === UPLOAD_STATES.READY);
 
-    const hasText = messageText?.trim();
-    const hasReadyFiles = pendingFiles.filter(f => f.uploadState === UPLOAD_STATES.CLIENT_UPLOADED);
-
-    console.log('🚀 STEP 2 & 3: Sending message with files:', {
-      hasText: !!hasText,
+    console.log('🚀 Sending message:', {
+      hasText,
       readyFilesCount: hasReadyFiles.length
     });
 
+    // Basic validation
+    if (!selectedConversation) {
+      toast.warning('No conversation selected');
+      return;
+    }
+
+    if (isAIChat && hasReadyFiles.length > 0) {
+      toast.warning('AI chat does not support file uploads');
+      return;
+    }
+
+    const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
+    if (!baseCanSend && !hasReadyFiles.length) {
+      toast.warning('Chat is not available');
+      return;
+    }
+
+    if (!hasText && !hasReadyFiles.length) {
+      return;
+    }
+
     try {
-      // STEP 2: Mark files as typing (optional visual feedback)
-      if (hasReadyFiles.length > 0) {
-        setPendingFiles(prev => 
-          prev.map(item => 
-            item.uploadState === UPLOAD_STATES.CLIENT_UPLOADED
-              ? { ...item, uploadState: UPLOAD_STATES.TYPING }
-              : item
-          )
-        );
+      // Send text message if no files
+      if (hasText && hasReadyFiles.length === 0) {
+        await onSendMessage();
+        return;
       }
 
-      // STEP 3: Upload files to backend
+      // Upload files
       if (hasReadyFiles.length > 0) {
-        console.log('📤 STEP 3: Uploading files to backend...');
-        
         if (!onFileUpload) {
           throw new Error('File upload function not available');
         }
 
-        // Mark as backend uploading
+        setIsUploadingFiles(true);
+
+        // Mark files as uploading
         setPendingFiles(prev => 
           prev.map(item => 
-            item.uploadState === UPLOAD_STATES.TYPING
-              ? { ...item, uploadState: UPLOAD_STATES.BACKEND_UPLOADING }
+            item.uploadState === UPLOAD_STATES.READY
+              ? { ...item, uploadState: UPLOAD_STATES.UPLOADING }
               : item
           )
         );
 
         let uploadSuccessCount = 0;
-        const failedUploads = [];
+        let uploadFailedCount = 0;
 
-        // Upload each ready file
+        // Upload each file with caption from messageText
         for (const fileItem of hasReadyFiles) {
           try {
-            console.log(`📤 BACKEND: Uploading ${fileItem.fileName}...`);
-            
-            const messageToSend = fileItem.caption || fileItem.fileName;
-            await onFileUpload(fileItem.file, fileItem.fileType, messageToSend);
+            const caption = messageText?.trim() || '';
+            await onFileUpload(fileItem.file, fileItem.fileType, caption);
             
             // Mark as success
             setPendingFiles(prev => 
@@ -611,10 +386,14 @@ const ChatInput = ({
             );
             
             uploadSuccessCount++;
-            console.log(`✅ BACKEND: Upload successful ${fileItem.fileName}`);
+            
+            // Clean up preview URL
+            if (fileItem.previewUrl) {
+              URL.revokeObjectURL(fileItem.previewUrl);
+            }
             
           } catch (error) {
-            console.error(`❌ BACKEND: Upload failed for ${fileItem.fileName}:`, error);
+            console.error(`Upload failed for ${fileItem.fileName}:`, error);
             
             // Mark as failed
             setPendingFiles(prev => 
@@ -625,126 +404,103 @@ const ChatInput = ({
               )
             );
             
-            failedUploads.push({ file: fileItem, error: error.message });
+            uploadFailedCount++;
           }
         }
         
-        // Handle results
+        // Show results
         if (uploadSuccessCount > 0) {
-          toast.success('Files uploaded successfully', {
-            description: `${uploadSuccessCount} file(s) sent to server`
-          });
+          toast.success(`${uploadSuccessCount} file(s) sent`);
+          
+          // Clear message text after successful upload
+          onMessageChange('');
           
           // Remove successful files after delay
           setTimeout(() => {
             setPendingFiles(prev => 
               prev.filter(item => item.uploadState !== UPLOAD_STATES.SUCCESS)
             );
-          }, 3000);
+          }, 1000);
         }
         
-        if (failedUploads.length > 0) {
-          toast.error(`${failedUploads.length} file(s) failed to upload`, {
-            description: 'Click retry button on failed files',
-            duration: 10000
-          });
+        if (uploadFailedCount > 0) {
+          toast.error(`${uploadFailedCount} file(s) failed`);
         }
-      }
-      
-      // Send text message if any
-      if (hasText && !hasReadyFiles.length) {
-        console.log('💬 Sending text-only message');
-        await onSendMessage();
       }
 
     } catch (error) {
-      console.error('❌ Send failed:', error);
+      console.error('Send failed:', error);
       toast.error('Failed to send', {
         description: error.message
       });
+    } finally {
+      setIsUploadingFiles(false);
     }
-  }, [messageText, pendingFiles, onSendMessage, onFileUpload, getCanSendState]);
+  }, [messageText, pendingFiles, onSendMessage, onFileUpload, onMessageChange, selectedConversation, isAIChat, canSendMessage]);
 
-  // Upload availability check
+  // Check capabilities
   const canUploadFiles = useMemo(() => {
     if (isAIChat) return false;
     if (!selectedConversation) return false;
-    if (isProcessingFiles) return false;
+    if (isUploadingFiles) return false;
     
     const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
-    const currentE2EStatus = e2eFlowStatus?.[selectedConversation.sessionId]?.status;
-    
-    return baseCanSend && currentE2EStatus !== 'setting_up';
-  }, [isAIChat, selectedConversation, isProcessingFiles, canSendMessage, e2eFlowStatus]);
+    return baseCanSend;
+  }, [isAIChat, selectedConversation, isUploadingFiles, canSendMessage]);
 
-  const sendState = getCanSendState();
+  const canSend = useMemo(() => {
+    const hasText = !!messageText?.trim();
+    const hasReadyFiles = pendingFiles.some(f => f.uploadState === UPLOAD_STATES.READY);
+    
+    if (!selectedConversation) return false;
+    if (isSending || isUploadingFiles) return false;
+    if (isAIChat && hasReadyFiles) return false;
+    
+    const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
+    if (!baseCanSend && !hasReadyFiles) return false;
+    
+    return hasText || hasReadyFiles;
+  }, [messageText, pendingFiles, selectedConversation, isSending, isUploadingFiles, isAIChat, canSendMessage]);
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-gray-300 shadow-lg relative z-[100] w-full">
-      {/* File Previews */}
+      {/* Simple Media Preview - WhatsApp style */}
       <AnimatePresence>
         {pendingFiles.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-b border-gray-200 bg-gray-50 p-4 space-y-3 max-h-80 overflow-y-auto"
+            className="bg-gray-50 border-b border-gray-200 p-3"
           >
-            <div className="text-xs text-gray-600 font-medium flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''} attached
+            {/* Simple file grid */}
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
+              {pendingFiles.map((fileItem, index) => (
+                <SimpleFilePreview
+                  key={fileItem.id}
+                  fileItem={fileItem}
+                  onRemove={handleRemoveFile}
+                  index={index}
+                />
+              ))}
             </div>
-            {pendingFiles.map((fileItem) => (
-              <FilePreview
-                key={fileItem.id}
-                fileItem={fileItem}
-                onRemove={handleRemoveFile}
-                onEditCaption={handleEditCaption}
-                onRetry={handleRetryUpload}
-              />
-            ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Processing Files Indicator */}
-      {isProcessingFiles && (
+      {/* Upload Status Indicator */}
+      {isUploadingFiles && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="border-b border-gray-200 bg-blue-50 px-4 py-3 flex items-center gap-2 text-sm text-blue-600"
+          className="bg-blue-50 px-4 py-2 border-b border-blue-200 flex items-center gap-3"
         >
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          Processing files...
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+          <span className="text-sm text-blue-700">Uploading files...</span>
         </motion.div>
       )}
 
-      {/* E2E Status Indicator */}
-      {selectedConversation && !selectedConversation.isTeamChat && (
-        <AnimatePresence>
-          {e2eFlowStatus?.[selectedConversation.sessionId]?.status === 'setting_up' && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="border-b border-orange-200 bg-orange-50 px-4 py-3 flex items-center gap-3 text-sm text-orange-600"
-            >
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-orange-600"></div>
-              <div className="flex-1">
-                <p className="font-medium">Setting up secure chat...</p>
-                <p className="text-xs text-orange-500 mt-1">
-                  {e2eFlowStatus[selectedConversation.sessionId]?.step || 'initializing'} 
-                  {e2eFlowStatus[selectedConversation.sessionId]?.progress && 
-                    ` (${e2eFlowStatus[selectedConversation.sessionId].progress}%)`
-                  }
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
-
-      {/* Input Area - FIXED POSITIONING */}
+      {/* Input Area */}
       <div className="px-4 py-4 bg-white">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col">
@@ -752,16 +508,10 @@ const ChatInput = ({
               value={messageText}
               onChange={(e) => onMessageChange(e.target.value)}
               onKeyPress={onKeyPress}
-              placeholder={
-                isAIChat
-                  ? 'Type a message to AI assistant...' 
-                  : pendingFiles.length > 0
-                  ? 'Add a message (optional) and click send...'
-                  : 'Type a message here....'
-              }
+              placeholder="Type a message here...."
               className="text-sm leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none w-full min-h-[40px] placeholder-gray-400"
               rows="2"
-              disabled={!sendState.canSend && sendState.reason && sendState.reason !== ''}
+              disabled={isSending || isUploadingFiles}
             />
           </div>
           
@@ -780,7 +530,7 @@ const ChatInput = ({
                   }
                 >
                   <span className="material-icons text-zinc-500 text-xl">
-                    {isProcessingFiles ? 'hourglass_empty' : 'attach_file'}
+                    {isUploadingFiles ? 'hourglass_empty' : 'attach_file'}
                   </span>
                 </button>
                 <UploadDropdown 
@@ -794,7 +544,7 @@ const ChatInput = ({
               <button 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
                 aria-label="Add emoji"
-                disabled={!sendState.canSend}
+                disabled={!canSend}
               >
                 <span className="material-icons text-zinc-500 text-xl">sentiment_satisfied_alt</span>
               </button>
@@ -802,12 +552,12 @@ const ChatInput = ({
             
             <button 
               onClick={handleSendMessage}
-              disabled={!sendState.canSend}
+              disabled={!canSend}
               className="p-2 disabled:opacity-50 hover:bg-blue-100 rounded-full transition-colors disabled:cursor-not-allowed" 
               aria-label="Send message"
-              title={sendState.canSend ? 'Send message' : sendState.reason}
+              title={canSend ? 'Send message' : 'Enter message or attach files'}
             >
-              {isSending || isProcessingFiles ? (
+              {isSending || isUploadingFiles ? (
                 <div 
                   className="animate-spin rounded-full h-5 w-5 border-b-2"
                   style={{ borderColor: '#488BBA' }}
@@ -815,7 +565,7 @@ const ChatInput = ({
               ) : (
                 <span 
                   className="material-icons text-xl transition-colors"
-                  style={{ color: sendState.canSend ? '#488BBA' : '#999' }}
+                  style={{ color: canSend ? '#488BBA' : '#999' }}
                 >
                   send
                 </span>

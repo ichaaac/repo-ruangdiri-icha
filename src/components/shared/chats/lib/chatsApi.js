@@ -390,6 +390,7 @@ export const chatsApi = {
   },
 
   // FIXED: Send file message using EXACT Postman endpoint format
+// FIXED: Send file message using EXACT Postman endpoint format
   async sendFileMessage(sessionId, file, messageType = 'file', caption = '') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -399,19 +400,19 @@ export const chatsApi = {
       // Validate file first
       this.validateFile(file);
 
-      // FIXED: Create FormData exactly like Postman screenshot
+      // FIXED: Create FormData exactly like required
       const formData = new FormData();
       
-      // FIXED: Use exact field names from Postman screenshot
+      // FIXED: Use exact field names
       formData.append('sessionId', sessionId);
       formData.append('messageType', messageType);
       formData.append('file', file); // File field
       
       // FIXED: Handle message/caption field
-      let messageToSend = caption?.trim() || file.name || 'File attachment';
+      let messageToSend = caption?.trim() || '';
       
-      // Encrypt message/caption if provided and not just filename
-      if (messageToSend && messageToSend !== file.name) {
+      // Encrypt message/caption if provided
+      if (messageToSend) {
         try {
           const encryptedMessage = chatEncryption.encrypt(messageToSend, sessionId);
           formData.append('message', encryptedMessage);
@@ -421,22 +422,22 @@ export const chatsApi = {
           formData.append('message', messageToSend);
         }
       } else {
-        formData.append('message', messageToSend);
+        // If no caption, send empty string
+        formData.append('message', '');
       }
 
       // Log the exact FormData being sent
-      console.log('📤 FIXED: Uploading to /chat/messages/upload with FormData:', {
+      console.log('📤 UPLOADING to /chat/messages/upload:', {
         endpoint: '/chat/messages/upload',
         sessionId,
         messageType,
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
-        hasCaption: !!caption?.trim(),
-        messageField: messageToSend
+        hasCaption: !!caption?.trim()
       });
 
-      // FIXED: Use exact endpoint from Postman screenshot
+      // FIXED: Use exact endpoint /chat/messages/upload
       const response = await apiClient.post('/chat/messages/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -452,9 +453,9 @@ export const chatsApi = {
         const currentUserId = currentUser?.id;
         
         // Decrypt message/caption if it exists
-        let displayMessage = msg.message || `Uploaded: ${file.name}`;
+        let displayMessage = msg.message || '';
         try {
-          if (msg.message && msg.message !== file.name && msg.message !== messageToSend) {
+          if (msg.message && msg.message.trim()) {
             displayMessage = chatEncryption.decrypt(msg.message, sessionId);
             console.log('🔓 File caption decrypted');
           }
@@ -462,7 +463,7 @@ export const chatsApi = {
           console.warn('Failed to decrypt file caption:', error);
         }
         
-        console.log('✅ File uploaded successfully via /chat/messages/upload:', {
+        console.log('✅ File uploaded successfully:', {
           messageId: msg.id,
           fileName: file.name,
           attachmentUrl: msg.attachmentUrl
@@ -482,7 +483,7 @@ export const chatsApi = {
           },
           messageType: msg.messageType || messageType,
           isRead: msg.isRead,
-          // File attachment data
+          // File attachment data - FIXED: Ensure these are included
           attachmentUrl: msg.attachmentUrl,
           attachmentType: msg.attachmentType || file.type,
           attachmentName: msg.attachmentName || file.name,

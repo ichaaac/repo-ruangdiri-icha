@@ -1,10 +1,10 @@
-// src/components/shared/chats/hooks/useMessage.js - UPDATED: File Upload Support & Clean
+// src/components/shared/chats/hooks/useMessage.js - Simple Working Version
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
 import { getCurrentTime, getCurrentTimestamp } from '../utils/dateUtils';
-import chatEncryption from '../lib/encryption'; // FIXED: Use new encryption
+import chatEncryption from '../lib/encryption';
 
 // Get current user ID
 const getCurrentUserId = () => {
@@ -190,7 +190,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // UPDATED: File upload mutation with proper optimistic updates
+  // File upload mutation
   const sendFileMutation = useMutation({
     mutationFn: async ({ sessionId, file, messageType, caption }) => {
       MessageLogger.log('crypto', 'SEND_FILE', {
@@ -213,7 +213,7 @@ export const useMessages = (sessionId, ably = null) => {
       
       const optimisticMessage = {
         id: optimisticId,
-        text: caption || `📎 ${file.name}`,
+        text: caption || '',
         time: getCurrentTime(),
         timestamp: getCurrentTimestamp(),
         isUser: true,
@@ -331,7 +331,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, sendMutation.mutateAsync]);
 
-  // UPDATED: File upload function with proper type detection
+  // File upload function
   const sendFile = useCallback(async (file, fileType = null, caption = '') => {
     if (!sessionId || !file) {
       MessageLogger.log('warn', 'FILE_SEND_INVALID', 'Missing sessionId or file');
@@ -464,7 +464,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, addMessage]);
 
-  // UPDATED: Session checks for sending capabilities
+  // Session checks for sending capabilities
   const canSendMessage = useCallback((session) => {
     if (!sessionId) {
       return false;
@@ -487,7 +487,7 @@ export const useMessages = (sessionId, ably = null) => {
     return false;
   }, [sessionId]);
 
-  // UPDATED: File sending capability check
+  // File sending capability check
   const canSendFile = useCallback((session) => {
     if (!sessionId) return false;
     if (sessionId === 'team-ruangdiri') return false; // AI doesn't support files
@@ -570,19 +570,19 @@ export const useMessages = (sessionId, ably = null) => {
     messageText,
     setMessageText,
     sendMessage,
-    sendFile, // UPDATED: File upload support
+    sendFile,
     sendCurrentMessage,
     markAsRead,
     addMessage,
     handleAIServiceSelection,
     canSendMessage,
-    canSendFile, // UPDATED: File sending capability
+    canSendFile,
     canSendMessageWithText,
     getSessionStatus,
     loadMoreMessages,
     isLoading: messagesQuery.isLoading,
     isSending: sendMutation.isPending || sendFileMutation.isPending,
-    isUploadingFile: sendFileMutation.isPending, // UPDATED: File upload status
+    isUploadingFile: sendFileMutation.isPending,
     error: messagesQuery.error || sendMutation.error || sendFileMutation.error,
     refetch: messagesQuery.refetch,
     hasMore,
