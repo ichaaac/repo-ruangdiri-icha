@@ -1,65 +1,91 @@
-// src/components/shared/chats/components/MessageBubble.jsx - FIXED: Dynamic Bubble Width
+// src/components/shared/chats/components/MessageBubble.jsx - FIXED: WhatsApp-style Read Indicators
+
 import React from 'react';
 import { motion } from 'framer-motion';
 
-// Message Status Component (WhatsApp-like read indicators)
+// FIXED: WhatsApp-style Message Status Component
 const MessageStatus = ({ messageData, isOwn }) => {
   if (!isOwn) return null; // Only show for own messages
   
   const getStatusIcon = () => {
-    if (messageData.isSending) {
+    // Loading state - spinning circle
+    if (messageData.isSending || messageData.isUploading) {
       return (
-        <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
+        <div className="flex items-center ml-2">
+          <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
+        </div>
       );
     }
     
-    if (messageData.isUploading) {
+    // Error state - red X
+    if (messageData.uploadError || messageData.sendError) {
       return (
-        <div className="animate-spin rounded-full h-3 w-3 border border-blue-400 border-t-transparent"></div>
+        <div className="flex items-center ml-2" title="Failed to send">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="6" fill="#EF4444"/>
+            <path d="M8 4L4 8M4 4l4 4" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+          </svg>
+        </div>
       );
     }
     
-    // Read status with proper blue color
+    // Success states - checkmarks
     const isRead = messageData.isRead === true;
-    const checkColor = isRead ? '#488BBA' : '#9CA3AF'; // Blue if read, gray if unread
+    const isSent = messageData.isSent === true || messageData.id;
     
+    if (isRead) {
+      // Double checkmarks in blue (read)
+      return (
+        <div className="flex items-center ml-2" title="Read">
+          <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+            {/* First checkmark */}
+            <path 
+              d="M1.5 5L4 7.5L7.5 4" 
+              stroke="#4FC3F7" 
+              strokeWidth="1.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            />
+            {/* Second checkmark (offset to the right) */}
+            <path 
+              d="M5.5 5L8 7.5L11.5 4" 
+              stroke="#4FC3F7" 
+              strokeWidth="1.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      );
+    } else if (isSent) {
+      // Single checkmark in gray (sent but not read)
+      return (
+        <div className="flex items-center ml-2" title="Sent">
+          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <path 
+              d="M1.5 5L4 7.5L10.5 1" 
+              stroke="#9CA3AF" 
+              strokeWidth="1.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      );
+    }
+    
+    // Pending/unsent state - clock icon
     return (
-      <div className="flex items-center ml-2">
-        {/* Double check marks */}
-        <svg 
-          width="12" 
-          height="8" 
-          viewBox="0 0 12 8" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg"
-          className="relative"
-        >
-          {/* First check */}
-          <path 
-            d="M1 4L3.5 6.5L7 3" 
-            stroke={checkColor} 
-            strokeWidth="1.2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          />
-          {/* Second check (offset) */}
-          <path 
-            d="M4 4L6.5 6.5L10 3" 
-            stroke={checkColor} 
-            strokeWidth="1.2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          />
+      <div className="flex items-center ml-2" title="Pending">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <circle cx="6" cy="6" r="5" stroke="#9CA3AF" strokeWidth="1"/>
+          <path d="M6 3v3l2 1" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
         </svg>
       </div>
     );
   };
   
-  return (
-    <div className="flex items-center justify-end">
-      {getStatusIcon()}
-    </div>
-  );
+  return getStatusIcon();
 };
 
 const MessageBubble = ({ 
@@ -281,10 +307,14 @@ const MessageBubble = ({
               )}
             </div>
             
-            <div className="flex items-center gap-2">
+            {/* FIXED: Time and Status Row - WhatsApp Style */}
+            <div className={`flex items-center gap-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
               <time className="text-xs font-light text-zinc-500">
                 {time}
               </time>
+              
+              {/* FIXED: Status indicators next to time like WhatsApp */}
+              <MessageStatus messageData={messageData} isOwn={isOwn} />
             </div>
           </div>
         </div>

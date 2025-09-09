@@ -1,4 +1,4 @@
-// src/components/shared/chats/ChatWidget.jsx - FIXED DRAGGABLE VERSION
+// src/components/shared/chats/ChatWidget.jsx - FIXED: Layout-Aware Dragging
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -6,10 +6,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 
 const ChatWidget = ({ 
-  position = 'bottom-right', 
   className = '',
+  sidebarExpanded = false,
+  isMobile = false
 }) => {
-  const { user, getOrganizationType } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const userType = user?.role || 'student';
   
@@ -19,6 +20,8 @@ const ChatWidget = ({
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const [dragDistance, setDragDistance] = useState(0);
   const chatRef = useRef(null);
 
   // FAQ Data
@@ -58,30 +61,35 @@ const ChatWidget = ({
     {
       question: "Bagaimana cara memulai konseling daring?",
       answer: "Untuk memulai konseling daring, Kamu perlu membuat akun di platform kami, memilih layanan dan psikolog/konselor yang sesuai, lalu menjadwalkan janji temu. Kamu akan menerima tautan untuk bergabung dalam sesi virtual pada waktu yang ditentukan."
-    },
-    {
-      question: "Saya punya pertanyaan lain yang tidak ada di sini. Bagaimana saya bisa menghubungi Admin Ruang Diri?",
-      answer: "Kamu bisa menghubungi kami melalui Kontak Kami"
     }
   ];
 
-  // Get initial position classes
-  const getPositionClasses = () => {
-    switch (position) {
-      case 'bottom-left':
-        return 'fixed bottom-6 left-6 z-50';
-      case 'bottom-right':
-        return 'fixed bottom-6 right-6 z-50';
-      case 'top-left':
-        return 'fixed top-6 left-6 z-50';
-      case 'top-right':
-        return 'fixed top-6 right-6 z-50';
-      default:
-        return 'fixed bottom-6 right-6 z-50';
+  // Calculate drag constraints based on layout
+  const getDragConstraints = useCallback(() => {
+    const widgetSize = 80; // 64px + some padding
+    const margin = 20;
+    
+    let leftBound = margin;
+    let rightBound = window.innerWidth - widgetSize - margin;
+    
+    // Adjust for sidebar on desktop
+    if (!isMobile) {
+      if (sidebarExpanded) {
+        leftBound = 257 + margin; // Expanded sidebar width + margin
+      } else {
+        leftBound = 80 + margin; // Collapsed sidebar width + margin
+      }
     }
-  };
+    
+    return {
+      left: leftBound,
+      right: rightBound,
+      top: margin,
+      bottom: window.innerHeight - widgetSize - margin
+    };
+  }, [sidebarExpanded, isMobile]);
 
-  // Only show for authorized organization types
+  // Only show for authorized users
   const shouldShowChat = true;
 
   // Initial welcome message
@@ -115,21 +123,52 @@ const ChatWidget = ({
     };
   }, [isOpen]);
 
-  // Handle drag events
-  const handleDragStart = useCallback(() => {
+  // Enhanced drag handlers - less sensitive
+  const handleDragStart = useCallback((event, info) => {
     setIsDragging(true);
+    setDragStartTime(Date.now());
+    setDragDistance(0);
+    
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
   }, []);
 
-  const handleDragEnd = useCallback(() => {
-    setTimeout(() => setIsDragging(false), 100);
+  const handleDrag = useCallback((event, info) => {
+    // Calculate total drag distance
+    const distance = Math.sqrt(
+      Math.pow(info.offset.x, 2) + Math.pow(info.offset.y, 2)
+    );
+    setDragDistance(distance);
   }, []);
 
-  // Handle widget click (only when not dragging)
-  const handleWidgetClick = useCallback(() => {
-    if (!isDragging) {
-      setIsOpen(prev => !prev);
+  const handleDragEnd = useCallback((event, info) => {
+    const dragDuration = Date.now() - dragStartTime;
+    
+    // Restore text selection
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+    
+    // Delay setting isDragging to false to prevent click handling
+    setTimeout(() => {
+      setIsDragging(false);
+    }, 100);
+  }, [dragStartTime]);
+
+  // Enhanced click handler - only trigger if not a real drag
+  const handleWidgetClick = useCallback((event) => {
+    // Don't trigger if we just finished dragging more than 10px
+    if (dragDistance > 10) {
+      return;
     }
-  }, [isDragging]);
+    
+    // Don't trigger if currently dragging
+    if (isDragging) {
+      return;
+    }
+    
+    setIsOpen(prev => !prev);
+  }, [isDragging, dragDistance]);
 
   const handleOptionClick = useCallback((option) => {
     setSelectedOption(option);
@@ -261,31 +300,46 @@ const ChatWidget = ({
     return answer;
   }, []);
 
-  // Don't render if not authorized organization type
+  // Calculate popup position to avoid going off-screen
+  const getPopupPosition = () => {
+    const constraints = getDragConstraints();
+    const popupWidth = 384; // w-96
+    const popupHeight = 520;
+    
+    // Check if popup would go off screen and adjust
+    let rightPos = 0;
+    let leftPos = 'auto';
+    let bottomPos = 80;
+    let topPos = 'auto';
+    
+    // If too close to right edge, show on left
+    if (window.innerWidth - constraints.right < popupWidth + 50) {
+      rightPos = 'auto';
+      leftPos = -popupWidth;
+    }
+    
+    // If too close to top, show below
+    if (constraints.bottom + popupHeight > window.innerHeight - 50) {
+      bottomPos = 'auto';
+      topPos = 80;
+    }
+    
+    return {
+      right: rightPos,
+      left: leftPos,
+      bottom: bottomPos,
+      top: topPos
+    };
+  };
+
+  // Don't render if not authorized
   if (!shouldShowChat) {
     return null;
   }
 
   return (
-    <motion.div
-      ref={chatRef}
-      drag
-      dragMomentum={false}
-      dragElastic={0.1}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      dragConstraints={{
-        left: 0,
-        right: window.innerWidth - 80,
-        top: 0,
-        bottom: window.innerHeight - 80
-      }}
-      className={`${getPositionClasses()} ${className}`}
-      style={{
-        cursor: isDragging ? 'grabbing' : 'grab'
-      }}
-    >
-      {/* Chat Popup */}
+    <>
+      {/* Chat Popup - Fixed positioning relative to viewport */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -293,13 +347,12 @@ const ChatWidget = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute bottom-20 right-0 w-96 h-[520px] bg-zinc-100 rounded-2xl shadow-2xl"
+            className="fixed w-96 h-[520px] bg-zinc-100 rounded-2xl shadow-2xl border border-gray-200 z-50"
             style={{
-              // Smart positioning to prevent going off-screen
-              right: position.includes('left') ? 'auto' : 0,
-              left: position.includes('left') ? 0 : 'auto',
-              bottom: position.includes('top') ? 'auto' : 80,
-              top: position.includes('top') ? 80 : 'auto'
+              ...getPopupPosition(),
+              right: !isMobile && sidebarExpanded ? '100px' : '100px', // Adjust for sidebar
+              maxWidth: '95vw',
+              maxHeight: '90vh'
             }}
           >
             <div className="w-full h-full flex flex-col">
@@ -316,21 +369,21 @@ const ChatWidget = ({
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={handleExpand}
-                    className="text-white hover:text-gray-200 transition-colors p-1"
+                    className="text-white hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-white/10"
                     title="Expand Chat"
                   >
                     <span className="material-icons text-lg">open_in_full</span>
                   </button>
                   <button 
                     onClick={resetChat}
-                    className="text-white hover:text-gray-200 transition-colors p-1"
+                    className="text-white hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-white/10"
                     title="Reset Chat"
                   >
                     <span className="material-icons text-sm">refresh</span>
                   </button>
                   <button 
                     onClick={() => setIsOpen(false)}
-                    className="text-white hover:text-gray-200 transition-colors p-1"
+                    className="text-white hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-white/10"
                     title="Close Chat"
                   >
                     <span className="material-icons text-lg">close</span>
@@ -488,56 +541,74 @@ const ChatWidget = ({
         )}
       </AnimatePresence>
 
-      {/* Draggable Floating Button */}
-      <motion.button
-        onClick={handleWidgetClick}
-        className="w-16 h-16 bg-gradient-to-b from-[#488BBE] to-[#043C68] rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group relative select-none"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        title={isDragging ? "Dragging..." : "Drag to move • Click to chat"}
+      {/* Draggable Floating Button - Constrained to layout */}
+      <motion.div
+        ref={chatRef}
+        drag
+        dragMomentum={false}
+        dragElastic={0.1}
+        dragConstraints={getDragConstraints()}
+        onDragStart={handleDragStart}
+        onDrag={handleDrag}
+        onDragEnd={handleDragEnd}
+        className="relative z-30" // Lower than popup but above content
+        style={{
+          cursor: isDragging ? 'grabbing' : 'grab',
+          touchAction: 'none',
+        }}
+        whileHover={{ scale: isDragging ? 1 : 1.05 }}
+        whileDrag={{ scale: 1.1, zIndex: 35 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
       >
-        <AnimatePresence mode="wait">
-          {isOpen ? (
-            <motion.span
-              key="close"
-              initial={{ opacity: 0, rotate: -90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: 90 }}
-              className="material-icons text-white text-2xl pointer-events-none"
-            >
-              close
-            </motion.span>
-          ) : (
-            <motion.span
-              key="sms"
-              initial={{ opacity: 0, rotate: 90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: -90 }}
-              className="material-icons text-white text-2xl pointer-events-none"
-            >
-              sms
-            </motion.span>
-          )}
-        </AnimatePresence>
-      
-        {/* Drag Indicator */}
-        <AnimatePresence>
-          {isDragging && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-80 text-white px-3 py-1 rounded-lg text-xs whitespace-nowrap pointer-events-none"
-            >
-              <div className="flex items-center gap-1">
-                <span className="material-icons text-xs">open_with</span>
-                Dragging...
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.button>
-    </motion.div>
+        <motion.button
+          onClick={handleWidgetClick}
+          className="w-16 h-16 bg-gradient-to-b from-[#488BBE] to-[#043C68] rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group relative select-none border-2 border-white/20"
+          whileTap={{ scale: 0.95 }}
+          title={isDragging ? "Dragging..." : "Drag to move • Click to chat"}
+        >
+          <AnimatePresence mode="wait">
+            {isOpen ? (
+              <motion.span
+                key="close"
+                initial={{ opacity: 0, rotate: -90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                exit={{ opacity: 0, rotate: 90 }}
+                className="material-icons text-white text-2xl pointer-events-none"
+              >
+                close
+              </motion.span>
+            ) : (
+              <motion.span
+                key="sms"
+                initial={{ opacity: 0, rotate: 90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                exit={{ opacity: 0, rotate: -90 }}
+                className="material-icons text-white text-2xl pointer-events-none"
+              >
+                sms
+              </motion.span>
+            )}
+          </AnimatePresence>
+
+          {/* Drag Indicator */}
+          <AnimatePresence>
+            {isDragging && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs whitespace-nowrap pointer-events-none"
+              >
+                <div className="flex items-center gap-1">
+                  <span className="material-icons text-xs">open_with</span>
+                  Dragging...
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.button>
+      </motion.div>
+    </>
   );
 };
 

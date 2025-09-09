@@ -1,4 +1,5 @@
-// src/components/shared/chats/components/ChatMessages.jsx
+// src/components/shared/chats/components/ChatMessages.jsx - FIXED: Proper Input Spacing
+
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatChatDateHeader } from './utils/dateUtils';
@@ -53,7 +54,7 @@ const ChatMessages = ({
   }, [handleScroll]);
 
   return (
-    <div className="flex-1 relative bg-zinc-100">
+    <div className="flex-1 relative bg-zinc-100 overflow-hidden">
       <div 
         ref={messagesContainerRef}
         className="absolute inset-0 overflow-y-auto messages-scroll"
@@ -101,8 +102,8 @@ const ChatMessages = ({
             </div>
           )}
 
-          {/* Messages Container */}
-          <div className="flex flex-col gap-4 w-full max-w-full pb-4">
+          {/* Messages Container - FIXED: Proper bottom padding for input */}
+          <div className="flex flex-col gap-4 w-full max-w-full pb-32">
             <AnimatePresence>
               {messages.map((message) => (
                 <MessageBubble
@@ -118,13 +119,19 @@ const ChatMessages = ({
                   attachmentType={message.attachmentType}
                   attachmentName={message.attachmentName}
                   attachmentSize={message.attachmentSize}
-                  messageData={message} // Pass full message data
+                  messageData={message} // Pass full message data for status
                 />
               ))}
             </AnimatePresence>
 
-            {/* Auto-scroll anchor */}
-            <div ref={messagesEndRef} style={{ height: '1px', visibility: 'hidden' }} />
+            {/* Auto-scroll anchor - FIXED: Proper spacing */}
+            <div 
+              ref={messagesEndRef} 
+              style={{ 
+                height: '100px', // Ensure enough space for input
+                visibility: 'hidden' 
+              }} 
+            />
           </div>
         </div>
       </div>
