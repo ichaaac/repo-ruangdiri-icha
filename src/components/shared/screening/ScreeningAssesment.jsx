@@ -442,12 +442,12 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
           <div className="relative w-full h-full p-[54px] flex flex-col justify-start items-center gap-7 max-md:p-6">
             
             {/* Exit button */}
-            <button
+            {/* <button
               onClick={handleExitButtonClick}
               className="absolute top-4 right-4 p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
             >
               <span className="material-icons">close</span>
-            </button>
+            </button> */}
 
             {/* Question Card */}
             <AnimatePresence mode="wait">
