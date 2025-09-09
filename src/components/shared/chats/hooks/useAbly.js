@@ -1,13 +1,16 @@
-// src/components/shared/chats/hooks/useAbly.js - ENHANCED: Detailed Logging & Debugging
+// src/components/shared/chats/hooks/useAbly.js - UPDATED: Single Channel Architecture
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Ably from 'ably';
 import { chatsApi } from '../lib/chatsApi';
 import notificationSocket from '../../notifications/lib/socket';
+import { installAblyErrorHandler } from '../utils/ablyErrorHandler';
 
-// 🆕 ENHANCED: Detailed Ably Event Logger
+// Install global Ably error handler immediately
+installAblyErrorHandler();
+
+// Enhanced Ably Event Logger
 const AblyLogger = {
-  // Log with styled colors for better readability
   log: (level, category, message, data = null) => {
     const timestamp = new Date().toLocaleTimeString('id-ID');
     const styles = {
@@ -28,24 +31,37 @@ const AblyLogger = {
     );
   },
 
-  // Log raw Ably message structure
+  // NEW: Log all message names during rollout (as suggested by backend team)
+  logMessageName: (msgName, channelName, data = null) => {
+    console.log(
+      `%c[ABLY-EVENT] ${msgName.toUpperCase()}`,
+      'color: #26A69A; font-weight: bold;',
+      `on ${channelName}`,
+      data ? data : ''
+    );
+  },
+
   logAblyMessage: (message, channelName, eventType) => {
-    console.group(`🔔 ABLY MESSAGE RECEIVED`);
+    // Log the message name for easy tracking during rollout
+    if (message.name) {
+      AblyLogger.logMessageName(message.name, channelName, message.data);
+    }
+
+    console.group(`📨 ABLY MESSAGE RECEIVED`);
     console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
     console.log('📡 Channel:', channelName);
+    console.log('🏷 Event Name (msg.name):', message.name); // NEW: Focus on msg.name
     console.log('🎯 Event Type:', eventType);
     console.log('🆔 Message ID:', message.id);
     console.log('👤 Client ID:', message.clientId);
     console.log('⚡ Action:', message.action);
-    console.log('🔤 Encoding:', message.encoding);
-    console.log('📝 Name:', message.name);
+    console.log('📤 Encoding:', message.encoding);
     console.log('🕐 Message Timestamp:', message.timestamp);
     console.log('📦 Raw Data:', message.data);
     console.log('🔍 Full Message Object:', message);
     console.groupEnd();
   },
 
-  // Log connection state changes
   logConnection: (state, reason = null) => {
     const stateColors = {
       connected: 'success',
@@ -64,25 +80,10 @@ const AblyLogger = {
     );
   },
 
-  // Log channel events
   logChannel: (channelName, eventType, details) => {
     AblyLogger.log('event', 'CHANNEL', `${channelName} - ${eventType}`, details);
   },
 
-  // Log typing events with details
-  logTyping: (data, channelName) => {
-    // console.group(`⌨️ TYPING EVENT`);
-    // console.log('📡 Channel:', channelName);
-    // console.log('👤 User ID:', data.userId);
-    // console.log('📝 User Name:', data.userName || data.senderName || 'Unknown');
-    // console.log('⌨️ Is Typing:', data.isTyping);
-    // console.log('🆔 Session ID:', data.sessionId);
-    // console.log('⏰ Timestamp:', data.timestamp);
-    // console.log('📦 Full Data:', data);
-    // console.groupEnd();
-  },
-
-  // Log message send attempts
   logSendAttempt: (type, data) => {
     console.group(`📤 SENDING ${type.toUpperCase()}`);
     console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
@@ -91,15 +92,12 @@ const AblyLogger = {
   }
 };
 
-// 🆕 SIMPLE: Message processing (no crypto for now)
+// Simple Message processing
 const MessageProcessor = {
-  // Simple pass-through for now
   process: (message) => {
     AblyLogger.log('debug', 'PROCESS', 'Processing message', { message });
     return message;
   },
-
-  // Simple pass-through for now
   unprocess: (processedMessage) => {
     AblyLogger.log('debug', 'PROCESS', 'Unprocessing message', { processedMessage });
     return processedMessage;
@@ -111,10 +109,11 @@ export const useAbly = () => {
   const [isTyping, setIsTyping] = useState(false);
 
   const ablyRef = useRef(null);
-  const channelsRef = useRef({});
+  const chatChannelRef = useRef(null); // UPDATED: Only single chat channel
   const currentSessionRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const tokenRefreshIntervalRef = useRef(null);
+  const messagesCacheRef = useRef(new Map()); // NEW: For deduplication
   
   // Callback refs
   const onMessageRef = useRef(null);
@@ -122,25 +121,31 @@ export const useAbly = () => {
   const onTypingRef = useRef(null);
   const onUnreadCountRef = useRef(null);
 
-  // 🆕 ENHANCED: Enhanced connection status handler
+  const isCleaningUpRef = useRef(false);
+
+  // Enhanced connection status handler
   const handleConnectionStatusChange = useCallback((state, reason = null) => {
+    if (isCleaningUpRef.current && (state === 'disconnected' || state === 'closed')) {
+      AblyLogger.log('debug', 'CONNECTION', 'Ignoring status change during cleanup', { state, reason });
+      return;
+    }
+
     AblyLogger.logConnection(state, reason);
     setConnectionStatus(state);
     
-    // Store connection info for debugging
     if (typeof window !== 'undefined') {
       window.ablyConnectionInfo = {
         state,
         reason,
         timestamp: new Date().toISOString(),
         ablyState: ablyRef.current?.connection?.state,
-        channels: Object.keys(channelsRef.current),
+        chatChannel: chatChannelRef.current ? 'attached' : 'none',
         currentSession: currentSessionRef.current
       };
     }
   }, []);
 
-  // ✅ FIXED: Memoize setCallbacks to prevent re-renders
+  // Fixed callbacks setup
   const setCallbacks = useCallback((callbacks) => {
     AblyLogger.log('info', 'SETUP', 'Setting Ably callbacks', {
       hasMessage: !!callbacks.onMessage,
@@ -155,7 +160,26 @@ export const useAbly = () => {
     onUnreadCountRef.current = callbacks.onUnreadCount || null;
   }, []);
 
-  // ✅ FIXED: Memoize connect function to prevent re-renders
+  // NEW: Deduplication helper
+  const isDuplicateMessage = useCallback((message) => {
+    const key = message.id || `${message.timestamp}-${message.data?.senderId}-${message.data?.message}`;
+    if (messagesCacheRef.current.has(key)) {
+      AblyLogger.log('warn', 'DEDUPE', `Duplicate message ignored: ${key}`);
+      return true;
+    }
+    
+    messagesCacheRef.current.set(key, true);
+    
+    // Keep cache size manageable (last 100 messages)
+    if (messagesCacheRef.current.size > 100) {
+      const firstKey = messagesCacheRef.current.keys().next().value;
+      messagesCacheRef.current.delete(firstKey);
+    }
+    
+    return false;
+  }, []);
+
+  // UPDATED: Single channel connect function
   const connect = useCallback(async (sessionId, userId) => {
     try {
       currentSessionRef.current = sessionId;
@@ -171,7 +195,7 @@ export const useAbly = () => {
 
       handleConnectionStatusChange('connecting');
 
-      // 🆕 ENHANCED: Setup Socket.io with detailed logging
+      // Setup Socket.io (unchanged)
       try {
         AblyLogger.log('info', 'SOCKET', 'Setting up Socket.io connection...');
         
@@ -179,11 +203,9 @@ export const useAbly = () => {
           await notificationSocket.connect();
         }
         
-        // Cleanup existing listeners first
         notificationSocket.off('chat:enable-chat');
         notificationSocket.off('chat:initial-message');
         
-        // Register new listeners with enhanced logging
         notificationSocket.on('chat:enable-chat', (payload) => {
           AblyLogger.log('event', 'SOCKET', 'chat:enable-chat received', payload);
           if (onSessionStatusRef.current) {
@@ -208,17 +230,22 @@ export const useAbly = () => {
         AblyLogger.log('warn', 'SOCKET', 'Socket.io setup failed, continuing with Ably only', error);
       }
 
-      // Disconnect existing Ably
+      // Close existing Ably connection
       if (ablyRef.current) {
         AblyLogger.log('info', 'CLEANUP', 'Closing existing Ably connection...');
         try {
-          ablyRef.current.close();
+          const currentState = ablyRef.current.connection?.state;
+          if (currentState && currentState !== 'closed' && currentState !== 'closing') {
+            ablyRef.current.close();
+          } else {
+            AblyLogger.log('debug', 'CLEANUP', `Ably already ${currentState}, skipping close`);
+          }
         } catch (e) {
-          AblyLogger.log('warn', 'CLEANUP', 'Error closing Ably', e);
+          AblyLogger.log('warn', 'CLEANUP', 'Error closing existing Ably', e);
         }
         ablyRef.current = null;
       }
-      channelsRef.current = {};
+      chatChannelRef.current = null;
 
       // Get Ably token
       AblyLogger.log('info', 'TOKEN', 'Requesting Ably token...');
@@ -230,13 +257,14 @@ export const useAbly = () => {
         return false;
       }
 
+      // UPDATED: Log only channels.chat (no more typing channel)
       AblyLogger.log('success', 'TOKEN', 'Ably token received', {
         sessionId: tokenData.sessionId,
-        channels: tokenData.channels,
+        chatChannel: tokenData.channels?.chat || tokenData.channels, // Handle both old/new format
         expiresAt: tokenData.expiresAt
       });
 
-      // Create REAL Ably client with enhanced logging
+      // Create Ably client
       const ably = new Ably.Realtime({
         authCallback: (tokenParams, callback) => {
           AblyLogger.log('info', 'AUTH', 'Ably auth callback triggered');
@@ -248,7 +276,7 @@ export const useAbly = () => {
         autoConnect: true,
         echoMessages: false,
         log: {
-          level: 4, // Enable verbose logging
+          level: 4,
           handler: (msg) => {
             AblyLogger.log('debug', 'ABLY-SDK', msg.toString());
           }
@@ -257,132 +285,153 @@ export const useAbly = () => {
 
       ablyRef.current = ably;
 
-      // Get channels using exact names from backend
-      const chatChannel = ably.channels.get(tokenData.channels.chat);
-      const typingChannel = ably.channels.get(tokenData.channels.typing);
-      
-      channelsRef.current = { 
-        chat: chatChannel, 
-        typing: typingChannel,
-        chatChannelName: tokenData.channels.chat,
-        typingChannelName: tokenData.channels.typing
-      };
+      // UPDATED: Get only the chat channel
+      const chatChannelName = tokenData.channels?.chat || tokenData.channels;
+      const chatChannel = ably.channels.get(chatChannelName);
+      chatChannelRef.current = chatChannel;
 
-      AblyLogger.log('info', 'CHANNELS', 'Setting up Ably channels', {
-        chatChannel: tokenData.channels.chat,
-        typingChannel: tokenData.channels.typing
+      AblyLogger.log('info', 'CHANNELS', 'Setting up single Ably chat channel', {
+        chatChannel: chatChannelName
       });
 
-      // 🆕 ENHANCED: Message handlers with detailed logging
-      const handleChatMessage = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'CHAT_MESSAGE');
+      // UPDATED: Single event handler that routes by msg.name
+      const handleChannelMessage = (message) => {
+        AblyLogger.logAblyMessage(message, chatChannelName, 'ALL_EVENTS');
         
-        // 🆕 PROCESS: Simple message processing (no crypto for now)
-        const processedData = MessageProcessor.unprocess(message.data);
+        // NEW: Check for duplicates
+        if (isDuplicateMessage(message)) {
+          return;
+        }
         
-        if (processedData.senderId !== userId && onMessageRef.current) {
-          AblyLogger.log('info', 'MESSAGE', 'Processing incoming chat message', {
-            senderId: processedData.senderId,
-            currentUserId: userId,
-            messageType: processedData.messageType,
-            hasText: !!processedData.message
-          });
-          onMessageRef.current(processedData);
-        } else {
-          AblyLogger.log('debug', 'MESSAGE', 'Ignoring own message or no handler', {
-            isOwnMessage: processedData.senderId === userId,
-            hasHandler: !!onMessageRef.current
-          });
-        }
-      };
-
-      const handleSessionStatus = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'SESSION_STATUS');
-        if (onSessionStatusRef.current) {
-          onSessionStatusRef.current(message.data);
-        }
-      };
-
-      const handleAutomatedMessage = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'AUTOMATED_MESSAGE');
-        if (onMessageRef.current) {
-          onMessageRef.current({
-            ...message.data,
-            isAutomated: true,
-            messageType: 'automated'
-          });
-        }
-      };
-
-      const handleUnreadCount = (message) => {
-        AblyLogger.logAblyMessage(message, tokenData.channels.chat, 'UNREAD_COUNT');
-        if (onUnreadCountRef.current) {
-          onUnreadCountRef.current(message.data);
-        }
-      };
-
-      const handleTypingIndicator = (message) => {
-        AblyLogger.logTyping(message.data, tokenData.channels.typing);
+        // UPDATED: Route by message.name instead of channel
+        const eventName = message.name;
+        const messageData = message.data;
         
-        const { isTyping: typing, userId: typingUserId } = message.data;
-        
-        if (typingUserId !== userId) {
-          setIsTyping(typing);
-          
-          if (onTypingRef.current) {
-            onTypingRef.current({
-              ...message.data,
-              isTyping: typing,
-              userId: typingUserId
-            });
-          }
-
-          // Clear typing after timeout
-          if (typing) {
-            if (typingTimeoutRef.current) {
-              clearTimeout(typingTimeoutRef.current);
+        switch (eventName) {
+          case 'message':
+            AblyLogger.log('info', 'MESSAGE', 'Processing chat message');
+            const processedData = MessageProcessor.unprocess(messageData);
+            if (processedData.senderId !== userId && onMessageRef.current) {
+              AblyLogger.log('info', 'MESSAGE', 'Forwarding to message handler', {
+                senderId: processedData.senderId,
+                currentUserId: userId,
+                messageType: processedData.messageType,
+                hasText: !!processedData.message
+              });
+              onMessageRef.current(processedData);
             }
-            typingTimeoutRef.current = setTimeout(() => {
-              setIsTyping(false);
-              AblyLogger.log('debug', 'TYPING', 'Auto-cleared typing indicator after timeout');
-            }, 5000);
-          }
+            break;
+
+          case 'typing':
+            AblyLogger.log('debug', 'TYPING', 'Processing typing indicator', messageData);
+            const { isTyping: typing, userId: typingUserId } = messageData;
+            
+            if (typingUserId !== userId) {
+              setIsTyping(typing);
+              
+              if (onTypingRef.current) {
+                onTypingRef.current({
+                  ...messageData,
+                  isTyping: typing,
+                  userId: typingUserId
+                });
+              }
+
+              // Clear typing after timeout
+              if (typing) {
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
+                }
+                typingTimeoutRef.current = setTimeout(() => {
+                  setIsTyping(false);
+                  AblyLogger.log('debug', 'TYPING', 'Auto-cleared typing indicator');
+                }, 5000);
+              }
+            }
+            break;
+
+          case 'session_status':
+            AblyLogger.log('info', 'SESSION', 'Processing session status update', messageData);
+            if (onSessionStatusRef.current) {
+              onSessionStatusRef.current(messageData);
+            }
+            break;
+
+          case 'unread_count_update':
+            AblyLogger.log('info', 'UNREAD', 'Processing unread count update', messageData);
+            if (onUnreadCountRef.current) {
+              onUnreadCountRef.current(messageData);
+            }
+            break;
+
+          case 'user_presence':
+            AblyLogger.log('info', 'PRESENCE', 'Processing user presence', messageData);
+            // Handle presence if needed
+            break;
+
+          case 'delivery_receipt':
+          case 'read_receipt':
+          case 'message_read':
+            AblyLogger.log('info', 'RECEIPT', `Processing ${eventName}`, messageData);
+            // Handle message status updates
+            break;
+
+          case 'file_upload':
+            AblyLogger.log('info', 'FILE', 'Processing file upload', messageData);
+            if (onMessageRef.current) {
+              onMessageRef.current({
+                ...messageData,
+                messageType: 'file',
+                isFileUpload: true
+              });
+            }
+            break;
+
+          case 'notification':
+            AblyLogger.log('info', 'NOTIFICATION', 'Processing notification', messageData);
+            // Handle notifications
+            break;
+
+          // Handle automated messages (backward compatibility)
+          case 'automated_message':
+            AblyLogger.log('info', 'AUTOMATED', 'Processing automated message', messageData);
+            if (onMessageRef.current) {
+              onMessageRef.current({
+                ...messageData,
+                isAutomated: true,
+                messageType: 'automated'
+              });
+            }
+            break;
+
+          default:
+            AblyLogger.log('warn', 'UNKNOWN', `Unknown event name: ${eventName}`, messageData);
+            break;
         }
-      };
-
-      // 🆕 ENHANCED: Channel event handlers with logging
-      const setupChannelLogging = (channel, channelName) => {
-        channel.on('attached', () => {
-          AblyLogger.logChannel(channelName, 'ATTACHED', 'Channel successfully attached');
-        });
-
-        channel.on('detached', () => {
-          AblyLogger.logChannel(channelName, 'DETACHED', 'Channel detached');
-        });
-
-        channel.on('failed', (error) => {
-          AblyLogger.logChannel(channelName, 'FAILED', { error });
-        });
-
-        channel.on('suspended', () => {
-          AblyLogger.logChannel(channelName, 'SUSPENDED', 'Channel suspended');
-        });
       };
 
       // Setup channel logging
-      setupChannelLogging(chatChannel, 'CHAT');
-      setupChannelLogging(typingChannel, 'TYPING');
+      chatChannel.on('attached', () => {
+        AblyLogger.logChannel(chatChannelName, 'ATTACHED', 'Chat channel successfully attached');
+      });
 
-      // Subscribe to channels with enhanced logging
-      AblyLogger.log('info', 'SUBSCRIBE', 'Subscribing to Ably channels...');
-      
-      chatChannel.subscribe('message', handleChatMessage);
-      chatChannel.subscribe('session_status', handleSessionStatus);
-      chatChannel.subscribe('automated_message', handleAutomatedMessage);
-      chatChannel.subscribe('unread_count_update', handleUnreadCount);
-      typingChannel.subscribe('typing', handleTypingIndicator);
+      chatChannel.on('detached', () => {
+        AblyLogger.logChannel(chatChannelName, 'DETACHED', 'Chat channel detached');
+      });
 
-      // 🆕 ENHANCED: Connection handlers with detailed logging
+      chatChannel.on('failed', (error) => {
+        AblyLogger.logChannel(chatChannelName, 'FAILED', { error });
+      });
+
+      chatChannel.on('suspended', () => {
+        AblyLogger.logChannel(chatChannelName, 'SUSPENDED', 'Chat channel suspended');
+      });
+
+      // UPDATED: Subscribe once to the chat channel for all events
+      AblyLogger.log('info', 'SUBSCRIBE', 'Subscribing to single chat channel for all events...');
+      chatChannel.subscribe(handleChannelMessage);
+
+      // Connection handlers (unchanged)
       ably.connection.on('connected', () => {
         handleConnectionStatusChange('connected');
         AblyLogger.log('success', 'CONNECTION', 'Ably connection established', {
@@ -409,7 +458,7 @@ export const useAbly = () => {
         handleConnectionStatusChange('disconnected');
       });
 
-      // 🆕 ENHANCED: Setup token refresh with logging
+      // Token refresh (unchanged)
       if (tokenRefreshIntervalRef.current) {
         clearInterval(tokenRefreshIntervalRef.current);
       }
@@ -433,11 +482,13 @@ export const useAbly = () => {
       handleConnectionStatusChange('failed');
       return false;
     }
-  }, []); // ✅ FIXED: Empty dependency array
+  }, [handleConnectionStatusChange, isDuplicateMessage]);
 
-  // ✅ FIXED: Memoize disconnect function
+  // UPDATED: Improved disconnect function
   const disconnect = useCallback(() => {
     AblyLogger.log('info', 'DISCONNECT', 'Disconnecting chat...');
+    
+    isCleaningUpRef.current = true;
     
     // Clear intervals and timeouts
     if (tokenRefreshIntervalRef.current) {
@@ -451,50 +502,56 @@ export const useAbly = () => {
     }
 
     // Remove socket.io listeners
-    notificationSocket.off('chat:enable-chat');
-    notificationSocket.off('chat:initial-message');
+    try {
+      notificationSocket.off('chat:enable-chat');
+      notificationSocket.off('chat:initial-message');
+    } catch (error) {
+      AblyLogger.log('warn', 'SOCKET', 'Error removing socket listeners', error);
+    }
 
-    // Unsubscribe from Ably channels
-    if (channelsRef.current.chat) {
+    // UPDATED: Unsubscribe from single chat channel
+    if (chatChannelRef.current) {
       try {
         AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from chat channel...');
-        channelsRef.current.chat.unsubscribe();
+        chatChannelRef.current.unsubscribe();
       } catch (error) {
         AblyLogger.log('error', 'UNSUBSCRIBE', 'Error unsubscribing chat', error);
       }
     }
 
-    if (channelsRef.current.typing) {
-      try {
-        AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from typing channel...');
-        channelsRef.current.typing.unsubscribe();
-      } catch (error) {
-        AblyLogger.log('error', 'UNSUBSCRIBE', 'Error unsubscribing typing', error);
-      }
-    }
-
-    channelsRef.current = {};
+    chatChannelRef.current = null;
 
     // Close Ably connection
     if (ablyRef.current) {
       try {
         AblyLogger.log('info', 'CLOSE', 'Closing Ably connection...');
-        ablyRef.current.close();
+        const currentState = ablyRef.current.connection?.state;
+        if (currentState && currentState !== 'closed' && currentState !== 'closing') {
+          ablyRef.current.close();
+          AblyLogger.log('success', 'CLOSE', 'Ably connection close initiated');
+        } else {
+          AblyLogger.log('debug', 'CLOSE', `Ably already ${currentState}, skipping close`);
+        }
       } catch (error) {
-        AblyLogger.log('error', 'CLOSE', 'Error closing Ably', error);
+        AblyLogger.log('warn', 'CLOSE', 'Error closing Ably (ignoring)', error);
       }
       ablyRef.current = null;
     }
 
-    // Reset state
+    // Clear cache and reset state
+    messagesCacheRef.current.clear();
     currentSessionRef.current = null;
-    handleConnectionStatusChange('disconnected');
     setIsTyping(false);
     
+    setTimeout(() => {
+      isCleaningUpRef.current = false;
+      setConnectionStatus('disconnected');
+    }, 100);
+    
     AblyLogger.log('success', 'DISCONNECT', 'Chat disconnected successfully');
-  }, []); // ✅ FIXED: Empty dependency array
+  }, []);
 
-  // ✅ FIXED: Memoize sendTyping function
+  // UPDATED: Send typing via single channel with 'typing' event name
   const sendTyping = useCallback(async (sessionId, isTyping, userId) => {
     if (sessionId === 'team-ruangdiri') return;
 
@@ -508,10 +565,10 @@ export const useAbly = () => {
     AblyLogger.logSendAttempt('TYPING', typingData);
 
     try {
-      // Send via Ably if available
-      if (ablyRef.current && channelsRef.current.typing && connectionStatus === 'connected') {
-        AblyLogger.log('info', 'TYPING', 'Sending typing via Ably');
-        await channelsRef.current.typing.publish('typing', typingData);
+      // UPDATED: Send via single chat channel with 'typing' event name
+      if (ablyRef.current && chatChannelRef.current && connectionStatus === 'connected') {
+        AblyLogger.log('info', 'TYPING', 'Sending typing via Ably chat channel');
+        await chatChannelRef.current.publish('typing', typingData);
         AblyLogger.log('success', 'TYPING', 'Typing sent via Ably successfully');
       } else {
         // Fallback to API
@@ -521,7 +578,6 @@ export const useAbly = () => {
       }
     } catch (error) {
       AblyLogger.log('error', 'TYPING', 'Error sending typing', error);
-      // Fallback to API
       try {
         await chatsApi.sendTypingIndicator(sessionId, isTyping);
         AblyLogger.log('success', 'TYPING', 'API fallback succeeded');
@@ -531,25 +587,24 @@ export const useAbly = () => {
     }
   }, [connectionStatus]);
 
-  // ✅ FIXED: Memoize sendMessageViaAbly function
+  // UPDATED: Send message via single channel with 'message' event name
   const sendMessageViaAbly = useCallback(async (sessionId, messageData) => {
     if (sessionId === 'team-ruangdiri') return false;
 
     AblyLogger.logSendAttempt('MESSAGE', messageData);
 
     try {
-      if (ablyRef.current && channelsRef.current.chat && connectionStatus === 'connected') {
-        // 🆕 PROCESS: Simple message processing (no crypto for now)
+      if (ablyRef.current && chatChannelRef.current && connectionStatus === 'connected') {
         const processedData = MessageProcessor.process(messageData);
         
-        AblyLogger.log('info', 'MESSAGE', 'Broadcasting message via Ably');
-        await channelsRef.current.chat.publish('message', processedData);
+        AblyLogger.log('info', 'MESSAGE', 'Broadcasting message via Ably chat channel');
+        await chatChannelRef.current.publish('message', processedData);
         AblyLogger.log('success', 'MESSAGE', 'Message broadcasted via Ably successfully');
         return true;
       } else {
         AblyLogger.log('warn', 'MESSAGE', 'Ably not available for message broadcast', {
           hasAbly: !!ablyRef.current,
-          hasChannel: !!channelsRef.current.chat,
+          hasChannel: !!chatChannelRef.current,
           connectionStatus
         });
       }
@@ -560,7 +615,7 @@ export const useAbly = () => {
     return false;
   }, [connectionStatus]);
 
-  // ✅ FIXED: Memoize handleTyping function
+  // Other functions remain the same
   const handleTyping = useCallback((sessionId, userId, text) => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
 
@@ -586,7 +641,6 @@ export const useAbly = () => {
     }
   }, [sendTyping]);
 
-  // ✅ FIXED: Memoize simulateAITyping function
   const simulateAITyping = useCallback((callback) => {
     AblyLogger.log('info', 'AI', 'Simulating AI typing...');
     setIsTyping(true);
@@ -598,26 +652,28 @@ export const useAbly = () => {
     }, 1000 + Math.random() * 2000);
   }, []);
 
-  // ✅ FIXED: Memoize getConnectionInfo function
+  // UPDATED: Connection info with single channel
   const getConnectionInfo = useCallback(() => {
     const info = {
       status: connectionStatus,
       isConnected: ['connected', 'ai'].includes(connectionStatus),
       currentSession: currentSessionRef.current,
-      channels: channelsRef.current,
+      chatChannel: chatChannelRef.current ? 'attached' : 'none',
       hasAbly: !!ablyRef.current?.connection?.state,
       hasNotificationSocket: notificationSocket.isSocketConnected(),
       ablyState: ablyRef.current?.connection?.state || 'none',
       hasRealtime: connectionStatus === 'connected',
       connectionId: ablyRef.current?.connection?.id,
-      clientId: ablyRef.current?.connection?.clientId
+      clientId: ablyRef.current?.connection?.clientId,
+      isCleaningUp: isCleaningUpRef.current,
+      cacheSize: messagesCacheRef.current.size
     };
     
     AblyLogger.log('debug', 'INFO', 'Connection info requested', info);
     return info;
   }, [connectionStatus]);
 
-  // 🆕 ENHANCED: Debug utilities for window access
+  // Debug utilities
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.ablyDebug = {
@@ -625,16 +681,10 @@ export const useAbly = () => {
         processor: MessageProcessor,
         connection: getConnectionInfo,
         ably: ablyRef.current,
-        channels: channelsRef.current,
+        chatChannel: chatChannelRef.current,
+        messageCache: messagesCacheRef.current,
         forceLog: (level, category, message, data) => {
           AblyLogger.log(level, category, message, data);
-        },
-        // Test message processing
-        testProcessor: (message) => {
-          const processed = MessageProcessor.process(message);
-          const unprocessed = MessageProcessor.unprocess(processed);
-          console.log('🔄 Processor test:', { original: message, processed, unprocessed });
-          return { processed, unprocessed };
         }
       };
     }
@@ -648,7 +698,6 @@ export const useAbly = () => {
     };
   }, [disconnect]);
 
-  // ✅ FIXED: Memoize return object to prevent re-renders
   return useMemo(() => ({
     connectionStatus,
     isTyping,
@@ -663,7 +712,6 @@ export const useAbly = () => {
     simulateAITyping,
     setCallbacks,
     getConnectionInfo,
-    // 🆕 ENHANCED: Expose utilities for debugging
     logger: AblyLogger,
     processor: MessageProcessor
   }), [

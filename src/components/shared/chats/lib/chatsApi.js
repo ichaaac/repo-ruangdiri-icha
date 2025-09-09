@@ -1,8 +1,8 @@
-// src/components/shared/chats/lib/chatsApi.js - FIXED: Using New Encryption
+// src/components/shared/chats/lib/chatsApi.js - FIXED: Better Error Handling for Inactive Sessions
 
 import { apiClient } from "../../../../lib/api.js";
 import { formatChatTime, getCurrentTime, getCurrentTimestamp } from "../utils/dateUtils";
-import chatEncryption from './encryption'; // FIXED: Import new encryption
+import chatEncryption from './encryption';
 
 // Get current user safely
 const getCurrentUser = () => {
@@ -284,7 +284,7 @@ export const chatsApi = {
             },
             senderId: msg.senderId,
             messageType: msg.messageType || 'text',
-            isRead: msg.isRead, // FIXED: Properly pass isRead status
+            isRead: msg.isRead,
             attachmentUrl: msg.attachmentUrl,
             attachmentType: msg.attachmentType,
             attachmentName: msg.attachmentName,
@@ -390,7 +390,6 @@ export const chatsApi = {
   },
 
   // FIXED: Send file message using EXACT Postman endpoint format
-// FIXED: Send file message using EXACT Postman endpoint format
   async sendFileMessage(sessionId, file, messageType = 'file', caption = '') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -548,16 +547,19 @@ export const chatsApi = {
     }
   },
 
-  // Get Ably token
+  // FIXED: Get Ably token with better error handling for inactive sessions
   async getAblyToken(sessionId) {
     if (sessionId === 'team-ruangdiri') return null;
 
     try {
+      console.log('🔑 Requesting Ably token for session:', sessionId?.slice(-8));
+      
       const response = await apiClient.get('/chat/ably-token', {
         params: { sessionId }
       });
       
       if (response.data?.status === 'success') {
+        console.log('✅ Ably token received successfully');
         return {
           token: response.data.data.token,
           channels: response.data.data.channels,
@@ -568,22 +570,36 @@ export const chatsApi = {
       
       throw new Error(response.data?.message || 'Failed to get Ably token');
     } catch (error) {
-      console.error('Error getting Ably token:', error);
+      console.error('❌ Error getting Ably token:', error);
       
+      // FIXED: Better error message matching for inactive sessions
       if (error.response?.status === 400) {
         const errorMessage = error.response?.data?.message || '';
         
-        if (errorMessage.includes('completed') || errorMessage.includes('ended')) {
-          console.log('🔒 Session is completed/ended, cannot generate Ably token');
-          return null;
-        }
+        console.log('🔍 Checking error message:', errorMessage);
         
-        if (errorMessage.includes('inactive') || errorMessage.includes('disabled')) {
-          console.log('⏸️ Session is inactive, cannot generate Ably token');
-          return null;
+        // FIXED: Check for various inactive session messages
+        const inactivePatterns = [
+          'is not active',      // "Session X is not active"
+          'not active',         // "Session not active"  
+          'inactive',           // "Session inactive"
+          'completed',          // "Session completed"
+          'ended',              // "Session ended"
+          'disabled',           // "Chat disabled"
+          'unavailable'         // "Session unavailable"
+        ];
+        
+        const isInactiveSession = inactivePatterns.some(pattern => 
+          errorMessage.toLowerCase().includes(pattern.toLowerCase())
+        );
+        
+        if (isInactiveSession) {
+          console.log('🔒 Session is inactive/completed, returning null (no retry needed)');
+          return null; // Return null instead of throwing - this prevents infinite retries
         }
       }
       
+      // For other errors, still throw to trigger retry logic if needed
       throw error;
     }
   },

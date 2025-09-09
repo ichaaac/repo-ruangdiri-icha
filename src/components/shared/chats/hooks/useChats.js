@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - FIXED: Prevent Infinite Retries for Inactive Sessions
+// src/components/shared/chats/hooks/useChats.js - FIXED: Better Cleanup Handling
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -55,7 +55,7 @@ export const useChats = () => {
   const [connectionRetryCount, setConnectionRetryCount] = useState(0);
   const [isRecoveringConnection, setIsRecoveringConnection] = useState(false);
   
-  // FIXED: Track failed sessions to prevent infinite retries
+  // Track failed sessions to prevent infinite retries
   const [failedSessions, setFailedSessions] = useState(new Set());
   
   const ably = useAbly();
@@ -258,7 +258,7 @@ export const useChats = () => {
     };
   }, [handleChatEnableDisable, handleInitialMessage, handleChatInvalidate]);
 
-  // FIXED: Check if session should be skipped for Ably connection
+  // Check if session should be skipped for Ably connection
   const shouldSkipAblyConnection = useCallback((session) => {
     if (!session) return true;
     if (session.isTeamChat) return false; // Team chat always connects
@@ -268,7 +268,7 @@ export const useChats = () => {
     return false;
   }, [failedSessions]);
 
-  // FIXED: Enhanced session selection with better error handling and no infinite retries
+  // Enhanced session selection with better error handling and no infinite retries
   const selectSession = useCallback(async (session, shouldMarkAsRead = true) => {
     if (!session) {
       return;
@@ -307,7 +307,7 @@ export const useChats = () => {
       // Set selected session
       setSelectedSession(session);
       
-      // FIXED: Check if should skip Ably connection
+      // Check if should skip Ably connection
       if (shouldSkipAblyConnection(session)) {
         ChatsLogger.log('info', 'Skipping Ably connection for session', {
           sessionId: session.sessionId,
@@ -332,7 +332,7 @@ export const useChats = () => {
           if (connected) {
             ChatsLogger.log('success', 'Successfully connected to Ably');
             setConnectionRetryCount(0);
-            // FIXED: Remove from failed sessions if connection succeeds
+            // Remove from failed sessions if connection succeeds
             setFailedSessions(prev => {
               const newSet = new Set(prev);
               newSet.delete(session.sessionId);
@@ -340,17 +340,17 @@ export const useChats = () => {
             });
           } else {
             ChatsLogger.log('warn', 'Ably connection returned false (likely inactive session)');
-            // FIXED: Add to failed sessions to prevent future retries
+            // Add to failed sessions to prevent future retries
             setFailedSessions(prev => new Set([...prev, session.sessionId]));
           }
         } catch (error) {
           ChatsLogger.log('error', 'Ably connection failed', error);
           setConnectionRetryCount(1);
           
-          // FIXED: Add to failed sessions to prevent infinite retries
+          // Add to failed sessions to prevent infinite retries
           setFailedSessions(prev => new Set([...prev, session.sessionId]));
           
-          // FIXED: Only show error toast for unexpected errors, not inactive sessions
+          // Only show error toast for unexpected errors, not inactive sessions
           const errorMessage = error.message || '';
           const isInactiveError = [
             'is not active',
@@ -366,7 +366,7 @@ export const useChats = () => {
               action: {
                 label: 'Retry',
                 onClick: () => {
-                  // FIXED: Remove from failed sessions and retry
+                  // Remove from failed sessions and retry
                   setFailedSessions(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(session.sessionId);
@@ -718,7 +718,7 @@ export const useChats = () => {
     }
   }, [sessionsQuery.refetch, selectedSession, messages]);
 
-  // FIXED: Clear failed sessions periodically
+  // Clear failed sessions periodically
   useEffect(() => {
     const clearFailedSessions = () => {
       setFailedSessions(new Set());
@@ -731,25 +731,33 @@ export const useChats = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Enhanced cleanup with error handling
+  // FIXED: Synchronous cleanup without async operations
   useEffect(() => {
     return () => {
+      // Set a flag to prevent any state updates during cleanup
+      let isUnmounting = true;
+      
       try {
-        // Use setTimeout to avoid blocking cleanup
-        setTimeout(async () => {
-          try {
-            await ably.disconnect();
-          } catch (error) {
-            ChatsLogger.error('Error during cleanup disconnect', error);
-          }
-        }, 0);
+        ChatsLogger.log('info', 'CLEANUP', 'Component unmounting, starting cleanup...');
         
-        setTypingUsers({});
+        // FIXED: Call disconnect immediately and synchronously
+        if (ably && typeof ably.disconnect === 'function') {
+          ably.disconnect();
+        }
+        
+        // Clear state immediately and synchronously
+        if (isUnmounting) {
+          // Use callback form to avoid stale closure issues
+          setTypingUsers(() => ({}));
+        }
+        
+        ChatsLogger.log('success', 'CLEANUP', 'Cleanup completed successfully');
       } catch (error) {
-        ChatsLogger.error('Error during cleanup', error);
+        // Log error but don't throw to prevent uncaught promise rejections
+        ChatsLogger.log('warn', 'CLEANUP', 'Error during cleanup (ignored)', error);
       }
     };
-  }, [ably]);
+  }, []); // Empty dependency array - only run on mount/unmount
 
   // User display data
   const getUserDisplayData = useCallback(() => {
@@ -817,7 +825,7 @@ export const useChats = () => {
     // Enhanced recovery actions
     retryConnection: () => {
       if (selectedSession && userId) {
-        // FIXED: Clear from failed sessions before retry
+        // Clear from failed sessions before retry
         setFailedSessions(prev => {
           const newSet = new Set(prev);
           newSet.delete(selectedSession.sessionId);
