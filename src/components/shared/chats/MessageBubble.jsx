@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/MessageBubble.jsx - Simple Working Version
+// src/components/shared/chats/components/MessageBubble.jsx - FIXED: Proper Read Receipts
 
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -63,19 +63,21 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
   );
 };
 
-// Message Status Component
+// FIXED: Enhanced Message Status Component with proper read receipts
 const MessageStatus = ({ messageData, isOwn }) => {
   if (!isOwn) return null;
   
   const getStatusIcon = () => {
+    // Loading states
     if (messageData?.isSending || messageData?.isUploading) {
       return (
-        <div className="flex items-center ml-2">
+        <div className="flex items-center ml-2" title="Sending...">
           <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
         </div>
       );
     }
     
+    // Error states
     if (messageData?.uploadError || messageData?.sendError) {
       return (
         <div className="flex items-center ml-2" title="Failed to send">
@@ -87,21 +89,41 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
+    // FIXED: Proper read receipt logic
     const isRead = messageData?.isRead === true;
     const isSent = messageData?.isSent === true || messageData?.id;
+    const isOptimistic = messageData?.isOptimistic === true;
     
+    // Don't show status for optimistic/temporary messages
+    if (isOptimistic) {
+      return (
+        <div className="flex items-center ml-2" title="Sending...">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="#9CA3AF" strokeWidth="1"/>
+            <path d="M6 3v3l2 1" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
+          </svg>
+        </div>
+      );
+    }
+    
+    // FIXED: Blue double checkmark when read
     if (isRead) {
       return (
         <div className="flex items-center ml-2" title="Read">
           <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+            {/* First checkmark */}
             <path d="M1.5 5L4 7.5L7.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            {/* Second checkmark (overlapping) */}
             <path d="M5.5 5L8 7.5L11.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       );
-    } else if (isSent) {
+    } 
+    
+    // FIXED: Gray single checkmark when sent but not read
+    if (isSent) {
       return (
-        <div className="flex items-center ml-2" title="Sent">
+        <div className="flex items-center ml-2" title="Delivered">
           <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
             <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -109,6 +131,7 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
+    // Clock icon for pending
     return (
       <div className="flex items-center ml-2" title="Pending">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -277,12 +300,13 @@ const MessageBubble = ({
               )}
             </div>
             
-            {/* Time and Status Row */}
+            {/* FIXED: Time and Status Row */}
             <div className={`flex items-center gap-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
               <time className="text-xs font-light text-zinc-500">
                 {time}
               </time>
               
+              {/* FIXED: Enhanced message status */}
               <MessageStatus messageData={messageData} isOwn={isOwn} />
             </div>
           </div>

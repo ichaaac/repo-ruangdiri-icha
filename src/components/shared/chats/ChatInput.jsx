@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/ChatInput.jsx - WhatsApp-Style Simple Preview
+// src/components/shared/chats/components/ChatInput.jsx - FIXED: Working Send Button & File Handling
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -206,6 +206,26 @@ const ChatInput = ({
   const [pendingFiles, setPendingFiles] = useState([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
+  // FIXED: Clear input when switching conversations
+  useEffect(() => {
+    if (selectedConversation) {
+      // Clear message text when switching conversations
+      if (messageText && onMessageChange) {
+        onMessageChange('');
+      }
+      // Clear pending files when switching conversations
+      setPendingFiles(prev => {
+        // Clean up preview URLs
+        prev.forEach(file => {
+          if (file.previewUrl) {
+            URL.revokeObjectURL(file.previewUrl);
+          }
+        });
+        return [];
+      });
+    }
+  }, [selectedConversation?.sessionId]); // Only trigger when sessionId changes
+
   // Calculate total size of all pending files
   const totalSize = useMemo(() => {
     return pendingFiles.reduce((total, file) => total + file.fileSize, 0);
@@ -312,14 +332,24 @@ const ChatInput = ({
     });
   }, []);
 
-  // Send message with files
+  // FIXED: Enhanced key press handler for Enter key
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }, []);
+
+  // FIXED: Improved send message function
   const handleSendMessage = useCallback(async () => {
     const hasText = !!messageText?.trim();
     const hasReadyFiles = pendingFiles.filter(f => f.uploadState === UPLOAD_STATES.READY);
 
-    console.log('🚀 Sending message:', {
+    console.log('🚀 Send button clicked:', {
       hasText,
-      readyFilesCount: hasReadyFiles.length
+      readyFilesCount: hasReadyFiles.length,
+      isSending,
+      isUploadingFiles
     });
 
     // Basic validation
@@ -328,34 +358,43 @@ const ChatInput = ({
       return;
     }
 
+    if (isSending || isUploadingFiles) {
+      console.log('⏳ Already sending/uploading, skipping...');
+      return;
+    }
+
     if (isAIChat && hasReadyFiles.length > 0) {
       toast.warning('AI chat does not support file uploads');
       return;
     }
 
+    // FIXED: Check if session is active/ready for chat
     const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
     if (!baseCanSend && !hasReadyFiles.length) {
-      toast.warning('Chat is not available');
+      toast.warning('Chat is not available - session may not be active');
       return;
     }
 
     if (!hasText && !hasReadyFiles.length) {
+      console.log('⚠️ No content to send');
       return;
     }
 
     try {
-      // Send text message if no files
+      // FIXED: Send text message if no files
       if (hasText && hasReadyFiles.length === 0) {
+        console.log('📝 Sending text message...');
         await onSendMessage();
         return;
       }
 
-      // Upload files
+      // FIXED: Upload files with proper error handling
       if (hasReadyFiles.length > 0) {
         if (!onFileUpload) {
           throw new Error('File upload function not available');
         }
 
+        console.log('📤 Starting file upload process...');
         setIsUploadingFiles(true);
 
         // Mark files as uploading
@@ -373,7 +412,9 @@ const ChatInput = ({
         // Upload each file with caption from messageText
         for (const fileItem of hasReadyFiles) {
           try {
-            const caption = messageText?.trim() || '';
+            const caption = hasText ? messageText.trim() : '';
+            console.log('📁 Uploading file:', fileItem.fileName, 'with caption:', caption);
+            
             await onFileUpload(fileItem.file, fileItem.fileType, caption);
             
             // Mark as success
@@ -412,7 +453,7 @@ const ChatInput = ({
         if (uploadSuccessCount > 0) {
           toast.success(`${uploadSuccessCount} file(s) sent`);
           
-          // Clear message text after successful upload
+          // FIXED: Clear message text after successful upload
           onMessageChange('');
           
           // Remove successful files after delay
@@ -436,17 +477,29 @@ const ChatInput = ({
     } finally {
       setIsUploadingFiles(false);
     }
-  }, [messageText, pendingFiles, onSendMessage, onFileUpload, onMessageChange, selectedConversation, isAIChat, canSendMessage]);
+  }, [messageText, pendingFiles, onSendMessage, onFileUpload, onMessageChange, selectedConversation, isAIChat, canSendMessage, isSending, isUploadingFiles]);
+
+  // FIXED: Check if chat input should be disabled
+  const isChatDisabled = useMemo(() => {
+    if (!selectedConversation) return true;
+    
+    // AI chat is always enabled
+    if (selectedConversation.isTeamChat) return false;
+    
+    // FIXED: Disable chat if only automated messages exist and session is not active
+    const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
+    return !baseCanSend;
+  }, [selectedConversation, canSendMessage]);
 
   // Check capabilities
   const canUploadFiles = useMemo(() => {
     if (isAIChat) return false;
     if (!selectedConversation) return false;
     if (isUploadingFiles) return false;
+    if (isChatDisabled) return false;
     
-    const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
-    return baseCanSend;
-  }, [isAIChat, selectedConversation, isUploadingFiles, canSendMessage]);
+    return true;
+  }, [isAIChat, selectedConversation, isUploadingFiles, isChatDisabled]);
 
   const canSend = useMemo(() => {
     const hasText = !!messageText?.trim();
@@ -454,13 +507,11 @@ const ChatInput = ({
     
     if (!selectedConversation) return false;
     if (isSending || isUploadingFiles) return false;
+    if (isChatDisabled && !hasReadyFiles) return false;
     if (isAIChat && hasReadyFiles) return false;
     
-    const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
-    if (!baseCanSend && !hasReadyFiles) return false;
-    
     return hasText || hasReadyFiles;
-  }, [messageText, pendingFiles, selectedConversation, isSending, isUploadingFiles, isAIChat, canSendMessage]);
+  }, [messageText, pendingFiles, selectedConversation, isSending, isUploadingFiles, isChatDisabled, isAIChat]);
 
   return (
     <div className="flex-shrink-0 bg-white border-t border-gray-300 shadow-lg relative z-[100] w-full">
@@ -500,6 +551,20 @@ const ChatInput = ({
         </motion.div>
       )}
 
+      {/* FIXED: Chat disabled warning */}
+      {isChatDisabled && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-yellow-50 px-4 py-2 border-b border-yellow-200 flex items-center gap-3"
+        >
+          <span className="text-yellow-600">⚠️</span>
+          <span className="text-sm text-yellow-700">
+            Chat is disabled - waiting for session to become active
+          </span>
+        </motion.div>
+      )}
+
       {/* Input Area */}
       <div className="px-4 py-4 bg-white">
         <div className="flex flex-col gap-3">
@@ -507,11 +572,11 @@ const ChatInput = ({
             <textarea
               value={messageText}
               onChange={(e) => onMessageChange(e.target.value)}
-              onKeyPress={onKeyPress}
-              placeholder="Type a message here...."
+              onKeyPress={handleKeyPress}
+              placeholder={isChatDisabled ? "Chat is disabled..." : "Type a message here...."}
               className="text-sm leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none w-full min-h-[40px] placeholder-gray-400"
               rows="2"
-              disabled={isSending || isUploadingFiles}
+              disabled={isChatDisabled || isSending || isUploadingFiles}
             />
           </div>
           
@@ -544,12 +609,13 @@ const ChatInput = ({
               <button 
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" 
                 aria-label="Add emoji"
-                disabled={!canSend}
+                disabled={isChatDisabled}
               >
                 <span className="material-icons text-zinc-500 text-xl">sentiment_satisfied_alt</span>
               </button>
             </div>
             
+            {/* FIXED: Send button with better state handling */}
             <button 
               onClick={handleSendMessage}
               disabled={!canSend}
