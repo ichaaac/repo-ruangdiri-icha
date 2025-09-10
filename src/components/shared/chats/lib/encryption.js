@@ -74,9 +74,9 @@ class ChatEncryption {
   }
 
   /**
-   * Encrypt message using AES-256-CBC
-   * Output format (non-JSON to avoid backend JSON parsing):
-   *   enc.v1_<iv-hex>_<ciphertext-base64url>
+  * Encrypt message using AES-256-CBC
+   * Output format (backend-compatible, non-JSON):
+   *   enc.v1:<iv-hex>:<ciphertext-base64>
    */
   encrypt(message, sessionId = '') {
     try {
@@ -105,10 +105,9 @@ class ChatEncryption {
 
       // Build compact, non-JSON token to avoid backend JSON handling
       const ivHex = iv.toString(CryptoJS.enc.Hex);
-      const cipherB64 = encrypted.toString();
-      const cipherB64Url = toBase64Url(cipherB64);
-      // Use underscore separators (safe for many sanitizers)
-      const result = `${ENCRYPTED_PREFIX}${SEP_US}${ivHex}${SEP_US}${cipherB64Url}`;
+      const cipherB64 = encrypted.toString(); // Standard Base64
+      // Use colon separators to match backend parser
+      const result = `${ENCRYPTED_PREFIX}${SEP_COLON}${ivHex}${SEP_COLON}${cipherB64}`;
       
       EncryptionLogger.log('crypto', 'ENCRYPT', {
         sessionId: sessionId?.slice(-8) || 'unknown',

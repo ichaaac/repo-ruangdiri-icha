@@ -312,7 +312,7 @@ export const chatsApi = {
     }
   },
 
-  // FIXED: Get messages with enhanced decryption handling
+  // FIXED: Get messages with enhanced decryption handling and pagination metadata
   async getMessages(sessionId, cursor = null, limit = 10) {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -339,14 +339,36 @@ export const chatsApi = {
 
       console.log('📨 Getting messages for session:', sessionId, 'with params:', params);
       const response = await apiClient.get('/chat/history', { params });
-      
+
       if (response.data?.status === 'success') {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
-        
+
         console.log('📨 Messages response:', response.data);
-        
-        return response.data.data.map(msg => {
+
+        // Normalize payload and metadata from various backend shapes
+        const raw = response.data?.data;
+        let messagesRaw = [];
+        let meta = {};
+
+        if (Array.isArray(raw)) {
+          messagesRaw = raw;
+        } else if (raw?.data && Array.isArray(raw.data)) {
+          messagesRaw = raw.data;
+          meta = raw.metadata || {};
+        } else if (raw?.messages && Array.isArray(raw.messages)) {
+          messagesRaw = raw.messages;
+          meta = raw.metadata || {};
+        } else if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+          messagesRaw = response.data.data.data;
+          meta = response.data.data.metadata || {};
+        } else {
+          // Fallback: try to treat as array
+          messagesRaw = (response.data?.data || []);
+          if (!Array.isArray(messagesRaw)) messagesRaw = [];
+        }
+
+        const mapped = messagesRaw.map(msg => {
           // FIXED: Better message content handling
           let messageContent = msg.message || '';
           
@@ -397,6 +419,19 @@ export const chatsApi = {
             wasDecrypted: msg.messageType !== 'automated' && chatEncryption.isEncrypted(msg.message || '')
           };
         });
+
+        // Build normalized metadata
+        const normalizedMeta = {
+          hasNextPage: (typeof meta?.hasNextPage !== 'undefined')
+            ? !!meta.hasNextPage
+            : (typeof meta?.nextCursor !== 'undefined')
+              ? meta.nextCursor !== null && meta.nextCursor !== ''
+              : (Array.isArray(mapped) && typeof limit === 'number' ? mapped.length === limit : false),
+          nextCursor: meta?.nextCursor ?? meta?.cursor ?? null
+        };
+
+        // Return object with data + metadata for infinite scroll
+        return { data: mapped, metadata: normalizedMeta };
       }
       
       throw new Error(response.data?.message || 'Failed to fetch messages');
