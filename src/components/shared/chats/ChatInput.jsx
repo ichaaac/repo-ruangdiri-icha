@@ -332,13 +332,7 @@ const ChatInput = ({
     });
   }, []);
 
-  // FIXED: Enhanced key press handler for Enter key
-  const handleKeyPress = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, []);
+  // (moved) Keydown handler declared after handleSendMessage to avoid TDZ
 
   // FIXED: Improved send message function
   const handleSendMessage = useCallback(async () => {
@@ -479,6 +473,17 @@ const ChatInput = ({
     }
   }, [messageText, pendingFiles, onSendMessage, onFileUpload, onMessageChange, selectedConversation, isAIChat, canSendMessage, isSending, isUploadingFiles]);
 
+  // Enhanced keydown handler: Enter to send, Shift+Enter for newline
+  const handleTextareaKeyDown = useCallback((e) => {
+    const isEnter = e.key === 'Enter';
+    const isShift = e.shiftKey;
+    const isComposing = e.isComposing || (e.nativeEvent && e.nativeEvent.isComposing);
+    if (isEnter && !isShift && !isComposing) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }, [handleSendMessage]);
+
   // FIXED: Check if chat input should be disabled
   const isChatDisabled = useMemo(() => {
     if (!selectedConversation) return true;
@@ -572,7 +577,7 @@ const ChatInput = ({
             <textarea
               value={messageText}
               onChange={(e) => onMessageChange(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleTextareaKeyDown}
               placeholder={isChatDisabled ? "Chat is disabled..." : "Type a message here...."}
               className="text-sm leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none w-full min-h-[40px] placeholder-gray-400"
               rows="2"
