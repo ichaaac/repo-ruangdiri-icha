@@ -282,7 +282,7 @@ const PsychologistProfile = ({
             />
 
             <Field
-              label="Lama Praktik (tahun)"
+              label="Lama Praktik"
               fieldType="yearsOfExperience"
               isEditing={isEditing}
               value={String(values.yearsOfExperience ?? "")}
