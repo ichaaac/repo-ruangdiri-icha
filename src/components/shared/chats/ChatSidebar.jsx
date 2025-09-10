@@ -1,8 +1,9 @@
-// src/components/shared/chats/ChatSidebar.jsx - Independent Scroll Design with Fixed "You" Logic
+// src/components/shared/chats/ChatSidebar.jsx - FIXED: Time Rendering
 
 import React, { useState } from 'react';
+import { formatSidebarTime } from './utils/dateUtils';
 
-// Individual message item - Simple design
+// Individual message item with improved time display
 const MessageItem = ({ 
   avatar, 
   name, 
@@ -13,8 +14,14 @@ const MessageItem = ({
   onClick, 
   containerWidth = 384, 
   unreadCount = 0, 
-  hasUnread = false
+  hasUnread = false,
+  lastMessageData = null // FIXED: Add lastMessageData prop
 }) => {
+  // FIXED: Use formatSidebarTime for proper time display
+  const displayTime = lastMessageData?.createdAt ? 
+    formatSidebarTime(lastMessageData.createdAt) : 
+    time;
+
   return (
     <div 
       className={`relative cursor-pointer transition-colors ${isActive ? '' : 'hover:bg-gray-50'}`}
@@ -39,7 +46,7 @@ const MessageItem = ({
           <div className="w-[32px] h-[32px] sm:w-[37px] sm:h-[37px] rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
             {isTeamChat ? (
               <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
-                <span className="text-white text-sm sm:text-lg">💥</span>
+                <span className="text-white text-sm sm:text-lg">🤖</span>
               </div>
             ) : avatar ? (
               <img
@@ -71,7 +78,7 @@ const MessageItem = ({
               </h3>
               
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* TIME - Blue if unread */}
+                {/* FIXED: TIME - Use proper time display */}
                 <time className={`text-xs font-light ${
                   hasUnread 
                     ? 'font-semibold'
@@ -80,7 +87,7 @@ const MessageItem = ({
                 style={{ 
                   color: hasUnread ? '#488BBA' : undefined 
                 }}>
-                  {time}
+                  {displayTime}
                 </time>
                 
                 {/* UNREAD BADGE */}
@@ -202,6 +209,7 @@ const ChatSidebar = ({
                   containerWidth={containerWidth}
                   unreadCount={conversation.unreadCount || 0}
                   hasUnread={conversation.hasUnread || false}
+                  lastMessageData={conversation.lastMessageData} // FIXED: Pass lastMessageData
                 />
               ))}
             </div>
