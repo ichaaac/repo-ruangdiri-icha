@@ -1,6 +1,6 @@
 // src/components/shared/chats/hooks/useMessage.js - Simple Working Version
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
 import { getCurrentTime, getCurrentTimestamp } from '../utils/dateUtils';
@@ -13,6 +13,14 @@ const getCurrentUserId = () => {
     return user.id;
   } catch {
     return null;
+  }
+};
+
+const getCurrentUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
   }
 };
 
@@ -91,6 +99,27 @@ export const useMessages = (sessionId, ably = null) => {
       });
 
       return chatsApi.sendMessage(sessionId, content);
+    },
+    onSuccess: async (result, variables) => {
+      try {
+        const { sessionId, content } = variables || {};
+        if (!sessionId || sessionId === 'team-ruangdiri' || !ably) return;
+
+        // Prepare Ably broadcast payload similar to backend
+        const user = getCurrentUser();
+        const senderFullname = user?.fullName || user?.full_name || user?.name || 'You';
+        const payload = {
+          senderId: getCurrentUserId() || 'current-user',
+          senderFullname,
+          // Always broadcast the encrypted token if available so receivers can decrypt
+          content: result?.sentEncrypted || content,
+          messageType: result?.messageType || 'text',
+          timestamp: result?.timestamp || new Date().toISOString()
+        };
+        await ably.sendMessageViaAbly(sessionId, payload);
+      } catch (error) {
+        MessageLogger.log('warn', 'ABLY_BROADCAST_FAIL', error);
+      }
     },
     onMutate: async ({ sessionId, content }) => {
       await queryClient.cancelQueries({ queryKey: ['chat-messages', sessionId] });

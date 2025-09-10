@@ -1,6 +1,6 @@
 // src/components/shared/chats/hooks/useChats.js - FIXED: Real-time Unread Count Updates
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../../hooks/useAuth';
 import { chatsApi } from '../lib/chatsApi';
@@ -64,6 +64,7 @@ export const useChats = () => {
   
   const ably = useAbly();
   const messages = useMessages(selectedSession?.sessionId, ably);
+  const markAsReadThrottleRef = useRef({});
 
   // Memoize user ID
   const userId = useMemo(() => user?.id, [user?.id]);
@@ -261,22 +262,32 @@ export const useChats = () => {
           ...prev,
           [sessionId]: parsedUnreadCount
         }));
-        
+
         ChatsLogger.log('unread', 'Unread count updated', {
           sessionId: sessionId.slice(-8),
           unreadCount: parsedUnreadCount,
           timestamp
         });
-        
-        // Optionally refresh sessions to sync with backend
-        setTimeout(() => {
-          sessionsQuery.refetch();
-        }, 1000);
+
+        // If this unread update is for the currently open session, mark as read immediately
+        if (selectedSession?.sessionId && selectedSession.sessionId === sessionId) {
+          try {
+            const last = markAsReadThrottleRef.current[sessionId] || 0;
+            const now = Date.now();
+            if (now - last > 1500) {
+              markAsReadThrottleRef.current[sessionId] = now;
+              ChatsLogger.log('unread', 'Auto mark-as-read (socket) for open session', { sessionId });
+              chatsApi.markAsRead(sessionId).catch(() => {});
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
       }
     } catch (error) {
       ChatsLogger.error('Failed to handle unread count update', error);
     }
-  }, [userId, selectedSession?.sessionId, sessionsQuery]);
+  }, [userId, selectedSession?.sessionId]);
 
   // Enhanced Socket.io setup with connection recovery
   useEffect(() => {
@@ -678,13 +689,25 @@ export const useChats = () => {
           sessionId: sessionId.slice(-8),
           unreadCount: parsedUnreadCount
         });
+        // If open session, auto mark-as-read
+        if (selectedSession?.sessionId && selectedSession.sessionId === sessionId) {
+          try {
+            const last = markAsReadThrottleRef.current[sessionId] || 0;
+            const now = Date.now();
+            if (now - last > 1500) {
+              markAsReadThrottleRef.current[sessionId] = now;
+              ChatsLogger.log('unread', 'Auto mark-as-read (ably) for open session', { sessionId });
+              chatsApi.markAsRead(sessionId).catch(() => {});
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
       }
-      
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     } catch (error) {
       ChatsLogger.error('Failed to handle Ably unread count update', error);
     }
-  }, [queryClient, userId]);
+  }, [userId, selectedSession?.sessionId]);
 
   // Setup Ably callbacks with error monitoring
   useEffect(() => {

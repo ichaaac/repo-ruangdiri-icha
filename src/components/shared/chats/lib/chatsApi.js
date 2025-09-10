@@ -522,7 +522,8 @@ export const chatsApi = {
           attachmentName: msg.attachmentName,
           attachmentSize: msg.attachmentSize,
           wasEncrypted: isEncrypted,
-          originalContent: content // Keep original for debugging
+          originalContent: content, // Keep original for debugging
+          sentEncrypted: isEncrypted ? messageToSend : null
         };
         
         console.log('✅ Message processed successfully:', {

@@ -42,6 +42,18 @@ const EncryptionLogger = {
  * Chat Encryption Manager - Using ENV Key
  */
 const ENCRYPTED_PREFIX = 'enc.v1';
+const SEP_COLON = ':';
+const SEP_DOT = '.';
+const SEP_US = '_';
+
+// base64url helpers
+const toBase64Url = (b64) => b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+const fromBase64Url = (b64url) => {
+  let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = b64.length % 4;
+  if (pad) b64 += '='.repeat(4 - pad);
+  return b64;
+};
 
 class ChatEncryption {
   constructor() {
@@ -64,7 +76,7 @@ class ChatEncryption {
   /**
    * Encrypt message using AES-256-CBC
    * Output format (non-JSON to avoid backend JSON parsing):
-   *   enc.v1:<iv-hex>:<ciphertext-base64>
+   *   enc.v1_<iv-hex>_<ciphertext-base64url>
    */
   encrypt(message, sessionId = '') {
     try {
@@ -94,7 +106,9 @@ class ChatEncryption {
       // Build compact, non-JSON token to avoid backend JSON handling
       const ivHex = iv.toString(CryptoJS.enc.Hex);
       const cipherB64 = encrypted.toString();
-      const result = `${ENCRYPTED_PREFIX}:${ivHex}:${cipherB64}`;
+      const cipherB64Url = toBase64Url(cipherB64);
+      // Use underscore separators (safe for many sanitizers)
+      const result = `${ENCRYPTED_PREFIX}${SEP_US}${ivHex}${SEP_US}${cipherB64Url}`;
       
       EncryptionLogger.log('crypto', 'ENCRYPT', {
         sessionId: sessionId?.slice(-8) || 'unknown',
@@ -130,15 +144,35 @@ class ChatEncryption {
       let ivHex;
       let cipherText;
 
-      // New compact format enc.v1:<iv-hex>:<cipher-b64>
-      if (typeof encryptedMessage === 'string' && encryptedMessage.startsWith(ENCRYPTED_PREFIX + ':')) {
-        const parts = encryptedMessage.split(':');
-        if (parts.length >= 3) {
-          ivHex = parts[1];
-          // Join the rest to be safe in case ':' appears (shouldn't for base64, but robust)
-          cipherText = parts.slice(2).join(':');
+      // Compact formats:
+      // - enc.v1:<iv-hex>:<cipher-b64>
+      // - enc.v1.<iv-hex>.<cipher-b64url>
+      // - enc.v1_<iv-hex>_<cipher-b64url>
+      if (typeof encryptedMessage === 'string' && encryptedMessage.startsWith(ENCRYPTED_PREFIX)) {
+        if (encryptedMessage[ENCRYPTED_PREFIX.length] === SEP_COLON) {
+          const parts = encryptedMessage.split(SEP_COLON);
+          if (parts.length >= 3) {
+            ivHex = parts[1];
+            cipherText = parts.slice(2).join(SEP_COLON);
+          }
+        } else if (encryptedMessage[ENCRYPTED_PREFIX.length] === SEP_DOT) {
+          const parts = encryptedMessage.split(SEP_DOT);
+          if (parts.length >= 3) {
+            ivHex = parts[1];
+            const b64 = fromBase64Url(parts.slice(2).join(SEP_DOT));
+            cipherText = b64;
+          }
+        } else if (encryptedMessage[ENCRYPTED_PREFIX.length] === SEP_US) {
+          const parts = encryptedMessage.split(SEP_US);
+          if (parts.length >= 3) {
+            ivHex = parts[1];
+            const b64 = fromBase64Url(parts.slice(2).join(SEP_US));
+            cipherText = b64;
+          }
         }
-      } else {
+      }
+
+      if (!ivHex || !cipherText) {
         // Legacy JSON format { iv, data, version }
         try {
           const parsed = JSON.parse(encryptedMessage);
@@ -153,11 +187,6 @@ class ChatEncryption {
           EncryptionLogger.log('warn', 'DECRYPT', 'Message not in encrypted format, returning as-is');
           return encryptedMessage;
         }
-      }
-
-      if (!ivHex || !cipherText) {
-        EncryptionLogger.log('warn', 'DECRYPT', 'Missing IV or ciphertext');
-        return encryptedMessage;
       }
 
       const iv = CryptoJS.enc.Hex.parse(ivHex);
@@ -193,7 +222,11 @@ class ChatEncryption {
    */
   isEncrypted(message) {
     if (!message || typeof message !== 'string') return false;
-    if (message.startsWith(ENCRYPTED_PREFIX + ':')) return true;
+    if (
+      message.startsWith(ENCRYPTED_PREFIX + SEP_COLON) ||
+      message.startsWith(ENCRYPTED_PREFIX + SEP_DOT) ||
+      message.startsWith(ENCRYPTED_PREFIX + SEP_US)
+    ) return true;
     try {
       const parsed = JSON.parse(message);
       return !!(parsed.iv && parsed.data);
