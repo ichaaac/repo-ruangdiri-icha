@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/ChatMessages.jsx - FIXED: WhatsApp-style Date Grouping
+// src/components/shared/chats/components/ChatMessages.jsx - FIXED: Reduced Gap & Better Layout
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,6 +59,7 @@ const ChatMessages = ({
           scrollbarColor: '#6B7280 #E5E7EB'
         }}
       >
+        {/* FIXED: Improved container with better spacing */}
         <div className="flex flex-col items-center py-4 min-h-full">
           {/* Load More Button/Indicator */}
           {hasMoreMessages && (
@@ -81,8 +82,9 @@ const ChatMessages = ({
             </div>
           )}
 
+          {/* FIXED: Session Status Warning with better spacing */}
           {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md mb-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mx-4 max-w-md mb-6">
               <div className="flex items-center gap-2 text-center">
                 <span className="text-yellow-600">⚠️</span>
                 <div className="text-sm text-yellow-800">
@@ -94,19 +96,19 @@ const ChatMessages = ({
             </div>
           )}
 
-          {/* FIXED: Render messages grouped by date with individual date headers */}
-          <div className="flex flex-col gap-6 w-full max-w-full pb-32">
+          {/* FIXED: Messages with optimized spacing */}
+          <div className="flex flex-col gap-4 w-full max-w-full pb-4"> {/* REDUCED: from pb-32 to pb-4 */}
             {messageGroups.length > 0 ? (
               messageGroups.map((group, groupIndex) => (
                 <div key={group.date || groupIndex} className="w-full">
                   {/* Date Header - WhatsApp style floating header */}
-                  <div className="flex justify-center mb-4">
+                  <div className="flex justify-center mb-3"> {/* REDUCED: from mb-4 to mb-3 */}
                     <time className="text-[11px] font-medium text-gray-400 tracking-wide">
                       {group.dateHeader}
                     </time>
                   </div>
-                  {/* Messages in this date group */}
-                  <div className="flex flex-col gap-4">
+                  {/* Messages in this date group with tighter spacing */}
+                  <div className="flex flex-col gap-3"> {/* REDUCED: from gap-4 to gap-3 */}
                     <AnimatePresence>
                       {group.messages.map((message) => (
                         <MessageBubble
@@ -122,7 +124,7 @@ const ChatMessages = ({
                           attachmentType={message.attachmentType}
                           attachmentName={message.attachmentName}
                           attachmentSize={message.attachmentSize}
-                          messageData={message} // Pass full message data for status
+                          messageData={message}
                         />
                       ))}
                     </AnimatePresence>
@@ -143,11 +145,11 @@ const ChatMessages = ({
               </div>
             )}
 
-            {/* Auto-scroll anchor - FIXED: Minimal spacing */}
+            {/* FIXED: Auto-scroll anchor with minimal spacing */}
             <div 
               ref={messagesEndRef} 
               style={{ 
-                height: '20px', // Minimal space for input
+                height: '8px', // REDUCED: from 20px to 8px for minimal gap
                 visibility: 'hidden' 
               }} 
             />
