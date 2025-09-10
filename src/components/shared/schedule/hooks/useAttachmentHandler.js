@@ -32,10 +32,22 @@ export const useAttachmentHandler = (initialData = null, organizationType = 'sch
     },
   });
 
-  // Delete attachment mutation
-  const deleteAttachmentMutation = useMutation({
-    mutationFn: async ({ scheduleId, attachmentId }) => {
-      const response = await apiClient.delete(`/schedules/${scheduleId}/attachments/${attachmentId}`);
+ const deleteAttachmentMutation = useMutation({
+    mutationFn: async ({ scheduleId, attachmentId, date, startTime, endTime }) => {
+      // URL diubah, tanpa attachmentId di akhir
+      const url = `/schedules/${scheduleId}/attachments`;
+      
+      // Data yang akan dikirim di body
+      const body = { 
+        attachmentId, // Asumsi backend butuh ini di body
+        date, 
+        startTime, 
+        endTime 
+      };
+
+      // Mengirim request DELETE dengan body
+      const response = await apiClient.delete(url, { data: body });
+      
       return { scheduleId, attachmentId, success: true, data: response.data };
     },
   });
@@ -149,9 +161,21 @@ export const useAttachmentHandler = (initialData = null, organizationType = 'sch
           label: 'Ya, Hapus',
           onClick: async () => {
             try {
+              // Ambil info tanggal dari jadwal yang ada
+              const dateInfo = initialData.dates?.[0];
+
+              if (!dateInfo) {
+                  toast.error("Data tanggal jadwal tidak ditemukan, tidak bisa hapus lampiran.");
+                  return;
+              }
+
+              // Panggil mutation dengan payload yang lengkap untuk body
               await deleteAttachmentMutation.mutateAsync({
                 scheduleId: initialData.id,
                 attachmentId: attachmentToRemove.id,
+                date: dateInfo.date,
+                startTime: dateInfo.startTime,
+                endTime: dateInfo.endTime,
               });
 
               // Remove from local state after successful deletion
