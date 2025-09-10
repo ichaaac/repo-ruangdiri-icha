@@ -41,6 +41,8 @@ const EncryptionLogger = {
 /**
  * Chat Encryption Manager - Using ENV Key
  */
+const ENCRYPTED_PREFIX = 'enc.v1';
+
 class ChatEncryption {
   constructor() {
     this.encryptionKey = getEncryptionKey();
@@ -61,6 +63,8 @@ class ChatEncryption {
 
   /**
    * Encrypt message using AES-256-CBC
+   * Output format (non-JSON to avoid backend JSON parsing):
+   *   enc.v1:<iv-hex>:<ciphertext-base64>
    */
   encrypt(message, sessionId = '') {
     try {
@@ -87,20 +91,16 @@ class ChatEncryption {
         padding: ENCRYPTION_CONFIG.padding
       });
 
-      // Combine IV + encrypted data
-      const encryptedData = {
-        iv: iv.toString(CryptoJS.enc.Hex),
-        data: encrypted.toString(),
-        version: '1.0'
-      };
-
-      const result = JSON.stringify(encryptedData);
+      // Build compact, non-JSON token to avoid backend JSON handling
+      const ivHex = iv.toString(CryptoJS.enc.Hex);
+      const cipherB64 = encrypted.toString();
+      const result = `${ENCRYPTED_PREFIX}:${ivHex}:${cipherB64}`;
       
       EncryptionLogger.log('crypto', 'ENCRYPT', {
         sessionId: sessionId?.slice(-8) || 'unknown',
         originalLength: message.length,
         encryptedLength: result.length,
-        hasIV: !!encryptedData.iv
+        hasIV: !!ivHex
       });
 
       return result;
@@ -112,6 +112,7 @@ class ChatEncryption {
 
   /**
    * Decrypt message using AES-256-CBC
+   * Supports both compact token and legacy JSON payloads.
    */
   decrypt(encryptedMessage, sessionId = '') {
     try {
@@ -125,28 +126,44 @@ class ChatEncryption {
         return encryptedMessage;
       }
 
-      // Try to parse as JSON (encrypted format)
-      let encryptedData;
-      try {
-        encryptedData = JSON.parse(encryptedMessage);
-      } catch {
-        EncryptionLogger.log('warn', 'DECRYPT', 'Message not in encrypted format, returning as-is');
-        return encryptedMessage; // Not encrypted, return as-is
+      const key = CryptoJS.enc.Hex.parse(this.encryptionKey);
+      let ivHex;
+      let cipherText;
+
+      // New compact format enc.v1:<iv-hex>:<cipher-b64>
+      if (typeof encryptedMessage === 'string' && encryptedMessage.startsWith(ENCRYPTED_PREFIX + ':')) {
+        const parts = encryptedMessage.split(':');
+        if (parts.length >= 3) {
+          ivHex = parts[1];
+          // Join the rest to be safe in case ':' appears (shouldn't for base64, but robust)
+          cipherText = parts.slice(2).join(':');
+        }
+      } else {
+        // Legacy JSON format { iv, data, version }
+        try {
+          const parsed = JSON.parse(encryptedMessage);
+          if (parsed && parsed.iv && parsed.data) {
+            ivHex = parsed.iv;
+            cipherText = parsed.data;
+          } else {
+            EncryptionLogger.log('warn', 'DECRYPT', 'Invalid encrypted payload structure');
+            return encryptedMessage;
+          }
+        } catch {
+          EncryptionLogger.log('warn', 'DECRYPT', 'Message not in encrypted format, returning as-is');
+          return encryptedMessage;
+        }
       }
 
-      // Validate encrypted data structure
-      if (!encryptedData.iv || !encryptedData.data) {
-        EncryptionLogger.log('warn', 'DECRYPT', 'Invalid encrypted data structure');
+      if (!ivHex || !cipherText) {
+        EncryptionLogger.log('warn', 'DECRYPT', 'Missing IV or ciphertext');
         return encryptedMessage;
       }
 
-      // Parse key and IV
-      const key = CryptoJS.enc.Hex.parse(this.encryptionKey);
-      const iv = CryptoJS.enc.Hex.parse(encryptedData.iv);
+      const iv = CryptoJS.enc.Hex.parse(ivHex);
 
-      // Decrypt the message
-      const decrypted = CryptoJS.AES.decrypt(encryptedData.data, key, {
-        iv: iv,
+      const decrypted = CryptoJS.AES.decrypt(cipherText, key, {
+        iv,
         mode: ENCRYPTION_CONFIG.mode,
         padding: ENCRYPTION_CONFIG.padding
       });
@@ -161,7 +178,7 @@ class ChatEncryption {
         sessionId: sessionId?.slice(-8) || 'unknown',
         encryptedLength: encryptedMessage.length,
         decryptedLength: decryptedMessage.length,
-        version: encryptedData.version
+        version: encryptedMessage.startsWith(ENCRYPTED_PREFIX) ? '1.0' : 'legacy-json'
       });
 
       return decryptedMessage;
@@ -176,10 +193,10 @@ class ChatEncryption {
    */
   isEncrypted(message) {
     if (!message || typeof message !== 'string') return false;
-    
+    if (message.startsWith(ENCRYPTED_PREFIX + ':')) return true;
     try {
       const parsed = JSON.parse(message);
-      return !!(parsed.iv && parsed.data && parsed.version);
+      return !!(parsed.iv && parsed.data);
     } catch {
       return false;
     }

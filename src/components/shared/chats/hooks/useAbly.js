@@ -1,8 +1,9 @@
-// src/components/shared/chats/hooks/useAbly.js - UPDATED: Single Channel Architecture
+// src/components/shared/chats/hooks/useAbly.js - FIXED: Message Decryption & Unread Count Updates
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Ably from 'ably';
 import { chatsApi } from '../lib/chatsApi';
+import chatEncryption from '../lib/encryption';
 import notificationSocket from '../../notifications/lib/socket';
 import { installAblyErrorHandler } from '../utils/ablyErrorHandler';
 
@@ -19,7 +20,8 @@ const AblyLogger = {
       info: 'color: #4FC3F7; font-weight: bold;',
       success: 'color: #66BB6A; font-weight: bold;',
       debug: 'color: #9575CD; font-weight: bold;',
-      event: 'color: #26A69A; font-weight: bold;'
+      event: 'color: #26A69A; font-weight: bold;',
+      crypto: 'color: #FF9800; font-weight: bold;'
     };
 
     console.log(
@@ -31,7 +33,6 @@ const AblyLogger = {
     );
   },
 
-  // NEW: Log all message names during rollout (as suggested by backend team)
   logMessageName: (msgName, channelName, data = null) => {
     console.log(
       `%c[ABLY-EVENT] ${msgName.toUpperCase()}`,
@@ -42,7 +43,6 @@ const AblyLogger = {
   },
 
   logAblyMessage: (message, channelName, eventType) => {
-    // Log the message name for easy tracking during rollout
     if (message.name) {
       AblyLogger.logMessageName(message.name, channelName, message.data);
     }
@@ -50,7 +50,7 @@ const AblyLogger = {
     console.group(`📨 ABLY MESSAGE RECEIVED`);
     console.log('⏰ Timestamp:', new Date().toLocaleTimeString('id-ID'));
     console.log('📡 Channel:', channelName);
-    console.log('🏷 Event Name (msg.name):', message.name); // NEW: Focus on msg.name
+    console.log('🏷️ Event Name (msg.name):', message.name);
     console.log('🎯 Event Type:', eventType);
     console.log('🆔 Message ID:', message.id);
     console.log('👤 Client ID:', message.clientId);
@@ -92,28 +92,16 @@ const AblyLogger = {
   }
 };
 
-// Simple Message processing
-const MessageProcessor = {
-  process: (message) => {
-    AblyLogger.log('debug', 'PROCESS', 'Processing message', { message });
-    return message;
-  },
-  unprocess: (processedMessage) => {
-    AblyLogger.log('debug', 'PROCESS', 'Unprocessing message', { processedMessage });
-    return processedMessage;
-  }
-};
-
 export const useAbly = () => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [isTyping, setIsTyping] = useState(false);
 
   const ablyRef = useRef(null);
-  const chatChannelRef = useRef(null); // UPDATED: Only single chat channel
+  const chatChannelRef = useRef(null);
   const currentSessionRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const tokenRefreshIntervalRef = useRef(null);
-  const messagesCacheRef = useRef(new Map()); // NEW: For deduplication
+  const messagesCacheRef = useRef(new Map());
   
   // Callback refs
   const onMessageRef = useRef(null);
@@ -160,7 +148,7 @@ export const useAbly = () => {
     onUnreadCountRef.current = callbacks.onUnreadCount || null;
   }, []);
 
-  // NEW: Deduplication helper
+  // FIXED: Enhanced deduplication helper
   const isDuplicateMessage = useCallback((message) => {
     const key = message.id || `${message.timestamp}-${message.data?.senderId}-${message.data?.message}`;
     if (messagesCacheRef.current.has(key)) {
@@ -179,7 +167,34 @@ export const useAbly = () => {
     return false;
   }, []);
 
-  // UPDATED: Single channel connect function
+  // FIXED: Message decryption helper
+  const decryptMessageContent = useCallback((encryptedMessage, sessionId) => {
+    try {
+      if (!encryptedMessage || typeof encryptedMessage !== 'string') {
+        AblyLogger.log('warn', 'DECRYPT', 'Invalid encrypted message input');
+        return encryptedMessage;
+      }
+
+      // Check if message is in encrypted format
+      if (chatEncryption.isEncrypted(encryptedMessage)) {
+        const decrypted = chatEncryption.decrypt(encryptedMessage, sessionId);
+        AblyLogger.log('crypto', 'DECRYPT', 'Message decrypted from Ably', {
+          sessionId: sessionId?.slice(-8),
+          originalLength: encryptedMessage.length,
+          decryptedLength: decrypted.length
+        });
+        return decrypted;
+      } else {
+        AblyLogger.log('debug', 'DECRYPT', 'Message not encrypted, using as-is');
+        return encryptedMessage;
+      }
+    } catch (error) {
+      AblyLogger.log('error', 'DECRYPT', 'Failed to decrypt message from Ably', error);
+      return encryptedMessage; // Return original on error
+    }
+  }, []);
+
+  // UPDATED: Single channel connect function with decryption
   const connect = useCallback(async (sessionId, userId) => {
     try {
       currentSessionRef.current = sessionId;
@@ -257,10 +272,9 @@ export const useAbly = () => {
         return false;
       }
 
-      // UPDATED: Log only channels.chat (no more typing channel)
       AblyLogger.log('success', 'TOKEN', 'Ably token received', {
         sessionId: tokenData.sessionId,
-        chatChannel: tokenData.channels?.chat || tokenData.channels, // Handle both old/new format
+        chatChannel: tokenData.channels?.chat || tokenData.channels,
         expiresAt: tokenData.expiresAt
       });
 
@@ -285,7 +299,7 @@ export const useAbly = () => {
 
       ablyRef.current = ably;
 
-      // UPDATED: Get only the chat channel
+      // Get chat channel
       const chatChannelName = tokenData.channels?.chat || tokenData.channels;
       const chatChannel = ably.channels.get(chatChannelName);
       chatChannelRef.current = chatChannel;
@@ -294,31 +308,59 @@ export const useAbly = () => {
         chatChannel: chatChannelName
       });
 
-      // UPDATED: Single event handler that routes by msg.name
+      // FIXED: Enhanced channel message handler with decryption
       const handleChannelMessage = (message) => {
         AblyLogger.logAblyMessage(message, chatChannelName, 'ALL_EVENTS');
         
-        // NEW: Check for duplicates
+        // Check for duplicates
         if (isDuplicateMessage(message)) {
           return;
         }
         
-        // UPDATED: Route by message.name instead of channel
+        // Route by message.name
         const eventName = message.name;
-        const messageData = message.data;
+        let messageData = message.data;
+        
+        // Parse JSON data if it's a string
+        if (typeof messageData === 'string') {
+          try {
+            messageData = JSON.parse(messageData);
+          } catch (error) {
+            AblyLogger.log('warn', 'PARSE', 'Failed to parse message data as JSON', error);
+          }
+        }
         
         switch (eventName) {
           case 'message':
             AblyLogger.log('info', 'MESSAGE', 'Processing chat message');
-            const processedData = MessageProcessor.unprocess(messageData);
-            if (processedData.senderId !== userId && onMessageRef.current) {
-              AblyLogger.log('info', 'MESSAGE', 'Forwarding to message handler', {
-                senderId: processedData.senderId,
-                currentUserId: userId,
-                messageType: processedData.messageType,
-                hasText: !!processedData.message
+            
+            // FIXED: Decrypt message content if present
+            if (messageData.content || messageData.message) {
+              const encryptedContent = messageData.content || messageData.message;
+              const decryptedContent = decryptMessageContent(encryptedContent, sessionId);
+              
+              // Update messageData with decrypted content
+              messageData = {
+                ...messageData,
+                content: decryptedContent,
+                message: decryptedContent, // Ensure both fields are updated
+                wasDecrypted: encryptedContent !== decryptedContent
+              };
+              
+              AblyLogger.log('crypto', 'MESSAGE', 'Message content processed', {
+                wasEncrypted: messageData.wasDecrypted,
+                contentLength: decryptedContent?.length || 0
               });
-              onMessageRef.current(processedData);
+            }
+            
+            if (messageData.senderId !== userId && onMessageRef.current) {
+              AblyLogger.log('info', 'MESSAGE', 'Forwarding to message handler', {
+                senderId: messageData.senderId,
+                currentUserId: userId,
+                messageType: messageData.messageType,
+                hasText: !!(messageData.message || messageData.content)
+              });
+              onMessageRef.current(messageData);
             }
             break;
 
@@ -359,42 +401,83 @@ export const useAbly = () => {
 
           case 'unread_count_update':
             AblyLogger.log('info', 'UNREAD', 'Processing unread count update', messageData);
+            
+            // FIXED: Enhanced unread count handling
             if (onUnreadCountRef.current) {
-              onUnreadCountRef.current(messageData);
+              try {
+                // Parse unreadCount if it's a string
+                const parsedData = {
+                  ...messageData,
+                  unreadCount: typeof messageData.unreadCount === 'string' 
+                    ? parseInt(messageData.unreadCount, 10) 
+                    : messageData.unreadCount
+                };
+
+                // If sessionId is not provided in payload, infer from channel name
+                if (!parsedData.sessionId && typeof chatChannelName === 'string') {
+                  const parts = chatChannelName.split(':');
+                  const maybeSessionId = parts[parts.length - 1];
+                  if (maybeSessionId && maybeSessionId !== 'chat' && maybeSessionId !== 'session') {
+                    parsedData.sessionId = maybeSessionId;
+                  }
+                }
+                
+                AblyLogger.log('info', 'UNREAD', 'Processed unread count', {
+                  userId: parsedData.userId,
+                  sessionId: parsedData.sessionId,
+                  unreadCount: parsedData.unreadCount,
+                  timestamp: parsedData.timestamp
+                });
+                
+                onUnreadCountRef.current(parsedData);
+              } catch (error) {
+                AblyLogger.log('error', 'UNREAD', 'Failed to process unread count', error);
+              }
             }
             break;
 
           case 'user_presence':
             AblyLogger.log('info', 'PRESENCE', 'Processing user presence', messageData);
-            // Handle presence if needed
             break;
 
           case 'delivery_receipt':
           case 'read_receipt':
           case 'message_read':
             AblyLogger.log('info', 'RECEIPT', `Processing ${eventName}`, messageData);
-            // Handle message status updates
+            // TODO: Handle message status updates
             break;
 
           case 'file_upload':
             AblyLogger.log('info', 'FILE', 'Processing file upload', messageData);
-            if (onMessageRef.current) {
-              onMessageRef.current({
+            
+            // FIXED: Decrypt file caption/message if present
+            if (messageData.content || messageData.message) {
+              const encryptedContent = messageData.content || messageData.message;
+              const decryptedContent = decryptMessageContent(encryptedContent, sessionId);
+              
+              messageData = {
                 ...messageData,
+                content: decryptedContent,
+                message: decryptedContent,
                 messageType: 'file',
-                isFileUpload: true
-              });
+                isFileUpload: true,
+                wasDecrypted: encryptedContent !== decryptedContent
+              };
+            }
+            
+            if (onMessageRef.current) {
+              onMessageRef.current(messageData);
             }
             break;
 
           case 'notification':
             AblyLogger.log('info', 'NOTIFICATION', 'Processing notification', messageData);
-            // Handle notifications
             break;
 
-          // Handle automated messages (backward compatibility)
           case 'automated_message':
             AblyLogger.log('info', 'AUTOMATED', 'Processing automated message', messageData);
+            
+            // FIXED: Don't decrypt automated messages
             if (onMessageRef.current) {
               onMessageRef.current({
                 ...messageData,
@@ -427,7 +510,7 @@ export const useAbly = () => {
         AblyLogger.logChannel(chatChannelName, 'SUSPENDED', 'Chat channel suspended');
       });
 
-      // UPDATED: Subscribe once to the chat channel for all events
+      // Subscribe to chat channel for all events
       AblyLogger.log('info', 'SUBSCRIBE', 'Subscribing to single chat channel for all events...');
       chatChannel.subscribe(handleChannelMessage);
 
@@ -482,15 +565,14 @@ export const useAbly = () => {
       handleConnectionStatusChange('failed');
       return false;
     }
-  }, [handleConnectionStatusChange, isDuplicateMessage]);
+  }, [handleConnectionStatusChange, isDuplicateMessage, decryptMessageContent]);
 
-  // UPDATED: Improved disconnect function
+  // Other functions remain the same but with encryption logging
   const disconnect = useCallback(() => {
     AblyLogger.log('info', 'DISCONNECT', 'Disconnecting chat...');
     
     isCleaningUpRef.current = true;
     
-    // Clear intervals and timeouts
     if (tokenRefreshIntervalRef.current) {
       clearInterval(tokenRefreshIntervalRef.current);
       tokenRefreshIntervalRef.current = null;
@@ -501,7 +583,6 @@ export const useAbly = () => {
       typingTimeoutRef.current = null;
     }
 
-    // Remove socket.io listeners
     try {
       notificationSocket.off('chat:enable-chat');
       notificationSocket.off('chat:initial-message');
@@ -509,7 +590,6 @@ export const useAbly = () => {
       AblyLogger.log('warn', 'SOCKET', 'Error removing socket listeners', error);
     }
 
-    // UPDATED: Unsubscribe from single chat channel
     if (chatChannelRef.current) {
       try {
         AblyLogger.log('info', 'UNSUBSCRIBE', 'Unsubscribing from chat channel...');
@@ -521,7 +601,6 @@ export const useAbly = () => {
 
     chatChannelRef.current = null;
 
-    // Close Ably connection
     if (ablyRef.current) {
       try {
         AblyLogger.log('info', 'CLOSE', 'Closing Ably connection...');
@@ -538,7 +617,6 @@ export const useAbly = () => {
       ablyRef.current = null;
     }
 
-    // Clear cache and reset state
     messagesCacheRef.current.clear();
     currentSessionRef.current = null;
     setIsTyping(false);
@@ -551,7 +629,6 @@ export const useAbly = () => {
     AblyLogger.log('success', 'DISCONNECT', 'Chat disconnected successfully');
   }, []);
 
-  // UPDATED: Send typing via single channel with 'typing' event name
   const sendTyping = useCallback(async (sessionId, isTyping, userId) => {
     if (sessionId === 'team-ruangdiri') return;
 
@@ -565,13 +642,11 @@ export const useAbly = () => {
     AblyLogger.logSendAttempt('TYPING', typingData);
 
     try {
-      // UPDATED: Send via single chat channel with 'typing' event name
       if (ablyRef.current && chatChannelRef.current && connectionStatus === 'connected') {
         AblyLogger.log('info', 'TYPING', 'Sending typing via Ably chat channel');
         await chatChannelRef.current.publish('typing', typingData);
         AblyLogger.log('success', 'TYPING', 'Typing sent via Ably successfully');
       } else {
-        // Fallback to API
         AblyLogger.log('info', 'TYPING', 'Sending typing via API fallback');
         await chatsApi.sendTypingIndicator(sessionId, isTyping);
         AblyLogger.log('success', 'TYPING', 'Typing sent via API successfully');
@@ -587,7 +662,6 @@ export const useAbly = () => {
     }
   }, [connectionStatus]);
 
-  // UPDATED: Send message via single channel with 'message' event name
   const sendMessageViaAbly = useCallback(async (sessionId, messageData) => {
     if (sessionId === 'team-ruangdiri') return false;
 
@@ -595,10 +669,8 @@ export const useAbly = () => {
 
     try {
       if (ablyRef.current && chatChannelRef.current && connectionStatus === 'connected') {
-        const processedData = MessageProcessor.process(messageData);
-        
         AblyLogger.log('info', 'MESSAGE', 'Broadcasting message via Ably chat channel');
-        await chatChannelRef.current.publish('message', processedData);
+        await chatChannelRef.current.publish('message', messageData);
         AblyLogger.log('success', 'MESSAGE', 'Message broadcasted via Ably successfully');
         return true;
       } else {
@@ -615,7 +687,6 @@ export const useAbly = () => {
     return false;
   }, [connectionStatus]);
 
-  // Other functions remain the same
   const handleTyping = useCallback((sessionId, userId, text) => {
     if (!sessionId || sessionId === 'team-ruangdiri') return;
 
@@ -652,7 +723,6 @@ export const useAbly = () => {
     }, 1000 + Math.random() * 2000);
   }, []);
 
-  // UPDATED: Connection info with single channel
   const getConnectionInfo = useCallback(() => {
     const info = {
       status: connectionStatus,
@@ -666,7 +736,8 @@ export const useAbly = () => {
       connectionId: ablyRef.current?.connection?.id,
       clientId: ablyRef.current?.connection?.clientId,
       isCleaningUp: isCleaningUpRef.current,
-      cacheSize: messagesCacheRef.current.size
+      cacheSize: messagesCacheRef.current.size,
+      encryptionEnabled: chatEncryption.getStatus().isEnabled
     };
     
     AblyLogger.log('debug', 'INFO', 'Connection info requested', info);
@@ -678,11 +749,11 @@ export const useAbly = () => {
     if (typeof window !== 'undefined') {
       window.ablyDebug = {
         logger: AblyLogger,
-        processor: MessageProcessor,
         connection: getConnectionInfo,
         ably: ablyRef.current,
         chatChannel: chatChannelRef.current,
         messageCache: messagesCacheRef.current,
+        encryption: chatEncryption,
         forceLog: (level, category, message, data) => {
           AblyLogger.log(level, category, message, data);
         }
@@ -713,7 +784,7 @@ export const useAbly = () => {
     setCallbacks,
     getConnectionInfo,
     logger: AblyLogger,
-    processor: MessageProcessor
+    decryptMessage: decryptMessageContent
   }), [
     connectionStatus,
     isTyping,
@@ -724,6 +795,7 @@ export const useAbly = () => {
     sendMessageViaAbly,
     simulateAITyping,
     setCallbacks,
-    getConnectionInfo
+    getConnectionInfo,
+    decryptMessageContent
   ]);
 };

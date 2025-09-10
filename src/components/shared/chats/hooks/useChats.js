@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - FIXED: Better Cleanup Handling
+// src/components/shared/chats/hooks/useChats.js - FIXED: Real-time Unread Count Updates
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,7 +20,8 @@ const ChatsLogger = {
         info: 'color: #4FC3F7; font-weight: bold;',
         success: 'color: #66BB6A; font-weight: bold;',
         debug: 'color: #9575CD; font-weight: bold;',
-        retry: 'color: #FF9800; font-weight: bold;'
+        retry: 'color: #FF9800; font-weight: bold;',
+        unread: 'color: #E91E63; font-weight: bold;'
       };
 
       console.log(
@@ -55,6 +56,9 @@ export const useChats = () => {
   const [connectionRetryCount, setConnectionRetryCount] = useState(0);
   const [isRecoveringConnection, setIsRecoveringConnection] = useState(false);
   
+  // FIXED: Track unread counts separately for real-time updates
+  const [unreadCounts, setUnreadCounts] = useState({});
+  
   // Track failed sessions to prevent infinite retries
   const [failedSessions, setFailedSessions] = useState(new Set());
   
@@ -87,6 +91,19 @@ export const useChats = () => {
           historiesCount: histories?.length || 0,
           activeSessionsCount: activeSessions?.length || 0
         });
+        
+        // FIXED: Extract initial unread counts from sessions
+        if (histories && Array.isArray(histories)) {
+          const initialUnreadCounts = {};
+          histories.forEach(session => {
+            if (session.sessionId && session.unreadCount) {
+              initialUnreadCounts[session.sessionId] = parseInt(session.unreadCount, 10) || 0;
+            }
+          });
+          
+          setUnreadCounts(prev => ({ ...prev, ...initialUnreadCounts }));
+          ChatsLogger.log('unread', 'Initial unread counts extracted', initialUnreadCounts);
+        }
         
         return histories;
         
@@ -150,7 +167,7 @@ export const useChats = () => {
     }
   });
 
-  // Memoize filtered sessions
+  // FIXED: Memoize filtered sessions with real-time unread counts
   const filteredSessions = useMemo(() => {
     const sessions = (sessionsQuery.data || []).filter(session => {
       const userRole = user?.role;
@@ -164,10 +181,19 @@ export const useChats = () => {
         
         return isTeamChat || isMyClientSession || isMyPsychologistSession;
       }
+    }).map(session => {
+      // FIXED: Apply real-time unread counts
+      const realTimeUnreadCount = unreadCounts[session.sessionId] || session.unreadCount || 0;
+      
+      return {
+        ...session,
+        unreadCount: realTimeUnreadCount,
+        hasUnread: realTimeUnreadCount > 0 && !session.isTeamChat
+      };
     });
 
     return sessions;
-  }, [sessionsQuery.data, user?.role, userId]);
+  }, [sessionsQuery.data, user?.role, userId, unreadCounts]);
 
   // Enhanced Socket.io event handlers with error recovery
   const handleChatEnableDisable = useCallback((payload) => {
@@ -218,6 +244,40 @@ export const useChats = () => {
     }
   }, [sessionsQuery, selectedSession?.sessionId, messages]);
 
+  // FIXED: Enhanced unread count update handler from socket
+  const handleUnreadCountUpdate = useCallback((payload) => {
+    try {
+      ChatsLogger.log('unread', 'Socket: unread_count_update received', payload);
+      
+      const { sessionId, userId: updateUserId, unreadCount, timestamp } = payload;
+      
+      // Only update if it's for the current user and different session than selected
+      if (updateUserId === userId && sessionId !== selectedSession?.sessionId) {
+        const parsedUnreadCount = typeof unreadCount === 'string' 
+          ? parseInt(unreadCount, 10) 
+          : unreadCount;
+        
+        setUnreadCounts(prev => ({
+          ...prev,
+          [sessionId]: parsedUnreadCount
+        }));
+        
+        ChatsLogger.log('unread', 'Unread count updated', {
+          sessionId: sessionId.slice(-8),
+          unreadCount: parsedUnreadCount,
+          timestamp
+        });
+        
+        // Optionally refresh sessions to sync with backend
+        setTimeout(() => {
+          sessionsQuery.refetch();
+        }, 1000);
+      }
+    } catch (error) {
+      ChatsLogger.error('Failed to handle unread count update', error);
+    }
+  }, [userId, selectedSession?.sessionId, sessionsQuery]);
+
   // Enhanced Socket.io setup with connection recovery
   useEffect(() => {
     const setupSocket = async () => {
@@ -231,13 +291,15 @@ export const useChats = () => {
         notificationSocket.off('chat:enable-chat');
         notificationSocket.off('chat:initial-message'); 
         notificationSocket.off('chat:invalidate');
+        notificationSocket.off('chat:unread_count_update');
 
         // Register event listeners
         notificationSocket.on('chat:enable-chat', handleChatEnableDisable);
         notificationSocket.on('chat:initial-message', handleInitialMessage);
         notificationSocket.on('chat:invalidate', handleChatInvalidate);
+        notificationSocket.on('chat:unread_count_update', handleUnreadCountUpdate);
         
-        ChatsLogger.log('success', 'Socket.io setup completed');
+        ChatsLogger.log('success', 'Socket.io setup completed with unread count listener');
       } catch (error) {
         ChatsLogger.error('Failed to setup Socket.io', error);
         
@@ -255,8 +317,9 @@ export const useChats = () => {
       notificationSocket.off('chat:enable-chat', handleChatEnableDisable);
       notificationSocket.off('chat:initial-message', handleInitialMessage);
       notificationSocket.off('chat:invalidate', handleChatInvalidate);
+      notificationSocket.off('chat:unread_count_update', handleUnreadCountUpdate);
     };
-  }, [handleChatEnableDisable, handleInitialMessage, handleChatInvalidate]);
+  }, [handleChatEnableDisable, handleInitialMessage, handleChatInvalidate, handleUnreadCountUpdate]);
 
   // Check if session should be skipped for Ably connection
   const shouldSkipAblyConnection = useCallback((session) => {
@@ -268,7 +331,7 @@ export const useChats = () => {
     return false;
   }, [failedSessions]);
 
-  // Enhanced session selection with better error handling and no infinite retries
+  // FIXED: Enhanced session selection with unread count reset
   const selectSession = useCallback(async (session, shouldMarkAsRead = true) => {
     if (!session) {
       return;
@@ -281,18 +344,33 @@ export const useChats = () => {
     try {
       setIsRecoveringConnection(true);
       
-      // Mark as read before selecting
+      // FIXED: Mark as read and reset unread count immediately
       if (!session.isTeamChat && session.hasUnread && shouldMarkAsRead) {
         try {
+          // Reset unread count immediately for better UX
+          setUnreadCounts(prev => ({
+            ...prev,
+            [session.sessionId]: 0
+          }));
+          
           await chatsApi.markAsRead(session.sessionId);
           session.hasUnread = false;
           session.unreadCount = 0;
+          
+          ChatsLogger.log('unread', 'Session marked as read', {
+            sessionId: session.sessionId.slice(-8)
+          });
           
           setTimeout(() => {
             sessionsQuery.refetch();
           }, 500);
         } catch (error) {
           ChatsLogger.log('error', 'Failed to mark session as read', error);
+          // Revert unread count on error
+          setUnreadCounts(prev => ({
+            ...prev,
+            [session.sessionId]: session.unreadCount || 0
+          }));
         }
       }
       
@@ -405,11 +483,21 @@ export const useChats = () => {
     }
   }, [filteredSessions, selectedSession, selectSession, isRecoveringConnection]);
 
-  // Enhanced message handling with status tracking
+  // FIXED: Enhanced message handling with decryption fix
   const handleAblyMessage = useCallback((messageData) => {
+    // FIXED: Better handling of message content
+    const messageContent = messageData.content || messageData.message || messageData.text || '';
+    
+    ChatsLogger.log('info', 'Processing Ably message', {
+      senderId: messageData.senderId,
+      messageType: messageData.messageType,
+      hasContent: !!messageContent,
+      wasDecrypted: messageData.wasDecrypted
+    });
+
     const transformedMessage = {
       id: messageData.id || `realtime-${Date.now()}`,
-      text: messageData.message || messageData.text || messageData.content || '',
+      text: messageContent, // FIXED: Use processed content
       time: messageData.time || new Date().toLocaleTimeString("id-ID", {
         hour: '2-digit',
         minute: '2-digit',
@@ -425,17 +513,28 @@ export const useChats = () => {
         role: messageData.senderRole || messageData.sender?.role || 'user',
         profilePicture: messageData.senderProfilePicture || messageData.sender?.profilePicture || null
       },
+      senderId: messageData.senderId,
       messageType: messageData.messageType || 'text',
       isRead: messageData.isRead === true,
       isSent: true, // Message received via Ably means it was sent successfully
       attachmentUrl: messageData.attachmentUrl || null,
       attachmentType: messageData.attachmentType || null,
       attachmentName: messageData.attachmentName || null,
-      attachmentSize: messageData.attachmentSize || null
+      attachmentSize: messageData.attachmentSize || null,
+      wasDecrypted: messageData.wasDecrypted || false
     };
     
+    // Only add message if it has content or attachments
     if (transformedMessage.text?.trim() || transformedMessage.attachmentUrl) {
       messages.addMessage(transformedMessage);
+      
+      ChatsLogger.log('success', 'Message added to chat', {
+        messageId: transformedMessage.id,
+        hasText: !!transformedMessage.text,
+        hasAttachment: !!transformedMessage.attachmentUrl
+      });
+    } else {
+      ChatsLogger.log('warn', 'Message skipped - no content', messageData);
     }
   }, [userId, messages]);
 
@@ -557,14 +656,35 @@ export const useChats = () => {
     return status;
   }, [typingUsers]);
 
-  // Unread count handler with error handling
+  // FIXED: Unread count handler from Ably with real-time update
   const handleAblyUnreadCount = useCallback((unreadData) => {
     try {
+      ChatsLogger.log('unread', 'Ably unread count update', unreadData);
+      
+      const { sessionId, userId: updateUserId, unreadCount, timestamp } = unreadData;
+      
+      // Only update if it's for the current user
+      if (updateUserId === userId) {
+        const parsedUnreadCount = typeof unreadCount === 'string' 
+          ? parseInt(unreadCount, 10) 
+          : unreadCount;
+        
+        setUnreadCounts(prev => ({
+          ...prev,
+          [sessionId]: parsedUnreadCount
+        }));
+        
+        ChatsLogger.log('unread', 'Ably unread count updated', {
+          sessionId: sessionId.slice(-8),
+          unreadCount: parsedUnreadCount
+        });
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['chat-sessions'] });
     } catch (error) {
-      ChatsLogger.error('Failed to handle unread count update', error);
+      ChatsLogger.error('Failed to handle Ably unread count update', error);
     }
-  }, [queryClient]);
+  }, [queryClient, userId]);
 
   // Setup Ably callbacks with error monitoring
   useEffect(() => {
@@ -749,6 +869,7 @@ export const useChats = () => {
         if (isUnmounting) {
           // Use callback form to avoid stale closure issues
           setTypingUsers(() => ({}));
+          setUnreadCounts(() => ({}));
         }
         
         ChatsLogger.log('success', 'CLEANUP', 'Cleanup completed successfully');
@@ -776,7 +897,7 @@ export const useChats = () => {
     };
   }, [user?.role]);
 
-  // Return enhanced object with error states and recovery functions
+  // FIXED: Return enhanced object with real-time unread count support
   return useMemo(() => ({
     // Data
     sessions: filteredSessions,
@@ -802,6 +923,10 @@ export const useChats = () => {
     // Typing status
     typingStatus: getTypingStatus(),
     typingUsers,
+    
+    // FIXED: Enhanced unread count data
+    unreadCounts,
+    totalUnreadCount: Object.values(unreadCounts).reduce((sum, count) => sum + count, 0),
     
     // Enhanced error states
     sessionsError: sessionsQuery.error,
@@ -855,7 +980,9 @@ export const useChats = () => {
       sessions: sessionsQuery,
       messages: messages,
       lastError: window.lastChatError,
-      failedSessions: Array.from(failedSessions) // Convert Set to Array for debugging
+      failedSessions: Array.from(failedSessions),
+      unreadCounts,
+      encryptionStatus: ably.decryptMessage ? 'enabled' : 'disabled'
     }
   }), [
     filteredSessions,
@@ -879,6 +1006,7 @@ export const useChats = () => {
     connectionRetryCount,
     getTypingStatus,
     typingUsers,
+    unreadCounts,
     selectSession,
     sendCurrentMessage,
     sendFile,

@@ -1,4 +1,4 @@
-// src/components/shared/chats/lib/chatsApi.js - FIXED: Better Error Handling for Inactive Sessions
+// src/components/shared/chats/lib/chatsApi.js - FIXED: Better Encryption & Empty Message Handling
 
 import { apiClient } from "../../../../lib/api.js";
 import { formatChatTime, getCurrentTime, getCurrentTimestamp } from "../utils/dateUtils";
@@ -10,6 +10,95 @@ const getCurrentUser = () => {
     return JSON.parse(localStorage.getItem('user') || '{}');
   } catch {
     return {};
+  }
+};
+
+// FIXED: Enhanced message validation
+const validateMessage = (message) => {
+  if (!message || typeof message !== 'string') {
+    console.warn('⚠️ Invalid message content:', message);
+    return false;
+  }
+  
+  if (message.trim().length === 0) {
+    console.warn('⚠️ Empty message content');
+    return false;
+  }
+  
+  return true;
+};
+
+// FIXED: Safe encryption with fallback
+const safeEncrypt = (content, sessionId) => {
+  if (!content || typeof content !== 'string') {
+    console.warn('🔐 Cannot encrypt invalid content:', content);
+    return content;
+  }
+  
+  if (!sessionId) {
+    console.warn('🔐 No sessionId for encryption, using plaintext');
+    return content;
+  }
+  
+  try {
+    const encrypted = chatEncryption.encrypt(content, sessionId);
+    
+    // Verify encryption worked
+    if (!chatEncryption.isEncrypted(encrypted)) {
+      console.warn('🔐 Encryption failed, using plaintext');
+      return content;
+    }
+    
+    console.log('🔐 Content encrypted successfully:', {
+      originalLength: content.length,
+      encryptedLength: encrypted.length,
+      sessionId: sessionId.slice(-8)
+    });
+    
+    return encrypted;
+  } catch (error) {
+    console.error('🔐 Encryption error, using plaintext:', error);
+    return content;
+  }
+};
+
+// FIXED: Safe decryption with fallback
+const safeDecrypt = (encryptedContent, sessionId) => {
+  if (!encryptedContent || typeof encryptedContent !== 'string') {
+    console.warn('🔓 Cannot decrypt invalid content:', encryptedContent);
+    return encryptedContent || '';
+  }
+  
+  if (!sessionId) {
+    console.warn('🔓 No sessionId for decryption, using as-is');
+    return encryptedContent;
+  }
+  
+  try {
+    // Check if content is actually encrypted
+    if (!chatEncryption.isEncrypted(encryptedContent)) {
+      console.log('🔓 Content not encrypted, using as-is');
+      return encryptedContent;
+    }
+    
+    const decrypted = chatEncryption.decrypt(encryptedContent, sessionId);
+    
+    // Verify decryption produced valid result
+    if (!decrypted || typeof decrypted !== 'string') {
+      console.warn('🔓 Decryption produced invalid result, using original');
+      return encryptedContent;
+    }
+    
+    console.log('🔓 Content decrypted successfully:', {
+      encryptedLength: encryptedContent.length,
+      decryptedLength: decrypted.length,
+      sessionId: sessionId.slice(-8)
+    });
+    
+    return decrypted;
+  } catch (error) {
+    console.error('🔓 Decryption error, using original:', error);
+    return encryptedContent;
   }
 };
 
@@ -69,23 +158,30 @@ export const chatsApi = {
             lastMessage.senderId !== currentUserId && 
             unreadCount > 0;
 
-          // Decrypt last message if it exists
+          // FIXED: Decrypt last message if it exists and is not automated
           let lastMessageText = 'No messages yet';
           if (lastMessage && lastMessage.message) {
             try {
-              const decryptedMessage = chatEncryption.decrypt(lastMessage.message, session.sessionId);
-              const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
-              lastMessageText = `${senderName}: ${decryptedMessage}`;
+              let messageContent = lastMessage.message;
               
-              console.log('🔓 Decrypted last message:', {
-                sessionId: session.sessionId,
-                originalLength: lastMessage.message?.length || 0,
-                decryptedLength: decryptedMessage?.length || 0
+              // FIXED: Only decrypt non-automated messages
+              if (lastMessage.messageType !== 'automated') {
+                messageContent = safeDecrypt(lastMessage.message, session.sessionId);
+              }
+              
+              const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
+              lastMessageText = `${senderName}: ${messageContent}`;
+              
+              console.log('🔓 Last message processed:', {
+                sessionId: session.sessionId.slice(-8),
+                messageType: lastMessage.messageType,
+                wasEncrypted: lastMessage.messageType !== 'automated' && chatEncryption.isEncrypted(lastMessage.message),
+                resultLength: messageContent?.length || 0
               });
             } catch (error) {
-              console.warn('Failed to decrypt last message, using as-is:', error);
+              console.warn('Failed to process last message:', error);
               const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
-              lastMessageText = `${senderName}: ${lastMessage.message}`;
+              lastMessageText = `${senderName}: ${lastMessage.message || 'Message'}`;
             }
           } else if (session.status === 'pending') {
             lastMessageText = 'Waiting for session to start...';
@@ -216,7 +312,7 @@ export const chatsApi = {
     }
   },
 
-  // Get messages with decryption support
+  // FIXED: Get messages with enhanced decryption handling
   async getMessages(sessionId, cursor = null, limit = 10) {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -251,28 +347,37 @@ export const chatsApi = {
         console.log('📨 Messages response:', response.data);
         
         return response.data.data.map(msg => {
-          // FIXED: Don't decrypt automated messages
-          let decryptedMessage = msg.message;
+          // FIXED: Better message content handling
+          let messageContent = msg.message || '';
           
-          if (msg.messageType !== 'automated') {
+          // Only decrypt non-automated messages
+          if (msg.messageType !== 'automated' && messageContent) {
             try {
-              decryptedMessage = chatEncryption.decrypt(msg.message, sessionId);
+              messageContent = safeDecrypt(messageContent, sessionId);
+              
               console.log('🔓 Message decrypted:', {
                 messageId: msg.id,
                 messageType: msg.messageType,
-                wasEncrypted: msg.message !== decryptedMessage
+                originalLength: msg.message?.length || 0,
+                decryptedLength: messageContent?.length || 0,
+                wasEncrypted: chatEncryption.isEncrypted(msg.message || '')
               });
             } catch (error) {
-              console.warn('Failed to decrypt message, using as-is:', error);
+              console.warn('Failed to decrypt message, using original:', error);
+              messageContent = msg.message || '';
             }
           } else {
-            console.log('⚡ Automated message, no decryption needed:', msg.id);
+            console.log('⚡ Message not encrypted (automated or empty):', {
+              messageId: msg.id,
+              messageType: msg.messageType,
+              contentLength: messageContent.length
+            });
           }
 
           return {
             id: msg.id,
             sessionId: msg.sessionId,
-            text: decryptedMessage,
+            text: messageContent,
             time: formatChatTime(msg.createdAt),
             timestamp: msg.createdAt,
             isUser: msg.senderId === currentUserId,
@@ -289,7 +394,7 @@ export const chatsApi = {
             attachmentType: msg.attachmentType,
             attachmentName: msg.attachmentName,
             attachmentSize: msg.attachmentSize,
-            wasEncrypted: msg.messageType !== 'automated' && msg.message !== decryptedMessage
+            wasDecrypted: msg.messageType !== 'automated' && chatEncryption.isEncrypted(msg.message || '')
           };
         });
       }
@@ -301,7 +406,7 @@ export const chatsApi = {
     }
   },
 
-  // Send message with encryption - NO ABLY BROADCAST
+  // FIXED: Send message with enhanced encryption and validation
   async sendMessage(sessionId, content, messageType = 'text') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -320,27 +425,50 @@ export const chatsApi = {
         };
       }
 
-      // Encrypt message content before sending to backend
-      let encryptedContent = content;
+      // FIXED: Validate message content first
+      if (!validateMessage(content)) {
+        throw new Error('Invalid message content - cannot be empty');
+      }
+
+      // FIXED: Encrypt message content with proper validation
+      let messageToSend = content.trim();
       let isEncrypted = false;
       
       try {
-        encryptedContent = chatEncryption.encrypt(content, sessionId);
-        isEncrypted = true;
+        const encryptedContent = safeEncrypt(messageToSend, sessionId);
         
-        console.log('🔒 Message encrypted before sending to backend:', {
-          sessionId: sessionId?.slice(-8),
-          originalLength: content?.length || 0,
-          encryptedLength: encryptedContent?.length || 0
-        });
+        // Verify encryption worked
+        if (chatEncryption.isEncrypted(encryptedContent)) {
+          messageToSend = encryptedContent;
+          isEncrypted = true;
+          
+          console.log('🔐 Message encrypted for API call:', {
+            sessionId: sessionId?.slice(-8),
+            originalLength: content.length,
+            encryptedLength: messageToSend.length,
+            isValidJson: (() => {
+              try { JSON.parse(encryptedContent); return true; } catch { return false; }
+            })()
+          });
+        } else {
+          console.warn('🔐 Encryption verification failed, using plaintext');
+          messageToSend = content.trim();
+        }
       } catch (error) {
-        console.warn('Failed to encrypt message, sending plaintext:', error);
+        console.error('🔐 Encryption process failed, using plaintext:', error);
+        messageToSend = content.trim();
       }
 
-      console.log('📤 Sending to POST /chat/messages...');
+      console.log('📤 Sending to POST /chat/messages...', {
+        sessionId: sessionId?.slice(-8),
+        messageLength: messageToSend.length,
+        messageType,
+        isEncrypted
+      });
+      
       const response = await apiClient.post('/chat/messages', {
         sessionId,
-        message: encryptedContent,
+        message: messageToSend,
         messageType
       });
       
@@ -349,12 +477,30 @@ export const chatsApi = {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
-        // Decrypt message returned from backend
-        let displayMessage = msg.message;
-        try {
-          displayMessage = chatEncryption.decrypt(msg.message, sessionId);
-        } catch (error) {
-          console.warn('Failed to decrypt returned message:', error);
+        console.log('✅ Message sent successfully, processing response:', {
+          messageId: msg.id,
+          responseMessageLength: msg.message?.length || 0,
+          isEmpty: !msg.message || msg.message.trim() === ''
+        });
+        
+        // FIXED: Handle potentially empty response message
+        let displayMessage = msg.message || content; // Fallback to original content
+        
+        // Only try to decrypt if we have content and it was encrypted
+        if (msg.message && msg.message.trim()) {
+          try {
+            displayMessage = safeDecrypt(msg.message, sessionId);
+            console.log('🔓 Response message decrypted:', {
+              originalLength: msg.message.length,
+              decryptedLength: displayMessage.length
+            });
+          } catch (error) {
+            console.warn('Failed to decrypt response message, using original:', error);
+            displayMessage = msg.message;
+          }
+        } else {
+          console.warn('⚠️ Empty message in response, using original content');
+          displayMessage = content; // Use the original content we sent
         }
         
         const result = {
@@ -375,21 +521,33 @@ export const chatsApi = {
           attachmentType: msg.attachmentType,
           attachmentName: msg.attachmentName,
           attachmentSize: msg.attachmentSize,
-          wasEncrypted: isEncrypted
+          wasEncrypted: isEncrypted,
+          originalContent: content // Keep original for debugging
         };
         
-        console.log('✅ Message sent via /chat/messages:', result);
+        console.log('✅ Message processed successfully:', {
+          messageId: result.id,
+          finalTextLength: result.text.length,
+          wasEncrypted: result.wasEncrypted
+        });
+        
         return result;
       }
       
       throw new Error(response.data?.message || 'Failed to send message');
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // Enhanced error context
+      if (error.response?.data) {
+        console.error('API Error Response:', error.response.data);
+      }
+      
       throw error;
     }
   },
 
-  // FIXED: Send file message using EXACT Postman endpoint format
+  // FIXED: Send file message with better encryption handling
   async sendFileMessage(sessionId, file, messageType = 'file', caption = '') {
     try {
       if (sessionId === 'team-ruangdiri') {
@@ -399,36 +557,36 @@ export const chatsApi = {
       // Validate file first
       this.validateFile(file);
 
-      // FIXED: Create FormData exactly like required
+      // Create FormData exactly like required
       const formData = new FormData();
       
-      // FIXED: Use exact field names
       formData.append('sessionId', sessionId);
       formData.append('messageType', messageType);
-      formData.append('file', file); // File field
+      formData.append('file', file);
       
-      // FIXED: Handle message/caption field
+      // FIXED: Handle message/caption field with proper encryption
       let messageToSend = caption?.trim() || '';
       
-      // Encrypt message/caption if provided
       if (messageToSend) {
         try {
-          const encryptedMessage = chatEncryption.encrypt(messageToSend, sessionId);
-          formData.append('message', encryptedMessage);
-          console.log('🔒 File caption encrypted before upload');
+          const encryptedCaption = safeEncrypt(messageToSend, sessionId);
+          formData.append('message', encryptedCaption);
+          
+          console.log('🔐 File caption encrypted:', {
+            originalLength: messageToSend.length,
+            encryptedLength: encryptedCaption.length
+          });
         } catch (error) {
-          console.warn('Failed to encrypt file caption:', error);
+          console.warn('Failed to encrypt file caption, using plaintext:', error);
           formData.append('message', messageToSend);
         }
       } else {
-        // If no caption, send empty string
         formData.append('message', '');
       }
 
-      // Log the exact FormData being sent
       console.log('📤 UPLOADING to /chat/messages/upload:', {
         endpoint: '/chat/messages/upload',
-        sessionId,
+        sessionId: sessionId?.slice(-8),
         messageType,
         fileName: file.name,
         fileSize: file.size,
@@ -436,12 +594,11 @@ export const chatsApi = {
         hasCaption: !!caption?.trim()
       });
 
-      // FIXED: Use exact endpoint /chat/messages/upload
       const response = await apiClient.post('/chat/messages/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        timeout: 60000, // 60 seconds for file upload
+        timeout: 60000,
       });
       
       console.log('📤 Upload response received:', response.data);
@@ -451,21 +608,27 @@ export const chatsApi = {
         const currentUser = getCurrentUser();
         const currentUserId = currentUser?.id;
         
-        // Decrypt message/caption if it exists
-        let displayMessage = msg.message || '';
-        try {
-          if (msg.message && msg.message.trim()) {
-            displayMessage = chatEncryption.decrypt(msg.message, sessionId);
+        // FIXED: Handle caption decryption with fallback
+        let displayMessage = msg.message || caption || '';
+        
+        if (msg.message && msg.message.trim()) {
+          try {
+            displayMessage = safeDecrypt(msg.message, sessionId);
             console.log('🔓 File caption decrypted');
+          } catch (error) {
+            console.warn('Failed to decrypt file caption, using original:', error);
+            displayMessage = msg.message;
           }
-        } catch (error) {
-          console.warn('Failed to decrypt file caption:', error);
+        } else if (caption) {
+          console.warn('⚠️ Empty caption in response, using original');
+          displayMessage = caption;
         }
         
         console.log('✅ File uploaded successfully:', {
           messageId: msg.id,
           fileName: file.name,
-          attachmentUrl: msg.attachmentUrl
+          attachmentUrl: msg.attachmentUrl,
+          captionLength: displayMessage.length
         });
         
         const result = {
@@ -482,11 +645,11 @@ export const chatsApi = {
           },
           messageType: msg.messageType || messageType,
           isRead: msg.isRead,
-          // File attachment data - FIXED: Ensure these are included
           attachmentUrl: msg.attachmentUrl,
           attachmentType: msg.attachmentType || file.type,
           attachmentName: msg.attachmentName || file.name,
-          attachmentSize: msg.attachmentSize || file.size
+          attachmentSize: msg.attachmentSize || file.size,
+          originalCaption: caption
         };
         
         console.log('✅ Processed upload result:', result);
@@ -547,7 +710,7 @@ export const chatsApi = {
     }
   },
 
-  // FIXED: Get Ably token with better error handling for inactive sessions
+  // Get Ably token with better error handling for inactive sessions
   async getAblyToken(sessionId) {
     if (sessionId === 'team-ruangdiri') return null;
 
@@ -572,21 +735,19 @@ export const chatsApi = {
     } catch (error) {
       console.error('❌ Error getting Ably token:', error);
       
-      // FIXED: Better error message matching for inactive sessions
       if (error.response?.status === 400) {
         const errorMessage = error.response?.data?.message || '';
         
         console.log('🔍 Checking error message:', errorMessage);
         
-        // FIXED: Check for various inactive session messages
         const inactivePatterns = [
-          'is not active',      // "Session X is not active"
-          'not active',         // "Session not active"  
-          'inactive',           // "Session inactive"
-          'completed',          // "Session completed"
-          'ended',              // "Session ended"
-          'disabled',           // "Chat disabled"
-          'unavailable'         // "Session unavailable"
+          'is not active',
+          'not active',
+          'inactive',
+          'completed',
+          'ended',
+          'disabled',
+          'unavailable'
         ];
         
         const isInactiveSession = inactivePatterns.some(pattern => 
@@ -595,11 +756,10 @@ export const chatsApi = {
         
         if (isInactiveSession) {
           console.log('🔒 Session is inactive/completed, returning null (no retry needed)');
-          return null; // Return null instead of throwing - this prevents infinite retries
+          return null;
         }
       }
       
-      // For other errors, still throw to trigger retry logic if needed
       throw error;
     }
   },
