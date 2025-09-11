@@ -1,4 +1,4 @@
-// src/components/shared/booking/BookingSession.jsx - FIXED VERSION
+// src/components/shared/booking/BookingSession.jsx - UPDATED WITH DISABLED TIME SLOTS
 import { useState, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useBooking } from "./hooks/useBooking"
@@ -15,7 +15,7 @@ const BackArrow = ({ onClick }) => (
   </button>
 )
 
-// Calendar Component - FIXED positioning and sizing
+// Calendar Component
 const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onClose, triggerRef }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [position, setPosition] = useState({ top: true, left: 0 })
@@ -70,7 +70,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
       days.push(null)
     }
 
-// Add days of the month
+    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
       const currentDate = new Date(dateStr)
@@ -79,7 +79,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
       const isPast = currentDate < new Date().setHours(0, 0, 0, 0)
       const isToday = currentDate.toDateString() === new Date().toDateString()
       
-      // UPDATED: Disable dates beyond 4 weeks (28 days) from today
+      // Disable dates beyond 4 weeks (28 days) from today
       const today = new Date()
       const fourWeeksFromNow = new Date(today.getTime() + (28 * 24 * 60 * 60 * 1000))
       const isBeyondFourWeeks = currentDate > fourWeeksFromNow
@@ -226,7 +226,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
   )
 }
 
-// Main BookingSession Component - FIXED
+// Main BookingSession Component
 const BookingSession = ({ userType = "student", selectedMethod, onBack, onSuccess, standalone = false }) => {
   const { user } = useAuth()
   const location = useLocation()
@@ -302,7 +302,9 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     const hasRequiredFields = currentSelectedMethod && selectedDate && selectedTimeSlot
     // Only require location for offline method
     const hasLocationIfOffline = currentSelectedMethod?.id !== "offline" || selectedLocation
-    return hasRequiredFields && hasLocationIfOffline
+    // Check if selected time slot is available
+    const isTimeSlotAvailable = selectedTimeSlot?.available === true
+    return hasRequiredFields && hasLocationIfOffline && isTimeSlotAvailable
   }
 
   // Back button navigation - prioritize onBack callback
@@ -420,10 +422,10 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
       {/* Form Section */}
       <div className="absolute left-[59px] right-[59px] top-[329px] flex flex-col gap-5 max-md:left-[30px] max-md:right-[30px] max-md:top-[290px]">
         
-        {/* FIXED: Method and Location Row - Consistent sizing */}
+        {/* Method and Location Row */}
         <div className="flex gap-5 max-md:flex-col max-md:gap-4">
           
-          {/* Method Selection - FIXED: Consistent sizing */}
+          {/* Method Selection */}
           <div className="w-1/2 max-md:w-full flex flex-col gap-3.5">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Jenis Konseling</div>
             <div className="method-dropdown relative">
@@ -463,7 +465,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Location Selection for Offline - FIXED: Consistent sizing */}
+          {/* Location Selection for Offline */}
           {currentSelectedMethod?.id === "offline" && (
             <div className="w-1/2 max-md:w-full flex flex-col gap-3.5">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Lokasi Konseling</div>
@@ -510,13 +512,13 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
           )}
         </div>
 
-        {/* FIXED: Date, Time, Subscription Section - Consistent sizing */}
+        {/* Date, Time, Subscription Section */}
         <div className="flex gap-11 max-md:flex-col max-md:gap-5">
           
           {/* Date and Time Column */}
           <div className="flex-1 flex flex-col gap-2.5">
             
-            {/* Date Picker - FIXED: Consistent sizing */}
+            {/* Date Picker */}
             <div className="flex flex-col gap-3">
               <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tanggal</div>
               <div className="calendar-container relative">
@@ -534,7 +536,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                   <span className="material-icons text-gray-600">calendar_today</span>
                 </div>
 
-                {/* Calendar - FIXED: Better responsive positioning */}
+                {/* Calendar */}
                 <Calendar
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelection}
@@ -546,7 +548,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
               </div>
             </div>
 
-            {/* Time Picker - FIXED: Consistent sizing */}
+            {/* Time Picker - UPDATED WITH DISABLED SLOTS */}
             {selectedDate && (
               <div className="time-dropdown relative">
                 <div
@@ -563,7 +565,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                   </div>
                   <span className="material-icons text-gray-600">expand_more</span>
 
-                  {/* Time Dropdown - FIXED: Unique keys */}
+                  {/* Time Dropdown - UPDATED WITH AVAILABILITY STATUS */}
                   {showTimePicker && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9999] mt-1">
                       {loading.availableDates ? (
@@ -571,9 +573,15 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                       ) : timeSlots?.length > 0 ? (
                         timeSlots.map((slot, index) => (
                           <button
-                            key={`${slot.psychologistName}-${slot.startTime}-${slot.endTime}-${index}`}
-                            className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 ${
-                              slot.available ? "hover:bg-gray-100 text-gray-900" : "text-gray-300 cursor-not-allowed"
+                            key={slot.uniqueId || `${slot.psychologistName}-${slot.startTime}-${slot.endTime}-${index}`}
+                            className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 transition-colors ${
+                              slot.available 
+                                ? "hover:bg-gray-100 text-gray-900 cursor-pointer" 
+                                : "text-gray-400 cursor-not-allowed bg-gray-50"
+                            } ${
+                              selectedTimeSlot?.uniqueId === slot.uniqueId 
+                                ? "bg-blue-50 border-blue-200" 
+                                : ""
                             }`}
                             onClick={(e) => {
                               e.stopPropagation()
@@ -583,14 +591,37 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                               }
                             }}
                             disabled={!slot.available}
+                            title={slot.available ? "" : slot.reason || "Tidak tersedia"}
                           >
+                            {/* Psychologist Name */}
                             {slot.psychologistName && (
-                              <div className="font-medium text-xs text-blue-600 mb-1">{slot.psychologistName}</div>
+                              <div className={`font-medium text-xs mb-1 ${
+                                slot.available ? "text-blue-600" : "text-gray-400"
+                              }`}>
+                                {slot.psychologistName}
+                              </div>
                             )}
-                            <div>
-                              {slot.displayTime || `${slot.startTime} - ${slot.endTime}`}
-                              {!slot.available && " (Not Available)"}
+                            
+                            {/* Time Display */}
+                            <div className="flex items-center justify-between">
+                              <span>
+                                {slot.displayTime || `${slot.startTime} - ${slot.endTime} WIB`}
+                              </span>
+                              
+                              {/* Availability Indicator */}
+                              {!slot.available && (
+                                <span className="text-xs text-red-400 font-medium">
+                                  Tidak Tersedia
+                                </span>
+                              )}
                             </div>
+                            
+                            {/* Debug info (show scheduled sessions count if debugging) */}
+                            {process.env.NODE_ENV === 'development' && slot.hasScheduledSessions && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                Sessions: {slot.scheduledSessionsCount}
+                              </div>
+                            )}
                           </button>
                         ))
                       ) : (
@@ -611,7 +642,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Subscription Type Column - FIXED: Consistent sizing */}
+          {/* Subscription Type Column */}
           <div className="flex-1 flex flex-col gap-3">
             <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tipe Langganan</div>
             <div className={`${fieldHeight} px-2.5 py-2 bg-zinc-100 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex items-center`}>

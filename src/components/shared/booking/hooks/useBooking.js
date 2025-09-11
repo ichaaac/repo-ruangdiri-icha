@@ -1,4 +1,4 @@
-// src/components/shared/booking/hooks/useBooking.js - UPDATED FOR NEW BACKEND RESPONSE
+// src/components/shared/booking/hooks/useBooking.js - UPDATED WITH PSYCHOLOGIST FILTERING
 
 import { useState, useEffect, useCallback } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -40,7 +40,7 @@ export const useBooking = (userType = "student") => {
     refetch: refetchAvailability,
   } = useQuery({
     queryKey: ["psychologist-availability"],
-    queryFn: () => bookingApi.getAvailableTimeSlots(), // Use existing method that calls the correct endpoint
+    queryFn: () => bookingApi.getAvailableTimeSlots(),
     staleTime: 3 * 60 * 1000, // 3 minutes
     select: (data) => {
       console.log("Raw availability data:", data)
@@ -74,9 +74,14 @@ export const useBooking = (userType = "student") => {
     const dates = []
     const today = new Date()
     
-    // Get unique days of week that have availability
-    const availableDaysOfWeek = [...new Set(psychologistAvailability.map((slot) => slot.dayOfWeek))]
-    console.log("Available days of week:", availableDaysOfWeek)
+    // Get unique days of week that have availability from psychologists who are available (not overbooked)
+    const availableSlots = psychologistAvailability.filter((slot) => {
+      const scheduledSessionsCount = slot.scheduledSessions?.length || 0
+      return !slot.hasScheduledSessions || scheduledSessionsCount < 2
+    })
+    
+    const availableDaysOfWeek = [...new Set(availableSlots.map((slot) => slot.dayOfWeek))]
+    console.log("Available days of week (filtered):", availableDaysOfWeek)
 
     // Generate dates for next 60 days
     for (let i = 0; i <= 60; i++) {
@@ -85,7 +90,7 @@ export const useBooking = (userType = "student") => {
 
       const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
 
-      // Check if this day has availability
+      // Check if this day has availability from available psychologists
       if (availableDaysOfWeek.includes(dayOfWeek)) {
         dates.push({
           value: date.toISOString().split("T")[0],
@@ -104,7 +109,7 @@ export const useBooking = (userType = "student") => {
     return dates
   }, [psychologistAvailability])
 
-  // UPDATED: Calculate time slots from backend availability data with new structure
+  // UPDATED: Calculate time slots with psychologist availability filtering
   const timeSlots = useCallback(() => {
     if (!selectedDate || !psychologistAvailability || psychologistAvailability.length === 0) {
       console.log("No selected date or availability data for time slots")
@@ -119,21 +124,68 @@ export const useBooking = (userType = "student") => {
     // Filter availability for selected day
     const dayAvailability = psychologistAvailability.filter((availability) => availability.dayOfWeek === dayOfWeek)
     
-    console.log("Day availability:", dayAvailability)
+    console.log("Day availability (before filtering):", dayAvailability)
 
-    // UPDATED: Convert to time slots format with new psychologist structure
-    const slots = dayAvailability.map((availability, index) => ({
+    // UPDATED: Filter out psychologists who are overbooked (hasScheduledSessions: true with 2+ sessions)
+    const availableSlots = dayAvailability.filter((availability) => {
+      const scheduledSessionsCount = availability.scheduledSessions?.length || 0
+      const isAvailable = !availability.hasScheduledSessions || scheduledSessionsCount < 2
+      
+      console.log(`Psychologist ${availability.psychologist?.fullName}:`, {
+        hasScheduledSessions: availability.hasScheduledSessions,
+        scheduledSessionsCount,
+        isAvailable
+      })
+      
+      return isAvailable
+    })
+
+    console.log("Available slots (after filtering):", availableSlots)
+
+    // Convert to time slots format with availability status
+    const slots = availableSlots.map((availability, index) => ({
       startTime: availability.startTime.substring(0, 5), // Remove seconds: "09:00:00" -> "09:00"
       endTime: availability.endTime.substring(0, 5), // Remove seconds: "10:00:00" -> "10:00"
       psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
       psychologistId: availability.psychologist?.id || availability.psychologistId,
-      available: true,
+      available: true, // All filtered slots are available
       displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
-      uniqueId: `${availability.psychologist?.fullName || availability.psychologistName}-${availability.startTime}-${availability.endTime}-${index}`, // For unique keys
+      uniqueId: `${availability.psychologist?.fullName || availability.psychologistName}-${availability.startTime}-${availability.endTime}-${index}`,
+      // Additional info for debugging
+      scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+      hasScheduledSessions: availability.hasScheduledSessions,
     }))
 
-    console.log("Generated time slots:", slots)
-    return slots
+    // Also include unavailable slots for display (but disabled)
+    const unavailableSlots = dayAvailability.filter((availability) => {
+      const scheduledSessionsCount = availability.scheduledSessions?.length || 0
+      return availability.hasScheduledSessions && scheduledSessionsCount >= 2
+    }).map((availability, index) => ({
+      startTime: availability.startTime.substring(0, 5),
+      endTime: availability.endTime.substring(0, 5),
+      psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
+      psychologistId: availability.psychologist?.id || availability.psychologistId,
+      available: false, // Mark as unavailable
+      displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak Tersedia)`,
+      uniqueId: `unavailable-${availability.psychologist?.fullName || availability.psychologistName}-${availability.startTime}-${availability.endTime}-${index}`,
+      scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+      hasScheduledSessions: availability.hasScheduledSessions,
+      reason: "Psikolog sedang tidak tersedia"
+    }))
+
+    const allSlots = [...slots, ...unavailableSlots]
+    
+    // Sort by time for better UX
+    allSlots.sort((a, b) => {
+      if (a.startTime === b.startTime) {
+        // If same time, prioritize available slots
+        return a.available === b.available ? 0 : (a.available ? -1 : 1)
+      }
+      return a.startTime.localeCompare(b.startTime)
+    })
+
+    console.log("Final time slots with availability:", allSlots)
+    return allSlots
   }, [selectedDate, psychologistAvailability])
 
   // Get user's subscription info (from user data)
@@ -160,18 +212,27 @@ export const useBooking = (userType = "student") => {
     },
   })
 
-  // Reset location when method changes
+  // UPDATED: Reset dependent fields when method changes
   useEffect(() => {
     if (selectedMethod?.id !== "offline") {
       setSelectedLocation(null)
     }
+    // Reset date, time, and psychologist when method changes
+    setSelectedDate("")
+    setSelectedTimeSlot(null)
+    setSelectedPsychologist(null)
   }, [selectedMethod])
 
-  // Handle method selection
+  // Handle method selection with field reset
   const handleMethodSelection = useCallback((method) => {
     console.log("Method selection:", method)
     setSelectedMethod(method)
-    setSelectedTimeSlot(null) // Reset time slot
+    
+    // Reset all dependent fields when method changes
+    setSelectedDate("")
+    setSelectedTimeSlot(null)
+    setSelectedPsychologist(null)
+    
     // Only reset location if switching away from offline
     if (method?.id !== "offline") {
       setSelectedLocation(null)
@@ -185,10 +246,16 @@ export const useBooking = (userType = "student") => {
     setSelectedTimeSlot(null) // Reset time slot when date changes
   }, [])
 
-  // Handle time slot selection
+  // UPDATED: Handle time slot selection with availability check
   const handleTimeSlotSelection = useCallback((timeSlot) => {
     console.log("Time slot selection:", timeSlot)
-    setSelectedTimeSlot(timeSlot)
+    
+    // Only allow selection of available slots
+    if (timeSlot.available) {
+      setSelectedTimeSlot(timeSlot)
+    } else {
+      console.warn("Attempted to select unavailable time slot:", timeSlot)
+    }
   }, [])
 
   // Handle location selection
@@ -197,7 +264,7 @@ export const useBooking = (userType = "student") => {
     setSelectedLocation(location)
   }, [])
 
-  // UPDATED: Handle booking submit with new psychologist structure
+  // Handle booking submit
   const handleBookingSubmit = useCallback(async () => {
     console.log("=== BOOKING SUBMIT VALIDATION ===")
     console.log("Selected method:", selectedMethod)
@@ -207,6 +274,11 @@ export const useBooking = (userType = "student") => {
 
     if (!selectedMethod || !selectedDate || !selectedTimeSlot) {
       throw new Error("Please fill in all required fields")
+    }
+
+    // Check if selected time slot is available
+    if (!selectedTimeSlot.available) {
+      throw new Error("Selected time slot is no longer available")
     }
 
     // Only check location requirement for offline method
@@ -221,7 +293,7 @@ export const useBooking = (userType = "student") => {
       startTime: selectedTimeSlot.startTime,
       endTime: selectedTimeSlot.endTime,
       psychologistName: selectedTimeSlot.psychologistName,
-      psychologistId: selectedTimeSlot.psychologistId, // Include psychologist ID
+      psychologistId: selectedTimeSlot.psychologistId,
       timezone: config.defaultTimezone,
     }
 
@@ -246,11 +318,12 @@ export const useBooking = (userType = "student") => {
 
   const isFormValid = useCallback(() => {
     const hasRequiredFields = !!(selectedMethod && selectedDate && selectedTimeSlot)
+    const isTimeSlotAvailable = selectedTimeSlot?.available === true
 
     // Check location requirement only for offline method
     const hasLocationIfOffline = selectedMethod?.id !== "offline" || selectedLocation
 
-    return hasRequiredFields && hasLocationIfOffline
+    return hasRequiredFields && isTimeSlotAvailable && hasLocationIfOffline
   }, [selectedMethod, selectedDate, selectedTimeSlot, selectedLocation])
 
   const getValidationErrors = useCallback(() => {
@@ -259,6 +332,9 @@ export const useBooking = (userType = "student") => {
     if (!selectedMethod) errors.push("Please select a counseling method")
     if (!selectedDate) errors.push("Please select a date")
     if (!selectedTimeSlot) errors.push("Please select a time slot")
+    if (selectedTimeSlot && !selectedTimeSlot.available) {
+      errors.push("Selected time slot is not available")
+    }
     if (selectedMethod?.id === "offline" && !selectedLocation) {
       errors.push("Please select a location for offline counseling")
     }
