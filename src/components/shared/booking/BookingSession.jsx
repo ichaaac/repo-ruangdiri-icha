@@ -1,6 +1,7 @@
 // src/components/shared/booking/BookingSession.jsx - UPDATED WITH DISABLED TIME SLOTS
 import { useState, useEffect, useRef } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import { useBooking } from "./hooks/useBooking"
 import { useAuth } from "@/hooks/useAuth"
 
@@ -296,6 +297,8 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
   }, [showCalendar, showMethodDropdown, showLocationDropdown, showTimePicker])
 
   const selectedDateObject = availableDates?.find((date) => date.value === selectedDate)
+  // Determine if no psychologist/time is available for the selected date
+  const isNoPsychologistAvailable = !!selectedDate && !loading.availableDates && (!timeSlots || timeSlots.length === 0)
 
   // Check if form is valid for button enabling
   const isFormValid = () => {
@@ -548,12 +551,20 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
               </div>
             </div>
 
-            {/* Time Picker - UPDATED WITH DISABLED SLOTS */}
+            {/* Time Picker - Disabled when no psychologist available; toast on click */}
             {selectedDate && (
               <div className="time-dropdown relative">
                 <div
-                  className={fieldClasses}
-                  onClick={() => setShowTimePicker(!showTimePicker)}
+                  className={`${fieldClasses} ${isNoPsychologistAvailable ? "bg-zinc-100 cursor-not-allowed opacity-70" : ""}`}
+                  onClick={() => {
+                    if (isNoPsychologistAvailable) {
+                      toast.error("Psikolog tidak tersedia")
+                      return
+                    }
+                    setShowTimePicker(!showTimePicker)
+                  }}
+                  role="button"
+                  aria-disabled={isNoPsychologistAvailable}
                 >
                   <div className="justify-center">
                     <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
@@ -565,8 +576,8 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                   </div>
                   <span className="material-icons text-gray-600">expand_more</span>
 
-                  {/* Time Dropdown - UPDATED WITH AVAILABILITY STATUS */}
-                  {showTimePicker && (
+            {/* Time Dropdown - UPDATED WITH AVAILABILITY STATUS */}
+                  {showTimePicker && !isNoPsychologistAvailable && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9999] mt-1">
                       {loading.availableDates ? (
                         <div className="px-3 py-2 text-sm text-gray-500">Loading available times...</div>
@@ -588,10 +599,12 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                               if (slot.available) {
                                 handleTimeSlotSelection(slot)
                                 setShowTimePicker(false)
+                              } else {
+                                toast.error("Psikolog tidak tersedia")
                               }
                             }}
-                            disabled={!slot.available}
-                            title={slot.available ? "" : slot.reason || "Tidak tersedia"}
+                            aria-disabled={!slot.available}
+                            title={slot.available ? "" : slot.reason || "Psikolog tidak tersedia"}
                           >
                             {/* Psychologist Name */}
                             {slot.psychologistName && (
@@ -608,20 +621,8 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                                 {slot.displayTime || `${slot.startTime} - ${slot.endTime} WIB`}
                               </span>
                               
-                              {/* Availability Indicator */}
-                              {!slot.available && (
-                                <span className="text-xs text-red-400 font-medium">
-                                  Tidak Tersedia
-                                </span>
-                              )}
+                              {/* Availability Indicator removed for cleaner disabled UX */}
                             </div>
-                            
-                            {/* Debug info (show scheduled sessions count if debugging) */}
-                            {process.env.NODE_ENV === 'development' && slot.hasScheduledSessions && (
-                              <div className="text-xs text-gray-400 mt-1">
-                                Sessions: {slot.scheduledSessionsCount}
-                              </div>
-                            )}
                           </button>
                         ))
                       ) : (
