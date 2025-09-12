@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import UserSidebar from "./UserSidebar";
 import { useAuth } from "../../../../hooks/useAuth";
-import ChatWidget from "../../../shared/chats/ChatWidget";
+import ChatWidget from "../../../shared/chat-widget/ChatWidget";
 import TopRightControl from "../../../shared/layout/TopRightControl";
 
 /**

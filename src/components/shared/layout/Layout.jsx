@@ -5,7 +5,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useDashboard } from "../../../hooks/useDashboardMetrics";
 import { useAuth } from "../../../hooks/useAuth";
-import ChatWidget from "../chats/ChatWidget";
+import ChatWidget from "../chat-widget/ChatWidget";
 import TopRightControl from "./TopRightControl";
 
 /**
