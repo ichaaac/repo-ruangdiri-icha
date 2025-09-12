@@ -5,9 +5,8 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useDashboard } from "../../../hooks/useDashboardMetrics";
 import { useAuth } from "../../../hooks/useAuth";
-import ChatWidget from "../chat-widget/ChatWidget";
+import ChatWidget from "../chats/ChatWidget";
 import TopRightControl from "./TopRightControl";
-import DevAuthGate from "../dev-auth/DevAuthGate";
 
 /**
  * Responsive Layout Component for both School and Company
@@ -57,7 +56,7 @@ const Layout = ({
     }
   }, [location.pathname]);
 
-  // Handle dashboard tab changes
+  // Handle dashboard tab changess
   const handleDashboardTabChange = (tabId) => {
     setSelectedDashboardTab(tabId);
   };
@@ -111,7 +110,6 @@ const Layout = ({
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
-      <DevAuthGate />
       <TopRightControl  />
       {/* FIXED: Responsive Sidebar with dashboard metrics */}
       <Sidebar 
@@ -145,14 +143,14 @@ const Layout = ({
       </div>
 
       {/* 🔥 CHATWIDGET - Layout Level Implementation */}
-      <div style={getChatWidgetStyle()}>
+      {/* <div style={getChatWidgetStyle()}>
         <ChatWidget 
           className="layout-chat-widget"
           // Pass sidebar state for potential future enhancements
           sidebarExpanded={expanded || sidebarHovered}
           isMobile={isMobile}
         />
-      </div>
+      </div> */}
     </div>
   );
 };
