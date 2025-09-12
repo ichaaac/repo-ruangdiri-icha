@@ -6,6 +6,7 @@ import UserSidebar from "./UserSidebar";
 import { useAuth } from "../../../../hooks/useAuth";
 import ChatWidget from "../../../shared/chat-widget/ChatWidget";
 import TopRightControl from "../../../shared/layout/TopRightControl";
+import DevAuthGate from "../../../shared/dev-auth/DevAuthGate";
 
 /**
  * Responsive Layout Component untuk Student dan Employee
@@ -87,6 +88,7 @@ const UserLayout = ({
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
+      <DevAuthGate />
       <TopRightControl />
       
       {/* User Sidebar */}

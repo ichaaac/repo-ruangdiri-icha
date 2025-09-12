@@ -7,6 +7,7 @@ import { useDashboard } from "../../../hooks/useDashboardMetrics";
 import { useAuth } from "../../../hooks/useAuth";
 import ChatWidget from "../chat-widget/ChatWidget";
 import TopRightControl from "./TopRightControl";
+import DevAuthGate from "../dev-auth/DevAuthGate";
 
 /**
  * Responsive Layout Component for both School and Company
@@ -110,6 +111,7 @@ const Layout = ({
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
+      <DevAuthGate />
       <TopRightControl  />
       {/* FIXED: Responsive Sidebar with dashboard metrics */}
       <Sidebar 
