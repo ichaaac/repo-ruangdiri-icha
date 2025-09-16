@@ -1,10 +1,10 @@
-// src/components/user/shared/layout/UserSidebar.jsx - Unified Sidebar untuk Semua User Role
+// src/components/user/shared/layout/UserSidebar.jsx - WITH UNREAD COUNT BADGE
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../../hooks/useAuth"
-
+import { useChats } from "../../../shared/chats/hooks/useChats"
 /**
  * Unified Responsive Sidebar Component untuk Student, Employee, dan Psychologist
  */
@@ -18,6 +18,9 @@ const UserSidebar = ({
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user: userData } = useAuth()
+  
+  // FIXED: Get unread count from useChats hook
+  const { totalUnreadCount, serverTotalUnreadCount } = useChats()
   
   const [isProfileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [hovered, setHovered] = useState(false)
@@ -64,7 +67,8 @@ const UserSidebar = ({
           label: "Pesan",
           icon: "chat",
           path: `/user/student/chat`,
-          disabled: false
+          disabled: false,
+          hasUnreadBadge: true
         }
       ],
       employee: [
@@ -91,7 +95,8 @@ const UserSidebar = ({
           label: "Pesan",
           icon: "chat",
           path: `/user/employee/chat`,
-          disabled: false
+          disabled: false,
+          hasUnreadBadge: true
         }
       ],
       psychologist: [
@@ -111,7 +116,8 @@ const UserSidebar = ({
           label: "Pesan",
           icon: "chat",
           path: `/user/psychologist/chat`,
-          disabled: false
+          disabled: false,
+          hasUnreadBadge: true
         },
         {
           label: "Schedule",
@@ -127,6 +133,12 @@ const UserSidebar = ({
 
   const totalMenuHeight = menuItems.length * menuItemHeight
   const hoverableContentHeight = profileSectionHeight + dividerHeight + totalMenuHeight
+
+  // FIXED: Calculate display unread count (use real-time count or server count)
+  const displayUnreadCount = useMemo(() => {
+    const count = totalUnreadCount || serverTotalUnreadCount || 0;
+    return count > 99 ? '99+' : count > 0 ? count.toString() : null;
+  }, [totalUnreadCount, serverTotalUnreadCount]);
 
   const handleHoverableContentMouseEnter = () => {
     if (!expanded && !isMobile) {
@@ -349,7 +361,7 @@ const UserSidebar = ({
             {menuItems.map((item, index) => (
               <motion.div 
                 key={index}
-                className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${ 
+                className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer relative ${ 
                   isActive(item.path) ? "bg-[#488BBE] text-white font-bold" : item.disabled ? "text-gray-400 cursor-not-allowed" : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white" 
                 }`}
                 onClick={() => handleMenuItemClick(item)}
@@ -371,6 +383,32 @@ const UserSidebar = ({
                     </span>
                   )}
                 </motion.span>
+
+                {/* FIXED: Unread Count Badge for Chat */}
+                {item.hasUnreadBadge && displayUnreadCount && (
+                  <span 
+                    className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266] animate-pulse"
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      minWidth: '20px',
+                      height: '20px',
+                      fontSize: '11px',
+                      lineHeight: '1',
+                      zIndex: 9999,
+                      textDecoration: 'none',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      fontWeight: 'bold',
+                      color: 'white',
+                      backgroundColor: '#EE4266',
+                      border: '2px solid white',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                  >
+                    {displayUnreadCount}
+                  </span>
+                )}
               </motion.div>
             ))}
           </div>
