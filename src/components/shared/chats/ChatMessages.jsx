@@ -17,6 +17,7 @@ const ChatMessages = ({
   currentUserId
 }) => {
   const messagesContainerRef = useRef(null);
+  const prevScrollHeightRef = useRef(null);
   const [isNearTop, setIsNearTop] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(false); // Track if user is at bottom
   const scrollDebounceRef = useRef(null);
@@ -29,7 +30,7 @@ const ChatMessages = ({
 
   // FIXED: Throttled scroll handler to prevent excessive API calls
   const handleScroll = useCallback(() => {
-    if (!messagesContainerRef.current || !hasMoreMessages || isLoadingMore) return;
+    if (!messagesContainerRef.current) return;
 
     const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
     
@@ -40,6 +41,11 @@ const ChatMessages = ({
     // Check if user is at bottom (for auto-scroll behavior)
     const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
     setShouldAutoScroll(isAtBottom);
+
+    // Take a snapshot before triggering load-more so scroll position is preserved
+    if (nearTop && hasMoreMessages && !isLoadingMore && onLoadMore && !prevScrollHeightRef.current) {
+      prevScrollHeightRef.current = messagesContainerRef.current.scrollHeight;
+    }
     
     // FIXED: Only load more when actually at the top and has more messages
     if (nearTop && hasMoreMessages && !isLoadingMore && onLoadMore) {
@@ -70,12 +76,25 @@ const ChatMessages = ({
     }
   }, [debouncedHandleScroll]);
 
+  // Maintain scroll position after older messages are prepended
+  useEffect(() => {
+    if (!isLoadingMore && prevScrollHeightRef.current !== null && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const prevHeight = prevScrollHeightRef.current;
+      const newHeight = container.scrollHeight;
+      const diff = newHeight - prevHeight;
+      container.scrollTop = container.scrollTop + diff;
+      prevScrollHeightRef.current = null;
+    }
+  }, [isLoadingMore]);
+
   // FIXED: Only auto-scroll when new messages arrive AND user is at bottom
   useEffect(() => {
     const currentMessageCount = messages.length;
     const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
     
-    if (hasNewMessages && shouldAutoScroll && messagesEndRef.current) {
+    // Do not auto-scroll if we are in the middle of loading older messages
+    if (hasNewMessages && shouldAutoScroll && !isLoadingMore && !prevScrollHeightRef.current && messagesEndRef.current) {
       // Small delay to ensure DOM is updated
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,7 +102,7 @@ const ChatMessages = ({
     }
     
     lastMessageCountRef.current = currentMessageCount;
-  }, [messages.length, shouldAutoScroll, messagesEndRef]);
+  }, [messages.length, shouldAutoScroll, isLoadingMore, messagesEndRef]);
 
   // FIXED: Initial scroll to bottom only once when conversation first loads
   useEffect(() => {
@@ -98,6 +117,30 @@ const ChatMessages = ({
     }
   }, [selectedConversation?.sessionId]); // Only trigger when conversation changes
 
+  // Ensure initial bottom anchor when messages first arrive (0 -> >0)
+  useEffect(() => {
+    if (selectedConversation && lastMessageCountRef.current === 0 && messages.length > 0 && messagesEndRef.current) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+        setShouldAutoScroll(true);
+      }, 0);
+    }
+  }, [messages.length, selectedConversation?.sessionId]);
+
+  // Auto-load older messages if list doesn't overflow yet (no scrollbar)
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (!hasMoreMessages || isLoadingMore || !onLoadMore) return;
+
+    const hasScrollbar = container.scrollHeight > container.clientHeight + 8;
+    if (!hasScrollbar) {
+      // Snapshot before loading more to keep bottom anchored
+      prevScrollHeightRef.current = container.scrollHeight;
+      onLoadMore();
+    }
+  }, [messages.length, hasMoreMessages, isLoadingMore, onLoadMore]);
+
   return (
     <div className="flex-1 relative bg-zinc-100 overflow-hidden">
       <div 
@@ -109,7 +152,7 @@ const ChatMessages = ({
         }}
       >
         {/* FIXED: Container with proper spacing and no bottom padding */}
-        <div className="flex flex-col items-center py-4 min-h-full">
+        <div className="flex flex-col justify-end items-center py-4 min-h-full">
           
           {/* FIXED: Load More Indicator - Only show when actually loading */}
           {isLoadingMore && (
@@ -121,20 +164,7 @@ const ChatMessages = ({
             </div>
           )}
 
-          {/* FIXED: Load More Button - Only show when has more and not loading */}
-          {hasMoreMessages && !isLoadingMore && isNearTop && onLoadMore && (
-            <div className="w-full flex justify-center py-3">
-              <motion.button
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                onClick={onLoadMore}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                Load older messages
-              </motion.button>
-            </div>
-          )}
+          {/* Removed Load More Button; using scroll-to-top only */}
 
           {/* Session Status Warning */}
           {sessionStatus !== 'ready' && sessionStatus !== 'ai_chat' && (

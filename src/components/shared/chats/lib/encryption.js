@@ -143,7 +143,7 @@ class ChatEncryption {
       let ivHex;
       let cipherText;
 
-      // Compact formats:
+      // gajadi
       // - enc.v1:<iv-hex>:<cipher-b64>
       // - enc.v1.<iv-hex>.<cipher-b64url>
       // - enc.v1_<iv-hex>_<cipher-b64url>

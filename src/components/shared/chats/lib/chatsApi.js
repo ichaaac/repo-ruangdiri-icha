@@ -353,19 +353,23 @@ export const chatsApi = {
 
         if (Array.isArray(raw)) {
           messagesRaw = raw;
+          // Top-level metadata support
+          meta = response.data?.metadata || {};
         } else if (raw?.data && Array.isArray(raw.data)) {
           messagesRaw = raw.data;
-          meta = raw.metadata || {};
+          meta = raw.metadata || response.data?.metadata || {};
         } else if (raw?.messages && Array.isArray(raw.messages)) {
           messagesRaw = raw.messages;
-          meta = raw.metadata || {};
+          meta = raw.metadata || response.data?.metadata || {};
         } else if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
           messagesRaw = response.data.data.data;
-          meta = response.data.data.metadata || {};
+          meta = response.data.data.metadata || response.data?.metadata || {};
         } else {
           // Fallback: try to treat as array
           messagesRaw = (response.data?.data || []);
           if (!Array.isArray(messagesRaw)) messagesRaw = [];
+          // Try top-level metadata
+          meta = response.data?.metadata || {};
         }
 
         const mapped = messagesRaw.map(msg => {

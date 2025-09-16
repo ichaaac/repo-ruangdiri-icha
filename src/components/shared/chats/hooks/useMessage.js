@@ -87,23 +87,27 @@ export const useMessages = (sessionId, ably = null) => {
       const response = await chatsApi.getMessages(sessionId, null, 20);
       
       if (Array.isArray(response)) {
-        return response;
+        // Ensure ascending order by timestamp for rendering bottom-anchored
+        const ordered = [...response].sort((a, b) => new Date(a.timestamp || a.createdAt) - new Date(b.timestamp || b.createdAt));
+        return ordered;
       } else if (response.data) {
         const { data: messages, metadata } = response;
-        
+
         // FIXED: Set initial pagination state
         if (metadata) {
           setHasMore(metadata.hasNextPage || false);
           setCursor(metadata.nextCursor || null);
-          
+
           MessageLogger.log('infinite', 'INITIAL_PAGINATION', {
             messagesCount: messages.length,
             hasNextPage: metadata.hasNextPage,
-            nextCursor: metadata.nextCursor?.slice(-10) || 'null'
+            nextCursor: metadata.nextCursor?.slice?.(-10) || 'null'
           });
         }
-        
-        return messages || [];
+
+        // Ensure ascending order by timestamp for bottom anchoring
+        const ordered = [...(messages || [])].sort((a, b) => new Date(a.timestamp || a.createdAt) - new Date(b.timestamp || b.createdAt));
+        return ordered;
       }
       
       return response;
@@ -414,6 +418,9 @@ export const useMessages = (sessionId, ably = null) => {
         newCursor = metadata.nextCursor || null;
       }
 
+      // Ensure ascending order by timestamp for older chunk too
+      olderMessages = [...olderMessages].sort((a, b) => new Date(a.timestamp || a.createdAt) - new Date(b.timestamp || b.createdAt));
+
       MessageLogger.log('infinite', 'LOAD_MORE_RESPONSE', {
         olderMessagesCount: olderMessages.length,
         hasNextPage,
@@ -432,7 +439,7 @@ export const useMessages = (sessionId, ably = null) => {
             duplicatesFiltered: olderMessages.length - newMessages.length
           });
           
-          // FIXED: Prepend older messages to the beginning
+          // FIXED: Prepend older messages (already ordered asc) to the beginning
           return [...newMessages, ...old];
         });
       }

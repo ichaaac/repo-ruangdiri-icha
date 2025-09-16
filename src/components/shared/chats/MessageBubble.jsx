@@ -1,32 +1,165 @@
-// src/components/shared/chats/components/MessageBubble.jsx - FIXED: Proper Read Receipts
+// src/components/shared/chats/components/MessageBubble.jsx - SIMPLE Modal Design
 
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Simple Media Display Component
+// SIMPLE Media Preview Modal Component - Light & Clean
+const SimpleMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, mediaName, mediaSize }) => {
+  if (!isOpen) return null;
+
+  const isImage = mediaType?.startsWith('image/');
+  
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    const mb = (bytes / 1024 / 1024).toFixed(1);
+    return `${mb} MB`;
+  };
+
+  const getFileIcon = (type) => {
+    if (type?.includes('pdf')) return 'picture_as_pdf';
+    if (type?.includes('word')) return 'description';
+    if (type?.includes('excel') || type?.includes('sheet')) return 'table_chart';
+    if (type?.includes('zip') || type?.includes('rar')) return 'archive';
+    return 'attach_file';
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-white bg-opacity-95 z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        {/* SIMPLE Modal Content - Smaller & Cleaner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="relative bg-white rounded-xl shadow-lg border border-gray-200 max-w-2xl max-h-[80vh] w-full overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Simple Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-100">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span 
+                className="material-icons"
+                style={{ color: '#488BBA' }}
+              >
+                {isImage ? 'image' : getFileIcon(mediaType)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-medium text-gray-800 truncate text-sm">
+                  {mediaName || 'Media File'}
+                </h3>
+                {mediaSize && (
+                  <p className="text-xs text-gray-500">
+                    {formatFileSize(mediaSize)}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <a
+                href={mediaUrl}
+                download={mediaName}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Download"
+              >
+                <span className="material-icons text-gray-500 text-sm">download</span>
+              </a>
+              
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Close"
+              >
+                <span className="material-icons text-gray-500 text-sm">close</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Simple Content */}
+          <div className="p-4">
+            {isImage ? (
+              <div className="flex justify-center">
+                <img
+                  src={mediaUrl}
+                  alt={mediaName || 'Image preview'}
+                  className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    // Prevent infinite onError loop if placeholder is missing
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/image-placeholder.svg';
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <span 
+                  className="material-icons text-5xl mb-3 block"
+                  style={{ color: '#488BBA' }}
+                >
+                  {getFileIcon(mediaType)}
+                </span>
+                <h4 className="font-medium text-gray-800 mb-1">{mediaName}</h4>
+                <p className="text-sm text-gray-500 mb-4">
+                  {formatFileSize(mediaSize)}
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <a
+                    href={mediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-colors"
+                    style={{ backgroundColor: '#488BBA' }}
+                  >
+                    Open
+                  </a>
+                  <a
+                    href={mediaUrl}
+                    download={mediaName}
+                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Download
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// Enhanced Media Display Component
 const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmentSize }) => {
+  const [isPreviewOpen, setPreviewOpen] = useState(false);
+  
   if (!attachmentUrl) return null;
 
   const isImage = attachmentType?.startsWith('image/');
 
-  // Normalize URL: ensure protocol exists (default to https), handle leading // and bare host paths
   const normalizeUrl = (url) => {
     if (!url) return '';
     const trimmed = url.trim();
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
     if (trimmed.startsWith('//')) return `${window.location.protocol}${trimmed}`;
-    // If looks like bare domain or path, prefix with https
     return `https://${trimmed.replace(/^\/+/, '')}`;
   };
 
   const fullUrl = normalizeUrl(attachmentUrl);
 
-  const [isPreviewOpen, setPreviewOpen] = React.useState(false);
   const handleOpenPreview = (e) => {
     e?.preventDefault?.();
-    if (isImage) setPreviewOpen(true);
-    else window.open(fullUrl, '_blank', 'noopener');
+    setPreviewOpen(true);
   };
+
   const handleClosePreview = () => setPreviewOpen(false);
 
   const getFileIcon = (type) => {
@@ -44,103 +177,78 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
   };
 
   return (
-    <div className="mt-2 w-full max-w-xs">
-      {isImage ? (
-        <>
-          <img
-            src={fullUrl}
-            alt={attachmentName || 'Image'}
-            className="w-full h-48 rounded-lg cursor-pointer hover:opacity-80 transition-opacity object-cover"
-            onClick={handleOpenPreview}
-            onError={(e) => {
-              // fallback: open in new tab if image fails
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = '/image-placeholder.svg';
-            }}
-          />
-          {/* Show filename under the image */}
-          {attachmentName && (
-            <div className="mt-1 block text-[11px] text-gray-600 break-all" title={attachmentName}>
-              {attachmentName}
-            </div>
-          )}
-
-          {/* Simple image preview modal */}
-          {isPreviewOpen && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-              onClick={handleClosePreview}
-            >
-              <div className="relative max-w-3xl w-full">
-                <button
-                  className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow"
-                  aria-label="Close preview"
-                  onClick={(e) => { e.stopPropagation(); handleClosePreview(); }}
-                >
-                  <span className="material-icons text-gray-700 text-base">close</span>
-                </button>
-                <img
-                  src={fullUrl}
-                  alt={attachmentName || 'Image preview'}
-                  className="w-full max-h-[80vh] object-contain rounded"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                {attachmentName && (
-                  <div className="mt-2 text-center text-xs text-white/90 break-all">
-                    {attachmentName}
-                  </div>
-                )}
+    <>
+      <div className="mt-2 w-full max-w-xs">
+        {isImage ? (
+          <div className="relative group cursor-pointer" onClick={handleOpenPreview}>
+            <img
+              src={fullUrl}
+              alt={attachmentName || 'Image'}
+              className="w-full h-48 rounded-lg object-cover transition-opacity hover:opacity-90"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/image-placeholder.svg';
+              }}
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 rounded-lg flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-lg">
+                <span className="material-icons text-gray-700 text-sm">zoom_in</span>
               </div>
             </div>
-          )}
-        </>
-      ) : (
-        <div
-          className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full cursor-pointer"
-          onClick={() => window.open(fullUrl, '_blank', 'noopener')}
-        >
-          <div className="flex items-center gap-2">
-            <span className="material-icons text-gray-600">
-              {getFileIcon(attachmentType)}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">
-                {attachmentName || 'Document'}
-              </p>
-              {attachmentSize && (
-                <p className="text-xs text-gray-500">
-                  {formatFileSize(attachmentSize)}
-                </p>
-              )}
-              {/* Show filename only (no raw URL) */}
-              {attachmentName && (
-                <div className="mt-1 text-[11px] text-gray-600 break-all" title={attachmentName}>
-                  {attachmentName}
-                </div>
-              )}
-            </div>
-            <a
-              href={fullUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="material-icons text-gray-400 text-sm"
-              title="Open file"
-            >
-              download
-            </a>
+            {attachmentName && (
+              <div className="mt-1 text-[11px] text-gray-600 break-all" title={attachmentName}>
+                {attachmentName}
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div
+            className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full cursor-pointer"
+            onClick={handleOpenPreview}
+          >
+            <div className="flex items-center gap-2">
+              <span 
+                className="material-icons"
+                style={{ color: '#488BBA' }}
+              >
+                {getFileIcon(attachmentType)}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                  {attachmentName || 'Document'}
+                </p>
+                {attachmentSize && (
+                  <p className="text-xs text-gray-500">
+                    {formatFileSize(attachmentSize)}
+                  </p>
+                )}
+              </div>
+              <span className="material-icons text-gray-400 text-sm">
+                visibility
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Simple Media Preview Modal */}
+      <SimpleMediaPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={handleClosePreview}
+        mediaUrl={fullUrl}
+        mediaType={attachmentType}
+        mediaName={attachmentName}
+        mediaSize={attachmentSize}
+      />
+    </>
   );
 };
 
-// FIXED: Enhanced Message Status Component with proper read receipts
+// Enhanced Message Status Component
 const MessageStatus = ({ messageData, isOwn }) => {
   if (!isOwn) return null;
   
   const getStatusIcon = () => {
-    // Loading states
     if (messageData?.isSending || messageData?.isUploading) {
       return (
         <div className="flex items-center ml-2" title="Sending...">
@@ -149,7 +257,6 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
-    // Error states
     if (messageData?.uploadError || messageData?.sendError) {
       return (
         <div className="flex items-center ml-2" title="Failed to send">
@@ -161,12 +268,10 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
-    // FIXED: Proper read receipt logic
     const isRead = messageData?.isRead === true;
     const isSent = messageData?.isSent === true || messageData?.id;
     const isOptimistic = messageData?.isOptimistic === true;
     
-    // Don't show status for optimistic/temporary messages
     if (isOptimistic) {
       return (
         <div className="flex items-center ml-2" title="Sending...">
@@ -178,21 +283,17 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
-    // FIXED: Blue double checkmark when read
     if (isRead) {
       return (
         <div className="flex items-center ml-2" title="Read">
           <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-            {/* First checkmark */}
             <path d="M1.5 5L4 7.5L7.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            {/* Second checkmark (overlapping) */}
             <path d="M5.5 5L8 7.5L11.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
       );
     } 
     
-    // FIXED: Gray single checkmark when sent but not read
     if (isSent) {
       return (
         <div className="flex items-center ml-2" title="Delivered">
@@ -203,7 +304,6 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
-    // Clock icon for pending
     return (
       <div className="flex items-center ml-2" title="Pending">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -215,6 +315,35 @@ const MessageStatus = ({ messageData, isOwn }) => {
   };
   
   return getStatusIcon();
+};
+
+// Enhanced Message Text with See More functionality
+const MessageText = ({ message, hasMedia, isOwn }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const MAX_LENGTH = 550;
+  
+  if (!message || !message.trim()) return null;
+  
+  const shouldTruncate = message.length > MAX_LENGTH;
+  const displayText = shouldTruncate && !isExpanded 
+    ? message.slice(0, MAX_LENGTH) + '...' 
+    : message;
+
+  return (
+    <div className={`text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full ${hasMedia ? 'mt-2 px-2 pb-1' : ''}`}>
+      {displayText}
+      {shouldTruncate && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`block mt-1 text-xs font-medium hover:underline transition-colors ${
+            isOwn ? 'text-blue-700' : 'text-blue-600'
+          }`}
+        >
+          {isExpanded ? 'See less' : 'See more'}
+        </button>
+      )}
+    </div>
+  );
 };
 
 const MessageBubble = ({ 
@@ -235,7 +364,6 @@ const MessageBubble = ({
   const hasMedia = !!(attachmentUrl && attachmentUrl.trim());
   const hasText = message && message.trim().length > 0;
 
-  // Calculate dynamic width based on content
   const getMessageWidth = () => {
     if (hasMedia) {
       return 'max-w-xs';
@@ -313,7 +441,6 @@ const MessageBubble = ({
               }
               ${hasMedia ? 'p-2' : 'px-4 py-3 min-h-[47px]'}
             `}>
-              {/* Media Display */}
               {hasMedia && (
                 <MediaDisplay 
                   attachmentUrl={attachmentUrl}
@@ -323,14 +450,14 @@ const MessageBubble = ({
                 />
               )}
 
-              {/* Text message */}
               {hasText && (
-                <p className={`text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full ${hasMedia ? 'mt-2 px-2 pb-1' : ''}`}>
-                  {message}
-                </p>
+                <MessageText 
+                  message={message}
+                  hasMedia={hasMedia}
+                  isOwn={isOwn}
+                />
               )}
 
-              {/* Service options */}
               {showOptions && !isOwn && (
                 <div className="mt-3 w-full border-t border-gray-200 pt-3">
                   <div className="space-y-1">
@@ -353,7 +480,6 @@ const MessageBubble = ({
                 </div>
               )}
 
-              {/* Action buttons */}
               {actions && actions.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {actions.map((action, index) => (
@@ -373,7 +499,6 @@ const MessageBubble = ({
               )}
             </div>
             
-            {/* FIXED: Time and Status Row */}
             <div className={`flex items-center gap-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
               {showTime && (
                 <time className="text-xs font-light text-zinc-500">
@@ -381,7 +506,6 @@ const MessageBubble = ({
                 </time>
               )}
               
-              {/* FIXED: Enhanced message status */}
               <MessageStatus messageData={messageData} isOwn={isOwn} />
             </div>
           </div>

@@ -20,7 +20,7 @@ export const useSchedule = (type = "school") => {
   const scheduleApi = useMemo(() => createScheduleApi(type), [type]);
   
   // Local state
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date()); 
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const today = new Date();
     const weekStart = new Date(today);

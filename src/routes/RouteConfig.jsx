@@ -44,7 +44,6 @@ import UserDashboard from "../pages/user/shared/UserDashboard"
 // === STANDALONE BOOKING COMPONENTS ===
 import BookingContainer from "@/components/shared/booking/BookingContainer"
 import PsychologistProfilePage from "@/pages/user/psychologist/profile/PsychologistProfilePage"
-import PsychologistChatPage from "@/pages/user/psychologist/PsychologistChatPage"
 import SchedulePage from "@/components/shared/schedule/SchedulePage"
 
 // === UNDER DEVELOPMENT COMPONENT ===
