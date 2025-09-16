@@ -1,10 +1,10 @@
-// src/components/shared/chats/components/MessageBubble.jsx - SIMPLE Modal Design
+// src/components/shared/chats/components/MessageBubble.jsx - FIXED: Working Download Functionality
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// SIMPLE Media Preview Modal Component - Light & Clean
-const SimpleMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, mediaName, mediaSize }) => {
+// FIXED: Enhanced Media Preview Modal with Working Downloads
+const EnhancedMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, mediaName, mediaSize }) => {
   if (!isOpen) return null;
 
   const isImage = mediaType?.startsWith('image/');
@@ -23,111 +23,182 @@ const SimpleMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, mediaNa
     return 'attach_file';
   };
 
+  // FIXED: Enhanced download handler with proper error handling
+  const handleDownload = async (e) => {
+    e.preventDefault();
+    
+    try {
+      console.log('📥 Starting download:', { mediaUrl, mediaName, mediaType });
+      
+      // Method 1: Try direct download link first
+      if (mediaUrl) {
+        const link = document.createElement('a');
+        link.href = mediaUrl;
+        link.download = mediaName || 'download';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        
+        // Add to DOM temporarily
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Download triggered successfully');
+        return;
+      }
+      
+      throw new Error('No media URL available');
+      
+    } catch (error) {
+      console.error('❌ Download failed:', error);
+      
+      // Fallback: Open in new tab
+      try {
+        window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+        console.log('📱 Opened in new tab as fallback');
+      } catch (fallbackError) {
+        console.error('❌ Fallback failed:', fallbackError);
+        alert('Download failed. Please try again or contact support.');
+      }
+    }
+  };
+
+  // FIXED: Enhanced view handler for opening media
+  const handleView = (e) => {
+    e.preventDefault();
+    
+    try {
+      if (mediaUrl) {
+        window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+        console.log('👁️ Media opened in new tab');
+      }
+    } catch (error) {
+      console.error('❌ View failed:', error);
+      alert('Unable to open media. Please try downloading instead.');
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-white bg-opacity-95 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
-        {/* SIMPLE Modal Content - Smaller & Cleaner */}
+        {/* FIXED: Enhanced Modal Content with Better UX */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="relative bg-white rounded-xl shadow-lg border border-gray-200 max-w-2xl max-h-[80vh] w-full overflow-hidden"
+          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 max-w-4xl max-h-[90vh] w-full overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Simple Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Enhanced Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <span 
-                className="material-icons"
+                className="material-icons text-2xl"
                 style={{ color: '#488BBA' }}
               >
                 {isImage ? 'image' : getFileIcon(mediaType)}
               </span>
               <div className="min-w-0 flex-1">
-                <h3 className="font-medium text-gray-800 truncate text-sm">
+                <h3 className="font-semibold text-gray-800 truncate">
                   {mediaName || 'Media File'}
                 </h3>
                 {mediaSize && (
-                  <p className="text-xs text-gray-500">
-                    {formatFileSize(mediaSize)}
+                  <p className="text-sm text-gray-500">
+                    {formatFileSize(mediaSize)} • {mediaType}
                   </p>
                 )}
               </div>
             </div>
             
-            <div className="flex items-center gap-1">
-              <a
-                href={mediaUrl}
-                download={mediaName}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Download"
+            <div className="flex items-center gap-2">
+              {/* FIXED: Working Download Button */}
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                title="Download file"
               >
-                <span className="material-icons text-gray-500 text-sm">download</span>
-              </a>
+                <span className="material-icons text-lg">download</span>
+                <span className="hidden sm:inline">Download</span>
+              </button>
+              
+              {/* View Button (for non-images) */}
+              {!isImage && (
+                <button
+                  onClick={handleView}
+                  className="flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#488BBA' }}
+                  title="Open in new tab"
+                >
+                  <span className="material-icons text-lg">open_in_new</span>
+                  <span className="hidden sm:inline">Open</span>
+                </button>
+              )}
               
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
                 title="Close"
               >
-                <span className="material-icons text-gray-500 text-sm">close</span>
+                <span className="material-icons text-gray-500">close</span>
               </button>
             </div>
           </div>
 
-          {/* Simple Content */}
-          <div className="p-4">
+          {/* FIXED: Enhanced Content Display */}
+          <div className="p-6 max-h-[calc(90vh-120px)] overflow-auto">
             {isImage ? (
               <div className="flex justify-center">
                 <img
                   src={mediaUrl}
                   alt={mediaName || 'Image preview'}
-                  className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-sm"
                   onError={(e) => {
-                    // Prevent infinite onError loop if placeholder is missing
+                    console.error('Image loading failed:', mediaUrl);
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = '/image-placeholder.svg';
                   }}
                 />
               </div>
             ) : (
-              <div className="text-center py-8">
+              <div className="text-center py-12">
                 <span 
-                  className="material-icons text-5xl mb-3 block"
+                  className="material-icons text-6xl mb-4 block"
                   style={{ color: '#488BBA' }}
                 >
                   {getFileIcon(mediaType)}
                 </span>
-                <h4 className="font-medium text-gray-800 mb-1">{mediaName}</h4>
-                <p className="text-sm text-gray-500 mb-4">
-                  {formatFileSize(mediaSize)}
+                <h4 className="text-xl font-semibold text-gray-800 mb-2">{mediaName}</h4>
+                <p className="text-gray-600 mb-6">
+                  {formatFileSize(mediaSize)} • {mediaType}
                 </p>
-                <div className="flex gap-2 justify-center">
-                  <a
-                    href={mediaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 text-sm text-white rounded-lg hover:opacity-90 transition-colors"
+                
+                <div className="flex gap-3 justify-center">
+                  <button
+                    onClick={handleView}
+                    className="flex items-center gap-2 px-6 py-3 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-colors"
                     style={{ backgroundColor: '#488BBA' }}
                   >
-                    Open
-                  </a>
-                  <a
-                    href={mediaUrl}
-                    download={mediaName}
-                    className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    <span className="material-icons">open_in_new</span>
+                    Open File
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                   >
+                    <span className="material-icons">download</span>
                     Download
-                  </a>
+                  </button>
                 </div>
+                
+                <p className="text-xs text-gray-500 mt-4">
+                  Click "Open File" to view in browser or "Download" to save to device
+                </p>
               </div>
             )}
           </div>
@@ -137,7 +208,7 @@ const SimpleMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, mediaNa
   );
 };
 
-// Enhanced Media Display Component
+// FIXED: Enhanced Media Display Component
 const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmentSize }) => {
   const [isPreviewOpen, setPreviewOpen] = useState(false);
   
@@ -145,22 +216,55 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
 
   const isImage = attachmentType?.startsWith('image/');
 
+  // FIXED: Better URL normalization
   const normalizeUrl = (url) => {
     if (!url) return '';
     const trimmed = url.trim();
+    
+    // Already a full URL
     if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    
+    // Protocol-relative URL
     if (trimmed.startsWith('//')) return `${window.location.protocol}${trimmed}`;
-    return `https://${trimmed.replace(/^\/+/, '')}`;
+    
+    // Relative URL - assume it's from our API
+    if (trimmed.startsWith('/')) return `${window.location.origin}${trimmed}`;
+    
+    // No protocol, assume https
+    return `https://${trimmed}`;
   };
 
   const fullUrl = normalizeUrl(attachmentUrl);
 
   const handleOpenPreview = (e) => {
     e?.preventDefault?.();
+    console.log('🖼️ Opening media preview:', { fullUrl, attachmentName, attachmentType });
     setPreviewOpen(true);
   };
 
   const handleClosePreview = () => setPreviewOpen(false);
+
+  // FIXED: Quick download handler for media items
+  const handleQuickDownload = (e) => {
+    e.stopPropagation();
+    
+    try {
+      const link = document.createElement('a');
+      link.href = fullUrl;
+      link.download = attachmentName || 'download';
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('⚡ Quick download triggered');
+    } catch (error) {
+      console.error('❌ Quick download failed:', error);
+      // Fallback to modal
+      setPreviewOpen(true);
+    }
+  };
 
   const getFileIcon = (type) => {
     if (type?.includes('pdf')) return 'picture_as_pdf';
@@ -186,29 +290,42 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
               alt={attachmentName || 'Image'}
               className="w-full h-48 rounded-lg object-cover transition-opacity hover:opacity-90"
               onError={(e) => {
+                console.error('Image loading failed:', fullUrl);
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = '/image-placeholder.svg';
               }}
             />
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 rounded-lg flex items-center justify-center">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-lg">
-                <span className="material-icons text-gray-700 text-sm">zoom_in</span>
+            
+            {/* Image Overlay Controls */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                <div className="bg-white rounded-full p-2 shadow-lg hover:bg-gray-100">
+                  <span className="material-icons text-gray-700 text-lg">zoom_in</span>
+                </div>
+                <button
+                  onClick={handleQuickDownload}
+                  className="bg-green-600 rounded-full p-2 shadow-lg hover:bg-green-700 transition-colors"
+                  title="Download"
+                >
+                  <span className="material-icons text-white text-lg">download</span>
+                </button>
               </div>
             </div>
+            
             {attachmentName && (
-              <div className="mt-1 text-[11px] text-gray-600 break-all" title={attachmentName}>
+              <div className="mt-2 text-[11px] text-gray-600 break-all" title={attachmentName}>
                 {attachmentName}
               </div>
             )}
           </div>
         ) : (
           <div
-            className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full cursor-pointer"
+            className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full cursor-pointer group"
             onClick={handleOpenPreview}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <span 
-                className="material-icons"
+                className="material-icons text-2xl"
                 style={{ color: '#488BBA' }}
               >
                 {getFileIcon(attachmentType)}
@@ -223,16 +340,27 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
                   </p>
                 )}
               </div>
-              <span className="material-icons text-gray-400 text-sm">
-                visibility
-              </span>
+              
+              {/* File Controls */}
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={handleQuickDownload}
+                  className="p-1 hover:bg-green-100 rounded transition-colors"
+                  title="Download"
+                >
+                  <span className="material-icons text-green-600 text-sm">download</span>
+                </button>
+                <span className="material-icons text-gray-400 text-sm">
+                  visibility
+                </span>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Simple Media Preview Modal */}
-      <SimpleMediaPreviewModal
+      {/* FIXED: Enhanced Media Preview Modal */}
+      <EnhancedMediaPreviewModal
         isOpen={isPreviewOpen}
         onClose={handleClosePreview}
         mediaUrl={fullUrl}
