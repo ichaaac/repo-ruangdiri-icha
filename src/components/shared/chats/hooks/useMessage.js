@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useMessage.js - Simple Working Version
+// src/components/shared/chats/hooks/useMessage.js - FIXED: Proper Infinite Scroll
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,7 +33,8 @@ const MessageLogger = {
       success: 'color: #66BB6A; font-weight: bold;',
       error: 'color: #FF6B6B; font-weight: bold;',
       warn: 'color: #FFB74D; font-weight: bold;',
-      crypto: 'color: #FF9800; font-weight: bold;'
+      crypto: 'color: #FF9800; font-weight: bold;',
+      infinite: 'color: #9C27B0; font-weight: bold;'
     };
 
     console.log(
@@ -47,18 +48,42 @@ const MessageLogger = {
 export const useMessages = (sessionId, ably = null) => {
   const queryClient = useQueryClient();
   const [messageText, setMessageText] = useState('');
+  
+  // FIXED: Proper infinite scroll state management
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadingRef = useRef(false); // Prevent multiple simultaneous loads
 
-  // Get messages query 
+  // FIXED: Get messages query with proper cursor handling
   const messagesQuery = useQuery({
     queryKey: ['chat-messages', sessionId],
     queryFn: async () => {
-      MessageLogger.log('info', 'FETCH_MESSAGES', {
+      MessageLogger.log('info', 'INITIAL_FETCH', {
         sessionId: sessionId?.slice(-8),
         isTeamChat: sessionId === 'team-ruangdiri'
       });
 
+      if (sessionId === 'team-ruangdiri') {
+        return [
+          {
+            id: '1',
+            text: "Hello, roomies!\n\nSelamat datang di Ruang Bantu.\nApakah ada yang bisa kami bantu?\nUntuk mempermudah keperluan roomies,\nkamu dapat memilih tiga opsi di bawah ini:",
+            time: getCurrentTime(),
+            timestamp: getCurrentTimestamp(),
+            isUser: false,
+            sender: {
+              id: 'team-ai',
+              name: 'Team RuangDiri',
+              role: 'ai_assistant'
+            },
+            messageType: 'ai_welcome',
+            showOptions: true
+          }
+        ];
+      }
+
+      // FIXED: Always start without cursor for initial fetch
       const response = await chatsApi.getMessages(sessionId, null, 20);
       
       if (Array.isArray(response)) {
@@ -66,9 +91,16 @@ export const useMessages = (sessionId, ably = null) => {
       } else if (response.data) {
         const { data: messages, metadata } = response;
         
+        // FIXED: Set initial pagination state
         if (metadata) {
           setHasMore(metadata.hasNextPage || false);
           setCursor(metadata.nextCursor || null);
+          
+          MessageLogger.log('infinite', 'INITIAL_PAGINATION', {
+            messagesCount: messages.length,
+            hasNextPage: metadata.hasNextPage,
+            nextCursor: metadata.nextCursor?.slice(-10) || 'null'
+          });
         }
         
         return messages || [];
@@ -111,7 +143,6 @@ export const useMessages = (sessionId, ably = null) => {
         const payload = {
           senderId: getCurrentUserId() || 'current-user',
           senderFullname,
-          // Always broadcast the encrypted token if available so receivers can decrypt
           content: result?.sentEncrypted || content,
           messageType: result?.messageType || 'text',
           timestamp: result?.timestamp || new Date().toISOString()
@@ -284,7 +315,7 @@ export const useMessages = (sessionId, ably = null) => {
               ...msg,
               isUploading: false,
               uploadError: err.message || 'Upload failed',
-              text: `❌ ${err.message || 'Failed to upload file'}`
+              text: `⚠ ${err.message || 'Failed to upload file'}`
             };
           }
           return msg;
@@ -336,6 +367,96 @@ export const useMessages = (sessionId, ably = null) => {
 
   // Memoize current messages
   const currentMessages = useMemo(() => messagesQuery.data || [], [messagesQuery.data]);
+
+  // FIXED: Load more messages with proper cursor and deduplication
+  const loadMoreMessages = useCallback(async () => {
+    if (!sessionId || sessionId === 'team-ruangdiri') {
+      return false;
+    }
+
+    if (!hasMore || isLoadingMore || loadingRef.current || messagesQuery.isLoading) {
+      MessageLogger.log('warn', 'LOAD_MORE_BLOCKED', {
+        hasMore,
+        isLoadingMore,
+        loadingRefCurrent: loadingRef.current,
+        isQueryLoading: messagesQuery.isLoading
+      });
+      return false;
+    }
+
+    if (!cursor) {
+      MessageLogger.log('warn', 'NO_CURSOR', 'Cannot load more without cursor');
+      return false;
+    }
+
+    try {
+      loadingRef.current = true;
+      setIsLoadingMore(true);
+      
+      MessageLogger.log('infinite', 'LOAD_MORE_START', {
+        cursor: cursor?.slice(-10),
+        hasMore,
+        sessionId: sessionId?.slice(-8)
+      });
+      
+      const response = await chatsApi.getMessages(sessionId, cursor, 20);
+      
+      let olderMessages = [];
+      let newCursor = null;
+      let hasNextPage = false;
+      
+      if (Array.isArray(response)) {
+        olderMessages = response;
+      } else if (response.data) {
+        olderMessages = response.data || [];
+        const metadata = response.metadata || {};
+        hasNextPage = metadata.hasNextPage || false;
+        newCursor = metadata.nextCursor || null;
+      }
+
+      MessageLogger.log('infinite', 'LOAD_MORE_RESPONSE', {
+        olderMessagesCount: olderMessages.length,
+        hasNextPage,
+        newCursor: newCursor?.slice(-10) || 'null'
+      });
+      
+      if (olderMessages.length > 0) {
+        queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
+          // FIXED: Prevent duplicate messages
+          const existingIds = new Set(old.map(msg => msg.id));
+          const newMessages = olderMessages.filter(msg => !existingIds.has(msg.id));
+          
+          MessageLogger.log('infinite', 'PREPEND_MESSAGES', {
+            existingCount: old.length,
+            newCount: newMessages.length,
+            duplicatesFiltered: olderMessages.length - newMessages.length
+          });
+          
+          // FIXED: Prepend older messages to the beginning
+          return [...newMessages, ...old];
+        });
+      }
+      
+      // Update pagination state
+      setCursor(newCursor);
+      setHasMore(hasNextPage);
+      
+      MessageLogger.log('infinite', 'LOAD_MORE_SUCCESS', {
+        messagesAdded: olderMessages.length,
+        newHasMore: hasNextPage,
+        newCursor: newCursor?.slice(-10) || 'null'
+      });
+      
+      return true;
+      
+    } catch (error) {
+      MessageLogger.log('error', 'LOAD_MORE_FAILED', error);
+      return false;
+    } finally {
+      loadingRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [sessionId, cursor, hasMore, isLoadingMore, messagesQuery.isLoading, queryClient]);
 
   // Send message function
   const sendMessage = useCallback(async (content) => {
@@ -438,6 +559,7 @@ export const useMessages = (sessionId, ably = null) => {
         return old;
       }
       
+      // FIXED: Add new messages at the end (bottom of chat)
       return [...old, message];
     });
   }, [sessionId, queryClient]);
@@ -547,52 +669,6 @@ export const useMessages = (sessionId, ably = null) => {
     return 'chat_disabled';
   }, [sessionId]);
 
-  // Load more messages
-  const loadMoreMessages = useCallback(async () => {
-    if (!sessionId || sessionId === 'team-ruangdiri' || !hasMore || messagesQuery.isLoading) {
-      return;
-    }
-    
-    try {
-      MessageLogger.log('info', 'LOAD_MORE_MESSAGES', {
-        cursor,
-        hasMore,
-        sessionId: sessionId?.slice(-8)
-      });
-      
-      const response = await chatsApi.getMessages(sessionId, cursor, 20);
-      
-      let olderMessages = [];
-      let newCursor = null;
-      let hasNextPage = false;
-      
-      if (Array.isArray(response)) {
-        olderMessages = response;
-      } else if (response.data) {
-        olderMessages = response.data || [];
-        const metadata = response.metadata || {};
-        hasNextPage = metadata.hasNextPage || false;
-        newCursor = metadata.nextCursor || null;
-      }
-      
-      if (olderMessages.length > 0) {
-        queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
-          const existingIds = new Set(old.map(msg => msg.id));
-          const newMessages = olderMessages.filter(msg => !existingIds.has(msg.id));
-          return [...newMessages, ...old]; // Prepend older messages
-        });
-        
-        setCursor(newCursor);
-        setHasMore(hasNextPage);
-      } else {
-        setHasMore(false);
-        setCursor(null);
-      }
-    } catch (error) {
-      MessageLogger.log('error', 'LOAD_MORE_FAILED', error);
-    }
-  }, [sessionId, cursor, hasMore, messagesQuery.isLoading, queryClient]);
-
   // Return object
   return useMemo(() => ({
     messages: currentMessages,
@@ -615,7 +691,7 @@ export const useMessages = (sessionId, ably = null) => {
     error: messagesQuery.error || sendMutation.error || sendFileMutation.error,
     refetch: messagesQuery.refetch,
     hasMore,
-    isLoadingMore: false
+    isLoadingMore
   }), [
     currentMessages,
     messageText,
@@ -638,6 +714,7 @@ export const useMessages = (sessionId, ably = null) => {
     sendFileMutation.isPending,
     sendFileMutation.error,
     hasMore,
+    isLoadingMore,
     sessionId
   ]);
 };

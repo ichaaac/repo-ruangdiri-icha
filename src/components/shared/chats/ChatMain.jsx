@@ -1,4 +1,4 @@
-// src/components/shared/chats/ChatMain.jsx - FIXED: Pass Current User ID for Read Receipts
+// src/components/shared/chats/ChatMain.jsx - FIXED: Integration with currentUserId
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import ChatHeader from './ChatHeader';
@@ -25,8 +25,8 @@ const ChatMain = ({
   isEndingSession = false,
   onFileUpload,
   typingStatus,
-  currentUserId, // FIXED: Add currentUserId prop
-  // Infinite scroll props
+  currentUserId, // FIXED: Receive currentUserId prop
+  // FIXED: Infinite scroll props
   onLoadMoreMessages,
   hasMoreMessages,
   isLoadingMoreMessages,
@@ -43,11 +43,7 @@ const ChatMain = ({
     }
   }, [canSendMessageWithText, onSendMessage]);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+  // FIXED: Remove auto-scroll effect - let ChatMessages handle it
 
   if (!selectedConversation) {
     return (
@@ -103,7 +99,7 @@ const ChatMain = ({
         typingStatus={typingStatus}
       />
 
-      {/* Messages Area with infinite scroll */}
+      {/* FIXED: Messages Area with infinite scroll and currentUserId */}
       <ChatMessages 
         messages={messages}
         selectedConversation={selectedConversation}

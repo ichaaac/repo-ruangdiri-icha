@@ -1,4 +1,4 @@
-// src/pages/user/shared/ChatPage.jsx - PARENT PAGES OF CHATS
+// src/pages/user/shared/ChatPage.jsx - FIXED: Complete Integration with Infinite Scroll
 
 import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ const ChatPage = () => {
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isEndingSession, setIsEndingSession] = useState(false);
 
-  // Main chat hook
+  // FIXED: Main chat hook with all infinite scroll props
   const {
     sessions,
     selectedSession,
@@ -39,7 +39,7 @@ const ChatPage = () => {
     handleAIServiceSelection,
     handleBookingClick,
     canSendMessage,
-    canSendMessageWithText, // ✅ FIXED: This exists in useChats
+    canSendMessageWithText,
     canSendFile,
     getSessionStatus,
     refetchSessions,
@@ -48,8 +48,11 @@ const ChatPage = () => {
     isEmpty,
     isPsychologist,
     typingStatus,
+    currentUserId, // FIXED: Get currentUserId
+    // FIXED: Infinite scroll props
     loadMoreMessages,
     hasMoreMessages,
+    isLoadingMoreMessages,
     typingUsers
   } = useChats();
 
@@ -261,6 +264,7 @@ const ChatPage = () => {
             userDisplayData={userDisplayData}
             isPsychologist={isPsychologist}
             containerWidth={sidebarWidth}
+            currentUserId={currentUserId} // FIXED: Pass currentUserId to sidebar
           />
         </div>
 
@@ -294,10 +298,12 @@ const ChatPage = () => {
             isEndingSession={isEndingSession}
             onFileUpload={sendFile}
             typingStatus={typingStatus}
-            typingUsers={typingUsers} // ✅ NEW: Pass typing users
+            currentUserId={currentUserId} // FIXED: Pass currentUserId
+            // FIXED: Pass infinite scroll props
             onLoadMoreMessages={loadMoreMessages}
             hasMoreMessages={hasMoreMessages}
-            isLoadingMoreMessages={false}
+            isLoadingMoreMessages={isLoadingMoreMessages}
+            typingUsers={typingUsers}
           />
         </div>
       </div>

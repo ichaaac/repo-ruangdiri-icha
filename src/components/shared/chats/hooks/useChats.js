@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - FIXED: Real-time Unread Count Updates
+// src/components/shared/chats/hooks/useChats.js - FIXED: Integration with Proper Infinite Scroll
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -920,7 +920,7 @@ export const useChats = () => {
     };
   }, [user?.role]);
 
-  // FIXED: Return enhanced object with real-time unread count support
+  // FIXED: Return enhanced object with real-time unread count support and currentUserId
   return useMemo(() => ({
     // Data
     sessions: filteredSessions,
@@ -984,12 +984,14 @@ export const useChats = () => {
     },
     forceRefresh: () => window.location.reload(),
     
-    // Infinite scroll support
+    // FIXED: Infinite scroll support
     loadMoreMessages: messages.loadMoreMessages,
     hasMoreMessages: messages.hasMore,
+    isLoadingMoreMessages: messages.isLoadingMore,
     
     // User data
     userDisplayData: getUserDisplayData(),
+    currentUserId: userId, // FIXED: Pass currentUserId for read receipts
     
     // Enhanced flags
     isEmpty: (filteredSessions.length || 0) === 0 && !sessionsQuery.isLoading,
@@ -1018,6 +1020,7 @@ export const useChats = () => {
     messages.error,
     messages.loadMoreMessages,
     messages.hasMore,
+    messages.isLoadingMore,
     sessionsQuery.isLoading,
     sessionsQuery.error,
     isRecoveringConnection,
