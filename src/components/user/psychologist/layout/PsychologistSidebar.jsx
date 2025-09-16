@@ -1,9 +1,10 @@
-// src/components/user/psychologist/layout/PsychologistSidebar.jsx - Sidebar khusus untuk Psikolog
+// src/components/user/psychologist/layout/PsychologistSidebar.jsx - WITH UNREAD COUNT BADGE
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../../hooks/useAuth"
+import { useChats } from "../../shared/chats/hooks/useChats"
 
 /**
  * Responsive Sidebar Component khusus untuk Psikolog
@@ -18,6 +19,9 @@ const PsychologistSidebar = ({
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user: userData } = useAuth()
+  
+  // FIXED: Get unread count from useChats hook
+  const { totalUnreadCount, serverTotalUnreadCount } = useChats()
   
   const [isProfileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [hovered, setHovered] = useState(false)
@@ -37,17 +41,21 @@ const PsychologistSidebar = ({
   const menuItemHeight = isMobile ? 40 : 47
   const dividerHeight = 20
 
-const menuItems = [
-  { label: "Dashboard", icon: "dashboard", path: `/user/psychologist/dashboard`, disabled: false },
-  { label: "Profil",    icon: "person",    path: `/user/psychologist/profile`,   disabled: false },
-  { label: "Chat dengan Klien", icon: "chat", path: `/user/psychologist/chat`, disabled: false },
-  { label: "Schedule",  icon: "schedule",  path: `/user/psychologist/schedule`, disabled: false },
-];
-
-
+  const menuItems = [
+    { label: "Dashboard", icon: "dashboard", path: `/user/psychologist/dashboard`, disabled: false },
+    { label: "Profil", icon: "person", path: `/user/psychologist/profile`, disabled: false },
+    { label: "Chat dengan Klien", icon: "chat", path: `/user/psychologist/chat`, disabled: false, hasUnreadBadge: true },
+    { label: "Schedule", icon: "schedule", path: `/user/psychologist/schedule`, disabled: false },
+  ];
 
   const totalMenuHeight = menuItems.length * menuItemHeight
   const hoverableContentHeight = profileSectionHeight + dividerHeight + totalMenuHeight
+
+  // FIXED: Calculate display unread count (use real-time count or server count)
+  const displayUnreadCount = useMemo(() => {
+    const count = totalUnreadCount || serverTotalUnreadCount || 0;
+    return count > 99 ? '99+' : count > 0 ? count.toString() : null;
+  }, [totalUnreadCount, serverTotalUnreadCount]);
 
   const handleHoverableContentMouseEnter = () => {
     if (!expanded && !isMobile) {
@@ -90,20 +98,20 @@ const menuItems = [
     onHoverChange?.(!expanded)
   }
 
-// DENGAN KODE BARU INI
-const handleLogout = async () => {
-  try {
-    await logout.mutateAsync();
-    // Navigasi secara eksplisit SETELAH proses logout (pembersihan token, dll) selesai.
-    // Tambahkan opsi replace: true untuk membersihkan history navigasi.
-    navigate("/login", { replace: true }); 
-  } catch (error) {
-    console.error("Logout error:", error);
-    // Sebagai fallback, jika API gagal tapi pengguna tetap harus keluar,
-    // kita paksa navigasi.
-    navigate("/login", { replace: true });
-  }
-};
+  // DENGAN KODE BARU INI
+  const handleLogout = async () => {
+    try {
+      await logout.mutateAsync();
+      // Navigasi secara eksplisit SETELAH proses logout (pembersihan token, dll) selesai.
+      // Tambahkan opsi replace: true untuk membersihkan history navigasi.
+      navigate("/login", { replace: true }); 
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Sebagai fallback, jika API gagal tapi pengguna tetap harus keluar,
+      // kita paksa navigasi.
+      navigate("/login", { replace: true });
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -255,7 +263,7 @@ const handleLogout = async () => {
             {menuItems.map((item, index) => (
               <div key={index}>
                 <motion.div 
-                  className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer ${
+                  className={`flex items-center w-full ${isMobile ? "h-[40px] px-3" : "h-[47px] px-5"} transition-colors cursor-pointer relative ${
                     isActive(item.path) 
                       ? "bg-[#488BBE] text-white font-bold" 
                       : "text-[#488BBE] hover:bg-[#488BBE] hover:text-white"
@@ -281,6 +289,32 @@ const handleLogout = async () => {
                   >
                     {item.label}
                   </motion.span>
+
+                  {/* FIXED: Unread Count Badge for Chat */}
+                  {item.hasUnreadBadge && displayUnreadCount && (
+                    <span 
+                      className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266] animate-pulse"
+                      style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        minWidth: '20px',
+                        height: '20px',
+                        fontSize: '11px',
+                        lineHeight: '1',
+                        zIndex: 9999,
+                        textDecoration: 'none',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        fontWeight: 'bold',
+                        color: 'white',
+                        backgroundColor: '#EE4266',
+                        border: '2px solid white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      {displayUnreadCount}
+                    </span>
+                  )}
                 </motion.div>
               </div>
             ))}
