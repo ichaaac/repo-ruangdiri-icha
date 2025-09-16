@@ -1,4 +1,4 @@
-// src/components/shared/chats/ChatMain.jsx - Refactored with Split Components
+// src/components/shared/chats/ChatMain.jsx - FIXED: Pass Current User ID for Read Receipts
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import ChatHeader from './ChatHeader';
@@ -25,6 +25,7 @@ const ChatMain = ({
   isEndingSession = false,
   onFileUpload,
   typingStatus,
+  currentUserId, // FIXED: Add currentUserId prop
   // Infinite scroll props
   onLoadMoreMessages,
   hasMoreMessages,
@@ -112,6 +113,7 @@ const ChatMain = ({
         onLoadMore={onLoadMoreMessages}
         hasMoreMessages={hasMoreMessages}
         isLoadingMore={isLoadingMoreMessages}
+        currentUserId={currentUserId} // FIXED: Pass currentUserId for message status
       />
 
       {/* Enhanced Input Area with WhatsApp-like file upload */}

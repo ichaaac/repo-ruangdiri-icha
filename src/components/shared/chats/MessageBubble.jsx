@@ -8,10 +8,29 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
   if (!attachmentUrl) return null;
 
   const isImage = attachmentType?.startsWith('image/');
-  
-  const handleMediaClick = () => {
-    window.open(attachmentUrl, '_blank');
+
+  // Normalize URL: ensure protocol exists (default to https), handle leading // and bare host paths
+  const normalizeUrl = (url) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith('//')) return `${window.location.protocol}${trimmed}`;
+    // If looks like bare domain or path, prefix with https
+    return `https://${trimmed.replace(/^\/+/, '')}`;
   };
+
+  const fullUrl = normalizeUrl(attachmentUrl);
+
+  // Display-friendly text (without protocol)
+  const displayUrl = fullUrl.replace(/^https?:\/\//i, '');
+
+  const [isPreviewOpen, setPreviewOpen] = React.useState(false);
+  const handleOpenPreview = (e) => {
+    e?.preventDefault?.();
+    if (isImage) setPreviewOpen(true);
+    else window.open(fullUrl, '_blank', 'noopener');
+  };
+  const handleClosePreview = () => setPreviewOpen(false);
 
   const getFileIcon = (type) => {
     if (type?.includes('pdf')) return 'picture_as_pdf';
@@ -30,16 +49,61 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
   return (
     <div className="mt-2 w-full max-w-xs">
       {isImage ? (
-        <img
-          src={attachmentUrl}
-          alt={attachmentName || 'Image'}
-          className="w-full h-48 rounded-lg cursor-pointer hover:opacity-80 transition-opacity object-cover"
-          onClick={handleMediaClick}
-        />
+        <>
+          <img
+            src={fullUrl}
+            alt={attachmentName || 'Image'}
+            className="w-full h-48 rounded-lg cursor-pointer hover:opacity-80 transition-opacity object-cover"
+            onClick={handleOpenPreview}
+            onError={(e) => {
+              // fallback: open in new tab if image fails
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/image-placeholder.svg';
+            }}
+          />
+          {/* Show clickable link under the image */}
+          <a
+            href={fullUrl}
+            className="mt-1 block text-[11px] text-blue-600 underline break-all"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenPreview(e); }}
+            title={fullUrl}
+          >
+            {displayUrl}
+          </a>
+
+          {/* Simple image preview modal */}
+          {isPreviewOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+              onClick={handleClosePreview}
+            >
+              <div className="relative max-w-3xl w-full">
+                <button
+                  className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow"
+                  aria-label="Close preview"
+                  onClick={(e) => { e.stopPropagation(); handleClosePreview(); }}
+                >
+                  <span className="material-icons text-gray-700 text-base">close</span>
+                </button>
+                <img
+                  src={fullUrl}
+                  alt={attachmentName || 'Image preview'}
+                  className="w-full max-h-[80vh] object-contain rounded"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                {attachmentName && (
+                  <div className="mt-2 text-center text-xs text-white/90 break-all">
+                    {attachmentName}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       ) : (
-        <div 
-          className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors w-full"
-          onClick={handleMediaClick}
+        <div
+          className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full cursor-pointer"
+          onClick={() => window.open(fullUrl, '_blank', 'noopener')}
         >
           <div className="flex items-center gap-2">
             <span className="material-icons text-gray-600">
@@ -54,8 +118,26 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
                   {formatFileSize(attachmentSize)}
                 </p>
               )}
+              {/* Always render the link text */}
+              <a
+                href={fullUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 block text-[11px] text-blue-600 underline break-all"
+                title={fullUrl}
+              >
+                {displayUrl}
+              </a>
             </div>
-            <span className="material-icons text-gray-400 text-sm">download</span>
+            <a
+              href={fullUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="material-icons text-gray-400 text-sm"
+              title="Open file"
+            >
+              download
+            </a>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/ChatInput.jsx - FIXED: Working Send Button & File Handling
+// src/components/shared/chats/components/ChatInput.jsx - FIXED: Message Persistence Per Session
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,6 +10,29 @@ const UPLOAD_STATES = {
   UPLOADING: 'uploading', 
   SUCCESS: 'success',
   FAILED: 'failed'
+};
+
+// FIXED: Session message persistence storage
+const SESSION_MESSAGE_STORAGE = new Map();
+
+const getSessionMessage = (sessionId) => {
+  return SESSION_MESSAGE_STORAGE.get(sessionId) || '';
+};
+
+const setSessionMessage = (sessionId, message) => {
+  if (sessionId) {
+    if (message.trim()) {
+      SESSION_MESSAGE_STORAGE.set(sessionId, message);
+    } else {
+      SESSION_MESSAGE_STORAGE.delete(sessionId);
+    }
+  }
+};
+
+const clearSessionMessage = (sessionId) => {
+  if (sessionId) {
+    SESSION_MESSAGE_STORAGE.delete(sessionId);
+  }
 };
 
 // Simple File Preview Component (WhatsApp-style)
@@ -206,16 +229,16 @@ const ChatInput = ({
   const [pendingFiles, setPendingFiles] = useState([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
-  // FIXED: Clear input when switching conversations
+  // FIXED: Load persisted message when switching conversations
   useEffect(() => {
-    if (selectedConversation) {
-      // Clear message text when switching conversations
-      if (messageText && onMessageChange) {
-        onMessageChange('');
+    if (selectedConversation?.sessionId) {
+      const persistedMessage = getSessionMessage(selectedConversation.sessionId);
+      if (persistedMessage !== messageText) {
+        onMessageChange(persistedMessage);
       }
+      
       // Clear pending files when switching conversations
       setPendingFiles(prev => {
-        // Clean up preview URLs
         prev.forEach(file => {
           if (file.previewUrl) {
             URL.revokeObjectURL(file.previewUrl);
@@ -225,6 +248,13 @@ const ChatInput = ({
       });
     }
   }, [selectedConversation?.sessionId]); // Only trigger when sessionId changes
+
+  // FIXED: Persist message text changes to session storage
+  useEffect(() => {
+    if (selectedConversation?.sessionId && messageText !== undefined) {
+      setSessionMessage(selectedConversation.sessionId, messageText);
+    }
+  }, [messageText, selectedConversation?.sessionId]);
 
   // Calculate total size of all pending files
   const totalSize = useMemo(() => {
@@ -332,9 +362,7 @@ const ChatInput = ({
     });
   }, []);
 
-  // (moved) Keydown handler declared after handleSendMessage to avoid TDZ
-
-  // FIXED: Improved send message function
+  // FIXED: Improved send message function with session cleanup
   const handleSendMessage = useCallback(async () => {
     const hasText = !!messageText?.trim();
     const hasReadyFiles = pendingFiles.filter(f => f.uploadState === UPLOAD_STATES.READY);
@@ -362,7 +390,7 @@ const ChatInput = ({
       return;
     }
 
-    // FIXED: Check if session is active/ready for chat
+    // Check if session is active/ready for chat
     const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
     if (!baseCanSend && !hasReadyFiles.length) {
       toast.warning('Chat is not available - session may not be active');
@@ -375,14 +403,17 @@ const ChatInput = ({
     }
 
     try {
-      // FIXED: Send text message if no files
+      // Send text message if no files
       if (hasText && hasReadyFiles.length === 0) {
         console.log('📝 Sending text message...');
         await onSendMessage();
+        
+        // FIXED: Clear session message storage after successful send
+        clearSessionMessage(selectedConversation.sessionId);
         return;
       }
 
-      // FIXED: Upload files with proper error handling
+      // Upload files with proper error handling
       if (hasReadyFiles.length > 0) {
         if (!onFileUpload) {
           throw new Error('File upload function not available');
@@ -407,7 +438,7 @@ const ChatInput = ({
         for (const fileItem of hasReadyFiles) {
           try {
             const caption = hasText ? messageText.trim() : '';
-            console.log('📁 Uploading file:', fileItem.fileName, 'with caption:', caption);
+            console.log('📝 Uploading file:', fileItem.fileName, 'with caption:', caption);
             
             await onFileUpload(fileItem.file, fileItem.fileType, caption);
             
@@ -447,8 +478,9 @@ const ChatInput = ({
         if (uploadSuccessCount > 0) {
           toast.success(`${uploadSuccessCount} file(s) sent`);
           
-          // FIXED: Clear message text after successful upload
+          // FIXED: Clear message text and session storage after successful upload
           onMessageChange('');
+          clearSessionMessage(selectedConversation.sessionId);
           
           // Remove successful files after delay
           setTimeout(() => {
@@ -484,14 +516,14 @@ const ChatInput = ({
     }
   }, [handleSendMessage]);
 
-  // FIXED: Check if chat input should be disabled
+  // Check if chat input should be disabled
   const isChatDisabled = useMemo(() => {
     if (!selectedConversation) return true;
     
     // AI chat is always enabled
     if (selectedConversation.isTeamChat) return false;
     
-    // FIXED: Disable chat if only automated messages exist and session is not active
+    // Disable chat if only automated messages exist and session is not active
     const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
     return !baseCanSend;
   }, [selectedConversation, canSendMessage]);
@@ -556,7 +588,7 @@ const ChatInput = ({
         </motion.div>
       )}
 
-      {/* FIXED: Chat disabled warning */}
+      {/* Chat disabled warning */}
       {isChatDisabled && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -620,7 +652,7 @@ const ChatInput = ({
               </button>
             </div>
             
-            {/* FIXED: Send button with better state handling */}
+            {/* Send button with better state handling */}
             <button 
               onClick={handleSendMessage}
               disabled={!canSend}

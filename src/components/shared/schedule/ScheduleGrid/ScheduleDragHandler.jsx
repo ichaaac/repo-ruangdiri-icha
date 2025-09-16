@@ -285,6 +285,22 @@ export const useDragHandler = ({
       }
 
       const dates = [];
+      // Ensure per-day start/end times are not equal
+      const baseStartH = finalStartDateTime.getHours();
+      const baseStartM = finalStartDateTime.getMinutes();
+      let baseEndH = finalEndDateTime.getHours();
+      let baseEndM = finalEndDateTime.getMinutes();
+      if (baseStartH === baseEndH && baseStartM === baseEndM) {
+        baseEndM += 15;
+        if (baseEndM >= 60) {
+          baseEndH += 1;
+          baseEndM -= 60;
+        }
+        if (baseEndH >= 24) {
+          baseEndH = 23;
+          baseEndM = 45;
+        }
+      }
       for (
         let dayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
         dayIndex <= Math.max(selectedArea.startDay, selectedArea.endDay);
@@ -293,8 +309,8 @@ export const useDragHandler = ({
         const dayDate = getDateFromDayIndex(dayIndex);
         dates.push({
           date: formatDateLocal(dayDate),
-          startTime: `${finalStartDateTime.getHours().toString().padStart(2, "0")}:${finalStartDateTime.getMinutes().toString().padStart(2, "0")}`,
-          endTime: `${finalEndDateTime.getHours().toString().padStart(2, "0")}:${finalEndDateTime.getMinutes().toString().padStart(2, "0")}`,
+          startTime: `${baseStartH.toString().padStart(2, "0")}:${baseStartM.toString().padStart(2, "0")}`,
+          endTime: `${baseEndH.toString().padStart(2, "0")}:${baseEndM.toString().padStart(2, "0")}`,
           timezone: "WIB",
         });
       }
