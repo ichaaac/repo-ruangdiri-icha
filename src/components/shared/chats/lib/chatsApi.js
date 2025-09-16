@@ -103,8 +103,7 @@ const safeDecrypt = (encryptedContent, sessionId) => {
 };
 
 export const chatsApi = {
-  // Get chat histories with total unread count
-  async getChatHistories() {
+ async getChatHistories() {
     try {
       console.log('📋 getChatHistories - Starting request...');
       
@@ -172,7 +171,7 @@ export const chatsApi = {
               const senderName = lastMessage.senderId === currentUserId ? 'You' : lastMessage.senderFullName;
               lastMessageText = `${senderName}: ${messageContent}`;
               
-              console.log('🔓 Last message processed:', {
+              console.log('🔐 Last message processed:', {
                 sessionId: session.sessionId.slice(-8),
                 messageType: lastMessage.messageType,
                 wasEncrypted: lastMessage.messageType !== 'automated' && chatEncryption.isEncrypted(lastMessage.message),
@@ -232,7 +231,11 @@ export const chatsApi = {
         const finalResult = [teamSession, ...sessions];
         console.log('📋 Final result with team session:', finalResult);
         
-        return finalResult;
+        // Return both sessions and total unread data
+        return {
+          sessions: finalResult,
+          totalUnreadData: totalUnreadData
+        };
       }
       
       console.log('❌ getChatHistories - Response status not success:', response.data);
@@ -241,22 +244,47 @@ export const chatsApi = {
       console.error('Error fetching chat histories:', error);
       
       // Return at least team session on error
-      return [{
-        id: 'team-ruangdiri',
-        sessionId: 'team-ruangdiri',
-        name: 'Team RuangDiri',
-        avatar: null,
-        lastMessage: 'AI Assistant - Always available',
-        time: getCurrentTime(),
-        isActive: true,
-        isChatEnabled: true,
-        isTeamChat: true,
-        status: 'active',
-        unreadCount: 0,
-        hasUnread: false
-      }];
+      return {
+        sessions: [{
+          id: 'team-ruangdiri',
+          sessionId: 'team-ruangdiri',
+          name: 'Team RuangDiri',
+          avatar: null,
+          lastMessage: 'AI Assistant - Always available',
+          time: getCurrentTime(),
+          isActive: true,
+          isChatEnabled: true,
+          isTeamChat: true,
+          status: 'active',
+          unreadCount: 0,
+          hasUnread: false
+        }],
+        totalUnreadData: { totalUnread: 0, sessionUnreadCounts: {} }
+      };
     }
   },
+
+    // FIXED: Get total unread count
+  async getTotalUnreadCount() {
+    try {
+      console.log('🔢 Getting total unread count...');
+      const response = await apiClient.get('/chat/unread-count/total');
+      
+      if (response.data?.status === 'success') {
+        console.log('✅ Total unread count response:', response.data);
+        return {
+          totalUnread: parseInt(response.data.data.totalUnread || '0'),
+          sessionUnreadCounts: response.data.data.sessionUnreadCounts || {}
+        };
+      }
+      
+      throw new Error(response.data?.message || 'Failed to get total unread count');
+    } catch (error) {
+      console.error('Error getting total unread count:', error);
+      return { totalUnread: 0, sessionUnreadCounts: {} };
+    }
+  },
+  
 
   // Get active sessions
   async getActiveSessions() {

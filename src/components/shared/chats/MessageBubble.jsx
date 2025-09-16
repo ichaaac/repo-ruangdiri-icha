@@ -23,42 +23,74 @@ const EnhancedMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, media
     return 'attach_file';
   };
 
-  // FIXED: Enhanced download handler with proper error handling
+  // FIXED: Enhanced download handler with fetch-based approach
   const handleDownload = async (e) => {
     e.preventDefault();
     
     try {
       console.log('📥 Starting download:', { mediaUrl, mediaName, mediaType });
       
-      // Method 1: Try direct download link first
-      if (mediaUrl) {
-        const link = document.createElement('a');
-        link.href = mediaUrl;
-        link.download = mediaName || 'download';
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
+      if (!mediaUrl) {
+        throw new Error('No media URL available');
+      }
+      
+      // Method 1: Try fetch-based download for better control
+      try {
+        const response = await fetch(mediaUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
-        // Add to DOM temporarily
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = mediaName || `download_${Date.now()}`;
+        
+        // Trigger download
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        console.log('✅ Download triggered successfully');
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(downloadUrl);
+        }, 1000);
+        
+        console.log('✅ Download triggered successfully via fetch');
+        return;
+        
+      } catch (fetchError) {
+        console.warn('Fetch download failed, trying direct method:', fetchError);
+        
+        // Method 2: Direct download link (fallback)
+        const link = document.createElement('a');
+        link.href = mediaUrl;
+        link.download = mediaName || 'download';
+        link.target = '_blank';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('✅ Download triggered via direct link');
         return;
       }
       
-      throw new Error('No media URL available');
-      
     } catch (error) {
-      console.error('❌ Download failed:', error);
+      console.error('❌ All download methods failed:', error);
       
-      // Fallback: Open in new tab
+      // Final fallback: Force open in new tab
       try {
-        window.open(mediaUrl, '_blank', 'noopener,noreferrer');
-        console.log('📱 Opened in new tab as fallback');
+        const newWindow = window.open(mediaUrl, '_blank', 'noopener,noreferrer');
+        if (!newWindow) {
+          throw new Error('Pop-up blocked');
+        }
+        console.log('📱 Opened in new tab as final fallback');
       } catch (fallbackError) {
-        console.error('❌ Fallback failed:', fallbackError);
-        alert('Download failed. Please try again or contact support.');
+        console.error('❌ Final fallback failed:', fallbackError);
+        alert(`Download failed: ${error.message}\nTry right-clicking the media and selecting "Save as..."`);
       }
     }
   };
@@ -244,21 +276,52 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
 
   const handleClosePreview = () => setPreviewOpen(false);
 
-  // FIXED: Quick download handler for media items
-  const handleQuickDownload = (e) => {
+  // FIXED: Enhanced quick download handler
+  const handleQuickDownload = async (e) => {
     e.stopPropagation();
     
     try {
-      const link = document.createElement('a');
-      link.href = fullUrl;
-      link.download = attachmentName || 'download';
-      link.target = '_blank';
+      console.log('⚡ Quick download starting:', fullUrl);
       
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      if (!fullUrl) {
+        throw new Error('No media URL available');
+      }
       
-      console.log('⚡ Quick download triggered');
+      // Use fetch-based approach for better reliability
+      try {
+        const response = await fetch(fullUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = attachmentName || `download_${Date.now()}`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
+        console.log('⚡ Quick download successful');
+        
+      } catch (fetchError) {
+        // Fallback to direct method
+        const link = document.createElement('a');
+        link.href = fullUrl;
+        link.download = attachmentName || 'download';
+        link.target = '_blank';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('⚡ Quick download via direct link');
+      }
+      
     } catch (error) {
       console.error('❌ Quick download failed:', error);
       // Fallback to modal

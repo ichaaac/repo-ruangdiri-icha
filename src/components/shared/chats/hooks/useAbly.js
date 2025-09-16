@@ -330,7 +330,7 @@ export const useAbly = () => {
           }
         }
         
-        switch (eventName) {
+switch (eventName) {
           case 'message':
             AblyLogger.log('info', 'MESSAGE', 'Processing chat message');
             
@@ -361,6 +361,69 @@ export const useAbly = () => {
                 hasText: !!(messageData.message || messageData.content)
               });
               onMessageRef.current(messageData);
+            }
+            
+            // FIXED: Also update last message in histories
+            if (onLastMessageUpdateRef.current) {
+              const lastMessageData = {
+                sessionId: sessionId,
+                message: messageData.content || messageData.message,
+                senderId: messageData.senderId,
+                senderFullName: messageData.senderFullname || messageData.senderFullName,
+                messageType: messageData.messageType,
+                timestamp: messageData.timestamp,
+                createdAt: messageData.timestamp
+              };
+              
+              AblyLogger.log('info', 'LAST_MSG_UPDATE', 'Updating last message in histories', {
+                sessionId: sessionId?.slice(-8),
+                senderId: messageData.senderId?.slice(-8),
+                messageLength: lastMessageData.message?.length || 0
+              });
+              
+              onLastMessageUpdateRef.current(lastMessageData);
+            }
+            break;
+
+          case 'delivery_receipt':
+            AblyLogger.log('info', 'DELIVERY', 'Processing delivery receipt', messageData);
+            
+            if (onDeliveryReceiptRef.current) {
+              const deliveryData = {
+                messageId: messageData.messageId,
+                userId: messageData.userId,
+                deliveredAt: messageData.deliveredAt,
+                timestamp: messageData.timestamp
+              };
+              
+              AblyLogger.log('success', 'DELIVERY', 'Delivery receipt processed', {
+                messageId: deliveryData.messageId?.slice(-8),
+                userId: deliveryData.userId?.slice(-8)
+              });
+              
+              onDeliveryReceiptRef.current(deliveryData);
+            }
+            break;
+
+          case 'message_read':
+            AblyLogger.log('info', 'READ_RECEIPT', 'Processing read receipt', messageData);
+            
+            if (onReadReceiptRef.current) {
+              const readData = {
+                messageId: messageData.messageId,
+                userId: messageData.userId,
+                userFullname: messageData.userFullname,
+                readAt: messageData.readAt,
+                timestamp: messageData.timestamp
+              };
+              
+              AblyLogger.log('success', 'READ_RECEIPT', 'Read receipt processed', {
+                messageId: readData.messageId?.slice(-8),
+                userId: readData.userId?.slice(-8),
+                readBy: readData.userFullname
+              });
+              
+              onReadReceiptRef.current(readData);
             }
             break;
 
@@ -423,8 +486,8 @@ export const useAbly = () => {
                 }
                 
                 AblyLogger.log('info', 'UNREAD', 'Processed unread count', {
-                  userId: parsedData.userId,
-                  sessionId: parsedData.sessionId,
+                  userId: parsedData.userId?.slice(-8),
+                  sessionId: parsedData.sessionId?.slice(-8),
                   unreadCount: parsedData.unreadCount,
                   timestamp: parsedData.timestamp
                 });
@@ -438,13 +501,6 @@ export const useAbly = () => {
 
           case 'user_presence':
             AblyLogger.log('info', 'PRESENCE', 'Processing user presence', messageData);
-            break;
-
-          case 'delivery_receipt':
-          case 'read_receipt':
-          case 'message_read':
-            AblyLogger.log('info', 'RECEIPT', `Processing ${eventName}`, messageData);
-            // TODO: Handle message status updates
             break;
 
           case 'file_upload':
@@ -468,6 +524,23 @@ export const useAbly = () => {
             if (onMessageRef.current) {
               onMessageRef.current(messageData);
             }
+            
+            // FIXED: Also update last message for file uploads
+            if (onLastMessageUpdateRef.current) {
+              const lastMessageData = {
+                sessionId: sessionId,
+                message: messageData.content || messageData.message || '[File]',
+                senderId: messageData.senderId,
+                senderFullName: messageData.senderFullname || messageData.senderFullName,
+                messageType: 'file',
+                timestamp: messageData.timestamp,
+                createdAt: messageData.timestamp,
+                attachmentName: messageData.attachmentName,
+                attachmentUrl: messageData.attachmentUrl
+              };
+              
+              onLastMessageUpdateRef.current(lastMessageData);
+            }
             break;
 
           case 'notification':
@@ -484,6 +557,21 @@ export const useAbly = () => {
                 isAutomated: true,
                 messageType: 'automated'
               });
+            }
+            
+            // Update last message for automated messages
+            if (onLastMessageUpdateRef.current) {
+              const lastMessageData = {
+                sessionId: sessionId,
+                message: messageData.message || messageData.content,
+                senderId: messageData.senderId,
+                senderFullName: messageData.senderFullname || messageData.senderFullName,
+                messageType: 'automated',
+                timestamp: messageData.timestamp,
+                createdAt: messageData.timestamp
+              };
+              
+              onLastMessageUpdateRef.current(lastMessageData);
             }
             break;
 
