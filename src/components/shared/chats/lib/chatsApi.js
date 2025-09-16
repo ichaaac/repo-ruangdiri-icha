@@ -852,30 +852,17 @@ export const chatsApi = {
     };
   },
 
-  // Enhanced file validation with 15MB limit
+  // Enhanced file validation with 15MB limit (strict types per backend)
   validateFile(file) {
     const maxSize = 15 * 1024 * 1024; // 15MB
     const allowedTypes = [
-      // Images
+      // Images (only jpeg & png allowed)
       'image/jpeg',
-      'image/jpg', 
       'image/png',
-      'image/gif',
-      'image/webp',
-      'image/svg+xml',
       // Documents
       'application/pdf',
-      'text/plain',
       'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      // Archives
-      'application/zip',
-      'application/x-rar-compressed',
-      'application/x-7z-compressed'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
 
     if (!file) {
@@ -887,7 +874,10 @@ export const chatsApi = {
     }
 
     if (!allowedTypes.includes(file.type)) {
-      throw new Error('File type not supported. Supported types: Images, PDF, DOC, XLS, PPT, ZIP, RAR');
+      // Match backend error style
+      throw new Error(
+        `Tipe file tidak didukung: ${file.type}. Hanya image/jpeg, image/png, application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document yang diperbolehkan.`
+      );
     }
 
     return true;

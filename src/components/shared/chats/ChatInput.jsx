@@ -171,7 +171,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
       <input 
         ref={imageInputRef} 
         type="file" 
-        accept="image/*" 
+        accept="image/jpeg,image/png" 
         multiple 
         onChange={handleImageChange} 
         className="hidden"
@@ -179,7 +179,7 @@ const UploadDropdown = ({ isOpen, onClose, onFilesSelect, disabled }) => {
       <input 
         ref={fileInputRef} 
         type="file" 
-        accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z" 
+        accept=".pdf,.doc,.docx" 
         multiple 
         onChange={handleFileChange} 
         className="hidden"
@@ -276,19 +276,19 @@ const ChatInput = ({
     return true;
   };
 
-  // Validate individual file types
+  // Validate individual file types (strict per backend)
   const validateFileType = (file) => {
     const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-      'application/pdf', 'text/plain',
-      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
+      'image/jpeg', 'image/png',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      throw new Error(`${file.name}: File type not supported`);
+      throw new Error(
+        `Tipe file tidak didukung: ${file.type}. Hanya image/jpeg, image/png, application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document yang diperbolehkan.`
+      );
     }
 
     return true;

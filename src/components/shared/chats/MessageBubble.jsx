@@ -21,9 +21,6 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
 
   const fullUrl = normalizeUrl(attachmentUrl);
 
-  // Display-friendly text (without protocol)
-  const displayUrl = fullUrl.replace(/^https?:\/\//i, '');
-
   const [isPreviewOpen, setPreviewOpen] = React.useState(false);
   const handleOpenPreview = (e) => {
     e?.preventDefault?.();
@@ -61,15 +58,12 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
               e.currentTarget.src = '/image-placeholder.svg';
             }}
           />
-          {/* Show clickable link under the image */}
-          <a
-            href={fullUrl}
-            className="mt-1 block text-[11px] text-blue-600 underline break-all"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenPreview(e); }}
-            title={fullUrl}
-          >
-            {displayUrl}
-          </a>
+          {/* Show filename under the image */}
+          {attachmentName && (
+            <div className="mt-1 block text-[11px] text-gray-600 break-all" title={attachmentName}>
+              {attachmentName}
+            </div>
+          )}
 
           {/* Simple image preview modal */}
           {isPreviewOpen && (
@@ -118,16 +112,12 @@ const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmen
                   {formatFileSize(attachmentSize)}
                 </p>
               )}
-              {/* Always render the link text */}
-              <a
-                href={fullUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 block text-[11px] text-blue-600 underline break-all"
-                title={fullUrl}
-              >
-                {displayUrl}
-              </a>
+              {/* Show filename only (no raw URL) */}
+              {attachmentName && (
+                <div className="mt-1 text-[11px] text-gray-600 break-all" title={attachmentName}>
+                  {attachmentName}
+                </div>
+              )}
             </div>
             <a
               href={fullUrl}
@@ -232,6 +222,7 @@ const MessageBubble = ({
   isOwn = false, 
   sender, 
   time, 
+  showTime = true,
   showOptions, 
   onOptionClick, 
   actions,
@@ -384,9 +375,11 @@ const MessageBubble = ({
             
             {/* FIXED: Time and Status Row */}
             <div className={`flex items-center gap-1 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
-              <time className="text-xs font-light text-zinc-500">
-                {time}
-              </time>
+              {showTime && (
+                <time className="text-xs font-light text-zinc-500">
+                  {time}
+                </time>
+              )}
               
               {/* FIXED: Enhanced message status */}
               <MessageStatus messageData={messageData} isOwn={isOwn} />

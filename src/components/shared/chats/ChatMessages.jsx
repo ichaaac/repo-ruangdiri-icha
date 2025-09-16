@@ -110,23 +110,38 @@ const ChatMessages = ({
                   {/* Messages in this date group with tighter spacing */}
                   <div className="flex flex-col gap-3"> {/* REDUCED: from gap-4 to gap-3 */}
                     <AnimatePresence>
-                      {group.messages.map((message) => (
-                        <MessageBubble
-                          key={message.id}
-                          message={message.text}
-                          isOwn={message.isUser}
-                          sender={message.sender}
+                      {group.messages.map((message, idx) => {
+                        const prev = idx > 0 ? group.messages[idx - 1] : null;
+                        const sameSender = prev && prev.senderId === message.senderId;
+                        const within10s = (() => {
+                          try {
+                            const a = new Date(prev?.timestamp).getTime();
+                            const b = new Date(message.timestamp).getTime();
+                            return prev && Math.abs(b - a) < 10000; // 10 seconds
+                          } catch {
+                            return false;
+                          }
+                        })();
+                        const showTime = !(sameSender && within10s);
+                        return (
+                          <MessageBubble
+                            key={message.id}
+                            message={message.text}
+                            isOwn={message.isUser}
+                            sender={message.sender}
                           time={message.time}
-                          showOptions={message.showOptions}
-                          actions={message.actions}
-                          onOptionClick={onAIServiceSelection}
-                          attachmentUrl={message.attachmentUrl}
-                          attachmentType={message.attachmentType}
-                          attachmentName={message.attachmentName}
-                          attachmentSize={message.attachmentSize}
-                          messageData={message}
+                          showTime={showTime}
+                            showOptions={message.showOptions}
+                            actions={message.actions}
+                            onOptionClick={onAIServiceSelection}
+                            attachmentUrl={message.attachmentUrl}
+                            attachmentType={message.attachmentType}
+                            attachmentName={message.attachmentName}
+                            attachmentSize={message.attachmentSize}
+                            messageData={message}
                         />
-                      ))}
+                        );
+                      })}
                     </AnimatePresence>
                   </div>
                 </div>
