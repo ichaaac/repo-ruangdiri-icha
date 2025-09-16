@@ -17,8 +17,9 @@ export const highlightSearchTerm = (text, searchTerm) => {
   // Create regex for case-insensitive global search
   const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
   
-  // Replace matching text with highlighted HTML
-  return text.replace(regex, '<span class="font-bold bg-yellow-200 px-1 rounded">$1</span>');
+  // Replace matching text with highlighted HTML without extra padding
+  // Note: remove padding classes to avoid visual gaps inside words
+  return text.replace(regex, '<span class="font-bold bg-yellow-200">$1</span>');
 };
 
 /**

@@ -318,24 +318,7 @@ const ChatSidebar = ({
     });
   }, [processedConversations, searchQuery]);
 
-  if (loading || (isDebouncing && !!searchQuery) || (isSearching && !!searchQuery)) {
-    return (
-      <div 
-        className="h-full bg-white border-r-[0.25px] border-[#8B8B8B] flex items-center justify-center"
-        style={{ width: `${containerWidth}px` }}
-      >
-        <div className="flex items-center gap-2">
-          <div 
-            className="animate-spin rounded-full h-6 w-6 border-b-2"
-            style={{ borderColor: '#488BBA' }}
-          ></div>
-          <span className="text-sm" style={{ color: '#488BBA' }}>
-            {isSearching ? 'Searching chats...' : 'Loading sessions...'}
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // NO LOADING STATES - just show the list immediately
 
   return (
     <div 
