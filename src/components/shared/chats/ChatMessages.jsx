@@ -30,7 +30,7 @@ const ChatMessages = ({
   const sessionStatus = getSessionStatus?.() || 'ready';
   const messageGroups = groupMessagesByDate(messages);
 
-  // FIXED: Enhanced scroll handler with better logic
+  // FIXED: Enhanced scroll handler that prevents premature infinite scroll
   const handleScroll = useCallback(() => {
     if (!messagesContainerRef.current || isLoadingRef.current) return;
 
@@ -45,17 +45,21 @@ const ChatMessages = ({
     // Mark as user scrolling
     setIsUserScrolling(true);
     
-    // Check if near top (for loading more messages)
-    const nearTop = scrollTop < 100; // Increased threshold
+    // FIXED: Only check for infinite scroll if user has actually scrolled up significantly
+    // This prevents accidental triggering when conversation first loads
+    const hasScrolledUp = scrollTop < (scrollHeight * 0.8); // Only if scrolled up more than 20%
+    
+    // Check if near top (for loading more messages) - but only if user has scrolled up
+    const nearTop = scrollTop < 100 && hasScrolledUp;
     setIsNearTop(nearTop);
     
     // Check if at bottom (for auto-scroll behavior)  
     const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
     setShouldAutoScroll(isAtBottom);
 
-    // Trigger load more when near top
-    if (nearTop && hasMoreMessages && !isLoadingMore && onLoadMore) {
-      console.log('🔄 Triggering loadMore - user scrolled to top');
+    // FIXED: Only trigger load more if user has genuinely scrolled up
+    if (nearTop && hasMoreMessages && !isLoadingMore && onLoadMore && hasScrolledUp) {
+      console.log('🔄 Triggering loadMore - user genuinely scrolled to top');
       
       // Store current scroll height before loading
       previousScrollHeight.current = scrollHeight;
@@ -131,35 +135,100 @@ const ChatMessages = ({
     lastMessageCount.current = currentMessageCount;
   }, [messages.length, shouldAutoScroll, isUserScrolling, isLoadingMore, messagesEndRef]);
 
-  // FIXED: Initial scroll to bottom only when conversation changes
+  // FIXED: Aggressive initial scroll to bottom when conversation changes
   useEffect(() => {
-    if (selectedConversation?.sessionId && messages.length > 0 && messagesEndRef.current) {
+    if (selectedConversation?.sessionId && messagesEndRef.current) {
       // Reset states when conversation changes
       setIsUserScrolling(false);
       setShouldAutoScroll(true);
       lastMessageCount.current = 0;
       previousScrollHeight.current = null;
+      isLoadingRef.current = false; // Reset loading state
       
-      // Scroll to bottom immediately (no animation for conversation switch)
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
-          console.log('📍 Initial scroll to bottom for new conversation');
+      // FIXED: Multiple aggressive scroll attempts to ensure bottom positioning
+      const forceScrollToBottom = () => {
+        if (messagesEndRef.current && messagesContainerRef.current) {
+          // Method 1: ScrollIntoView
+          messagesEndRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
+          
+          // Method 2: Direct scrollTop manipulation
+          const container = messagesContainerRef.current;
+          container.scrollTop = container.scrollHeight;
+          
+          console.log('📍 Force scroll to bottom:', {
+            conversationId: selectedConversation.sessionId.slice(-8),
+            scrollTop: container.scrollTop,
+            scrollHeight: container.scrollHeight,
+            clientHeight: container.clientHeight
+          });
         }
-      }, 50);
+      };
+      
+      // Immediate scroll
+      forceScrollToBottom();
+      
+      // Additional scroll attempts with delays to ensure it works
+      const timeouts = [50, 100, 200, 300, 500];
+      timeouts.forEach((delay, index) => {
+        setTimeout(() => {
+          forceScrollToBottom();
+          
+          // On final attempt, ensure we're marked as at bottom
+          if (index === timeouts.length - 1) {
+            setShouldAutoScroll(true);
+            setIsUserScrolling(false);
+          }
+        }, delay);
+      });
     }
   }, [selectedConversation?.sessionId]);
 
-  // Auto-load initial messages if container doesn't have scrollbar
+  // FIXED: Ensure scroll to bottom when messages first load (0 -> >0)
+  useEffect(() => {
+    if (messages.length > 0 && lastMessageCount.current === 0 && messagesEndRef.current && messagesContainerRef.current) {
+      console.log('📍 Messages loaded for first time, aggressive scroll to bottom');
+      
+      // Wait a bit for DOM to update, then force scroll
+      setTimeout(() => {
+        if (messagesEndRef.current && messagesContainerRef.current) {
+          const container = messagesContainerRef.current;
+          
+          // Force scroll to bottom
+          messagesEndRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
+          container.scrollTop = container.scrollHeight;
+          
+          setShouldAutoScroll(true);
+          setIsUserScrolling(false);
+          
+          console.log('📍 First load scroll completed:', {
+            messagesCount: messages.length,
+            scrollTop: container.scrollTop,
+            scrollHeight: container.scrollHeight
+          });
+        }
+      }, 150);
+    }
+  }, [messages.length]);
+
+  // FIXED: Conservative auto-load that only triggers after proper initialization
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || !hasMoreMessages || isLoadingMore || !onLoadMore) return;
-
-    // Check if we need more messages to fill the screen
-    const needsMoreContent = container.scrollHeight <= container.clientHeight + 10;
     
-    if (needsMoreContent && messages.length > 0) {
-      console.log('🔄 Auto-loading more messages to fill screen');
+    // FIXED: Only auto-load if:
+    // 1. We have messages already loaded
+    // 2. User is not actively scrolling  
+    // 3. We've been on this conversation for a bit (avoid immediate trigger)
+    // 4. Container doesn't have enough content
+    
+    if (messages.length === 0 || isUserScrolling) return;
+    
+    const hasScrollbar = container.scrollHeight > container.clientHeight + 8;
+    const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
+    
+    // Only auto-load if we're at bottom and there's no scrollbar AND we have some messages already
+    if (!hasScrollbar && isAtBottom && messages.length > 0 && !isUserScrolling) {
+      console.log('🔄 Conservative auto-load triggered');
       previousScrollHeight.current = container.scrollHeight;
       isLoadingRef.current = true;
       
@@ -167,7 +236,7 @@ const ChatMessages = ({
         isLoadingRef.current = false;
       });
     }
-  }, [messages.length, hasMoreMessages, isLoadingMore, onLoadMore]);
+  }, [messages.length, hasMoreMessages, isLoadingMore, onLoadMore, isUserScrolling]);
 
   return (
     <div className="flex-1 relative bg-zinc-100 overflow-hidden">
