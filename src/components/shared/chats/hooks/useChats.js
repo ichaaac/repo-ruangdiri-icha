@@ -83,20 +83,32 @@ export const useChats = () => {
       ChatsLogger.log('info', 'Fetching chat sessions...');
       
       try {
-        const [histories, activeSessions] = await Promise.all([
+        const [historiesResult, activeSessions] = await Promise.all([
           chatsApi.getChatHistories(),
           chatsApi.getActiveSessions()
         ]);
         
+        // Handle new structure that includes both sessions and unread data
+        let sessions, totalUnreadData;
+        if (historiesResult.sessions) {
+          sessions = historiesResult.sessions;
+          totalUnreadData = historiesResult.totalUnreadData;
+        } else {
+          // Fallback to old structure
+          sessions = historiesResult;
+          totalUnreadData = { totalUnread: 0, sessionUnreadCounts: {} };
+        }
+        
         ChatsLogger.log('success', 'Sessions fetched successfully', {
-          historiesCount: histories?.length || 0,
-          activeSessionsCount: activeSessions?.length || 0
+          sessionsCount: sessions?.length || 0,
+          activeSessionsCount: activeSessions?.length || 0,
+          totalUnread: totalUnreadData.totalUnread
         });
         
         // FIXED: Extract initial unread counts from sessions
-        if (histories && Array.isArray(histories)) {
+        if (sessions && Array.isArray(sessions)) {
           const initialUnreadCounts = {};
-          histories.forEach(session => {
+          sessions.forEach(session => {
             if (session.sessionId && session.unreadCount) {
               initialUnreadCounts[session.sessionId] = parseInt(session.unreadCount, 10) || 0;
             }
@@ -106,7 +118,7 @@ export const useChats = () => {
           ChatsLogger.log('unread', 'Initial unread counts extracted', initialUnreadCounts);
         }
         
-        return histories;
+        return { sessions, totalUnreadData };
         
       } catch (error) {
         ChatsLogger.log('error', 'Error fetching sessions', error);
@@ -121,7 +133,12 @@ export const useChats = () => {
         }
         
         // Fallback to basic chat histories
-        return chatsApi.getChatHistories();
+        const fallbackResult = await chatsApi.getChatHistories();
+        if (fallbackResult.sessions) {
+          return fallbackResult;
+        } else {
+          return { sessions: fallbackResult, totalUnreadData: { totalUnread: 0, sessionUnreadCounts: {} } };
+        }
       }
     },
     staleTime: 30000,
@@ -168,9 +185,10 @@ export const useChats = () => {
     }
   });
 
-  // FIXED: Memoize filtered sessions with real-time unread counts
+ // FIXED: Memoize filtered sessions with real-time unread counts
   const filteredSessions = useMemo(() => {
-    const sessions = (sessionsQuery.data || []).filter(session => {
+    const sessionsData = sessionsQuery.data?.sessions || [];
+    const sessions = sessionsData.filter(session => {
       const userRole = user?.role;
       
       if (userRole === 'psychologist') {
@@ -194,7 +212,12 @@ export const useChats = () => {
     });
 
     return sessions;
-  }, [sessionsQuery.data, user?.role, userId, unreadCounts]);
+  }, [sessionsQuery.data?.sessions, user?.role, userId, unreadCounts]);
+
+  // Get total unread data
+  const totalUnreadData = useMemo(() => {
+    return sessionsQuery.data?.totalUnreadData || { totalUnread: 0, sessionUnreadCounts: {} };
+  }, [sessionsQuery.data?.totalUnreadData]);
 
   // Enhanced Socket.io event handlers with error recovery
   const handleChatEnableDisable = useCallback((payload) => {
