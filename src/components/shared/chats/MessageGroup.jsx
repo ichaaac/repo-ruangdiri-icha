@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/MessageGroup.jsx
+// src/components/shared/chats/components/MessageGroup.jsx - Fixed Attachment Handling
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -6,39 +6,27 @@ import MediaGroup from './MediaGroup';
 import MediaPreviewModal from './MediaPreviewModal';
 
 const MessageGroup = ({ 
-  messages, 
+  messages = [], 
   isOwn = false, 
-  sender, 
-  time, 
+  sender = {}, 
+  time = '', 
   showTime = true,
   allMessages = [],
+  sessionAttachments = [], // ADDED: Direct session attachments from API
   onLoadMoreMessages = null,
   hasMoreMessages = false
 }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  // Extract media items from this group
+  // FIXED: Extract media items from this group with proper validation
   const mediaItems = useMemo(() => {
+    if (!messages || messages.length === 0) return [];
+    
     return messages
-      .filter(msg => msg.attachmentUrl && msg.attachmentUrl.trim())
+      .filter(msg => msg?.attachmentUrl && msg.attachmentUrl.trim())
       .map(msg => ({
-        id: msg.id,
-        attachmentUrl: msg.attachmentUrl,
-        attachmentType: msg.attachmentType,
-        attachmentName: msg.attachmentName,
-        attachmentSize: msg.attachmentSize,
-        messageId: msg.id,
-        timestamp: msg.timestamp || msg.createdAt
-      }));
-  }, [messages]);
-
-  // Extract all media items for navigation
-  const allMediaItems = useMemo(() => {
-    return allMessages
-      .filter(msg => msg.attachmentUrl && msg.attachmentUrl.trim())
-      .map(msg => ({
-        id: msg.id,
+        id: msg.id || `temp-${Date.now()}-${Math.random()}`,
         attachmentUrl: msg.attachmentUrl,
         attachmentType: msg.attachmentType,
         attachmentName: msg.attachmentName,
@@ -46,13 +34,54 @@ const MessageGroup = ({
         messageId: msg.id,
         timestamp: msg.timestamp || msg.createdAt
       }))
+      .filter(item => item.id && item.attachmentUrl); // Extra validation
+  }, [messages]);
+
+  // FIXED: Use session attachments if available, otherwise fallback to all messages
+  const allMediaItems = useMemo(() => {
+    if (sessionAttachments && sessionAttachments.length > 0) {
+      return sessionAttachments
+        .filter(att => att?.attachmentUrl && att.attachmentUrl.trim())
+        .sort((a, b) => new Date(a.createdAt || a.timestamp) - new Date(b.createdAt || b.timestamp));
+    }
+
+    // Fallback to extracting from all messages
+    if (!allMessages || allMessages.length === 0) return [];
+    
+    return allMessages
+      .filter(msg => msg?.attachmentUrl && msg.attachmentUrl.trim())
+      .map(msg => ({
+        id: msg.id || `temp-${Date.now()}-${Math.random()}`,
+        attachmentUrl: msg.attachmentUrl,
+        attachmentType: msg.attachmentType,
+        attachmentName: msg.attachmentName,
+        attachmentSize: msg.attachmentSize,
+        messageId: msg.id,
+        timestamp: msg.timestamp || msg.createdAt
+      }))
+      .filter(item => item.id && item.attachmentUrl)
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-  }, [allMessages]);
+  }, [sessionAttachments, allMessages]);
 
   const handleOpenPreview = useCallback((groupIndex) => {
-    // Find the position of the clicked media in the full media array
+    // FIXED: Proper validation and error handling
+    if (groupIndex < 0 || groupIndex >= mediaItems.length) {
+      console.warn('Invalid groupIndex:', groupIndex, 'mediaItems length:', mediaItems.length);
+      return;
+    }
+    
     const clickedMedia = mediaItems[groupIndex];
-    const fullIndex = allMediaItems.findIndex(item => item.id === clickedMedia.id);
+    if (!clickedMedia || !clickedMedia.id) {
+      console.warn('Invalid media item:', clickedMedia);
+      return;
+    }
+    
+    // Find the position of the clicked media in the full media array
+    const fullIndex = allMediaItems.findIndex(item => 
+      item.id === clickedMedia.id || 
+      (item.messageId && item.messageId === clickedMedia.messageId)
+    );
+    
     setPreviewIndex(fullIndex >= 0 ? fullIndex : 0);
     setIsPreviewOpen(true);
   }, [mediaItems, allMediaItems]);
@@ -62,7 +91,15 @@ const MessageGroup = ({
   }, []);
 
   // Get any text message from the group
-  const textMessage = messages.find(msg => msg.text && msg.text.trim());
+  const textMessage = useMemo(() => {
+    if (!messages || messages.length === 0) return null;
+    return messages.find(msg => msg?.text && msg.text.trim());
+  }, [messages]);
+
+  // Early return if no messages
+  if (!messages || messages.length === 0) {
+    return null;
+  }
 
   return (
     <motion.div 
@@ -83,7 +120,7 @@ const MessageGroup = ({
                 ) : sender?.profilePicture ? (
                   <img
                     src={sender.profilePicture}
-                    alt={sender.name}
+                    alt={sender.name || 'User'}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.src = '/empty-profile.svg';
@@ -110,11 +147,10 @@ const MessageGroup = ({
               ${isOwn ? 'bg-sky-100 rounded-xl' : 'bg-white rounded-3xl'}
               p-2
             `}>
-              {/* Media Group */}
+              {/* FIXED: Media Group with proper error handling */}
               {mediaItems.length > 0 && (
                 <MediaGroup 
                   mediaItems={mediaItems}
-                  allMediaItems={allMediaItems}
                   onOpenPreview={handleOpenPreview}
                 />
               )}
@@ -138,7 +174,7 @@ const MessageGroup = ({
         </div>
       </div>
 
-      {/* Media Preview Modal */}
+      {/* FIXED: Media Preview Modal with session attachments */}
       <MediaPreviewModal
         isOpen={isPreviewOpen}
         onClose={handleClosePreview}

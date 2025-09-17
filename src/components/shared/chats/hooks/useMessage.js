@@ -1,8 +1,9 @@
-// src/components/shared/chats/hooks/useMessage.js - FIXED: Proper Infinite Scroll
+// src/components/shared/chats/hooks/useMessage.js - FIXED: With Attachments Integration
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatsApi } from '../lib/chatsApi';
+import { getSessionAttachments } from '../lib/attachmentsApi'; // ADDED: Import attachments API
 import { getCurrentTime, getCurrentTimestamp } from '../utils/dateUtils';
 import chatEncryption from '../lib/encryption';
 
@@ -54,6 +55,31 @@ export const useMessages = (sessionId, ably = null) => {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadingRef = useRef(false); // Prevent multiple simultaneous loads
+
+  // ADDED: Attachments query for current session
+  const attachmentsQuery = useQuery({
+    queryKey: ['session-attachments', sessionId],
+    queryFn: async () => {
+      if (!sessionId || sessionId === 'team-ruangdiri') return [];
+      
+      MessageLogger.log('info', 'FETCH_ATTACHMENTS', {
+        sessionId: sessionId?.slice(-8)
+      });
+      
+      const attachments = await getSessionAttachments(sessionId);
+      
+      MessageLogger.log('success', 'ATTACHMENTS_LOADED', {
+        count: attachments?.length || 0,
+        sessionId: sessionId?.slice(-8)
+      });
+      
+      return attachments || [];
+    },
+    enabled: !!sessionId && sessionId !== 'team-ruangdiri',
+    staleTime: 30000,
+    cacheTime: 300000,
+    retry: 2
+  });
 
   // FIXED: Get messages query with proper cursor handling
   const messagesQuery = useQuery({
@@ -122,7 +148,7 @@ export const useMessages = (sessionId, ably = null) => {
     refetchOnMount: true
   });
 
-  // Send text message mutation
+  // FIXED: Send text message mutation with proper payload
   const sendMutation = useMutation({
     mutationFn: async ({ sessionId, content }) => {
       MessageLogger.log('crypto', 'SEND_MESSAGE', {
@@ -137,6 +163,9 @@ export const useMessages = (sessionId, ably = null) => {
       try {
         const { sessionId, content } = variables || {};
         if (!sessionId || sessionId === 'team-ruangdiri' || !ably) return;
+
+        // Refresh attachments after sending message
+        queryClient.invalidateQueries(['session-attachments', sessionId]);
 
         // Prepare Ably broadcast payload similar to backend
         const user = getCurrentUser();
@@ -251,7 +280,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // File upload mutation
+  // FIXED: File upload mutation with message text as caption
   const sendFileMutation = useMutation({
     mutationFn: async ({ sessionId, file, messageType, caption }) => {
       MessageLogger.log('crypto', 'SEND_FILE', {
@@ -264,6 +293,14 @@ export const useMessages = (sessionId, ably = null) => {
       });
       
       return chatsApi.sendFileMessage(sessionId, file, messageType, caption || '');
+    },
+    onSuccess: async (result, variables) => {
+      const { sessionId } = variables || {};
+      
+      // Refresh attachments after file upload
+      if (sessionId && sessionId !== 'team-ruangdiri') {
+        queryClient.invalidateQueries(['session-attachments', sessionId]);
+      }
     },
     onMutate: async ({ sessionId, file, messageType, caption }) => {
       await queryClient.cancelQueries({ queryKey: ['chat-messages', sessionId] });
@@ -366,8 +403,9 @@ export const useMessages = (sessionId, ably = null) => {
     }
   });
 
-  // Memoize current messages
+  // Memoize current messages and attachments
   const currentMessages = useMemo(() => messagesQuery.data || [], [messagesQuery.data]);
+  const sessionAttachments = useMemo(() => attachmentsQuery.data || [], [attachmentsQuery.data]);
 
   // FIXED: Load more messages with proper cursor and deduplication
   const loadMoreMessages = useCallback(async () => {
@@ -482,7 +520,7 @@ export const useMessages = (sessionId, ably = null) => {
     }
   }, [sessionId, sendMutation.mutateAsync]);
 
-  // File upload function
+  // FIXED: File upload function using messageText as caption
   const sendFile = useCallback(async (file, fileType = null, caption = '') => {
     if (!sessionId || !file) {
       MessageLogger.log('warn', 'FILE_SEND_INVALID', 'Missing sessionId or file');
@@ -500,10 +538,14 @@ export const useMessages = (sessionId, ably = null) => {
       // Auto-detect message type if not provided
       const messageType = fileType || chatsApi.getFileTypeCategory(file);
       
+      // FIXED: Use messageText as caption if not provided
+      const finalCaption = caption || messageText.trim();
+      
       MessageLogger.log('info', 'FILE_SEND_ATTEMPT', {
         fileName: file.name,
         messageType,
-        hasCaption: !!caption,
+        hasCaption: !!finalCaption,
+        captionFromInput: !caption && !!messageText.trim(),
         sessionId: sessionId?.slice(-8)
       });
       
@@ -511,15 +553,18 @@ export const useMessages = (sessionId, ably = null) => {
         sessionId, 
         file,
         messageType,
-        caption: caption?.trim() || ''
+        caption: finalCaption
       });
+      
+      // Clear message text after successful upload
+      setMessageText('');
       
       MessageLogger.log('success', 'FILE_SEND_COMPLETE', file.name);
     } catch (error) {
       MessageLogger.log('error', 'FILE_SEND_ERROR', error);
       throw error;
     }
-  }, [sessionId, sendFileMutation.mutateAsync]);
+  }, [sessionId, messageText, sendFileMutation.mutateAsync]);
 
   // Send current message function
   const sendCurrentMessage = useCallback(async () => {
@@ -563,6 +608,11 @@ export const useMessages = (sessionId, ably = null) => {
       // FIXED: Add new messages at the end (bottom of chat)
       return [...old, message];
     });
+
+    // Refresh attachments if message has attachment
+    if (message.attachmentUrl) {
+      queryClient.invalidateQueries(['session-attachments', sessionId]);
+    }
   }, [sessionId, queryClient]);
 
   // AI service selection handler
@@ -670,9 +720,10 @@ export const useMessages = (sessionId, ably = null) => {
     return 'chat_disabled';
   }, [sessionId]);
 
-  // Return object
+  // Return object with attachments
   return useMemo(() => ({
     messages: currentMessages,
+    sessionAttachments, // ADDED: Session attachments for navigation
     messageText,
     setMessageText,
     sendMessage,
@@ -687,14 +738,19 @@ export const useMessages = (sessionId, ably = null) => {
     getSessionStatus,
     loadMoreMessages,
     isLoading: messagesQuery.isLoading,
+    isLoadingAttachments: attachmentsQuery.isLoading, // ADDED
     isSending: sendMutation.isPending || sendFileMutation.isPending,
     isUploadingFile: sendFileMutation.isPending,
-    error: messagesQuery.error || sendMutation.error || sendFileMutation.error,
-    refetch: messagesQuery.refetch,
+    error: messagesQuery.error || sendMutation.error || sendFileMutation.error || attachmentsQuery.error,
+    refetch: () => {
+      messagesQuery.refetch();
+      attachmentsQuery.refetch(); // ADDED: Refetch attachments too
+    },
     hasMore,
     isLoadingMore
   }), [
     currentMessages,
+    sessionAttachments, // ADDED
     messageText,
     sendMessage,
     sendFile,
@@ -710,6 +766,9 @@ export const useMessages = (sessionId, ably = null) => {
     messagesQuery.isLoading,
     messagesQuery.error,
     messagesQuery.refetch,
+    attachmentsQuery.isLoading, // ADDED
+    attachmentsQuery.error, // ADDED
+    attachmentsQuery.refetch, // ADDED
     sendMutation.isPending,
     sendMutation.error,
     sendFileMutation.isPending,

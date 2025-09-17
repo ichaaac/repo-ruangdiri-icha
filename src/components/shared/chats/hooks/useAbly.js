@@ -1,14 +1,55 @@
-// src/components/shared/chats/hooks/useAbly.js - FIXED: Message Decryption & Unread Count Updates
+// src/components/shared/chats/hooks/useAbly.js - FIXED: With Presence & Read Receipts
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Ably from 'ably';
 import { chatsApi } from '../lib/chatsApi';
+import { apiClient } from '../../../../lib/api.js'; // FIXED: Import apiClient directly
 import chatEncryption from '../lib/encryption';
 import notificationSocket from '../../notifications/lib/socket';
 import { installAblyErrorHandler } from '../utils/ablyErrorHandler';
 
 // Install global Ably error handler immediately
 installAblyErrorHandler();
+
+// FIXED: Presence API helper with correct status field
+const presenceApi = {
+  async setPresence(sessionId, isPresent = true) {
+    try {
+      // FIXED: Send status field with "present" or "away" values
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/presence`, {
+        status: isPresent ? 'present' : 'away'
+      });
+      
+      if (response.data?.status === 'success') {
+        return response.data;
+      }
+      
+      throw new Error(response.data?.message || 'Failed to set presence');
+    } catch (error) {
+      console.error('Failed to set presence:', error);
+      // FIXED: Don't re-throw the error to prevent blocking other functionality
+      return null;
+    }
+  },
+
+  async setAway(sessionId) {
+    try {
+      return await this.setPresence(sessionId, false); // Will send status: "away"
+    } catch (error) {
+      console.error('Failed to set away status:', error);
+      return null;
+    }
+  },
+
+  async setActive(sessionId) {
+    try {
+      return await this.setPresence(sessionId, true); // Will send status: "present"
+    } catch (error) {
+      console.error('Failed to set active status:', error);
+      return null;
+    }
+  }
+};
 
 // Enhanced Ably Event Logger
 const AblyLogger = {
@@ -21,7 +62,9 @@ const AblyLogger = {
       success: 'color: #66BB6A; font-weight: bold;',
       debug: 'color: #9575CD; font-weight: bold;',
       event: 'color: #26A69A; font-weight: bold;',
-      crypto: 'color: #FF9800; font-weight: bold;'
+      crypto: 'color: #FF9800; font-weight: bold;',
+      presence: 'color: #E91E63; font-weight: bold;',
+      receipt: 'color: #4CAF50; font-weight: bold;'
     };
 
     console.log(
@@ -103,13 +146,79 @@ export const useAbly = () => {
   const tokenRefreshIntervalRef = useRef(null);
   const messagesCacheRef = useRef(new Map());
   
+  // ADDED: Presence tracking
+  const presenceTimeoutRef = useRef(null);
+  const isActiveRef = useRef(true);
+  
   // Callback refs
   const onMessageRef = useRef(null);
   const onSessionStatusRef = useRef(null);
   const onTypingRef = useRef(null);
   const onUnreadCountRef = useRef(null);
+  const onReadReceiptRef = useRef(null); // ADDED: Read receipt callback
+  const onDeliveryReceiptRef = useRef(null); // ADDED: Delivery receipt callback
+  const onLastMessageUpdateRef = useRef(null); // ADDED: Last message update callback
 
   const isCleaningUpRef = useRef(false);
+
+  // ADDED: Presence management with better error handling
+  const handlePresenceChange = useCallback(async (isActive) => {
+    const sessionId = currentSessionRef.current;
+    if (!sessionId || sessionId === 'team-ruangdiri') return;
+
+    try {
+      if (isActive !== isActiveRef.current) {
+        isActiveRef.current = isActive;
+        
+        AblyLogger.log('presence', 'PRESENCE_CHANGE', 
+          `Setting presence to: ${isActive ? 'active' : 'away'}`, 
+          { sessionId: sessionId.slice(-8) }
+        );
+
+        // FIXED: Don't await the presence API to prevent blocking
+        presenceApi.setPresence(sessionId, isActive).catch(error => {
+          AblyLogger.log('warn', 'PRESENCE', 'Presence API failed, but continuing...', error);
+        });
+      }
+    } catch (error) {
+      AblyLogger.log('error', 'PRESENCE', 'Failed to update presence', error);
+      // FIXED: Don't re-throw to prevent blocking other functionality
+    }
+  }, []);
+
+  // ADDED: Page visibility handling for presence
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      handlePresenceChange(isVisible);
+    };
+
+    const handleFocus = () => handlePresenceChange(true);
+    const handleBlur = () => {
+      // Set away after 30 seconds of inactivity
+      if (presenceTimeoutRef.current) {
+        clearTimeout(presenceTimeoutRef.current);
+      }
+      
+      presenceTimeoutRef.current = setTimeout(() => {
+        handlePresenceChange(false);
+      }, 30000);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+      
+      if (presenceTimeoutRef.current) {
+        clearTimeout(presenceTimeoutRef.current);
+      }
+    };
+  }, [handlePresenceChange]);
 
   // Enhanced connection status handler
   const handleConnectionStatusChange = useCallback((state, reason = null) => {
@@ -139,13 +248,19 @@ export const useAbly = () => {
       hasMessage: !!callbacks.onMessage,
       hasSessionStatus: !!callbacks.onSessionStatus,
       hasTyping: !!callbacks.onTyping,
-      hasUnreadCount: !!callbacks.onUnreadCount
+      hasUnreadCount: !!callbacks.onUnreadCount,
+      hasReadReceipt: !!callbacks.onReadReceipt, // ADDED
+      hasDeliveryReceipt: !!callbacks.onDeliveryReceipt, // ADDED
+      hasLastMessageUpdate: !!callbacks.onLastMessageUpdate // ADDED
     });
 
     onMessageRef.current = callbacks.onMessage || null;
     onSessionStatusRef.current = callbacks.onSessionStatus || null;
     onTypingRef.current = callbacks.onTyping || null;
     onUnreadCountRef.current = callbacks.onUnreadCount || null;
+    onReadReceiptRef.current = callbacks.onReadReceipt || null; // ADDED
+    onDeliveryReceiptRef.current = callbacks.onDeliveryReceipt || null; // ADDED
+    onLastMessageUpdateRef.current = callbacks.onLastMessageUpdate || null; // ADDED
   }, []);
 
   // FIXED: Enhanced deduplication helper
@@ -194,7 +309,7 @@ export const useAbly = () => {
     }
   }, []);
 
-  // UPDATED: Single channel connect function with decryption
+  // UPDATED: Single channel connect function with decryption and read receipts
   const connect = useCallback(async (sessionId, userId) => {
     try {
       currentSessionRef.current = sessionId;
@@ -209,6 +324,9 @@ export const useAbly = () => {
       }
 
       handleConnectionStatusChange('connecting');
+
+      // Set initial presence as active
+      await handlePresenceChange(true);
 
       // Setup Socket.io (unchanged)
       try {
@@ -308,7 +426,7 @@ export const useAbly = () => {
         chatChannel: chatChannelName
       });
 
-      // FIXED: Enhanced channel message handler with decryption
+      // ENHANCED: Channel message handler with read receipts and presence
       const handleChannelMessage = (message) => {
         AblyLogger.logAblyMessage(message, chatChannelName, 'ALL_EVENTS');
         
@@ -330,7 +448,7 @@ export const useAbly = () => {
           }
         }
         
-switch (eventName) {
+        switch (eventName) {
           case 'message':
             AblyLogger.log('info', 'MESSAGE', 'Processing chat message');
             
@@ -406,11 +524,16 @@ switch (eventName) {
             break;
 
           case 'message_read':
-            AblyLogger.log('info', 'READ_RECEIPT', 'Processing read receipt', messageData);
+          case 'read_receipt': // ADDED: Handle both event names
+            AblyLogger.log('receipt', 'READ_RECEIPT', 'Processing read receipt', messageData);
             
             if (onReadReceiptRef.current) {
+              // FIXED: Handle both single message and multiple messages
+              const messageIds = messageData.messageIds || (messageData.messageId ? [messageData.messageId] : []);
+              
               const readData = {
-                messageId: messageData.messageId,
+                messageIds: messageIds,
+                messageId: messageIds[0], // For backward compatibility
                 userId: messageData.userId,
                 userFullname: messageData.userFullname,
                 readAt: messageData.readAt,
@@ -418,9 +541,10 @@ switch (eventName) {
               };
               
               AblyLogger.log('success', 'READ_RECEIPT', 'Read receipt processed', {
-                messageId: readData.messageId?.slice(-8),
+                messageIds: messageIds.map(id => id?.slice(-8)),
                 userId: readData.userId?.slice(-8),
-                readBy: readData.userFullname
+                readBy: readData.userFullname,
+                count: messageIds.length
               });
               
               onReadReceiptRef.current(readData);
@@ -500,7 +624,8 @@ switch (eventName) {
             break;
 
           case 'user_presence':
-            AblyLogger.log('info', 'PRESENCE', 'Processing user presence', messageData);
+            AblyLogger.log('presence', 'PRESENCE', 'Processing user presence', messageData);
+            // Handle presence updates if needed
             break;
 
           case 'file_upload':
@@ -653,13 +778,23 @@ switch (eventName) {
       handleConnectionStatusChange('failed');
       return false;
     }
-  }, [handleConnectionStatusChange, isDuplicateMessage, decryptMessageContent]);
+  }, [handleConnectionStatusChange, isDuplicateMessage, decryptMessageContent, handlePresenceChange]);
 
-  // Other functions remain the same but with encryption logging
-  const disconnect = useCallback(() => {
+  // Enhanced disconnect with presence cleanup
+  const disconnect = useCallback(async () => {
     AblyLogger.log('info', 'DISCONNECT', 'Disconnecting chat...');
     
     isCleaningUpRef.current = true;
+    
+    // Set away status before disconnecting
+    const sessionId = currentSessionRef.current;
+    if (sessionId && sessionId !== 'team-ruangdiri') {
+      try {
+        await handlePresenceChange(false);
+      } catch (error) {
+        AblyLogger.log('warn', 'PRESENCE', 'Failed to set away status on disconnect', error);
+      }
+    }
     
     if (tokenRefreshIntervalRef.current) {
       clearInterval(tokenRefreshIntervalRef.current);
@@ -669,6 +804,11 @@ switch (eventName) {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
+    }
+
+    if (presenceTimeoutRef.current) {
+      clearTimeout(presenceTimeoutRef.current);
+      presenceTimeoutRef.current = null;
     }
 
     try {
@@ -715,7 +855,7 @@ switch (eventName) {
     }, 100);
     
     AblyLogger.log('success', 'DISCONNECT', 'Chat disconnected successfully');
-  }, []);
+  }, [handlePresenceChange]);
 
   const sendTyping = useCallback(async (sessionId, isTyping, userId) => {
     if (sessionId === 'team-ruangdiri') return;
@@ -825,7 +965,8 @@ switch (eventName) {
       clientId: ablyRef.current?.connection?.clientId,
       isCleaningUp: isCleaningUpRef.current,
       cacheSize: messagesCacheRef.current.size,
-      encryptionEnabled: chatEncryption.getStatus().isEnabled
+      encryptionEnabled: chatEncryption.getStatus().isEnabled,
+      isPresent: isActiveRef.current // ADDED
     };
     
     AblyLogger.log('debug', 'INFO', 'Connection info requested', info);
@@ -842,6 +983,7 @@ switch (eventName) {
         chatChannel: chatChannelRef.current,
         messageCache: messagesCacheRef.current,
         encryption: chatEncryption,
+        presence: presenceApi, // ADDED
         forceLog: (level, category, message, data) => {
           AblyLogger.log(level, category, message, data);
         }
@@ -872,7 +1014,11 @@ switch (eventName) {
     setCallbacks,
     getConnectionInfo,
     logger: AblyLogger,
-    decryptMessage: decryptMessageContent
+    decryptMessage: decryptMessageContent,
+    // ADDED: Presence methods
+    setPresenceActive: () => handlePresenceChange(true),
+    setPresenceAway: () => handlePresenceChange(false),
+    isPresent: isActiveRef.current
   }), [
     connectionStatus,
     isTyping,
@@ -884,6 +1030,7 @@ switch (eventName) {
     simulateAITyping,
     setCallbacks,
     getConnectionInfo,
-    decryptMessageContent
+    decryptMessageContent,
+    handlePresenceChange
   ]);
 };

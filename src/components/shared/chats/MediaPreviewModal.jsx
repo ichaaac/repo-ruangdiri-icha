@@ -1,6 +1,6 @@
-// src/components/shared/chats/components/MediaPreviewModal.jsx
+// src/components/shared/chats/components/MediaPreviewModal.jsx - Fixed Size Modal
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MediaPreviewModal = ({ 
@@ -14,17 +14,20 @@ const MediaPreviewModal = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [imageErrors, setImageErrors] = useState(new Set());
 
+  // Update currentIndex when initialIndex changes
+  useEffect(() => {
+    if (isOpen && initialIndex !== currentIndex) {
+      setCurrentIndex(initialIndex);
+    }
+  }, [isOpen, initialIndex]);
+
   if (!isOpen || !mediaItems.length) return null;
 
   const currentMedia = mediaItems[currentIndex];
+  if (!currentMedia) return null;
+
   const isImage = currentMedia?.attachmentType?.startsWith('image/');
   
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    const mb = (bytes / 1024 / 1024).toFixed(1);
-    return `${mb} MB`;
-  };
-
   const getFileIcon = (type) => {
     if (type?.includes('pdf')) return 'picture_as_pdf';
     if (type?.includes('word')) return 'description';
@@ -52,7 +55,6 @@ const MediaPreviewModal = ({
     
     try {
       const mediaUrl = currentMedia.attachmentUrl;
-      const mediaName = currentMedia.attachmentName;
       
       if (!mediaUrl) {
         throw new Error('No media URL available');
@@ -69,7 +71,7 @@ const MediaPreviewModal = ({
         
         const link = document.createElement('a');
         link.href = downloadUrl;
-        link.download = mediaName || `download_${Date.now()}`;
+        link.download = currentMedia.attachmentName || `attachment_${Date.now()}`;
         
         document.body.appendChild(link);
         link.click();
@@ -80,7 +82,7 @@ const MediaPreviewModal = ({
       } catch (fetchError) {
         const link = document.createElement('a');
         link.href = fullUrl;
-        link.download = mediaName || 'download';
+        link.download = 'attachment';
         link.target = '_blank';
         
         document.body.appendChild(link);
@@ -90,7 +92,6 @@ const MediaPreviewModal = ({
       
     } catch (error) {
       console.error('Download failed:', error);
-      alert(`Download failed: ${error.message}`);
     }
   };
 
@@ -111,24 +112,52 @@ const MediaPreviewModal = ({
     }
   };
 
+  // Handle escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft') {
+        goToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        goToNext();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, currentIndex, mediaItems.length]);
+
   return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
         onClick={onClose}
       >
+        {/* FIXED: Fixed size modal container */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 w-[600px] h-[500px] overflow-hidden"
+          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
+          style={{ 
+            width: '90vw', 
+            maxWidth: '800px', 
+            height: '70vh', 
+            maxHeight: '600px'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
+          <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50 h-16">
             <div className="flex items-center gap-2">
               <span 
                 className="material-icons text-lg"
@@ -138,9 +167,8 @@ const MediaPreviewModal = ({
               </span>
               <div>
                 <p className="text-sm text-gray-500">
-                  {formatFileSize(currentMedia.attachmentSize)}
                   {mediaItems.length > 1 && (
-                    <span className="ml-2 text-blue-600">
+                    <span className="text-blue-600">
                       {currentIndex + 1} of {mediaItems.length}
                     </span>
                   )}
@@ -149,7 +177,6 @@ const MediaPreviewModal = ({
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Actions */}
               <button
                 onClick={handleDownload}
                 className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
@@ -178,29 +205,40 @@ const MediaPreviewModal = ({
             </div>
           </div>
 
-          {/* Content with side navigation */}
-          <div className="relative flex-1 flex items-center justify-center bg-gray-100">
-            {/* Left Navigation */}
+          {/* FIXED: Content area with side navigation */}
+          <div className="relative h-full bg-gray-100" style={{ height: 'calc(100% - 4rem)' }}>
+            {/* FIXED: Left Navigation Button - Positioned on the side */}
             {mediaItems.length > 1 && currentIndex > 0 && (
               <button
                 onClick={goToPrevious}
-                className="absolute left-3 z-10 p-2 bg-black bg-opacity-60 text-white rounded-full hover:bg-opacity-80 transition-colors"
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 bg-black bg-opacity-60 text-white rounded-full hover:bg-opacity-80 transition-colors"
                 title="Previous"
               >
                 <span className="material-icons">chevron_left</span>
               </button>
             )}
 
-            {/* Media Content */}
+            {/* FIXED: Right Navigation Button - Positioned on the side */}
+            {mediaItems.length > 1 && currentIndex < mediaItems.length - 1 && (
+              <button
+                onClick={goToNext}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 bg-black bg-opacity-60 text-white rounded-full hover:bg-opacity-80 transition-colors"
+                title="Next"
+              >
+                <span className="material-icons">chevron_right</span>
+              </button>
+            )}
+
+            {/* Media Content - Fixed container size */}
             <div className="w-full h-full flex items-center justify-center p-4">
               {isImage ? (
                 <img
-                  key={`${currentMedia.id}-${currentIndex}`}
+                  key={`${currentMedia.id || currentIndex}-${currentIndex}`}
                   src={currentMedia.attachmentUrl?.startsWith('http') ? 
                        currentMedia.attachmentUrl : 
                        `https://${currentMedia.attachmentUrl}`}
-                  alt="Image preview"
-                  className="max-w-full max-h-full object-contain"
+                  alt="Attachment"
+                  className="max-w-full max-h-full object-contain rounded-lg"
                   onError={handleImageError}
                 />
               ) : (
@@ -212,7 +250,7 @@ const MediaPreviewModal = ({
                     {getFileIcon(currentMedia.attachmentType)}
                   </span>
                   <p className="text-gray-600 mb-4">
-                    {formatFileSize(currentMedia.attachmentSize)} • {currentMedia.attachmentType}
+                    Document • {currentMedia.attachmentType}
                   </p>
                   
                   <div className="flex gap-3 justify-center">
@@ -222,7 +260,7 @@ const MediaPreviewModal = ({
                       style={{ backgroundColor: '#488BBA' }}
                     >
                       <span className="material-icons">open_in_new</span>
-                      Open File
+                      Open
                     </button>
                     <button
                       onClick={handleDownload}
@@ -235,17 +273,6 @@ const MediaPreviewModal = ({
                 </div>
               )}
             </div>
-
-            {/* Right Navigation */}
-            {mediaItems.length > 1 && currentIndex < mediaItems.length - 1 && (
-              <button
-                onClick={goToNext}
-                className="absolute right-3 z-10 p-2 bg-black bg-opacity-60 text-white rounded-full hover:bg-opacity-80 transition-colors"
-                title="Next"
-              >
-                <span className="material-icons">chevron_right</span>
-              </button>
-            )}
           </div>
         </motion.div>
       </motion.div>

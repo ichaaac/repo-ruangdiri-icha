@@ -1,4 +1,4 @@
-// src/components/shared/chats/hooks/useChats.js - FIXED: Integration with Proper Infinite Scroll
+// src/components/shared/chats/hooks/useChats.js - FIXED: With Read Receipts & Presence
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,9 @@ const ChatsLogger = {
         success: 'color: #66BB6A; font-weight: bold;',
         debug: 'color: #9575CD; font-weight: bold;',
         retry: 'color: #FF9800; font-weight: bold;',
-        unread: 'color: #E91E63; font-weight: bold;'
+        unread: 'color: #E91E63; font-weight: bold;',
+        receipt: 'color: #4CAF50; font-weight: bold;',
+        presence: 'color: #9C27B0; font-weight: bold;'
       };
 
       console.log(
@@ -58,6 +60,9 @@ export const useChats = () => {
   
   // FIXED: Track unread counts separately for real-time updates
   const [unreadCounts, setUnreadCounts] = useState({});
+  
+  // ADDED: Track user presence for read receipt logic
+  const [userPresence, setUserPresence] = useState({});
   
   // Track failed sessions to prevent infinite retries
   const [failedSessions, setFailedSessions] = useState(new Set());
@@ -218,6 +223,64 @@ export const useChats = () => {
   const totalUnreadData = useMemo(() => {
     return sessionsQuery.data?.totalUnreadData || { totalUnread: 0, sessionUnreadCounts: {} };
   }, [sessionsQuery.data?.totalUnreadData]);
+
+  // ADDED: Handle read receipts from Ably
+  const handleAblyReadReceipt = useCallback((readData) => {
+    ChatsLogger.log('receipt', 'Processing read receipt from Ably', readData);
+    
+    const { messageIds = [], userId: senderId } = readData;
+    
+    // Update message read status in cache
+    if (selectedSession?.sessionId && messageIds.length > 0) {
+      queryClient.setQueryData(['chat-messages', selectedSession.sessionId], (oldMessages = []) => {
+        return oldMessages.map(message => {
+          if (messageIds.includes(message.id) && message.senderId === userId) {
+            ChatsLogger.log('receipt', 'Marking message as read', {
+              messageId: message.id.slice(-8),
+              readBy: senderId?.slice(-8)
+            });
+            
+            return {
+              ...message,
+              isRead: true,
+              readAt: readData.readAt,
+              readBy: senderId
+            };
+          }
+          return message;
+        });
+      });
+    }
+  }, [selectedSession?.sessionId, userId, queryClient]);
+
+  // ADDED: Handle delivery receipts from Ably
+  const handleAblyDeliveryReceipt = useCallback((deliveryData) => {
+    ChatsLogger.log('receipt', 'Processing delivery receipt from Ably', deliveryData);
+    
+    const { messageId, userId: recipientId } = deliveryData;
+    
+    // Update message delivery status in cache
+    if (selectedSession?.sessionId && messageId) {
+      queryClient.setQueryData(['chat-messages', selectedSession.sessionId], (oldMessages = []) => {
+        return oldMessages.map(message => {
+          if (message.id === messageId && message.senderId === userId) {
+            ChatsLogger.log('receipt', 'Marking message as delivered', {
+              messageId: message.id.slice(-8),
+              deliveredTo: recipientId?.slice(-8)
+            });
+            
+            return {
+              ...message,
+              isDelivered: true,
+              deliveredAt: deliveryData.deliveredAt,
+              deliveredTo: recipientId
+            };
+          }
+          return message;
+        });
+      });
+    }
+  }, [selectedSession?.sessionId, userId, queryClient]);
 
   // Enhanced Socket.io event handlers with error recovery
   const handleChatEnableDisable = useCallback((payload) => {
@@ -732,7 +795,7 @@ export const useChats = () => {
     }
   }, [userId, selectedSession?.sessionId]);
 
-  // Setup Ably callbacks with error monitoring
+  // FIXED: Setup Ably callbacks with read receipts
   useEffect(() => {
     if (!selectedSession || selectedSession.isTeamChat) return;
 
@@ -741,13 +804,15 @@ export const useChats = () => {
         onMessage: handleAblyMessage,
         onSessionStatus: handleAblySessionStatus,
         onTyping: handleAblyTyping,
-        onUnreadCount: handleAblyUnreadCount
+        onUnreadCount: handleAblyUnreadCount,
+        onReadReceipt: handleAblyReadReceipt, // ADDED
+        onDeliveryReceipt: handleAblyDeliveryReceipt // ADDED
       });
     } catch (error) {
       ChatsLogger.error('Failed to set Ably callbacks', error);
     }
 
-  }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount]);
+  }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount, handleAblyReadReceipt, handleAblyDeliveryReceipt]);
 
   // Enhanced typing handler
   const handleTyping = useCallback((text) => {
@@ -916,6 +981,7 @@ export const useChats = () => {
           // Use callback form to avoid stale closure issues
           setTypingUsers(() => ({}));
           setUnreadCounts(() => ({}));
+          setUserPresence(() => ({})); // ADDED
         }
         
         ChatsLogger.log('success', 'CLEANUP', 'Cleanup completed successfully');
@@ -943,17 +1009,31 @@ export const useChats = () => {
     };
   }, [user?.role]);
 
-  // FIXED: Return enhanced object with real-time unread count support and currentUserId
+  // ADDED: Get recipient presence for current session
+  const getRecipientPresence = useCallback(() => {
+    if (!selectedSession || selectedSession.isTeamChat) return 'unknown';
+    
+    // Get the other user in the conversation
+    const otherUserId = selectedSession.clientId === userId 
+      ? selectedSession.psychologistId 
+      : selectedSession.clientId;
+    
+    return userPresence[otherUserId] || 'unknown';
+  }, [selectedSession, userId, userPresence]);
+
+  // FIXED: Return enhanced object with read receipts and presence support
   return useMemo(() => ({
     // Data
     sessions: filteredSessions,
     selectedSession,
     messages: messages.messages,
+    sessionAttachments: messages.sessionAttachments, // ADDED
     messageText: messages.messageText,
     
     // Loading states
     isLoadingSessions: sessionsQuery.isLoading,
     isLoadingMessages: messages.isLoading,
+    isLoadingAttachments: messages.isLoadingAttachments, // ADDED
     isSendingMessage: messages.isSending,
     isUploadingFile: messages.isUploadingFile,
     isRecoveringConnection,
@@ -1016,6 +1096,10 @@ export const useChats = () => {
     userDisplayData: getUserDisplayData(),
     currentUserId: userId, // FIXED: Pass currentUserId for read receipts
     
+    // ADDED: Presence and read receipt data
+    recipientPresence: getRecipientPresence(),
+    userPresence,
+    
     // Enhanced flags
     isEmpty: (filteredSessions.length || 0) === 0 && !sessionsQuery.isLoading,
     hasMessages: messages.messages.length > 0,
@@ -1030,14 +1114,17 @@ export const useChats = () => {
       lastError: window.lastChatError,
       failedSessions: Array.from(failedSessions),
       unreadCounts,
+      userPresence,
       encryptionStatus: ably.decryptMessage ? 'enabled' : 'disabled'
     }
   }), [
     filteredSessions,
     selectedSession,
     messages.messages,
+    messages.sessionAttachments,
     messages.messageText,
     messages.isLoading,
+    messages.isLoadingAttachments,
     messages.isSending,
     messages.isUploadingFile,
     messages.error,
@@ -1068,6 +1155,8 @@ export const useChats = () => {
     getSessionStatus,
     refreshSessions,
     getUserDisplayData,
+    getRecipientPresence,
+    userPresence,
     user?.role,
     userId,
     failedSessions

@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/MediaDisplay.jsx
+// src/components/shared/chats/components/MediaDisplay.jsx - WhatsApp Style Clean
 
 import React, { useState } from 'react';
 
@@ -76,30 +76,21 @@ const MediaDisplay = ({
     return 'attach_file';
   };
 
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    const mb = (bytes / 1024 / 1024).toFixed(1);
-    return `${mb} MB`;
-  };
-
   return (
     <div className={`${isInGroup ? 'w-full' : 'mt-2 w-full max-w-xs'}`}>
       {isImage ? (
         <div className="relative group cursor-pointer" onClick={onOpenPreview}>
           <img
             src={hasError ? '/image-placeholder.svg' : fullUrl}
-            alt={attachmentName || 'Image'}
+            alt="Attachment"
             className={`w-full ${isInGroup ? 'h-32' : 'h-48'} rounded-lg object-cover transition-opacity hover:opacity-90`}
             onError={handleImageError}
             loading="lazy"
           />
           
-          {/* Overlay Controls */}
+          {/* Overlay Controls - Only Download */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-              <div className="bg-white rounded-full p-2 shadow-lg hover:bg-gray-100">
-                <span className="material-icons text-gray-700 text-lg">zoom_in</span>
-              </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={handleQuickDownload}
                 className="bg-green-600 rounded-full p-2 shadow-lg hover:bg-green-700 transition-colors"
@@ -109,8 +100,6 @@ const MediaDisplay = ({
               </button>
             </div>
           </div>
-          
-
         </div>
       ) : (
         <div
@@ -125,14 +114,9 @@ const MediaDisplay = ({
               {getFileIcon(attachmentType)}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800 truncate">
-                {attachmentName || 'Document'}
+              <p className="text-sm font-medium text-gray-800">
+                Document
               </p>
-              {attachmentSize && (
-                <p className="text-xs text-gray-500">
-                  {formatFileSize(attachmentSize)}
-                </p>
-              )}
             </div>
             
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -143,9 +127,6 @@ const MediaDisplay = ({
               >
                 <span className="material-icons text-green-600 text-sm">download</span>
               </button>
-              <span className="material-icons text-gray-400 text-sm">
-                visibility
-              </span>
             </div>
           </div>
         </div>

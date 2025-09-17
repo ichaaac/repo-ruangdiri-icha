@@ -1,27 +1,31 @@
-// src/components/shared/chats/components/MediaGroup.jsx
+// src/components/shared/chats/components/MediaGroup.jsx - Clean Grid Layout
 
 import React from 'react';
 import MediaDisplay from './MediaDisplay';
 
 const MediaGroup = ({ 
-  mediaItems, 
-  allMediaItems = [], 
+  mediaItems = [], 
   onOpenPreview
 }) => {
+  // FIXED: Proper error handling for undefined mediaItems
+  if (!mediaItems || mediaItems.length === 0) {
+    return null;
+  }
+
   const handleGroupPreview = (clickedIndex) => {
-    // Find the index of clicked item in the full media array
-    const clickedItem = mediaItems[clickedIndex];
-    const fullIndex = allMediaItems.findIndex(item => item.id === clickedItem.id);
-    onOpenPreview(fullIndex >= 0 ? fullIndex : clickedIndex);
+    // FIXED: Validate index and item existence before accessing properties
+    if (clickedIndex >= 0 && clickedIndex < mediaItems.length && mediaItems[clickedIndex]) {
+      onOpenPreview(clickedIndex);
+    }
   };
 
   if (mediaItems.length === 1) {
     return (
       <MediaDisplay
-        attachmentUrl={mediaItems[0].attachmentUrl}
-        attachmentType={mediaItems[0].attachmentType}
-        attachmentName={mediaItems[0].attachmentName}
-        attachmentSize={mediaItems[0].attachmentSize}
+        attachmentUrl={mediaItems[0]?.attachmentUrl}
+        attachmentType={mediaItems[0]?.attachmentType}
+        attachmentName={mediaItems[0]?.attachmentName}
+        attachmentSize={mediaItems[0]?.attachmentSize}
         onOpenPreview={() => handleGroupPreview(0)}
       />
     );
@@ -30,33 +34,28 @@ const MediaGroup = ({
   return (
     <div className="mt-2 w-full max-w-xs">
       <div className="grid grid-cols-2 gap-2">
-        {mediaItems.slice(0, 4).map((item, index) => (
-          <div key={item.id} className="relative">
-            <MediaDisplay
-              attachmentUrl={item.attachmentUrl}
-              attachmentType={item.attachmentType}
-              attachmentName={item.attachmentName}
-              attachmentSize={item.attachmentSize}
-              onOpenPreview={() => handleGroupPreview(index)}
-              isInGroup={true}
-            />
-            
-            {/* Show count overlay on last item if there are more */}
-            {index === 3 && mediaItems.length > 4 && (
-              <div 
-                className="absolute inset-0 bg-black bg-opacity-60 rounded-lg flex items-center justify-center cursor-pointer"
-                onClick={() => handleGroupPreview(index)}
-              >
-                <span className="text-white font-bold text-lg">
-                  +{mediaItems.length - 4}
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      
+        {mediaItems.slice(0, 4).map((item, index) => {
+          // FIXED: Validate item exists before rendering
+          if (!item || !item.attachmentUrl) {
+            return null;
+          }
 
+          return (
+            <div key={item.id || `media-${index}`} className="relative">
+              <MediaDisplay
+                attachmentUrl={item.attachmentUrl}
+                attachmentType={item.attachmentType}
+                attachmentName={item.attachmentName}
+                attachmentSize={item.attachmentSize}
+                onOpenPreview={() => handleGroupPreview(index)}
+                isInGroup={true}
+              />
+              
+              {/* REMOVED: Count overlay - cleaner WhatsApp style */}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

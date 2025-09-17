@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/ChatMessages.jsx - Integration with Split Components
+// src/components/shared/chats/components/ChatMessages.jsx - With Read Receipts & Attachments
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,7 +16,9 @@ const ChatMessages = ({
   onLoadMore,
   hasMoreMessages,
   isLoadingMore,
-  currentUserId
+  currentUserId,
+  sessionAttachments = [], // ADDED: Session attachments for media navigation
+  recipientPresence = 'unknown' // ADDED: Recipient presence for read receipts
 }) => {
   const messagesContainerRef = useRef(null);
   const [isNearTop, setIsNearTop] = useState(false);
@@ -236,7 +238,7 @@ const ChatMessages = ({
                       </time>
                     </div>
                     
-                    {/* FIXED: Process messages for bulk upload grouping */}
+                    {/* FIXED: Process messages for bulk upload grouping with attachments */}
                     <div className="flex flex-col gap-2">
                       <AnimatePresence>
                         {(() => {
@@ -259,6 +261,7 @@ const ChatMessages = ({
                                   time={firstMessage.time}
                                   showTime={true}
                                   allMessages={messages}
+                                  sessionAttachments={sessionAttachments} // ADDED: Pass session attachments
                                   onLoadMoreMessages={onLoadMore}
                                   hasMoreMessages={hasMoreMessages}
                                 />
@@ -296,8 +299,10 @@ const ChatMessages = ({
                                     attachmentSize={message.attachmentSize}
                                     messageData={message}
                                     allMessages={messages}
+                                    sessionAttachments={sessionAttachments} // ADDED: Pass session attachments
                                     onLoadMoreMessages={onLoadMore}
                                     hasMoreMessages={hasMoreMessages}
+                                    recipientPresence={recipientPresence} // ADDED: Pass recipient presence
                                   />
                                 );
                               });

@@ -1,13 +1,13 @@
-// src/components/shared/chats/components/MessageBubble.jsx - Clean and Focused
+// src/components/shared/chats/components/MessageBubble.jsx - WhatsApp Style Read Receipts
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import MediaDisplay from './MediaDisplay';
 import MediaPreviewModal from './MediaPreviewModal';
-import { extractAllMediaItems, findMediaIndex } from '../chats/utils/mediaUtils';
+import { extractAllMediaItems, findMediaIndex } from './utils/mediaUtils';
 
-// Enhanced Message Status Component
-const MessageStatus = ({ messageData, isOwn }) => {
+// FIXED: WhatsApp Style Message Status Component
+const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) => {
   if (!isOwn) return null;
   
   const getStatusIcon = () => {
@@ -45,7 +45,9 @@ const MessageStatus = ({ messageData, isOwn }) => {
       );
     }
     
+    // FIXED: WhatsApp style read receipts
     if (isRead) {
+      // Blue double checkmark - Message has been read
       return (
         <div className="flex items-center ml-2" title="Read">
           <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
@@ -57,13 +59,27 @@ const MessageStatus = ({ messageData, isOwn }) => {
     } 
     
     if (isSent) {
-      return (
-        <div className="flex items-center ml-2" title="Delivered">
-          <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-            <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-      );
+      // Check recipient presence for proper checkmark style
+      if (recipientPresence === 'away' || recipientPresence === 'offline') {
+        // Single checkmark - Recipient is away/offline
+        return (
+          <div className="flex items-center ml-2" title="Delivered (recipient away)">
+            <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+              <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        );
+      } else {
+        // Double checkmark (gray) - Delivered to active recipient but not read
+        return (
+          <div className="flex items-center ml-2" title="Delivered">
+            <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+              <path d="M1.5 5L4 7.5L7.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5.5 5L8 7.5L11.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        );
+      }
     }
     
     return (
@@ -108,7 +124,7 @@ const MessageText = ({ message, hasMedia, isOwn }) => {
   );
 };
 
-// Main MessageBubble component - Clean and focused
+// Main MessageBubble component with enhanced read receipts
 const MessageBubble = ({ 
   message, 
   isOwn = false, 
@@ -124,17 +140,23 @@ const MessageBubble = ({
   attachmentSize,
   messageData,
   allMessages = [],
+  sessionAttachments = [], // ADDED: For proper media navigation
   onLoadMoreMessages = null,
-  hasMoreMessages = false
+  hasMoreMessages = false,
+  recipientPresence = 'unknown' // ADDED: For read receipt logic
 }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  // Extract all media items for navigation
-  const allMediaItems = useMemo(() => 
-    extractAllMediaItems(allMessages), 
-    [allMessages]
-  );
+  // FIXED: Use session attachments for navigation if available
+  const allMediaItems = useMemo(() => {
+    if (sessionAttachments && sessionAttachments.length > 0) {
+      return sessionAttachments.filter(att => att?.attachmentUrl && att.attachmentUrl.trim());
+    }
+    
+    // Fallback to extracting from all messages
+    return extractAllMediaItems(allMessages);
+  }, [sessionAttachments, allMessages]);
 
   const hasMedia = !!(attachmentUrl && attachmentUrl.trim());
   const hasText = message && message.trim().length > 0;
@@ -305,7 +327,12 @@ const MessageBubble = ({
                 </time>
               )}
               
-              <MessageStatus messageData={messageData} isOwn={isOwn} />
+              {/* FIXED: Pass recipient presence for proper read receipt display */}
+              <MessageStatus 
+                messageData={messageData} 
+                isOwn={isOwn} 
+                recipientPresence={recipientPresence}
+              />
             </div>
           </div>
         </div>
