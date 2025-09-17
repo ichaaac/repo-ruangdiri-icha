@@ -1,9 +1,11 @@
-// src/components/shared/chats/components/ChatMessages.jsx - FIXED: Proper Scroll Management & Infinite Scroll
+// src/components/shared/chats/components/ChatMessages.jsx - Integration with Split Components
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { groupMessagesByDate } from './utils/dateUtils';
+import { groupMessagesByTime, isMediaGroup } from './utils/mediaUtils';
 import MessageBubble from './MessageBubble';
+import MessageGroup from './MessageGroup';
 
 const ChatMessages = ({ 
   messages = [], 
@@ -21,47 +23,37 @@ const ChatMessages = ({
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   
-  // Refs for scroll position management
   const previousScrollHeight = useRef(null);
   const scrollTimeoutRef = useRef(null);
   const lastMessageCount = useRef(0);
   const isLoadingRef = useRef(false);
 
   const sessionStatus = getSessionStatus?.() || 'ready';
+  
+  // Group messages by date first
   const messageGroups = groupMessagesByDate(messages);
 
-  // FIXED: Enhanced scroll handler that prevents premature infinite scroll
+  // Enhanced scroll handler
   const handleScroll = useCallback(() => {
     if (!messagesContainerRef.current || isLoadingRef.current) return;
 
     const container = messagesContainerRef.current;
     const { scrollTop, scrollHeight, clientHeight } = container;
     
-    // Clear existing timeout
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
     
-    // Mark as user scrolling
     setIsUserScrolling(true);
     
-    // FIXED: Only check for infinite scroll if user has actually scrolled up significantly
-    // This prevents accidental triggering when conversation first loads
-    const hasScrolledUp = scrollTop < (scrollHeight * 0.8); // Only if scrolled up more than 20%
-    
-    // Check if near top (for loading more messages) - but only if user has scrolled up
+    const hasScrolledUp = scrollTop < (scrollHeight * 0.8);
     const nearTop = scrollTop < 100 && hasScrolledUp;
     setIsNearTop(nearTop);
     
-    // Check if at bottom (for auto-scroll behavior)  
     const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
     setShouldAutoScroll(isAtBottom);
 
-    // FIXED: Only trigger load more if user has genuinely scrolled up
     if (nearTop && hasMoreMessages && !isLoadingMore && onLoadMore && hasScrolledUp) {
-      console.log('🔄 Triggering loadMore - user genuinely scrolled to top');
-      
-      // Store current scroll height before loading
       previousScrollHeight.current = scrollHeight;
       isLoadingRef.current = true;
       
@@ -70,7 +62,6 @@ const ChatMessages = ({
       });
     }
     
-    // Set timeout to stop considering user as scrolling
     scrollTimeoutRef.current = setTimeout(() => {
       setIsUserScrolling(false);
     }, 1000);
@@ -91,7 +82,7 @@ const ChatMessages = ({
     }
   }, [handleScroll]);
 
-  // FIXED: Maintain scroll position after loading older messages
+  // Maintain scroll position after loading older messages
   useEffect(() => {
     if (!isLoadingMore && previousScrollHeight.current && messagesContainerRef.current) {
       const container = messagesContainerRef.current;
@@ -99,32 +90,19 @@ const ChatMessages = ({
       const heightDifference = currentScrollHeight - previousScrollHeight.current;
       
       if (heightDifference > 0) {
-        // Maintain scroll position by adjusting for new content height
         container.scrollTop = container.scrollTop + heightDifference;
-        console.log('📍 Scroll position maintained after loading older messages:', {
-          heightDifference,
-          newScrollTop: container.scrollTop
-        });
       }
       
       previousScrollHeight.current = null;
     }
   }, [isLoadingMore, messages.length]);
 
-  // FIXED: Auto-scroll only for new messages (not during infinite scroll)
+  // Auto-scroll for new messages
   useEffect(() => {
     const currentMessageCount = messages.length;
     const hasNewMessages = currentMessageCount > lastMessageCount.current;
     
-    // Only auto-scroll if:
-    // 1. There are new messages
-    // 2. User wants auto-scroll (is at bottom)  
-    // 3. User is not manually scrolling
-    // 4. Not currently loading older messages
     if (hasNewMessages && shouldAutoScroll && !isUserScrolling && !isLoadingMore && messagesEndRef.current) {
-      console.log('⬇️ Auto-scrolling to new message');
-      
-      // Small delay to ensure DOM is updated
       setTimeout(() => {
         if (messagesEndRef.current && shouldAutoScroll && !isUserScrolling) {
           messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -135,45 +113,29 @@ const ChatMessages = ({
     lastMessageCount.current = currentMessageCount;
   }, [messages.length, shouldAutoScroll, isUserScrolling, isLoadingMore, messagesEndRef]);
 
-  // FIXED: Aggressive initial scroll to bottom when conversation changes
+  // Aggressive initial scroll to bottom when conversation changes
   useEffect(() => {
     if (selectedConversation?.sessionId && messagesEndRef.current) {
-      // Reset states when conversation changes
       setIsUserScrolling(false);
       setShouldAutoScroll(true);
       lastMessageCount.current = 0;
       previousScrollHeight.current = null;
-      isLoadingRef.current = false; // Reset loading state
+      isLoadingRef.current = false;
       
-      // FIXED: Multiple aggressive scroll attempts to ensure bottom positioning
       const forceScrollToBottom = () => {
         if (messagesEndRef.current && messagesContainerRef.current) {
-          // Method 1: ScrollIntoView
           messagesEndRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
-          
-          // Method 2: Direct scrollTop manipulation
           const container = messagesContainerRef.current;
           container.scrollTop = container.scrollHeight;
-          
-          console.log('📍 Force scroll to bottom:', {
-            conversationId: selectedConversation.sessionId.slice(-8),
-            scrollTop: container.scrollTop,
-            scrollHeight: container.scrollHeight,
-            clientHeight: container.clientHeight
-          });
         }
       };
       
-      // Immediate scroll
       forceScrollToBottom();
       
-      // Additional scroll attempts with delays to ensure it works
       const timeouts = [50, 100, 200, 300, 500];
       timeouts.forEach((delay, index) => {
         setTimeout(() => {
           forceScrollToBottom();
-          
-          // On final attempt, ensure we're marked as at bottom
           if (index === timeouts.length - 1) {
             setShouldAutoScroll(true);
             setIsUserScrolling(false);
@@ -183,52 +145,32 @@ const ChatMessages = ({
     }
   }, [selectedConversation?.sessionId]);
 
-  // FIXED: Ensure scroll to bottom when messages first load (0 -> >0)
+  // Ensure scroll to bottom when messages first load
   useEffect(() => {
     if (messages.length > 0 && lastMessageCount.current === 0 && messagesEndRef.current && messagesContainerRef.current) {
-      console.log('📍 Messages loaded for first time, aggressive scroll to bottom');
-      
-      // Wait a bit for DOM to update, then force scroll
       setTimeout(() => {
         if (messagesEndRef.current && messagesContainerRef.current) {
           const container = messagesContainerRef.current;
-          
-          // Force scroll to bottom
           messagesEndRef.current.scrollIntoView({ behavior: 'instant', block: 'end' });
           container.scrollTop = container.scrollHeight;
-          
           setShouldAutoScroll(true);
           setIsUserScrolling(false);
-          
-          console.log('📍 First load scroll completed:', {
-            messagesCount: messages.length,
-            scrollTop: container.scrollTop,
-            scrollHeight: container.scrollHeight
-          });
         }
       }, 150);
     }
   }, [messages.length]);
 
-  // FIXED: Conservative auto-load that only triggers after proper initialization
+  // Conservative auto-load
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || !hasMoreMessages || isLoadingMore || !onLoadMore) return;
-    
-    // FIXED: Only auto-load if:
-    // 1. We have messages already loaded
-    // 2. User is not actively scrolling  
-    // 3. We've been on this conversation for a bit (avoid immediate trigger)
-    // 4. Container doesn't have enough content
     
     if (messages.length === 0 || isUserScrolling) return;
     
     const hasScrollbar = container.scrollHeight > container.clientHeight + 8;
     const isAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
     
-    // Only auto-load if we're at bottom and there's no scrollbar AND we have some messages already
     if (!hasScrollbar && isAtBottom && messages.length > 0 && !isUserScrolling) {
-      console.log('🔄 Conservative auto-load triggered');
       previousScrollHeight.current = container.scrollHeight;
       isLoadingRef.current = true;
       
@@ -248,10 +190,9 @@ const ChatMessages = ({
           scrollbarColor: '#6B7280 #E5E7EB'
         }}
       >
-        {/* FIXED: Container with proper min-height to enable scrolling */}
         <div className="min-h-full flex flex-col">
           
-          {/* FIXED: Load More Indicator - Only show when actually loading */}
+          {/* Load More Indicator */}
           <AnimatePresence>
             {isLoadingMore && (
               <motion.div
@@ -282,55 +223,87 @@ const ChatMessages = ({
             </div>
           )}
 
-          {/* FIXED: Messages container with flex-1 to push content to bottom */}
+          {/* Messages container */}
           <div className="flex-1 flex flex-col justify-end">
             {messageGroups.length > 0 ? (
               <div className="flex flex-col gap-3 px-0 py-4">
-                {messageGroups.map((group, groupIndex) => (
-                  <div key={group.date || groupIndex} className="w-full">
+                {messageGroups.map((dateGroup, groupIndex) => (
+                  <div key={dateGroup.date || groupIndex} className="w-full">
                     {/* Date Header */}
                     <div className="flex justify-center mb-3">
                       <time className="text-[11px] font-medium text-gray-400 tracking-wide bg-white px-3 py-1 rounded-full shadow-sm">
-                        {group.dateHeader}
+                        {dateGroup.dateHeader}
                       </time>
                     </div>
                     
-                    {/* Messages in this date group */}
+                    {/* FIXED: Process messages for bulk upload grouping */}
                     <div className="flex flex-col gap-2">
                       <AnimatePresence>
-                        {group.messages.map((message, idx) => {
-                          const prev = idx > 0 ? group.messages[idx - 1] : null;
-                          const sameSender = prev && prev.senderId === message.senderId;
-                          const within10s = (() => {
-                            try {
-                              const a = new Date(prev?.timestamp).getTime();
-                              const b = new Date(message.timestamp).getTime();
-                              return prev && Math.abs(b - a) < 10000;
-                            } catch {
-                              return false;
-                            }
-                          })();
-                          const showTime = !(sameSender && within10s);
+                        {(() => {
+                          // Group messages by time proximity for bulk uploads
+                          const timeGroups = groupMessagesByTime(dateGroup.messages);
                           
-                          return (
-                            <MessageBubble
-                              key={message.id}
-                              message={message.text}
-                              isOwn={message.isUser}
-                              sender={message.sender}
-                              time={message.time}
-                              showTime={showTime}
-                              showOptions={message.showOptions}
-                              actions={message.actions}
-                              onOptionClick={onAIServiceSelection}
-                              attachmentUrl={message.attachmentUrl}
-                              attachmentType={message.attachmentType}
-                              attachmentName={message.attachmentName}
-                              attachmentSize={message.attachmentSize}
-                              messageData={message}
-                            />
-                          );
-                        })}
+                          return timeGroups.map((timeGroup, timeGroupIndex) => {
+                            // Check if this is a media group (multiple media items from same sender)
+                            const isMediaGrouped = isMediaGroup(timeGroup);
+                            
+                            if (isMediaGrouped) {
+                              // Render as MessageGroup for bulk media
+                              const firstMessage = timeGroup[0];
+                              return (
+                                <MessageGroup
+                                  key={`group-${dateGroup.date}-${timeGroupIndex}`}
+                                  messages={timeGroup}
+                                  isOwn={firstMessage.isUser}
+                                  sender={firstMessage.sender}
+                                  time={firstMessage.time}
+                                  showTime={true}
+                                  allMessages={messages}
+                                  onLoadMoreMessages={onLoadMore}
+                                  hasMoreMessages={hasMoreMessages}
+                                />
+                              );
+                            } else {
+                              // Render individual messages
+                              return timeGroup.map((message, idx) => {
+                                const prev = idx > 0 ? timeGroup[idx - 1] : null;
+                                const sameSender = prev && prev.senderId === message.senderId;
+                                const within10s = (() => {
+                                  try {
+                                    const a = new Date(prev?.timestamp).getTime();
+                                    const b = new Date(message.timestamp).getTime();
+                                    return prev && Math.abs(b - a) < 10000;
+                                  } catch {
+                                    return false;
+                                  }
+                                })();
+                                const showTime = !(sameSender && within10s);
+                                
+                                return (
+                                  <MessageBubble
+                                    key={message.id}
+                                    message={message.text}
+                                    isOwn={message.isUser}
+                                    sender={message.sender}
+                                    time={message.time}
+                                    showTime={showTime}
+                                    showOptions={message.showOptions}
+                                    actions={message.actions}
+                                    onOptionClick={onAIServiceSelection}
+                                    attachmentUrl={message.attachmentUrl}
+                                    attachmentType={message.attachmentType}
+                                    attachmentName={message.attachmentName}
+                                    attachmentSize={message.attachmentSize}
+                                    messageData={message}
+                                    allMessages={messages}
+                                    onLoadMoreMessages={onLoadMore}
+                                    hasMoreMessages={hasMoreMessages}
+                                  />
+                                );
+                              });
+                            }
+                          });
+                        })()}
                       </AnimatePresence>
                     </div>
                   </div>
@@ -350,7 +323,7 @@ const ChatMessages = ({
               </div>
             )}
 
-            {/* FIXED: Invisible anchor for auto-scroll */}
+            {/* Invisible anchor for auto-scroll */}
             <div 
               ref={messagesEndRef} 
               style={{ height: '1px', flexShrink: 0 }} 

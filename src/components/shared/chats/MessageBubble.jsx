@@ -1,439 +1,10 @@
-// src/components/shared/chats/components/MessageBubble.jsx - FIXED: Working Download Functionality
+// src/components/shared/chats/components/MessageBubble.jsx - Clean and Focused
 
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-
-// FIXED: Enhanced Media Preview Modal with Working Downloads
-const EnhancedMediaPreviewModal = ({ isOpen, onClose, mediaUrl, mediaType, mediaName, mediaSize }) => {
-  if (!isOpen) return null;
-
-  const isImage = mediaType?.startsWith('image/');
-  
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    const mb = (bytes / 1024 / 1024).toFixed(1);
-    return `${mb} MB`;
-  };
-
-  const getFileIcon = (type) => {
-    if (type?.includes('pdf')) return 'picture_as_pdf';
-    if (type?.includes('word')) return 'description';
-    if (type?.includes('excel') || type?.includes('sheet')) return 'table_chart';
-    if (type?.includes('zip') || type?.includes('rar')) return 'archive';
-    return 'attach_file';
-  };
-
-  // FIXED: Enhanced download handler with fetch-based approach
-  const handleDownload = async (e) => {
-    e.preventDefault();
-    
-    try {
-      console.log('📥 Starting download:', { mediaUrl, mediaName, mediaType });
-      
-      if (!mediaUrl) {
-        throw new Error('No media URL available');
-      }
-      
-      // Method 1: Try fetch-based download for better control
-      try {
-        const response = await fetch(mediaUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = mediaName || `download_${Date.now()}`;
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up
-        setTimeout(() => {
-          window.URL.revokeObjectURL(downloadUrl);
-        }, 1000);
-        
-        console.log('✅ Download triggered successfully via fetch');
-        return;
-        
-      } catch (fetchError) {
-        console.warn('Fetch download failed, trying direct method:', fetchError);
-        
-        // Method 2: Direct download link (fallback)
-        const link = document.createElement('a');
-        link.href = mediaUrl;
-        link.download = mediaName || 'download';
-        link.target = '_blank';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('✅ Download triggered via direct link');
-        return;
-      }
-      
-    } catch (error) {
-      console.error('❌ All download methods failed:', error);
-      
-      // Final fallback: Force open in new tab
-      try {
-        const newWindow = window.open(mediaUrl, '_blank', 'noopener,noreferrer');
-        if (!newWindow) {
-          throw new Error('Pop-up blocked');
-        }
-        console.log('📱 Opened in new tab as final fallback');
-      } catch (fallbackError) {
-        console.error('❌ Final fallback failed:', fallbackError);
-        alert(`Download failed: ${error.message}\nTry right-clicking the media and selecting "Save as..."`);
-      }
-    }
-  };
-
-  // FIXED: Enhanced view handler for opening media
-  const handleView = (e) => {
-    e.preventDefault();
-    
-    try {
-      if (mediaUrl) {
-        window.open(mediaUrl, '_blank', 'noopener,noreferrer');
-        console.log('👁️ Media opened in new tab');
-      }
-    } catch (error) {
-      console.error('❌ View failed:', error);
-      alert('Unable to open media. Please try downloading instead.');
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        {/* FIXED: Enhanced Modal Content with Better UX */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 max-w-4xl max-h-[90vh] w-full overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Enhanced Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span 
-                className="material-icons text-2xl"
-                style={{ color: '#488BBA' }}
-              >
-                {isImage ? 'image' : getFileIcon(mediaType)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-gray-800 truncate">
-                  {mediaName || 'Media File'}
-                </h3>
-                {mediaSize && (
-                  <p className="text-sm text-gray-500">
-                    {formatFileSize(mediaSize)} • {mediaType}
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {/* FIXED: Working Download Button */}
-              <button
-                onClick={handleDownload}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                title="Download file"
-              >
-                <span className="material-icons text-lg">download</span>
-                <span className="hidden sm:inline">Download</span>
-              </button>
-              
-              {/* View Button (for non-images) */}
-              {!isImage && (
-                <button
-                  onClick={handleView}
-                  className="flex items-center gap-2 px-4 py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-colors"
-                  style={{ backgroundColor: '#488BBA' }}
-                  title="Open in new tab"
-                >
-                  <span className="material-icons text-lg">open_in_new</span>
-                  <span className="hidden sm:inline">Open</span>
-                </button>
-              )}
-              
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                title="Close"
-              >
-                <span className="material-icons text-gray-500">close</span>
-              </button>
-            </div>
-          </div>
-
-          {/* FIXED: Enhanced Content Display */}
-          <div className="p-6 max-h-[calc(90vh-120px)] overflow-auto">
-            {isImage ? (
-              <div className="flex justify-center">
-                <img
-                  src={mediaUrl}
-                  alt={mediaName || 'Image preview'}
-                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-sm"
-                  onError={(e) => {
-                    console.error('Image loading failed:', mediaUrl);
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/image-placeholder.svg';
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <span 
-                  className="material-icons text-6xl mb-4 block"
-                  style={{ color: '#488BBA' }}
-                >
-                  {getFileIcon(mediaType)}
-                </span>
-                <h4 className="text-xl font-semibold text-gray-800 mb-2">{mediaName}</h4>
-                <p className="text-gray-600 mb-6">
-                  {formatFileSize(mediaSize)} • {mediaType}
-                </p>
-                
-                <div className="flex gap-3 justify-center">
-                  <button
-                    onClick={handleView}
-                    className="flex items-center gap-2 px-6 py-3 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: '#488BBA' }}
-                  >
-                    <span className="material-icons">open_in_new</span>
-                    Open File
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <span className="material-icons">download</span>
-                    Download
-                  </button>
-                </div>
-                
-                <p className="text-xs text-gray-500 mt-4">
-                  Click "Open File" to view in browser or "Download" to save to device
-                </p>
-              </div>
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
-// FIXED: Enhanced Media Display Component
-const MediaDisplay = ({ attachmentUrl, attachmentType, attachmentName, attachmentSize }) => {
-  const [isPreviewOpen, setPreviewOpen] = useState(false);
-  
-  if (!attachmentUrl) return null;
-
-  const isImage = attachmentType?.startsWith('image/');
-
-  // FIXED: Better URL normalization
-  const normalizeUrl = (url) => {
-    if (!url) return '';
-    const trimmed = url.trim();
-    
-    // Already a full URL
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    
-    // Protocol-relative URL
-    if (trimmed.startsWith('//')) return `${window.location.protocol}${trimmed}`;
-    
-    // Relative URL - assume it's from our API
-    if (trimmed.startsWith('/')) return `${window.location.origin}${trimmed}`;
-    
-    // No protocol, assume https
-    return `https://${trimmed}`;
-  };
-
-  const fullUrl = normalizeUrl(attachmentUrl);
-
-  const handleOpenPreview = (e) => {
-    e?.preventDefault?.();
-    console.log('🖼️ Opening media preview:', { fullUrl, attachmentName, attachmentType });
-    setPreviewOpen(true);
-  };
-
-  const handleClosePreview = () => setPreviewOpen(false);
-
-  // FIXED: Enhanced quick download handler
-  const handleQuickDownload = async (e) => {
-    e.stopPropagation();
-    
-    try {
-      console.log('⚡ Quick download starting:', fullUrl);
-      
-      if (!fullUrl) {
-        throw new Error('No media URL available');
-      }
-      
-      // Use fetch-based approach for better reliability
-      try {
-        const response = await fetch(fullUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = attachmentName || `download_${Date.now()}`;
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
-        console.log('⚡ Quick download successful');
-        
-      } catch (fetchError) {
-        // Fallback to direct method
-        const link = document.createElement('a');
-        link.href = fullUrl;
-        link.download = attachmentName || 'download';
-        link.target = '_blank';
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('⚡ Quick download via direct link');
-      }
-      
-    } catch (error) {
-      console.error('❌ Quick download failed:', error);
-      // Fallback to modal
-      setPreviewOpen(true);
-    }
-  };
-
-  const getFileIcon = (type) => {
-    if (type?.includes('pdf')) return 'picture_as_pdf';
-    if (type?.includes('word')) return 'description';
-    if (type?.includes('excel') || type?.includes('sheet')) return 'table_chart';
-    if (type?.includes('zip') || type?.includes('rar')) return 'archive';
-    return 'attach_file';
-  };
-
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    const mb = (bytes / 1024 / 1024).toFixed(1);
-    return `${mb} MB`;
-  };
-
-  return (
-    <>
-      <div className="mt-2 w-full max-w-xs">
-        {isImage ? (
-          <div className="relative group cursor-pointer" onClick={handleOpenPreview}>
-            <img
-              src={fullUrl}
-              alt={attachmentName || 'Image'}
-              className="w-full h-48 rounded-lg object-cover transition-opacity hover:opacity-90"
-              onError={(e) => {
-                console.error('Image loading failed:', fullUrl);
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = '/image-placeholder.svg';
-              }}
-            />
-            
-            {/* Image Overlay Controls */}
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                <div className="bg-white rounded-full p-2 shadow-lg hover:bg-gray-100">
-                  <span className="material-icons text-gray-700 text-lg">zoom_in</span>
-                </div>
-                <button
-                  onClick={handleQuickDownload}
-                  className="bg-green-600 rounded-full p-2 shadow-lg hover:bg-green-700 transition-colors"
-                  title="Download"
-                >
-                  <span className="material-icons text-white text-lg">download</span>
-                </button>
-              </div>
-            </div>
-            
-            {attachmentName && (
-              <div className="mt-2 text-[11px] text-gray-600 break-all" title={attachmentName}>
-                {attachmentName}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div
-            className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors w-full cursor-pointer group"
-            onClick={handleOpenPreview}
-          >
-            <div className="flex items-center gap-3">
-              <span 
-                className="material-icons text-2xl"
-                style={{ color: '#488BBA' }}
-              >
-                {getFileIcon(attachmentType)}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-800 truncate">
-                  {attachmentName || 'Document'}
-                </p>
-                {attachmentSize && (
-                  <p className="text-xs text-gray-500">
-                    {formatFileSize(attachmentSize)}
-                  </p>
-                )}
-              </div>
-              
-              {/* File Controls */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={handleQuickDownload}
-                  className="p-1 hover:bg-green-100 rounded transition-colors"
-                  title="Download"
-                >
-                  <span className="material-icons text-green-600 text-sm">download</span>
-                </button>
-                <span className="material-icons text-gray-400 text-sm">
-                  visibility
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* FIXED: Enhanced Media Preview Modal */}
-      <EnhancedMediaPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={handleClosePreview}
-        mediaUrl={fullUrl}
-        mediaType={attachmentType}
-        mediaName={attachmentName}
-        mediaSize={attachmentSize}
-      />
-    </>
-  );
-};
+import React, { useState, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
+import MediaDisplay from './MediaDisplay';
+import MediaPreviewModal from './MediaPreviewModal';
+import { extractAllMediaItems, findMediaIndex } from '../chats/utils/mediaUtils';
 
 // Enhanced Message Status Component
 const MessageStatus = ({ messageData, isOwn }) => {
@@ -537,6 +108,7 @@ const MessageText = ({ message, hasMedia, isOwn }) => {
   );
 };
 
+// Main MessageBubble component - Clean and focused
 const MessageBubble = ({ 
   message, 
   isOwn = false, 
@@ -550,10 +122,45 @@ const MessageBubble = ({
   attachmentType,
   attachmentName,
   attachmentSize,
-  messageData
+  messageData,
+  allMessages = [],
+  onLoadMoreMessages = null,
+  hasMoreMessages = false
 }) => {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
+  // Extract all media items for navigation
+  const allMediaItems = useMemo(() => 
+    extractAllMediaItems(allMessages), 
+    [allMessages]
+  );
+
   const hasMedia = !!(attachmentUrl && attachmentUrl.trim());
   const hasText = message && message.trim().length > 0;
+
+  const handleOpenPreview = useCallback(() => {
+    if (!hasMedia) return;
+    
+    // Find this message's media in the full array
+    const currentMediaItem = {
+      id: messageData?.id,
+      attachmentUrl,
+      attachmentType,
+      attachmentName,
+      attachmentSize,
+      messageId: messageData?.id,
+      timestamp: messageData?.timestamp || messageData?.createdAt
+    };
+    
+    const mediaIndex = findMediaIndex(currentMediaItem, allMediaItems);
+    setPreviewIndex(mediaIndex >= 0 ? mediaIndex : 0);
+    setIsPreviewOpen(true);
+  }, [hasMedia, messageData?.id, attachmentUrl, attachmentType, attachmentName, attachmentSize, allMediaItems]);
+
+  const handleClosePreview = useCallback(() => {
+    setIsPreviewOpen(false);
+  }, []);
 
   const getMessageWidth = () => {
     if (hasMedia) {
@@ -638,6 +245,7 @@ const MessageBubble = ({
                   attachmentType={attachmentType}
                   attachmentName={attachmentName}
                   attachmentSize={attachmentSize}
+                  onOpenPreview={handleOpenPreview}
                 />
               )}
 
@@ -702,6 +310,16 @@ const MessageBubble = ({
           </div>
         </div>
       </div>
+
+      {/* Media Preview Modal */}
+      <MediaPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={handleClosePreview}
+        mediaItems={allMediaItems}
+        initialIndex={previewIndex}
+        onLoadMore={onLoadMoreMessages}
+        hasMoreMedia={hasMoreMessages}
+      />
     </motion.div>
   );
 };
