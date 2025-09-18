@@ -205,7 +205,9 @@ export const useMessages = (sessionId, ably = null) => {
         isOptimistic: true,
         optimisticId,
         isRead: false,
-        isSending: true
+        isSending: true,
+        isSent: false, // FIXED: Start as not sent
+        recipientPresence: 'unknown' // FIXED: Initial presence unknown
       };
 
       queryClient.setQueryData(['chat-messages', sessionId], (old = []) => {
@@ -268,7 +270,9 @@ export const useMessages = (sessionId, ably = null) => {
           const finalMessage = {
             ...newMessage,
             isSending: false,
-            isSent: true
+            isSent: true, // FIXED: Mark as sent (single checkmark initially)
+            isRead: false, // FIXED: Not read yet
+            recipientPresence: 'unknown' // FIXED: Will be updated by presence events
           };
           return [...withoutOptimistic, finalMessage];
         }

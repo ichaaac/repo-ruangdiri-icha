@@ -7,7 +7,7 @@ import MediaPreviewModal from './MediaPreviewModal';
 import { extractAllMediaItems, findMediaIndex } from './utils/mediaUtils';
 
 // FIXED: WhatsApp Style Message Status Component
-const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) => {
+const MessageStatus = ({ messageData, isOwn }) => {
   if (!isOwn) return null;
   
   const getStatusIcon = () => {
@@ -33,6 +33,7 @@ const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) =>
     const isRead = messageData?.isRead === true;
     const isSent = messageData?.isSent === true || messageData?.id;
     const isOptimistic = messageData?.isOptimistic === true;
+    const recipientPresence = messageData?.recipientPresence || 'unknown';
     
     if (isOptimistic) {
       return (
@@ -45,7 +46,7 @@ const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) =>
       );
     }
     
-    // FIXED: WhatsApp style read receipts
+    // FIXED: WhatsApp style read receipts based on presence
     if (isRead) {
       // Blue double checkmark - Message has been read
       return (
@@ -59,8 +60,8 @@ const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) =>
     } 
     
     if (isSent) {
-      // Check recipient presence for proper checkmark style
-      if (recipientPresence === 'away' || recipientPresence === 'offline') {
+      // FIXED: Check recipient presence for proper checkmark style
+      if (recipientPresence === 'away') {
         // Single checkmark - Recipient is away/offline
         return (
           <div className="flex items-center ml-2" title="Delivered (recipient away)">
@@ -69,13 +70,22 @@ const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) =>
             </svg>
           </div>
         );
-      } else {
+      } else if (recipientPresence === 'present') {
         // Double checkmark (gray) - Delivered to active recipient but not read
         return (
           <div className="flex items-center ml-2" title="Delivered">
             <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
               <path d="M1.5 5L4 7.5L7.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M5.5 5L8 7.5L11.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        );
+      } else {
+        // Unknown presence - show single checkmark as default
+        return (
+          <div className="flex items-center ml-2" title="Delivered">
+            <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+              <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
         );
@@ -327,11 +337,10 @@ const MessageBubble = ({
                 </time>
               )}
               
-              {/* FIXED: Pass recipient presence for proper read receipt display */}
+              {/* FIXED: Pass message data directly - presence is now stored in messageData */}
               <MessageStatus 
                 messageData={messageData} 
                 isOwn={isOwn} 
-                recipientPresence={recipientPresence}
               />
             </div>
           </div>

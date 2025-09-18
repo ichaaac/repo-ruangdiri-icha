@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/MediaPreviewModal.jsx - Fixed Size Modal
+// src/components/shared/chats/components/MediaPreviewModal.jsx - FIXED: Hooks Order
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,13 +14,38 @@ const MediaPreviewModal = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [imageErrors, setImageErrors] = useState(new Set());
 
+  // FIXED: Always call hooks in the same order - don't return early before all hooks
   // Update currentIndex when initialIndex changes
   useEffect(() => {
     if (isOpen && initialIndex !== currentIndex) {
       setCurrentIndex(initialIndex);
     }
-  }, [isOpen, initialIndex]);
+  }, [isOpen, initialIndex, currentIndex]);
 
+  // Handle keyboard events
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!isOpen) return; // Check inside the effect, not before hook
+      
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft') {
+        goToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        goToNext();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, currentIndex, mediaItems.length]); // Add dependencies
+
+  // FIXED: Early return AFTER all hooks are called
   if (!isOpen || !mediaItems.length) return null;
 
   const currentMedia = mediaItems[currentIndex];
@@ -111,27 +136,6 @@ const MediaPreviewModal = ({
       e.currentTarget.src = '/image-placeholder.svg';
     }
   };
-
-  // Handle escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      } else if (e.key === 'ArrowLeft') {
-        goToPrevious();
-      } else if (e.key === 'ArrowRight') {
-        goToNext();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, currentIndex, mediaItems.length]);
 
   return (
     <AnimatePresence>

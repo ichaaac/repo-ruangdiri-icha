@@ -224,27 +224,80 @@ export const useChats = () => {
     return sessionsQuery.data?.totalUnreadData || { totalUnread: 0, sessionUnreadCounts: {} };
   }, [sessionsQuery.data?.totalUnreadData]);
 
-  // ADDED: Handle read receipts from Ably
+  // ADDED: Handle user presence from Ably
+  const handleAblyUserPresence = useCallback((presenceData) => {
+    ChatsLogger.log('presence', 'Processing user presence from Ably', presenceData);
+    
+    const { userId: presenceUserId, status, userFullname, lastSeen, timestamp } = presenceData;
+    
+    // Update user presence state
+    setUserPresence(prev => ({
+      ...prev,
+      [presenceUserId]: {
+        status, // "present" or "away"
+        userFullname,
+        lastSeen,
+        timestamp
+      }
+    }));
+    
+    ChatsLogger.log('presence', 'User presence updated', {
+      userId: presenceUserId?.slice(-8),
+      status,
+      userFullname,
+      lastSeen
+    });
+
+    // FIXED: Update message delivery status when recipient becomes present/away
+    if (selectedSession?.sessionId) {
+      queryClient.setQueryData(['chat-messages', selectedSession.sessionId], (oldMessages = []) => {
+        return oldMessages.map(message => {
+          // Only update sent messages from current user to the user whose presence changed
+          if (message.senderId === userId && !message.isRead) {
+            const isRecipientPresent = status === 'present';
+            
+            ChatsLogger.log('receipt', 'Updating message status based on presence', {
+              messageId: message.id?.slice(-8),
+              recipientStatus: status,
+              isRecipientPresent
+            });
+            
+            return {
+              ...message,
+              recipientPresence: status,
+              isDelivered: true, // Mark as delivered
+              deliveredAt: timestamp,
+              // Don't change isRead status here, wait for read_receipt
+            };
+          }
+          return message;
+        });
+      });
+    }
+  }, [selectedSession?.sessionId, userId, queryClient]);
+
+  // FIXED: Enhanced read receipts from Ably - WhatsApp style
   const handleAblyReadReceipt = useCallback((readData) => {
     ChatsLogger.log('receipt', 'Processing read receipt from Ably', readData);
     
-    const { messageIds = [], userId: senderId } = readData;
+    const { messageIds = [], userId: readByUserId, readAt, timestamp } = readData;
     
     // Update message read status in cache
     if (selectedSession?.sessionId && messageIds.length > 0) {
       queryClient.setQueryData(['chat-messages', selectedSession.sessionId], (oldMessages = []) => {
         return oldMessages.map(message => {
           if (messageIds.includes(message.id) && message.senderId === userId) {
-            ChatsLogger.log('receipt', 'Marking message as read', {
-              messageId: message.id.slice(-8),
-              readBy: senderId?.slice(-8)
+            ChatsLogger.log('receipt', 'Marking message as read (blue checkmarks)', {
+              messageId: message.id?.slice(-8),
+              readBy: readByUserId?.slice(-8)
             });
             
             return {
               ...message,
-              isRead: true,
-              readAt: readData.readAt,
-              readBy: senderId
+              isRead: true, // FIXED: Mark as read for blue checkmarks
+              readAt,
+              readBy: readByUserId,
+              recipientPresence: 'present' // User must be present to read
             };
           }
           return message;
@@ -795,7 +848,7 @@ export const useChats = () => {
     }
   }, [userId, selectedSession?.sessionId]);
 
-  // FIXED: Setup Ably callbacks with read receipts
+  // FIXED: Setup Ably callbacks with read receipts and user presence
   useEffect(() => {
     if (!selectedSession || selectedSession.isTeamChat) return;
 
@@ -806,13 +859,14 @@ export const useChats = () => {
         onTyping: handleAblyTyping,
         onUnreadCount: handleAblyUnreadCount,
         onReadReceipt: handleAblyReadReceipt, // ADDED
-        onDeliveryReceipt: handleAblyDeliveryReceipt // ADDED
+        onDeliveryReceipt: handleAblyDeliveryReceipt, // ADDED
+        onUserPresence: handleAblyUserPresence // ADDED: User presence callback
       });
     } catch (error) {
       ChatsLogger.error('Failed to set Ably callbacks', error);
     }
 
-  }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount, handleAblyReadReceipt, handleAblyDeliveryReceipt]);
+  }, [selectedSession?.sessionId, selectedSession?.isTeamChat, ably, handleAblyMessage, handleAblySessionStatus, handleAblyTyping, handleAblyUnreadCount, handleAblyReadReceipt, handleAblyDeliveryReceipt, handleAblyUserPresence]);
 
   // Enhanced typing handler
   const handleTyping = useCallback((text) => {

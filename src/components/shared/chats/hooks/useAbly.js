@@ -158,6 +158,7 @@ export const useAbly = () => {
   const onReadReceiptRef = useRef(null); // ADDED: Read receipt callback
   const onDeliveryReceiptRef = useRef(null); // ADDED: Delivery receipt callback
   const onLastMessageUpdateRef = useRef(null); // ADDED: Last message update callback
+  const onUserPresenceRef = useRef(null); // ADDED: User presence callback
 
   const isCleaningUpRef = useRef(false);
 
@@ -251,7 +252,8 @@ export const useAbly = () => {
       hasUnreadCount: !!callbacks.onUnreadCount,
       hasReadReceipt: !!callbacks.onReadReceipt, // ADDED
       hasDeliveryReceipt: !!callbacks.onDeliveryReceipt, // ADDED
-      hasLastMessageUpdate: !!callbacks.onLastMessageUpdate // ADDED
+      hasLastMessageUpdate: !!callbacks.onLastMessageUpdate, // ADDED
+      hasUserPresence: !!callbacks.onUserPresence // ADDED
     });
 
     onMessageRef.current = callbacks.onMessage || null;
@@ -261,6 +263,7 @@ export const useAbly = () => {
     onReadReceiptRef.current = callbacks.onReadReceipt || null; // ADDED
     onDeliveryReceiptRef.current = callbacks.onDeliveryReceipt || null; // ADDED
     onLastMessageUpdateRef.current = callbacks.onLastMessageUpdate || null; // ADDED
+    onUserPresenceRef.current = callbacks.onUserPresence || null; // ADDED
   }, []);
 
   // FIXED: Enhanced deduplication helper
@@ -670,6 +673,29 @@ export const useAbly = () => {
 
           case 'notification':
             AblyLogger.log('info', 'NOTIFICATION', 'Processing notification', messageData);
+            break;
+
+          case 'user_presence':
+            AblyLogger.log('presence', 'USER_PRESENCE', 'Processing user presence update', messageData);
+            
+            if (onUserPresenceRef.current) {
+              const presenceData = {
+                userId: messageData.userId,
+                userFullname: messageData.userFullname,
+                status: messageData.status, // "present" or "away"
+                lastSeen: messageData.lastSeen,
+                timestamp: messageData.timestamp
+              };
+              
+              AblyLogger.log('success', 'USER_PRESENCE', 'User presence processed', {
+                userId: presenceData.userId?.slice(-8),
+                userFullname: presenceData.userFullname,
+                status: presenceData.status,
+                lastSeen: presenceData.lastSeen
+              });
+              
+              onUserPresenceRef.current(presenceData);
+            }
             break;
 
           case 'automated_message':
