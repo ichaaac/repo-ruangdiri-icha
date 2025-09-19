@@ -1,4 +1,4 @@
-// src/components/shared/chats/components/MessageBubble.jsx - WhatsApp Style Read Receipts
+// src/components/shared/chats/components/MessageBubble.jsx - CLEANED: Socket-Based Read Receipts
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -6,106 +6,84 @@ import MediaDisplay from './MediaDisplay';
 import MediaPreviewModal from './MediaPreviewModal';
 import { extractAllMediaItems, findMediaIndex } from './utils/mediaUtils';
 
-// FIXED: WhatsApp Style Message Status Component
+// FIXED: Message Status - Pure socket event flow
 const MessageStatus = ({ messageData, isOwn }) => {
   if (!isOwn) return null;
   
-  const getStatusIcon = () => {
-    if (messageData?.isSending || messageData?.isUploading) {
-      return (
-        <div className="flex items-center ml-2" title="Sending...">
-          <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
-        </div>
-      );
-    }
-    
-    if (messageData?.uploadError || messageData?.sendError) {
-      return (
-        <div className="flex items-center ml-2" title="Failed to send">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <circle cx="6" cy="6" r="6" fill="#EF4444"/>
-            <path d="M8 4L4 8M4 4l4 4" stroke="white" strokeWidth="1" strokeLinecap="round"/>
-          </svg>
-        </div>
-      );
-    }
-    
-    const isRead = messageData?.isRead === true;
-    const isSent = messageData?.isSent === true || messageData?.id;
-    const isOptimistic = messageData?.isOptimistic === true;
-    const recipientPresence = messageData?.recipientPresence || 'unknown';
-    
-    if (isOptimistic) {
-      return (
-        <div className="flex items-center ml-2" title="Sending...">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <circle cx="6" cy="6" r="5" stroke="#9CA3AF" strokeWidth="1"/>
-            <path d="M6 3v3l2 1" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
-          </svg>
-        </div>
-      );
-    }
-    
-    // FIXED: WhatsApp style read receipts based on presence
-    if (isRead) {
-      // Blue double checkmark - Message has been read
-      return (
-        <div className="flex items-center ml-2" title="Read">
-          <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-            <path d="M1.5 5L4 7.5L7.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M5.5 5L8 7.5L11.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-      );
-    } 
-    
-    if (isSent) {
-      // FIXED: Check recipient presence for proper checkmark style
-      if (recipientPresence === 'away') {
-        // Single checkmark - Recipient is away/offline
-        return (
-          <div className="flex items-center ml-2" title="Delivered (recipient away)">
-            <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-              <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        );
-      } else if (recipientPresence === 'present') {
-        // Double checkmark (gray) - Delivered to active recipient but not read
-        return (
-          <div className="flex items-center ml-2" title="Delivered">
-            <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-              <path d="M1.5 5L4 7.5L7.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M5.5 5L8 7.5L11.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        );
-      } else {
-        // Unknown presence - show single checkmark as default
-        return (
-          <div className="flex items-center ml-2" title="Delivered">
-            <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-              <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        );
-      }
-    }
-    
+  // Handle sending/uploading states
+  if (messageData?.isSending || messageData?.isUploading) {
     return (
-      <div className="flex items-center ml-2" title="Pending">
+      <div className="flex items-center ml-2" title="Sending...">
+        <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
+      </div>
+    );
+  }
+  
+  // Handle errors
+  if (messageData?.uploadError || messageData?.sendError) {
+    return (
+      <div className="flex items-center ml-2" title="Failed to send">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <circle cx="6" cy="6" r="6" fill="#EF4444"/>
+          <path d="M8 4L4 8M4 4l4 4" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+        </svg>
+      </div>
+    );
+  }
+  
+  // FIXED: Follow exact socket event flow
+  const isRead = messageData?.isRead === true; // from message_read event
+  const isDelivered = messageData?.isDelivered === true; // from delivery_receipt event  
+  const isSent = messageData?.isSent === true || messageData?.id;
+  const isOptimistic = messageData?.isOptimistic === true;
+  
+  if (isOptimistic) {
+    return (
+      <div className="flex items-center ml-2" title="Sending...">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <circle cx="6" cy="6" r="5" stroke="#9CA3AF" strokeWidth="1"/>
           <path d="M6 3v3l2 1" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
         </svg>
       </div>
     );
-  };
+  }
   
-  return getStatusIcon();
+  if (isRead) {
+    // Step 3: message_read event → Blue double checkmarks
+    return (
+      <div className="flex items-center ml-2" title="Read">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+          <path d="M1.5 5L4 7.5L7.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M5.5 5L8 7.5L11.5 4" stroke="#4FC3F7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+  } 
+  
+  if (isDelivered || isSent) {
+    // Step 1: message sent → Single checkmark
+    // Step 2: delivery_receipt event → Still single checkmark  
+    return (
+      <div className="flex items-center ml-2" title={isDelivered ? "Delivered" : "Sent"}>
+        <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+          <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+  }
+  
+  // Default pending state
+  return (
+    <div className="flex items-center ml-2" title="Pending">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <circle cx="6" cy="6" r="5" stroke="#9CA3AF" strokeWidth="1"/>
+        <path d="M6 3v3l2 1" stroke="#9CA3AF" strokeWidth="1" strokeLinecap="round"/>
+      </svg>
+    </div>
+  );
 };
 
-// Enhanced Message Text with See More functionality
+// Simple message text with expand/collapse
 const MessageText = ({ message, hasMedia, isOwn }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const MAX_LENGTH = 550;
@@ -134,7 +112,7 @@ const MessageText = ({ message, hasMedia, isOwn }) => {
   );
 };
 
-// Main MessageBubble component with enhanced read receipts
+// SIMPLIFIED: MessageBubble - Just display data from socket events
 const MessageBubble = ({ 
   message, 
   isOwn = false, 
@@ -150,21 +128,19 @@ const MessageBubble = ({
   attachmentSize,
   messageData,
   allMessages = [],
-  sessionAttachments = [], // ADDED: For proper media navigation
+  sessionAttachments = [],
   onLoadMoreMessages = null,
   hasMoreMessages = false,
-  recipientPresence = 'unknown' // ADDED: For read receipt logic
+  recipientPresence = 'unknown' // From user_presence events
 }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
 
-  // FIXED: Use session attachments for navigation if available
+  // Use session attachments if available, otherwise extract from messages
   const allMediaItems = useMemo(() => {
     if (sessionAttachments && sessionAttachments.length > 0) {
       return sessionAttachments.filter(att => att?.attachmentUrl && att.attachmentUrl.trim());
     }
-    
-    // Fallback to extracting from all messages
     return extractAllMediaItems(allMessages);
   }, [sessionAttachments, allMessages]);
 
@@ -174,7 +150,6 @@ const MessageBubble = ({
   const handleOpenPreview = useCallback(() => {
     if (!hasMedia) return;
     
-    // Find this message's media in the full array
     const currentMediaItem = {
       id: messageData?.id,
       attachmentUrl,
@@ -194,22 +169,14 @@ const MessageBubble = ({
     setIsPreviewOpen(false);
   }, []);
 
+  // Simple width calculation
   const getMessageWidth = () => {
-    if (hasMedia) {
-      return 'max-w-xs';
-    }
-    
-    if (showOptions && !isOwn) {
-      return 'max-w-[320px] sm:max-w-[400px]';
-    }
-    
-    if (actions && actions.length > 0) {
-      return 'max-w-[320px] sm:max-w-[400px]';
-    }
+    if (hasMedia) return 'max-w-xs';
+    if (showOptions && !isOwn) return 'max-w-[320px] sm:max-w-[400px]';
+    if (actions && actions.length > 0) return 'max-w-[320px] sm:max-w-[400px]';
     
     if (hasText) {
       const textLength = message.length;
-      
       if (textLength <= 20) return 'max-w-[120px] sm:max-w-[150px]';
       if (textLength <= 50) return 'max-w-[200px] sm:max-w-[250px]';
       if (textLength <= 100) return 'max-w-[280px] sm:max-w-[350px]';
@@ -337,10 +304,10 @@ const MessageBubble = ({
                 </time>
               )}
               
-              {/* FIXED: Pass message data directly - presence is now stored in messageData */}
+              {/* FIXED: Just pass message data from socket events */}
               <MessageStatus 
                 messageData={messageData} 
-                isOwn={isOwn} 
+                isOwn={isOwn}
               />
             </div>
           </div>
