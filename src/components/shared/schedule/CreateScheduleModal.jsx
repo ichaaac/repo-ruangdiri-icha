@@ -40,6 +40,10 @@ const CreateScheduleModal = ({ isOpen, onClose, onSubmit, initialData = null, lo
     parseErrorMessage,
     uploadAttachmentsMutation,
     setUploadingAttachments,
+    // User context for psychologist view-only behavior
+    currentUserTimezone,
+    isUserPsychologist,
+    currentUserAsPsychologist,
 } = useScheduleForm("create", initialData, isOpen, organizationType)
 
 const newAttachmentsToUpload = attachments.filter((att) => !att.isExisting);
@@ -254,6 +258,10 @@ const handleSubmit = async () => {
               setParticipantSearch={setParticipantSearch}
               setPreviewAttachment={setPreviewAttachment}
               uploadingAttachments={uploadingAttachments}
+              // Pass user context to enforce view-only psychologist field
+              isUserPsychologist={isUserPsychologist}
+              currentUserAsPsychologist={currentUserAsPsychologist}
+              currentUserTimezone={currentUserTimezone}
               loading={isSubmitting}
             />
 

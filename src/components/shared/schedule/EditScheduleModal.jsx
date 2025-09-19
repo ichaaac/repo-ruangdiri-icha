@@ -49,6 +49,10 @@ const {
     parseErrorMessage,
     uploadAttachmentsMutation,
     setUploadingAttachments,
+    // User context for psychologist view-only behavior
+    currentUserTimezone,
+    isUserPsychologist,
+    currentUserAsPsychologist,
 } = useScheduleForm("edit", initialData, isOpen, organizationType)
 
   // FIXED: Check if schedule is in the past (cannot edit)
@@ -351,6 +355,10 @@ const handleSubmit = async () => {
               setParticipantSearch={setParticipantSearch}
               setPreviewAttachment={setPreviewAttachment}
               uploadingAttachments={uploadingAttachments}
+              // Pass user context to enforce view-only psychologist field
+              isUserPsychologist={isUserPsychologist}
+              currentUserAsPsychologist={currentUserAsPsychologist}
+              currentUserTimezone={currentUserTimezone}
               loading={isFormDisabled}
             />
 

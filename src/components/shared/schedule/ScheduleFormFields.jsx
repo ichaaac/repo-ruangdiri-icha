@@ -346,12 +346,7 @@ const ScheduleFormFields = ({
                               </span>
                             )}
                           </div>
-                          {/* FIXED: Show current user indicator */}
-                          {isUserPsychologist && (
-                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded font-medium">
-                              (Anda)
-                            </span>
-                          )}
+                          {/* Removed current user indicator for psychologists (view-only UI) */}
                         </div>
                         {!isUserPsychologist && (
                           <button
@@ -379,7 +374,7 @@ const ScheduleFormFields = ({
                         style={{ minHeight: "42px" }}
                       >
                         <span>
-                          {isUserPsychologist ? "Anda akan menjadi psikolog untuk jadwal ini" : "Email/nama Psikolog"}
+                          {isUserPsychologist ? "Psikolog" : "Email/nama Psikolog"}
                         </span>
                         {!isUserPsychologist && (
                           <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
@@ -424,12 +419,7 @@ const ScheduleFormFields = ({
                       </div>
                     )}
                   </div>
-                  {/* FIXED: Help text for psychologists */}
-                  {isUserPsychologist && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      Sebagai psikolog, Anda otomatis terpilih untuk jadwal konseling ini
-                    </div>
-                  )}
+                  {/* Removed help text for psychologists (view-only UI) */}
                 </div>
 
                 {/* Participant 1 Field */}
