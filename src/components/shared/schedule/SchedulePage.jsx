@@ -82,7 +82,8 @@ const SchedulePage = ({ type = "school" }) => {
       const leftWidth = availableWidth - rightColumnSpace - gap
       return Math.max(808, leftWidth)
     }
-    return Math.max(808, Math.min(availableWidth, 1000))
+    // On smaller screens, do not force a wide minimum; fit the viewport
+    return Math.min(availableWidth, 1000)
   }
 
   const getRightColumnWidth = () => {
@@ -345,7 +346,7 @@ const SchedulePage = ({ type = "school" }) => {
             }`}
           >
             {/* LEFT COLUMN - Schedule and Queue */}
-            <div className="space-y-6 min-w-0 overflow-hidden">
+            <div className="space-y-6 min-w-0">
               {/* Schedule Grid */}
               <div className="w-full">
                 <ScheduleGrid

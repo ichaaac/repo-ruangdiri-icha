@@ -93,9 +93,8 @@ const CounselingQueue = ({
   };
 
   // Correct dimensions from Figma: 808x329px
-  const baseWidth = 808;
   const baseHeight = 329;
-  const actualWidth = Math.max(baseWidth, containerWidth);
+  const actualWidth = containerWidth;
   const actualHeight = baseHeight;
 
   // Header height consistent with other components
@@ -142,8 +141,9 @@ const CounselingQueue = ({
     <div
       className="w-full rounded-md border border-zinc-500 bg-white transition-all duration-300 overflow-hidden"
       style={{
-        width: `${actualWidth}px`,
+        width: "100%",
         height: `${actualHeight}px`,
+        boxSizing: "border-box",
       }}
     >
       {/* Header */}

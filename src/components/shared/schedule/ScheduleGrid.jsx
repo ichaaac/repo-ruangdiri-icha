@@ -46,7 +46,7 @@ const ScheduleGrid = ({
   const viewportRef = useRef(null)
 
   // Computed dimensions
-  const actualWidth = Math.max(GRID_CONFIG.baseWidth, containerWidth)
+  const actualWidth = containerWidth
   const actualHeight = GRID_CONFIG.baseHeight
 
   // Helper functions
@@ -456,9 +456,10 @@ const ScheduleGrid = ({
     <div
       className="rounded-md border border-zinc-400 bg-white select-none transition-all duration-300"
       style={{
-        width: `${actualWidth}px`,
+        width: "100%",
         height: `${actualHeight}px`,
         overflow: "hidden",
+        boxSizing: "border-box",
       }}
     >
       {/* Header */}
