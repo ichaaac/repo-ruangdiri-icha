@@ -44,7 +44,7 @@ const ScheduleEventRenderer = ({
                 key={`${event.id}-${laneIndex}`}
                 event={event}
                 style={{
-                  left: `${leftPosition + 55}px`,
+                  left: `${leftPosition + GRID_CONFIG.paddingOffset + GRID_CONFIG.horizontalNudge}px`,
                   top: `${top}px`,
                   width: `${width}px`,
                   zIndex: Z_INDICES.SCHEDULE_EVENTS + laneIndex,

@@ -17,6 +17,8 @@ export const GRID_CONFIG = {
   headerHeight: 66,
   maxDragDays: 2,
   paddingOffset: 38,
+  // Fine-tune horizontal alignment between selection box and events
+  horizontalNudge: 15,
 };
 
 export const Z_INDICES = {

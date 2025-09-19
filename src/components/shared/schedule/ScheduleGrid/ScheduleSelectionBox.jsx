@@ -22,8 +22,8 @@ const ScheduleSelectionBox = ({
     height += dayRowHeights[dayName] || GRID_CONFIG.minDayRowHeight;
   }
 
-  const left = GRID_CONFIG.paddingOffset + startPixelX + 2;
-  const width = Math.max(endPixelX - startPixelX, 30);
+  const left = GRID_CONFIG.paddingOffset + startPixelX + GRID_CONFIG.horizontalNudge;
+  const width = Math.max(endPixelX - startPixelX, 60);
 
   return (
     <div
