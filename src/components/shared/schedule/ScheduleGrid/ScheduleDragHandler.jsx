@@ -107,11 +107,23 @@ export const useDragHandler = ({
       const relativeX = e.clientX - rect.left;
       const relativeY = e.clientY - rect.top;
 
+      // Initialize tooltip with a minimum 15-minute span, handling minute rollover
+      let tooltipEndHour = timeInfo.hour;
+      let tooltipEndMinute = timeInfo.minute + 15;
+      if (tooltipEndMinute >= 60) {
+        tooltipEndHour += 1;
+        tooltipEndMinute -= 60;
+      }
+      if (tooltipEndHour >= 24) {
+        tooltipEndHour = 23;
+        tooltipEndMinute = 45;
+      }
+
       setDragTimeTooltip({
         x: relativeX,
         y: relativeY,
         startTime: `${timeInfo.hour.toString().padStart(2, "0")}:${timeInfo.minute.toString().padStart(2, "0")}`,
-        endTime: `${timeInfo.hour.toString().padStart(2, "0")}:${(timeInfo.minute + 15).toString().padStart(2, "0")}`,
+        endTime: `${tooltipEndHour.toString().padStart(2, "0")}:${tooltipEndMinute.toString().padStart(2, "0")}`,
       });
     },
     [viewportRef]
@@ -183,14 +195,33 @@ export const useDragHandler = ({
       const time1Minutes = time1.day * 1440 + time1.hour * 60 + time1.minute;
       const time2Minutes = time2.day * 1440 + time2.hour * 60 + time2.minute;
 
+      // Tooltip display: ensure non-zero span even if hour:minute match
       let startTime, endTime;
+      let startH, startM, endH, endM;
       if (time1Minutes <= time2Minutes) {
-        startTime = `${time1.hour.toString().padStart(2, "0")}:${time1.minute.toString().padStart(2, "0")}`;
-        endTime = `${time2.hour.toString().padStart(2, "0")}:${time2.minute.toString().padStart(2, "0")}`;
+        startH = time1.hour; startM = time1.minute;
+        endH = time2.hour; endM = time2.minute;
       } else {
-        startTime = `${time2.hour.toString().padStart(2, "0")}:${time2.minute.toString().padStart(2, "0")}`;
-        endTime = `${time1.hour.toString().padStart(2, "0")}:${time1.minute.toString().padStart(2, "0")}`;
+        startH = time2.hour; startM = time2.minute;
+        endH = time1.hour; endM = time1.minute;
       }
+      if (startH === endH && startM === endM) {
+        // Add 15 minutes to end for tooltip readability
+        endM += 15;
+        if (endM >= 60) { endH += 1; endM -= 60; }
+        if (endH >= 24) { endH = 23; endM = 45; }
+      }
+      // Visual normalization: always show ascending times-of-day in tooltip
+      // to avoid confusing "across" display like 11:15 - 11:00 while dragging.
+      const tooltipStartTotal = startH * 60 + startM;
+      const tooltipEndTotal = endH * 60 + endM;
+      if (tooltipEndTotal < tooltipStartTotal) {
+        const swapH = startH; const swapM = startM;
+        startH = endH; startM = endM;
+        endH = swapH; endM = swapM;
+      }
+      startTime = `${startH.toString().padStart(2, "0")}:${startM.toString().padStart(2, "0")}`;
+      endTime = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
 
       setDragTimeTooltip({
         x: relativeX,
@@ -255,15 +286,39 @@ export const useDragHandler = ({
         const startTotalMinutes = startDay * 1440 + startHour * 60 + startMinute;
         const endTotalMinutes = endDay * 1440 + endHour * 60 + endMinute;
 
+        // Ensure selection has a non-zero span
         if (startTotalMinutes >= endTotalMinutes) {
           endMinute += 15;
           if (endMinute >= 60) {
             endHour += 1;
             endMinute -= 60;
-            if (endHour >= 24) {
-              endHour = 23;
-              endMinute = 45;
+            if (endHour >= 24) { endHour = 23; endMinute = 45; }
+          }
+        }
+        // Additional guard: if hour & minute match (e.g., cross-day 10:45-10:45), bump end by 15m.
+        if (startHour === endHour && startMinute === endMinute) {
+          let newEndH = endHour;
+          let newEndM = endMinute + 15;
+          if (newEndM >= 60) { newEndH += 1; newEndM -= 60; }
+          if (newEndH >= 24) {
+            // If cannot push end further, pull start back by 15m if possible
+            if (startHour > 0 || startMinute > 0) {
+              let newStartH = startHour;
+              let newStartM = startMinute - 15;
+              if (newStartM < 0) { newStartH -= 1; newStartM += 60; }
+              if (newStartH < 0) {
+                // Fallback to 00:00 - 00:15
+                startHour = 0; startMinute = 0;
+                endHour = 0; endMinute = 15;
+              } else {
+                startHour = newStartH; startMinute = newStartM;
+              }
+            } else {
+              // Start is 00:00; set end to 00:15
+              endHour = 0; endMinute = 15;
             }
+          } else {
+            endHour = newEndH; endMinute = newEndM;
           }
         }
 
@@ -285,11 +340,12 @@ export const useDragHandler = ({
       }
 
       const dates = [];
-      // Ensure per-day start/end times are not equal
-      const baseStartH = finalStartDateTime.getHours();
-      const baseStartM = finalStartDateTime.getMinutes();
+      // Ensure per-day start/end times produce a valid forward range
+      let baseStartH = finalStartDateTime.getHours();
+      let baseStartM = finalStartDateTime.getMinutes();
       let baseEndH = finalEndDateTime.getHours();
       let baseEndM = finalEndDateTime.getMinutes();
+      // Handle equality (guarantee minimum duration)
       if (baseStartH === baseEndH && baseStartM === baseEndM) {
         baseEndM += 15;
         if (baseEndM >= 60) {
@@ -300,6 +356,17 @@ export const useDragHandler = ({
           baseEndH = 23;
           baseEndM = 45;
         }
+      }
+      // Normalize if end-of-day is earlier than start-of-day (cross-day drag)
+      const baseStartTotal = baseStartH * 60 + baseStartM;
+      const baseEndTotal = baseEndH * 60 + baseEndM;
+      if (baseEndTotal < baseStartTotal) {
+        const tmpH = baseStartH;
+        const tmpM = baseStartM;
+        baseStartH = baseEndH;
+        baseStartM = baseEndM;
+        baseEndH = tmpH;
+        baseEndM = tmpM;
       }
       for (
         let dayIndex = Math.min(selectedArea.startDay, selectedArea.endDay);
