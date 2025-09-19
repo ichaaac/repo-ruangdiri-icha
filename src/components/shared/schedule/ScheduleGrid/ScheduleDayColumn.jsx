@@ -47,9 +47,9 @@ const ScheduleDayColumn = ({
                 }}
               >
                 <span
-                  className={`text-sm font-semibold text-neutral-700 ${
-                    isTodayDay && isTodayInCurrentWeek ? "font-bold" : ""
-                  }`}
+                  className={`text-sm ${
+                    isTodayDay && isTodayInCurrentWeek ? "font-bold underline" : "font-semibold"
+                  } text-neutral-700`}
                 >
                   {day.short}
                 </span>
