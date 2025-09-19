@@ -175,7 +175,9 @@ const ScheduleFormFields = ({
             <span style={{ color: selectedEventType.textColor }} className="font-medium">
               {selectedEventType.label}
             </span>
-            <span className="material-icons text-gray-400 ml-2">keyboard_arrow_down</span>
+            <span className="material-icons text-gray-400 ml-2">
+              {dropdowns.type ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+            </span>
           </button>
           {dropdowns.type && !loading && (
             <div 
@@ -225,33 +227,75 @@ const ScheduleFormFields = ({
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
               />
 
-              <select
-                value={dateInfo.startTime}
-                onChange={(e) => updateAdditionalDate(index, "startTime", e.target.value)}
-                disabled={loading}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              >
-                {timeOptions.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => !loading && handleDropdownToggle(`timeStart_${index}`)}
+                  disabled={loading}
+                  className="flex items-center justify-between min-w-[90px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                >
+                  <span className="font-medium">{dateInfo.startTime}</span>
+                  <span className="material-icons text-gray-400 ml-2 text-sm">
+                    {dropdowns[`timeStart_${index}`] ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+                  </span>
+                </button>
+                {dropdowns[`timeStart_${index}`] && !loading && (
+                  <div 
+                    className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
+                    onMouseLeave={handleTooltipLeave}
+                  >
+                    {timeOptions.map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => {
+                          updateAdditionalDate(index, "startTime", time)
+                          handleDropdownToggle(`timeStart_${index}`)
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <span className="text-[#488BBA]">-</span>
 
-              <select
-                value={dateInfo.endTime}
-                onChange={(e) => updateAdditionalDate(index, "endTime", e.target.value)}
-                disabled={loading}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-              >
-                {timeOptions.map((time) => (
-                  <option key={time} value={time}>
-                    {time}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => !loading && handleDropdownToggle(`timeEnd_${index}`)}
+                  disabled={loading}
+                  className="flex items-center justify-between min-w-[90px] px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+                >
+                  <span className="font-medium">{dateInfo.endTime}</span>
+                  <span className="material-icons text-gray-400 ml-2 text-sm">
+                    {dropdowns[`timeEnd_${index}`] ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+                  </span>
+                </button>
+                {dropdowns[`timeEnd_${index}`] && !loading && (
+                  <div 
+                    className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
+                    onMouseLeave={handleTooltipLeave}
+                  >
+                    {timeOptions.map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => {
+                          updateAdditionalDate(index, "endTime", time)
+                          handleDropdownToggle(`timeEnd_${index}`)
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 transition-colors"
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* FIXED: Display user's timezone (read-only) */}
               <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600 text-sm font-medium">
@@ -356,7 +400,7 @@ const ScheduleFormFields = ({
                             className="ml-2 p-1 hover:bg-gray-200 rounded transition-colors"
                           >
                             <span className="material-icons text-sm text-gray-400">
-                              keyboard_arrow_down
+                              {dropdowns.psychologist ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
                             </span>
                           </button>
                         )}
@@ -378,7 +422,7 @@ const ScheduleFormFields = ({
                         </span>
                         {!isUserPsychologist && (
                           <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
-                            keyboard_arrow_down
+                            {dropdowns.psychologist ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
                           </span>
                         )}
                       </button>
@@ -463,7 +507,7 @@ const ScheduleFormFields = ({
                         </div>
                       )}
                       <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
-                        keyboard_arrow_down
+                        {dropdowns.participants1 ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
                       </span>
                     </button>
                     {dropdowns.participants1 &&
@@ -552,7 +596,7 @@ const ScheduleFormFields = ({
                         </div>
                       )}
                       <span className="material-icons absolute right-2 top-1/2 transform -translate-y-1/2 text-sm">
-                        keyboard_arrow_down
+                        {dropdowns.participants2 ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
                       </span>
                     </button>
                     {dropdowns.participants2 &&
