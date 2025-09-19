@@ -5,8 +5,8 @@ import path from 'node:path'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true, // Wajib biar bisa diakses dari IP publik (ngrok)
-    allowedHosts: ['.ngrok-free.app'], // Ini wildcard domain ngrok lu
+    host: true, 
+    allowedHosts: ['.ngrok-free.app'], 
     port: 5173,
   },
   resolve: {
