@@ -228,6 +228,12 @@ const UserSidebar = ({
       // For external/standalone pages, open in new window/tab
       window.open(item.path, '_blank')
     } else {
+      // If currently on screening, dispatch custom event to use the designed popup
+      const leavingScreening = location.pathname.includes('/screening') && !item.path.includes('/screening')
+      if (leavingScreening) {
+        window.dispatchEvent(new CustomEvent('rd:attempt-navigation', { detail: { to: item.path } }))
+        return
+      }
       navigate(item.path)
       if (isMobile) setExpanded(false)
     }

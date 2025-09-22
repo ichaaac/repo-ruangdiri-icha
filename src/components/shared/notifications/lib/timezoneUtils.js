@@ -153,7 +153,7 @@ export const formatTimeAgoDetailed = (timestamp) => {
   
   // 🔥 For different days, show full date and time
   const dayName = notificationTime.format('dddd');
-  const dateFormat = notificationTime.format('DD/MM/YYYY');
+  const dateFormat = notificationTime.format('D MMMM YYYY');
   
   return `${dayName}, ${dateFormat} pukul ${timeFormat}`;
 };
