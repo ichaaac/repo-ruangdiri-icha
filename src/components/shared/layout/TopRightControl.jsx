@@ -250,6 +250,19 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
 
   const handleViewAllNotifications = () => {
     setOpenNotif(false);
+    // If currently on screening, use designed popup via custom event
+    if (location.pathname.includes('/screening')) {
+      const to = (() => {
+        const path = location.pathname
+        const isSchool = path.includes('/organization/school');
+        const isCompany = path.includes('/organization/company');
+        if (isSchool) return "/organization/school/notifications";
+        if (isCompany) return "/organization/company/notifications";
+        return "/notifications";
+      })();
+      window.dispatchEvent(new CustomEvent('rd:attempt-navigation', { detail: { to } }))
+      return;
+    }
     const isSchool = location.pathname.includes('/organization/school');
     const isCompany = location.pathname.includes('/organization/company');
     

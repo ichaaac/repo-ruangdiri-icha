@@ -112,7 +112,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
   };
 
   return (
-    <div className="absolute right-0 mt-2 w-[395px] max-h-[400px] overflow-hidden bg-white shadow-lg rounded-b-xl z-50 border border-gray-200 flex flex-col">
+    <div className="absolute right-0 mt-2 w-[395px] h-[305px] overflow-hidden bg-white shadow-lg rounded-b-xl z-50 border border-gray-200 flex flex-col">
       
       <div className="p-5 pb-0">
         <div className="text-[#488abe] font-semibold text-base mb-2">Notifikasi</div>
@@ -150,7 +150,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
         </div>
       </div>
 
-      <div className="flex-grow max-h-[290px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {isLoading && (
           <div className="flex justify-center items-center h-full">
             <span className="material-icons animate-spin text-[#488BBE]">sync</span>
@@ -162,7 +162,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
               <div className="space-y-3">
                 {todayNotifications.length > 0 && (
                   <div>
-                    <div className="text-xs text-[#8a8a8a] pb-1 pt-2 sticky top-0 bg-white">
+                    <div className="text-xs text-[#8a8a8a] pb-1 pt-2 sticky top-0 bg-white z-10">
                       Hari Ini
                     </div>
                     <div className="space-y-3 pt-3">
@@ -175,7 +175,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
                 
                 {previousNotifications.length > 0 && (
                   <div>
-                    <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
+                    <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white z-10">
                       Sebelumnya
                     </div>
                     <div className="space-y-3 pt-3">
