@@ -291,48 +291,9 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   const [showExitPopup, setShowExitPopup] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
 
-  // Enhanced navigation protection with popup
+  // Navigation protection is handled within ScreeningAssessment now to avoid duplicate prompts
   React.useEffect(() => {
-    // Handle browser navigation attempts
-    const handlePopState = (e) => {
-      if (currentView === "assessment") {
-        e.preventDefault()
-        setShowExitPopup(true)
-        setPendingNavigation(() => () => window.history.back())
-        // Push state again to handle next back button press
-        window.history.pushState(null, "", window.location.pathname)
-      }
-    }
-
-    // Handle tab visibility changes
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && currentView === "assessment") {
-        setShowExitPopup(true)
-      }
-    }
-
-    // Handle page unload attempts (disable browser default)
-    const handleBeforeUnload = (e) => {
-      if (currentView === "assessment") {
-        // Don't show browser default dialog
-        return undefined
-      }
-    }
-
-    if (currentView === "assessment") {
-      window.addEventListener("popstate", handlePopState)
-      document.addEventListener("visibilitychange", handleVisibilityChange)
-      window.addEventListener("beforeunload", handleBeforeUnload)
-      
-      // Push initial state for back button handling
-      window.history.pushState(null, "", window.location.pathname)
-    }
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      window.removeEventListener("beforeunload", handleBeforeUnload)
-    }
+    return () => {}
   }, [currentView])
 
   const handleStartAssessment = () => {
