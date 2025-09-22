@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
-import { useOutletContext } from "react-router-dom"
+import { useOutletContext, useNavigate } from "react-router-dom"
 import { useScreening } from "./hooks/useScreening"
 import ExitConfirmationPopup from "./ExitConfirmationPopUp"
 
@@ -222,6 +222,7 @@ const ErrorScreen = ({ error, onRetry }) => {
 
 // Main Assessment Component
 const ScreeningAssessment = ({ onComplete, onExit }) => {
+  const navigate = useNavigate()
   const {
     currentQuestion,
     currentQuestionData,
@@ -246,44 +247,90 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
   // Exit confirmation popup state
   const [showExitPopup, setShowExitPopup] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
+  const [allowNavigation, setAllowNavigation] = useState(false)
+  const [shouldBlockUnload, setShouldBlockUnload] = useState(true)
 
   // Enhanced navigation protection with popup
   useEffect(() => {
-    // Handle browser navigation attempts
-    const handlePopState = (e) => {
+    // Intercept internal link navigations (e.g., sidebar Links) and prompt
+    const handleAnchorClick = (e) => {
+      const target = e.target
+      if (!target) return
+      const anchor = target.closest && target.closest('a, [data-nav-to]')
+      if (!anchor) return
+      // Ignore new tab or hash links
+      // Ignore modifier/middle clicks (open in new tab/window)
+      if (e.button === 1 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+      if (anchor.target === '_blank' || anchor.getAttribute('rel') === 'noopener' || anchor.getAttribute('download')) return
+      let to = anchor.getAttribute('href') || anchor.getAttribute('data-nav-to')
+      if (!to || to.startsWith('#')) return
+      // Only block internal navigation
+      const origin = window.location.origin
+      const isAbsolute = to.startsWith('http://') || to.startsWith('https://')
+      if (isAbsolute && !to.startsWith(origin)) return
+      if (isAbsolute) to = to.slice(origin.length) || '/'
+      if (!to.startsWith('/')) return
+      if (to === window.location.pathname) return
+
+      // Prevent and show popup
       e.preventDefault()
       setShowExitPopup(true)
-      setPendingNavigation(() => () => window.history.back())
-      // Push state again to handle next back button press
+      setPendingNavigation(() => () => navigate(to))
+    }
+
+    document.addEventListener('click', handleAnchorClick, true)
+
+    // Handle browser back/forward attempts — block and show popup
+    const handlePopState = (e) => {
+      if (allowNavigation) {
+        return
+      }
+      e.preventDefault()
+      setShowExitPopup(true)
+      // When confirmed, allow one back navigation
+      setPendingNavigation(() => () => {
+        setAllowNavigation(true)
+        window.history.back()
+      })
+      // Re-push state to keep user on page until confirmed
       window.history.pushState(null, "", window.location.pathname)
     }
 
-    // Handle tab visibility changes
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        setShowExitPopup(true)
-      }
-    }
-
-    // Handle page unload attempts (disable browser default)
-    const handleBeforeUnload = (e) => {
-      // Don't show browser default dialog
-      return undefined
-    }
-
     window.addEventListener("popstate", handlePopState)
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    window.addEventListener("beforeunload", handleBeforeUnload)
     
     // Push initial state for back button handling
     window.history.pushState(null, "", window.location.pathname)
 
     return () => {
+      document.removeEventListener('click', handleAnchorClick, true)
       window.removeEventListener("popstate", handlePopState)
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-      window.removeEventListener("beforeunload", handleBeforeUnload)
     }
-  }, [])
+  }, [allowNavigation, navigate])
+
+  // Native beforeunload prompt ONLY for tab close/refresh/full unload
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!shouldBlockUnload) return
+      const hasProgress = !!localStorage.getItem('screening_answers') || !!localStorage.getItem('screening_current_question')
+      if (!hasProgress) return
+      e.preventDefault()
+      e.returnValue = '' // trigger browser native prompt
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [shouldBlockUnload])
+
+  // Listen for cross-component navigation attempts (e.g., Sidebar, TopRightControl)
+  useEffect(() => {
+    const handleAttemptNav = (e) => {
+      const to = e?.detail?.to
+      if (!to) return
+      setShowExitPopup(true)
+      setPendingNavigation(() => () => navigate(to))
+    }
+    window.addEventListener('rd:attempt-navigation', handleAttemptNav)
+    return () => window.removeEventListener('rd:attempt-navigation', handleAttemptNav)
+  }, [navigate])
 
   // Handle answer selection
   const handleAnswerSelect = (value) => {
@@ -391,9 +438,15 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     })
     
     if (pendingNavigation) {
-      pendingNavigation()
+      const go = pendingNavigation
       setPendingNavigation(null)
+      // If pending is history.back, allow popstate handler to pass
+      setAllowNavigation(true)
+      setShouldBlockUnload(false)
+      go()
     } else {
+      setAllowNavigation(true)
+      setShouldBlockUnload(false)
       onExit?.()
     }
   }
@@ -402,9 +455,6 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
   const handleExitCancel = () => {
     setShowExitPopup(false)
     setPendingNavigation(null)
-    
-    // Push state again for next navigation attempt
-    window.history.pushState(null, "", window.location.pathname)
   }
 
   // Load saved progress on mount
