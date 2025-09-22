@@ -115,11 +115,15 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     <div className="absolute right-0 mt-2 w-[395px] max-h-[400px] overflow-hidden bg-white shadow-lg rounded-b-xl z-50 border border-gray-200 flex flex-col">
       
       <div className="p-5 pb-0">
-        <div className="text-[#488abe] font-semibold text-base mb-4">Notifikasi</div>
-        <div className="flex items-center gap-5 text-sm text-[#535353] mb-4">
+        <div className="text-[#488abe] font-semibold text-base mb-2">Notifikasi</div>
+        <div className="flex items-center gap-4 text-sm text-[#535353] mb-2 border-b border-gray-200">
           <button
             onClick={() => setSelectedTab('all')}
-            className={`flex items-center gap-2 transition-colors ${selectedTab === 'all' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
+            className={`flex items-center gap-2 transition-colors pb-2 border-b-2 ${
+              selectedTab === 'all'
+                ? "font-bold text-[#535353] border-[#488BBA]"
+                : "font-normal text-[#8a8a8a] hover:text-[#535353] border-transparent"
+            }`}
           >
             <span>Semua</span>
             {totalUnreadCount > 0 && (
@@ -130,7 +134,11 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
           </button>
           <button
             onClick={() => setSelectedTab('counseling')}
-            className={`flex items-center gap-2 transition-colors ${selectedTab === 'counseling' ? "font-bold text-[#535353]" : "font-normal text-[#8a8a8a] hover:text-[#535353]"}`}
+            className={`flex items-center gap-2 transition-colors pb-2 border-b-2 ${
+              selectedTab === 'counseling'
+                ? "font-bold text-[#535353] border-[#488BBA]"
+                : "font-normal text-[#8a8a8a] hover:text-[#535353] border-transparent"
+            }`}
           >
             <span>Konseling</span>
             {counselingCount > 0 && (
@@ -154,7 +162,7 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
               <div className="space-y-3">
                 {todayNotifications.length > 0 && (
                   <div>
-                    <div className="text-xs text-[#8a8a8a] pb-2 pt-4 border-b border-gray-100 sticky top-0 bg-white">
+                    <div className="text-xs text-[#8a8a8a] pb-1 pt-2 sticky top-0 bg-white">
                       Hari Ini
                     </div>
                     <div className="space-y-3 pt-3">

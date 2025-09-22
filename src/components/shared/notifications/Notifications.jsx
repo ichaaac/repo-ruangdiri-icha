@@ -61,13 +61,13 @@ const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }
 
 const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChange, formatCount }) => {
   return (
-    <div className="flex items-center gap-6 sm:gap-10 mb-6 overflow-x-auto">
+    <div className="flex items-center gap-5 sm:gap-8 mb-3 overflow-x-auto border-b border-gray-200">
       <button
         onClick={() => onTabChange("all")}
-        className={`flex items-center gap-1 whitespace-nowrap ${
+        className={`flex items-center gap-1 whitespace-nowrap pb-2 border-b-2 ${
           selectedTab === "all" 
-            ? "font-bold text-[#535353]" 
-            : "font-normal text-[#8a8a8a] hover:text-[#535353]"
+            ? "font-bold text-[#535353] border-[#488BBA]" 
+            : "font-normal text-[#8a8a8a] hover:text-[#535353] border-transparent"
         } transition-colors`}
       >
         <span>Semua</span>
@@ -80,10 +80,10 @@ const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChan
 
       <button
         onClick={() => onTabChange("counseling")}
-        className={`flex items-center gap-1 whitespace-nowrap ${
+        className={`flex items-center gap-1 whitespace-nowrap pb-2 border-b-2 ${
           selectedTab === "counseling" 
-            ? "font-bold text-[#535353]" 
-            : "font-normal text-[#8a8a8a] hover:text-[#535353]"
+            ? "font-bold text-[#535353] border-[#488BBA]" 
+            : "font-normal text-[#8a8a8a] hover:text-[#535353] border-transparent"
         } transition-colors`}
       >
         <span>Konseling</span>
