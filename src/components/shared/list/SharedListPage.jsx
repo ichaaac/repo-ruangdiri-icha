@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion"
 import { useAuth } from "@/hooks/useAuth"
 import { useList } from "./hooks/useList" 
 import SharedTable from "./SharedTable"
-import FloatingTableScrollbar from "./FloatingTableScrollbar"
+import FloatingTableScrollbar from "./FloatingTableScrollBar"
 import TopRightControl from "../layout/TopRightControl"
 // import ChatWidget from "../chats/ChatWidget"
 
