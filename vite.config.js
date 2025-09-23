@@ -1,17 +1,24 @@
+// vite.config.js
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    host: true, 
-    allowedHosts: ['bonita-postventral-equivalently.ngrok-free.dev', 'ngrok-free.dev'], 
-    port: 5173,
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+export default defineConfig(({ command, mode }) => {
+  const isDev = command === 'serve'
+
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: { '@': path.resolve(__dirname, './src') },
+    },    ...(isDev && {
+      server: {
+        host: true,
+        port: 5173,
+      },
+    }),
+    build: {
+      outDir: 'dist',
     },
-  },
+  define: { 'process.env': {} },
+  }
 })
