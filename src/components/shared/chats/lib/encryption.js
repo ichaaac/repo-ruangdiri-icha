@@ -4,7 +4,7 @@ import CryptoJS from 'crypto-js';
 
 // Get encryption key from environment
 const getEncryptionKey = () => {
-  const key = import.meta.env.VITE_CHAT_ENCRYPTION_KEY || process.env.REACT_APP_CHAT_ENCRYPTION_KEY;
+  const key = import.meta.env.VITE_CHAT_ENCRYPTION_KEY || '';
   return key;
 };
 

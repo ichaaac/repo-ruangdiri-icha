@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true, 
-    allowedHosts: ['.ngrok-free.app'], 
+    allowedHosts: ['bonita-postventral-equivalently.ngrok-free.dev', 'ngrok-free.dev'], 
     port: 5173,
   },
   resolve: {
