@@ -1,7 +1,7 @@
 // src/routes/Routes.jsx
 import React, { lazy, Suspense } from "react";
 import { useRoutes } from "react-router-dom";
-import routes from "./routeConfig";
+import routes from "./RouteConfig";
 
 /**
  * Loading component for Suspense fallback
