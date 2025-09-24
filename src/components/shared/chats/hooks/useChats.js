@@ -396,7 +396,9 @@ export const useChats = () => {
     const { userId: typingUserId, isTyping, sessionId } = typingData;
     
     if (typingUserId !== userId && sessionId === selectedSession?.sessionId) {
-      const displayName = typingData.senderFullName || typingData.senderFullname || 'Someone';
+      // Prefer resolved opponent name from selectedSession
+      const sessionName = selectedSession?.opponentFullName || selectedSession?.opponentName || selectedSession?.name;
+      const displayName = typingData.senderFullName || typingData.senderFullname || sessionName || 'Lawan bicara';
       
       setTypingUsers(prev => {
         if (isTyping) {
