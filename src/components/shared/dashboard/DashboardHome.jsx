@@ -128,8 +128,8 @@ const DashboardHome = ({
       if (classroom !== barChartClassroom) {
         setBarChartClassroom(classroom)
         if (type === "student" && options?.grades?.length > 0) {
-          // If "All" is selected, reset grade to "All", otherwise keep existing grade
-          if (classroom === "All" && barChartGrade !== "All") {
+          // Reset grade selection whenever classroom changes
+          if (barChartGrade !== "All") {
             setBarChartGrade("All")
           } else if (!barChartGrade) {
             setBarChartGrade("All") // Default to "All"

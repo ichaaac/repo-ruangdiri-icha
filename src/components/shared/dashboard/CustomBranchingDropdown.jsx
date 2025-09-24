@@ -75,6 +75,10 @@ const CustomBranchingDropdown = ({
     // Select the classroom
     if (classroom !== selectedClassroom) {
       onClassroomSelect(classroom)
+      // Reset grade to "All" whenever classroom changes so A/B/C/D resets
+      if (onGradeSelect) {
+        onGradeSelect("All")
+      }
     }
     
     // Show grades if available and not "All" option
