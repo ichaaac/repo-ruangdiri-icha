@@ -10,6 +10,7 @@ export const useBooking = (userType = "student") => {
   const queryClient = useQueryClient()
   const bookingApi = createBookingApi(userType)
   const config = getBookingConfig(userType)
+  const availabilityThreshold = Number(import.meta.env?.VITE_BOOKING_MIN_AVAILABLE_PSY || 1)
 
   // State management
   const [selectedMethod, setSelectedMethod] = useState(null)
@@ -38,7 +39,7 @@ export const useBooking = (userType = "student") => {
     isLoading: availabilityLoading,
     error: availabilityError,
     refetch: refetchAvailability,
-  } = useQuery({
+} = useQuery({
     queryKey: ["psychologist-availability"],
     queryFn: () => bookingApi.getAvailableTimeSlots(),
     staleTime: 3 * 60 * 1000, // 3 minutes
@@ -71,26 +72,57 @@ export const useBooking = (userType = "student") => {
 
     console.log("Processing availability data:", psychologistAvailability)
 
+    // Prefer using date-specific availability when present
+    const dated = psychologistAvailability.filter((slot) => !!slot.date)
+    if (dated.length > 0) {
+      // Group by date and include only if any slot is not booked
+      const byDate = dated.reduce((acc, s) => {
+        (acc[s.date] ||= []).push(s)
+        return acc
+      }, {})
+
+      const filteredDates = Object.entries(byDate)
+        .filter(([dateStr, slots]) => {
+          // Keep date if any slot is available by counts or flags
+          return slots.some((s) => {
+            if (typeof s.availablePsychologists === 'number') {
+              return s.availablePsychologists >= availabilityThreshold
+            }
+            if (typeof s.isBooked === 'boolean') {
+              return s.isBooked === false
+            }
+            // Fallback: assume available when no explicit info
+            return true
+          })
+        })
+        .map(([dateStr]) => dateStr)
+
+      const result = filteredDates.map((dateStr) => {
+        const d = new Date(dateStr)
+        return {
+          value: dateStr,
+          label: d.toLocaleDateString("id-ID", {
+            weekday: "long",
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          }),
+          dayOfWeek: d.getDay(),
+        }
+      })
+      console.log("Available dates (filtered by not fully booked):", result)
+      return result
+    }
+
+    // Fallback to weekly schedule approach
     const dates = []
     const today = new Date()
-    
-    // Get unique days of week that have availability from psychologists who are available (not overbooked)
-    const availableSlots = psychologistAvailability.filter((slot) => {
-      const scheduledSessionsCount = slot.scheduledSessions?.length || 0
-      return !slot.hasScheduledSessions || scheduledSessionsCount < 2
-    })
-    
-    const availableDaysOfWeek = [...new Set(availableSlots.map((slot) => slot.dayOfWeek))]
-    console.log("Available days of week (filtered):", availableDaysOfWeek)
+    const availableDaysOfWeek = [...new Set(psychologistAvailability.map((slot) => slot.dayOfWeek))]
 
-    // Generate dates for next 60 days
     for (let i = 0; i <= 60; i++) {
       const date = new Date(today)
       date.setDate(today.getDate() + i)
-
-      const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
-
-      // Check if this day has availability from available psychologists
+      const dayOfWeek = date.getDay()
       if (availableDaysOfWeek.includes(dayOfWeek)) {
         dates.push({
           value: date.toISOString().split("T")[0],
@@ -100,12 +132,11 @@ export const useBooking = (userType = "student") => {
             month: "long",
             year: "numeric",
           }),
-          dayOfWeek: dayOfWeek,
+          dayOfWeek,
         })
       }
     }
-
-    console.log("Generated available dates:", dates)
+    console.log("Available dates (from weekly schedule fallback):", dates)
     return dates
   }, [psychologistAvailability])
 
@@ -123,63 +154,87 @@ export const useBooking = (userType = "student") => {
 
     // Filter availability for selected day
     const dayAvailability = psychologistAvailability.filter((availability) => availability.dayOfWeek === dayOfWeek)
-    
-    console.log("Day availability (before filtering):", dayAvailability)
 
-    // UPDATED: Filter out psychologists who are overbooked (hasScheduledSessions: true with 2+ sessions)
-    const availableSlots = dayAvailability.filter((availability) => {
+    // Prefer date-specific slots if present for the selected date
+    const hasDated = dayAvailability.some((a) => !!a.date)
+    const source = hasDated
+      ? dayAvailability.filter((a) => a.date === selectedDate)
+      : dayAvailability
+
+    console.log("Day availability (selected source):", source)
+
+    // Determine availability: if isBooked flag exists, use it; otherwise fallback to scheduledSessions logic
+    const availableSlots = source.filter((availability) => {
+      if (typeof availability.availablePsychologists === 'number') {
+        return availability.availablePsychologists >= availabilityThreshold
+      }
+      if (typeof availability.isBooked === 'boolean') {
+        return availability.isBooked === false
+      }
       const scheduledSessionsCount = availability.scheduledSessions?.length || 0
-      const isAvailable = !availability.hasScheduledSessions || scheduledSessionsCount < 2
-      
-      console.log(`Psychologist ${availability.psychologist?.fullName}:`, {
-        hasScheduledSessions: availability.hasScheduledSessions,
-        scheduledSessionsCount,
-        isAvailable
-      })
-      
-      return isAvailable
+      return !availability.hasScheduledSessions || scheduledSessionsCount < 2
     })
 
-    console.log("Available slots (after filtering):", availableSlots)
-
-    // Convert to time slots format with availability status
+    // Convert available slots
     const slots = availableSlots.map((availability, index) => ({
-      startTime: availability.startTime.substring(0, 5), // Remove seconds: "09:00:00" -> "09:00"
-      endTime: availability.endTime.substring(0, 5), // Remove seconds: "10:00:00" -> "10:00"
-      psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
-      psychologistId: availability.psychologist?.id || availability.psychologistId,
-      available: true, // All filtered slots are available
-      displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
-      uniqueId: `${availability.psychologist?.fullName || availability.psychologistName}-${availability.startTime}-${availability.endTime}-${index}`,
-      // Additional info for debugging
-      scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-      hasScheduledSessions: availability.hasScheduledSessions,
-    }))
-
-    // Also include unavailable slots for display (but disabled)
-    const unavailableSlots = dayAvailability.filter((availability) => {
-      const scheduledSessionsCount = availability.scheduledSessions?.length || 0
-      return availability.hasScheduledSessions && scheduledSessionsCount >= 2
-    }).map((availability, index) => ({
       startTime: availability.startTime.substring(0, 5),
       endTime: availability.endTime.substring(0, 5),
       psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
       psychologistId: availability.psychologist?.id || availability.psychologistId,
-      available: false, // Mark as unavailable
-      displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak Tersedia)`,
-      uniqueId: `unavailable-${availability.psychologist?.fullName || availability.psychologistName}-${availability.startTime}-${availability.endTime}-${index}`,
+      available: true,
+      displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
+      uniqueId: `${availability.psychologist?.fullName || availability.psychologistName}-${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-a-${index}`,
       scheduledSessionsCount: availability.scheduledSessions?.length || 0,
       hasScheduledSessions: availability.hasScheduledSessions,
-      reason: "Psikolog sedang tidak tersedia"
     }))
 
-    const allSlots = [...slots, ...unavailableSlots]
-    
-    // Sort by time for better UX
+    // Include unavailable slots from isBooked
+    const unavailableFromBooked = source
+      .filter((availability) => {
+        if (typeof availability.availablePsychologists === 'number') {
+          return availability.availablePsychologists < availabilityThreshold
+        }
+        return availability.isBooked === true
+      })
+      .map((availability, index) => ({
+        startTime: availability.startTime.substring(0, 5),
+        endTime: availability.endTime.substring(0, 5),
+        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
+        psychologistId: availability.psychologist?.id || availability.psychologistId,
+        available: false,
+        displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (${typeof availability.availablePsychologists === 'number' ? 'Penuh' : 'Sudah dibooking'})`,
+        uniqueId: `${availability.psychologist?.fullName || availability.psychologistName}-${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-u-${index}`,
+        scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+        hasScheduledSessions: availability.hasScheduledSessions,
+        reason: typeof availability.availablePsychologists === 'number' ? `Tidak cukup psikolog tersedia (sisa: ${availability.availablePsychologists ?? 0})` : "Sudah dibooking",
+      }))
+
+    // Also include unavailable from overbooked heuristic (without duplicating booked ones)
+    const unavailableFromOverbooked = source
+      .filter((availability) => {
+        if (typeof availability.isBooked === 'boolean') return false
+        const scheduledSessionsCount = availability.scheduledSessions?.length || 0
+        return availability.hasScheduledSessions && scheduledSessionsCount >= 2
+      })
+      .map((availability, index) => ({
+        startTime: availability.startTime.substring(0, 5),
+        endTime: availability.endTime.substring(0, 5),
+        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
+        psychologistId: availability.psychologist?.id || availability.psychologistId,
+        available: false,
+        displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak tersedia)`,
+        uniqueId: `${availability.psychologist?.fullName || availability.psychologistName}-${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-o-${index}`,
+        scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+        hasScheduledSessions: availability.hasScheduledSessions,
+        reason: "Psikolog tidak tersedia",
+      }))
+
+    const allSlots = [...slots, ...unavailableFromBooked, ...unavailableFromOverbooked]
+
+    // Sort by time; prioritize available
     allSlots.sort((a, b) => {
       if (a.startTime === b.startTime) {
-        // If same time, prioritize available slots
-        return a.available === b.available ? 0 : (a.available ? -1 : 1)
+        return a.available === b.available ? 0 : a.available ? -1 : 1
       }
       return a.startTime.localeCompare(b.startTime)
     })

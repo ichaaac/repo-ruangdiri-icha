@@ -10,48 +10,112 @@ dayjs.extend(timezone);
 
 
 export const createBookingApi = (userType = "student") => {
-  // Helper: flatten new backend structure (psychologists + weeklySchedule)
+  // Helper: flatten availability payloads into flat slot list
   const flattenAvailabilityFromNewBackend = (payload) => {
     try {
-      // If already an array of flat slots, return as-is
-      if (Array.isArray(payload)) return payload;
-      // If wrapped under availability, unwrap
-      if (Array.isArray(payload?.availability)) return payload.availability;
-
-      // New shape: { scheduledSessions: [...], psychologists: [...] }
-      const psychologists = payload?.psychologists;
-      if (!Array.isArray(psychologists)) return [];
-
-      const slots = [];
-      for (const p of psychologists) {
-        const id = p?.psychologist?.id;
-        const fullName = p?.psychologist?.fullName;
-        const weekly = Array.isArray(p?.weeklySchedule) ? p.weeklySchedule : [];
-        for (const w of weekly) {
-          const dayOfWeek = w?.dayOfWeek;
-          const tz = w?.timezone || 'Asia/Jakarta';
-          const times = Array.isArray(w?.timeSlots) ? w.timeSlots : [];
+      // Flatten list of { date, dayOfWeek, timeSlots: [...] }
+      const flattenAvailabilityList = (list) => {
+        const out = []
+        for (const day of list || []) {
+          const dateStr = day?.date
+          const dow = typeof day?.dayOfWeek === 'number' ? day.dayOfWeek : (dateStr ? new Date(dateStr).getDay() : undefined)
+          const tz = day?.timezone || 'Asia/Jakarta'
+          const times = Array.isArray(day?.timeSlots) ? day.timeSlots : []
           for (const t of times) {
-            if (!t?.startTime || !t?.endTime) continue;
+            if (!t?.startTime || !t?.endTime) continue
+            out.push({
+              date: dateStr,
+              dayOfWeek: dow,
+              startTime: t.startTime,
+              endTime: t.endTime,
+              timezone: t.timezone || tz,
+              // counts (new backend)
+              availablePsychologists: typeof t.availablePsychologists === 'number' ? t.availablePsychologists : undefined,
+              totalPsychologists: typeof t.totalPsychologists === 'number' ? t.totalPsychologists : undefined,
+              bookedPsychologists: typeof t.bookedPsychologists === 'number' ? t.bookedPsychologists : undefined,
+              availabilityRate: typeof t.availabilityRate === 'number' ? t.availabilityRate : undefined,
+              // legacy flags
+              isBooked: typeof t.isBooked === 'boolean' ? t.isBooked : undefined,
+              hasScheduledSessions: false,
+              scheduledSessions: [],
+            })
+          }
+        }
+        return out
+      }
+
+      // Array payload cases
+      if (Array.isArray(payload)) {
+        if (payload.length === 0) return payload
+        const first = payload[0]
+        if (first && typeof first === 'object' && Array.isArray(first.timeSlots)) {
+          return flattenAvailabilityList(payload)
+        }
+        return payload
+      }
+
+      // New top-level availability
+      if (Array.isArray(payload?.availability)) {
+        return flattenAvailabilityList(payload.availability)
+      }
+
+      // Legacy psychologists structure
+      const psychologists = payload?.psychologists
+      if (!Array.isArray(psychologists)) return []
+
+      const slots = []
+      for (const p of psychologists) {
+        const id = p?.psychologist?.id
+        const fullName = p?.psychologist?.fullName
+        const weekly = Array.isArray(p?.weeklySchedule) ? p.weeklySchedule : []
+        for (const w of weekly) {
+          const dayOfWeek = w?.dayOfWeek
+          const tz = w?.timezone || 'Asia/Jakarta'
+          const times = Array.isArray(w?.timeSlots) ? w.timeSlots : []
+          for (const t of times) {
+            if (!t?.startTime || !t?.endTime) continue
             slots.push({
               dayOfWeek,
               startTime: t.startTime,
               endTime: t.endTime,
               timezone: tz,
               psychologist: { id, fullName },
-              // Keep fields referenced elsewhere with safe defaults
               hasScheduledSessions: false,
               scheduledSessions: [],
-            });
+            })
+          }
+        }
+
+        // Also flatten upcomingAvailable (date-specific) with isBooked flags
+        const upcoming = Array.isArray(p?.upcomingAvailable) ? p.upcomingAvailable : []
+        const defaultTz = weekly?.[0]?.timezone || 'Asia/Jakarta'
+        for (const d of upcoming) {
+          const dateStr = d?.date
+          if (!dateStr) continue
+          const dow = new Date(dateStr).getDay()
+          const times = Array.isArray(d?.timeSlots) ? d.timeSlots : []
+          for (const t of times) {
+            if (!t?.startTime || !t?.endTime) continue
+            slots.push({
+              dayOfWeek: dow,
+              date: dateStr,
+              startTime: t.startTime,
+              endTime: t.endTime,
+              timezone: defaultTz,
+              isBooked: typeof t.isBooked === 'boolean' ? t.isBooked : undefined,
+              psychologist: { id, fullName },
+              hasScheduledSessions: false,
+              scheduledSessions: [],
+            })
           }
         }
       }
-      return slots;
+      return slots
     } catch (e) {
-      console.error('Failed to flatten availability payload:', e);
-      return [];
+      console.error('Failed to flatten availability payload:', e)
+      return []
     }
-  };
+  }
   // Validation helper for booking data
   const validateBookingData = (data) => {
     const errors = []
@@ -320,9 +384,9 @@ export const createBookingApi = (userType = "student") => {
             const selectedDate = new Date(date)
             const selectedDayOfWeek = selectedDate.getDay() // 0=Sunday, 6=Saturday
 
-            // Filter availability for the selected day
-            const filteredSlots = availabilityData.filter(
-              (slot) => slot.dayOfWeek === selectedDayOfWeek
+            // Filter availability for the selected day (prefer exact date if provided by backend)
+            const filteredSlots = availabilityData.filter((slot) =>
+              slot.date ? (slot.date === date) : (slot.dayOfWeek === selectedDayOfWeek)
             )
 
             // Further filter by psychologist if provided
