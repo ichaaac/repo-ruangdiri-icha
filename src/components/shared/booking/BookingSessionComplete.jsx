@@ -282,11 +282,12 @@ const BookingSessionComplete = () => {
                     <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans']">
                       {(() => {
                         const raw = String((bookingData?.method || (location.state?.methodOverride)) || '').toLowerCase()
-                        if (!raw) return 'konseling'
-                        if (raw === 'online') return 'online (daring)'
-                        if (raw === 'offline') return 'offline (luring)'
-                        if (raw === 'chat') return 'chat'
-                        return raw
+                        if (!raw) return 'Konseling'
+                        if (raw === 'online') return 'Online (Daring)'
+                        if (raw === 'offline') return 'Offline (Luring)'
+                        if (raw === 'chat') return 'Chat'
+                        // Fallback: capitalize first letter
+                        return raw.charAt(0).toUpperCase() + raw.slice(1)
                       })()}
                     </span>
                   </div>
