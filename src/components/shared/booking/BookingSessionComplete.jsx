@@ -280,7 +280,14 @@ const BookingSessionComplete = () => {
                       Jenis Konseling
                     </span>
                     <span className="text-[#374151] text-xs sm:text-sm font-semibold font-['Public_Sans']">
-                      {getCounselingMethodDisplay(bookingData.method)}
+                      {(() => {
+                        const raw = String((bookingData?.method || (location.state?.methodOverride)) || '').toLowerCase()
+                        if (!raw) return 'konseling'
+                        if (raw === 'online') return 'online (daring)'
+                        if (raw === 'offline') return 'offline (luring)'
+                        if (raw === 'chat') return 'chat'
+                        return raw
+                      })()}
                     </span>
                   </div>
 
@@ -344,20 +351,24 @@ const BookingSessionComplete = () => {
 
                 </div>
               </div>
+
+              {/* Footer action inside content container */}
+              <div className="pt-6 sm:pt-8 md:pt-10">
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleBackToHome}
+                    className="text-[#488BBA] text-xs sm:text-sm font-normal font-['Public_Sans'] hover:underline transition-all duration-200 px-4 py-2"
+                  >
+                    Kembali ke Beranda
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Back to Home Button */}
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={handleBackToHome}
-          className="text-[#488BBA] text-xs sm:text-sm font-normal font-['Public_Sans'] hover:underline transition-all duration-200 px-4 py-2"
-        >
-          Kembali ke Beranda
-        </button>
-      </div>
+      {/* Back to Home Button removed; moved inside content container */}
     </div>
   )
 }

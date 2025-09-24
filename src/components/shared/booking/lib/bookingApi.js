@@ -665,6 +665,11 @@ export const createBookingApi = (userType = "student") => {
             ),
           }
 
+          // Ensure raw method is always present (fallback to requested method)
+          if (!bookingResult.method) {
+            bookingResult.method = bookingData.method
+          }
+
           // Create chat session for chat bookings
           if (bookingData.method === "chat") {
             try {

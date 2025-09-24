@@ -331,7 +331,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         onSuccess(result)
       } else {
         navigate(`/user/${userType}/booking-complete`, {
-          state: { bookingResult: result },
+          state: { bookingResult: result, methodOverride: currentSelectedMethod?.id },
           replace: true,
         })
       }
