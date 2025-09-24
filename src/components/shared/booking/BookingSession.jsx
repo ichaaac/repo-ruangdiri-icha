@@ -584,7 +584,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                       ) : timeSlots?.length > 0 ? (
                         timeSlots.map((slot, index) => (
                           <button
-                            key={slot.uniqueId || `${slot.psychologistName}-${slot.startTime}-${slot.endTime}-${index}`}
+                            key={slot.uniqueId || `${slot.date || 'any'}-${slot.startTime}-${slot.endTime}-${index}`}
                             className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 transition-colors ${
                               slot.available 
                                 ? "hover:bg-gray-100 text-gray-900 cursor-pointer" 
@@ -606,14 +606,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                             aria-disabled={!slot.available}
                             title={slot.available ? "" : slot.reason || "Psikolog tidak tersedia"}
                           >
-                            {/* Psychologist Name */}
-                            {slot.psychologistName && (
-                              <div className={`font-medium text-xs mb-1 ${
-                                slot.available ? "text-blue-600" : "text-gray-400"
-                              }`}>
-                                {slot.psychologistName}
-                              </div>
-                            )}
+                            {/* Psychologist name hidden (show time only) */}
                             
                             {/* Time Display */}
                             <div className="flex items-center justify-between">
