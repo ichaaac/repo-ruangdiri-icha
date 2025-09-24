@@ -10,6 +10,48 @@ dayjs.extend(timezone);
 
 
 export const createBookingApi = (userType = "student") => {
+  // Helper: flatten new backend structure (psychologists + weeklySchedule)
+  const flattenAvailabilityFromNewBackend = (payload) => {
+    try {
+      // If already an array of flat slots, return as-is
+      if (Array.isArray(payload)) return payload;
+      // If wrapped under availability, unwrap
+      if (Array.isArray(payload?.availability)) return payload.availability;
+
+      // New shape: { scheduledSessions: [...], psychologists: [...] }
+      const psychologists = payload?.psychologists;
+      if (!Array.isArray(psychologists)) return [];
+
+      const slots = [];
+      for (const p of psychologists) {
+        const id = p?.psychologist?.id;
+        const fullName = p?.psychologist?.fullName;
+        const weekly = Array.isArray(p?.weeklySchedule) ? p.weeklySchedule : [];
+        for (const w of weekly) {
+          const dayOfWeek = w?.dayOfWeek;
+          const tz = w?.timezone || 'Asia/Jakarta';
+          const times = Array.isArray(w?.timeSlots) ? w.timeSlots : [];
+          for (const t of times) {
+            if (!t?.startTime || !t?.endTime) continue;
+            slots.push({
+              dayOfWeek,
+              startTime: t.startTime,
+              endTime: t.endTime,
+              timezone: tz,
+              psychologist: { id, fullName },
+              // Keep fields referenced elsewhere with safe defaults
+              hasScheduledSessions: false,
+              scheduledSessions: [],
+            });
+          }
+        }
+      }
+      return slots;
+    } catch (e) {
+      console.error('Failed to flatten availability payload:', e);
+      return [];
+    }
+  };
   // Validation helper for booking data
   const validateBookingData = (data) => {
     const errors = []
@@ -257,9 +299,10 @@ export const createBookingApi = (userType = "student") => {
 
         const response = await apiClient.get("/psychologists/availability")
 
-  if (response.data && response.data.status === "success") {
-          // UPDATED: Handle new nested structure - availability is now under data.availability
-          const availabilityData = response.data.data.availability || response.data.data
+        if (response.data && response.data.status === "success") {
+          // Handle new nested structure from backend
+          const payload = response.data.data
+          const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
           console.log("Backend availability data:", availabilityData)
 
@@ -379,7 +422,8 @@ export const createBookingApi = (userType = "student") => {
         const response = await apiClient.get("/psychologists/availability")
 
         if (response.data && response.data.status === "success") {
-          const availabilityData = response.data.data
+          const payload = response.data.data
+          const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
           console.log("Processing availability for dates:", availabilityData)
 
