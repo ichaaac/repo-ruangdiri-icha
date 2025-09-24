@@ -335,18 +335,41 @@ const ScheduleFormFields = ({
       {/* Notification */}
       <div className="flex gap-4 items-center">
         <span className="material-icons text-[#488BBA] text-[25px]">notifications_active</span>
-        <select
-          value={formData.notificationOffset}
-          onChange={(e) => handleInputChange("notificationOffset", Number.parseInt(e.target.value))}
-          disabled={loading}
-          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-        >
-          {notificationOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => !loading && handleDropdownToggle("notification")}
+            disabled={loading}
+            className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[160px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+          >
+            <span className="font-medium text-gray-700">
+              {(() => {
+                const found = notificationOptions.find(o => o.value === formData.notificationOffset)
+                return found ? found.label : 'Pilih notifikasi'
+              })()}
+            </span>
+            <span className="material-icons text-gray-400 ml-2">
+              {dropdowns.notification ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+            </span>
+          </button>
+          {dropdowns.notification && !loading && (
+            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
+              {notificationOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    handleInputChange("notificationOffset", Number.parseInt(option.value))
+                    handleDropdownToggle("notification")
+                  }}
+                  className={`w-full px-3 py-2 text-left hover:bg-gray-100 text-sm ${option.value === formData.notificationOffset ? 'bg-blue-50 font-semibold' : ''}`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* FIXED: Participants - Only for Counseling */}
@@ -653,19 +676,49 @@ const ScheduleFormFields = ({
           {/* Location for Counseling */}
           <div className="flex gap-4 items-center">
             <span className="material-icons text-[#488BBA] text-[25px]">location_on</span>
-            <select
-              value={formData.location}
-              onChange={(e) => handleInputChange("location", e.target.value)}
-              disabled={loading}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
-            >
-              <option value="">Pilih Lokasi</option>
-              {getAvailableLocations().map((option) => (
-                <option key={option.value} value={option.value} title={option.label}>
-                  {truncateText(option.label, 30)}
-                </option>
-              ))}
-            </select>
+            <div className="relative flex-1">
+              <button
+                type="button"
+                onClick={() => !loading && handleDropdownToggle("location")}
+                disabled={loading}
+                className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+              >
+                <span className={`truncate ${formData.location ? 'text-gray-800' : 'text-gray-500'}`}>
+                  {formData.location ? truncateText((getAvailableLocations().find(o => o.value === formData.location)?.label) || formData.location, 30) : 'Pilih Lokasi'}
+                </span>
+                <span className="material-icons text-gray-400 ml-2">
+                  {dropdowns.location ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+                </span>
+              </button>
+              {dropdowns.location && !loading && (
+                <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleInputChange("location", "")
+                      handleDropdownToggle("location")
+                    }}
+                    className={`w-full px-3 py-2 text-left hover:bg-gray-100 text-sm ${!formData.location ? 'bg-blue-50 font-semibold' : ''}`}
+                  >
+                    Pilih Lokasi
+                  </button>
+                  {getAvailableLocations().map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      title={option.label}
+                      onClick={() => {
+                        handleInputChange("location", option.value)
+                        handleDropdownToggle("location")
+                      }}
+                      className={`w-full px-3 py-2 text-left hover:bg-gray-100 text-sm ${option.value === formData.location ? 'bg-blue-50 font-semibold' : ''}`}
+                    >
+                      {truncateText(option.label, 30)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
