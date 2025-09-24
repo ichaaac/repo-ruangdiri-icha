@@ -7,7 +7,7 @@ import { useScreening } from "./hooks/useScreening"
 import ScreeningAssessment from "./ScreeningAssesment"
 import ScreeningResult from "./ScreeningResult"
 import ExitConfirmationPopup from "./ExitConfirmationPopUp"
-import { useOutletContext } from "react-router-dom"
+import { useOutletContext, useNavigate } from "react-router-dom"
 
 // Stage 1 Content Component
 const Stage1Content = ({ onScrollDown }) => {
@@ -290,11 +290,39 @@ const ScreeningWelcomePage = ({ onComplete, onExit }) => {
   const [screeningResult, setScreeningResult] = useState(null)
   const [showExitPopup, setShowExitPopup] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
+  const navigate = useNavigate()
 
   // Navigation protection is handled within ScreeningAssessment now to avoid duplicate prompts
   React.useEffect(() => {
     return () => {}
   }, [currentView])
+
+  // Handle sidebar/navigation attempts while on welcome/result view
+  useEffect(() => {
+    const handleAttemptNav = (e) => {
+      const to = e?.detail?.to
+      if (!to) return
+
+      // If currently inside assessment view, let ScreeningAssessment handle it
+      if (currentView === 'assessment') {
+        return
+      }
+
+      // If there is no screening progress yet, navigate directly
+      const hasProgress = !!localStorage.getItem('screening_answers') || !!localStorage.getItem('screening_current_question')
+      if (!hasProgress) {
+        navigate(to)
+        return
+      }
+
+      // Otherwise, show exit confirmation
+      setShowExitPopup(true)
+      setPendingNavigation(() => () => navigate(to))
+    }
+
+    window.addEventListener('rd:attempt-navigation', handleAttemptNav)
+    return () => window.removeEventListener('rd:attempt-navigation', handleAttemptNav)
+  }, [navigate, currentView])
 
   const handleStartAssessment = () => {
     console.log("Starting assessment...")
