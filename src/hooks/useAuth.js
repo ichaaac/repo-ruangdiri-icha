@@ -273,9 +273,8 @@ export const useAuth = () => {
       localStorage.removeItem("organizationType")
       localStorage.removeItem("userRole")
       localStorage.removeItem("userTimezone")
-      // 🔐 E2E: Clear E2E keys on login error
-      localStorage.removeItem("e2e_account_keys")
-      localStorage.removeItem("e2e_private_key")
+      // localStorage.removeItem("e2e_account_keys")
+      // localStorage.removeItem("e2e_private_key")
     },
   })
 
