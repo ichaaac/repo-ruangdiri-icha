@@ -64,7 +64,7 @@ const SuccessModal = ({ email, onClose, onResend, isResending }) => {
           <div className="relative pt-3 px-4 pb-4">
             <motion.button
               onClick={onClose}
-              className="absolute right-4 top-4 text-zinc-500 hover:text-primary transition-colors"
+              className="absolute right-4 top-4 text-[#EE4266] hover:text-[#7a2436] transition-colors"
               aria-label="Close modal"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
