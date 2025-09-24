@@ -179,7 +179,7 @@ export const useBooking = (userType = "student") => {
     const slots = availableSlots.map((availability, index) => ({
       startTime: availability.startTime.substring(0, 5),
       endTime: availability.endTime.substring(0, 5),
-      psychologistName: availability.psychologist?.fullName || availability.psychologistName || undefined,
+      psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
       psychologistId: availability.psychologist?.id || availability.psychologistId,
       available: true,
       displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
@@ -199,7 +199,7 @@ export const useBooking = (userType = "student") => {
       .map((availability, index) => ({
         startTime: availability.startTime.substring(0, 5),
         endTime: availability.endTime.substring(0, 5),
-        psychologistName: availability.psychologist?.fullName || availability.psychologistName || undefined,
+        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
         psychologistId: availability.psychologist?.id || availability.psychologistId,
         available: false,
         displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (${typeof availability.availablePsychologists === 'number' ? 'Penuh' : 'Sudah dibooking'})`,
@@ -219,7 +219,7 @@ export const useBooking = (userType = "student") => {
       .map((availability, index) => ({
         startTime: availability.startTime.substring(0, 5),
         endTime: availability.endTime.substring(0, 5),
-        psychologistName: availability.psychologist?.fullName || availability.psychologistName || undefined,
+        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
         psychologistId: availability.psychologist?.id || availability.psychologistId,
         available: false,
         displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak tersedia)`,
