@@ -88,6 +88,17 @@ const MessageText = ({ message, hasMedia, isOwn }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const MAX_LENGTH = 550;
   
+  // Detect extremely long unbroken tokens to force hard wrapping
+  const hasLongToken = useMemo(() => {
+    if (!message) return false;
+    const tokens = message.split(/\s+/);
+    // Treat any token > 40 chars as long
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i].length > 40) return true;
+    }
+    return false;
+  }, [message]);
+  
   if (!message || !message.trim()) return null;
   
   const shouldTruncate = message.length > MAX_LENGTH;
@@ -96,7 +107,12 @@ const MessageText = ({ message, hasMedia, isOwn }) => {
     : message;
 
   return (
-    <div className={`text-sm leading-5 text-neutral-600 whitespace-pre-wrap break-words w-full ${hasMedia ? 'mt-2 px-2 pb-1' : ''}`}>
+    <div
+      className={`text-sm leading-5 text-neutral-600 whitespace-pre-wrap ${
+        hasLongToken ? 'break-all' : 'break-words [overflow-wrap:anywhere]'
+      } w-full ${hasMedia ? 'mt-2 px-2 pb-1' : ''}`}
+      style={{ wordBreak: hasLongToken ? 'break-all' : undefined }}
+    >
       {displayText}
       {shouldTruncate && (
         <button
@@ -169,22 +185,11 @@ const MessageBubble = ({
     setIsPreviewOpen(false);
   }, []);
 
-  // Simple width calculation
+  // Unified max-width for bubbles (responsive), prevents overly wide bubbles
   const getMessageWidth = () => {
-    if (hasMedia) return 'max-w-xs';
-    if (showOptions && !isOwn) return 'max-w-[320px] sm:max-w-[400px]';
-    if (actions && actions.length > 0) return 'max-w-[320px] sm:max-w-[400px]';
-    
-    if (hasText) {
-      const textLength = message.length;
-      if (textLength <= 20) return 'max-w-[120px] sm:max-w-[150px]';
-      if (textLength <= 50) return 'max-w-[200px] sm:max-w-[250px]';
-      if (textLength <= 100) return 'max-w-[280px] sm:max-w-[350px]';
-      if (textLength <= 200) return 'max-w-[350px] sm:max-w-[420px]';
-      return 'max-w-[400px] sm:max-w-[480px]';
-    }
-    
-    return 'max-w-[250px] sm:max-w-[320px]';
+    // Tighter cap so bubbles don’t hug screen edges
+    // Mobile: ~80%, Tablet: ~70%, Desktop: ~55%
+    return 'max-w-[80%] sm:max-w-[70%] lg:max-w-[55%]';
   };
 
   const messageWidthClass = getMessageWidth();
@@ -225,7 +230,7 @@ const MessageBubble = ({
             </div>
           )}
           
-          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end' : 'items-start'} ${messageWidthClass} min-w-0`}>
+          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end mr-6 sm:mr-10' : 'items-start ml-6 sm:ml-10'} ${messageWidthClass} min-w-0`}>
             <p className={`text-xs font-light text-zinc-500 ${isOwn ? 'text-right' : ''}`}>
               {isOwn ? 'You' : (sender?.name || 'Unknown')}
             </p>
