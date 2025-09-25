@@ -143,21 +143,15 @@ const MediaPreviewModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center"
+        className="fixed inset-0 bg-black/50 sm:bg-black/60 md:bg-black/70 z-50 flex items-center justify-center backdrop-blur-[1px]"
         onClick={onClose}
       >
         {/* FIXED: Fixed size modal container */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden"
-          style={{ 
-            width: '90vw', 
-            maxWidth: '800px', 
-            height: '70vh', 
-            maxHeight: '600px'
-          }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-[92vw] max-w-[640px] h-[60vh] max-h-[560px] sm:w-[90vw] sm:max-w-[800px] sm:h-[70vh] sm:max-h-[600px]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -215,7 +209,7 @@ const MediaPreviewModal = ({
             {mediaItems.length > 1 && currentIndex > 0 && (
               <button
                 onClick={goToPrevious}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 p-3 bg-black bg-opacity-60 text-white rounded-full hover:bg-opacity-80 transition-colors"
+                className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 z-10 p-2.5 sm:p-3 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
                 title="Previous"
               >
                 <span className="material-icons">chevron_left</span>
@@ -226,7 +220,7 @@ const MediaPreviewModal = ({
             {mediaItems.length > 1 && currentIndex < mediaItems.length - 1 && (
               <button
                 onClick={goToNext}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 p-3 bg-black bg-opacity-60 text-white rounded-full hover:bg-opacity-80 transition-colors"
+                className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 z-10 p-2.5 sm:p-3 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
                 title="Next"
               >
                 <span className="material-icons">chevron_right</span>
