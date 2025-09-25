@@ -24,6 +24,7 @@ const ChatMessages = ({
   const [isNearTop, setIsNearTop] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   
   const previousScrollHeight = useRef(null);
   const scrollTimeoutRef = useRef(null);
@@ -54,6 +55,7 @@ const ChatMessages = ({
     
     const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
     setShouldAutoScroll(isAtBottom);
+    setShowScrollDown(!isAtBottom || nearTop);
 
     if (nearTop && hasMoreMessages && !isLoadingMore && onLoadMore && hasScrolledUp) {
       previousScrollHeight.current = scrollHeight;
@@ -83,6 +85,19 @@ const ChatMessages = ({
       };
     }
   }, [handleScroll]);
+
+  const handleScrollToBottom = useCallback(() => {
+    if (messagesEndRef.current && messagesContainerRef.current) {
+      try {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        const container = messagesContainerRef.current;
+        container.scrollTop = container.scrollHeight;
+        setShouldAutoScroll(true);
+        setIsUserScrolling(false);
+        setShowScrollDown(false);
+      } catch {}
+    }
+  }, [messagesEndRef]);
 
   // Maintain scroll position after loading older messages
   useEffect(() => {
@@ -340,7 +355,25 @@ const ChatMessages = ({
           <div style={{ height: '16px', flexShrink: 0 }} />
         </div>
       </div>
-      
+
+      {/* Scroll-to-bottom button */}
+      <AnimatePresence>
+        {showScrollDown && messages.length > 0 && (
+          <motion.button
+            key="scroll-down"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={handleScrollToBottom}
+            className="absolute bottom-4 right-4 z-20 bg-[#488BBA] text-white rounded-full shadow-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 p-3"
+            title="Scroll to latest"
+            aria-label="Scroll to latest"
+          >
+            <span className="material-icons">arrow_downward</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {/* Scrollbar Styles */}
       <style jsx>{`
         .messages-scroll::-webkit-scrollbar {
