@@ -755,7 +755,7 @@ const ScheduleFormFields = ({
         <div className="flex-1">
           <div className="border border-gray-300 rounded-md min-h-[100px] p-3 relative">
             {(!formData.description || formData.description.trim() === "") && (
-              <div className="absolute top-3 left-3 text-gray-500 pointer-events-none">Masukkan deskripsi</div>
+              <div className="absolute top-4 left-4 text-gray-500 pointer-events-none">Masukkan deskripsi</div>
             )}
             <div
               ref={editorRef}
