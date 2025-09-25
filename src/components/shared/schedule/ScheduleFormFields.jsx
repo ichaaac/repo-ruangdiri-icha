@@ -340,7 +340,7 @@ const ScheduleFormFields = ({
             type="button"
             onClick={() => !loading && handleDropdownToggle("notification")}
             disabled={loading}
-            className="flex items-center px-3 py-2 border border-gray-300 rounded-md min-w-[160px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
+            className="flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md min-w-[160px] focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100"
           >
             <span className="font-medium text-gray-700">
               {(() => {
@@ -348,7 +348,7 @@ const ScheduleFormFields = ({
                 return found ? found.label : 'Pilih notifikasi'
               })()}
             </span>
-            <span className="material-icons text-gray-400 ml-2">
+            <span className="material-icons text-gray-400 ml-2 text-sm">
               {dropdowns.notification ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
             </span>
           </button>
