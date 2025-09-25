@@ -754,47 +754,77 @@ const ScheduleFormFields = ({
         <span className="material-icons text-[#488BBA] text-[25px] mt-1">description</span>
         <div className="flex-1">
           <div className="border border-gray-300 rounded-md min-h-[100px] p-3 relative">
-            {(!formData.description || formData.description.trim() === "" || formData.description === "<br>") && (
+            {(!formData.description || formData.description.trim() === "") && (
               <div className="absolute top-3 left-3 text-gray-500 pointer-events-none">Masukkan deskripsi</div>
             )}
             <div
               ref={editorRef}
               contentEditable={!loading}
+              onPaste={(e) => {
+                if (!editorRef.current) return
+                e.preventDefault()
+                const MAX = 255
+                const pasteText = (e.clipboardData || window.clipboardData).getData('text') || ''
+                const currentText = editorRef.current.innerText || ''
+                const selection = window.getSelection()
+                const selectedLen = selection && !selection.isCollapsed ? selection.toString().length : 0
+                const remaining = Math.max(0, MAX - (currentText.length - selectedLen))
+                if (remaining <= 0) return
+                const toInsert = pasteText.substring(0, remaining)
+                document.execCommand('insertText', false, toInsert)
+                const finalText = (editorRef.current.innerText || '').substring(0, MAX)
+                if (finalText.length >= MAX) {
+                  editorRef.current.innerText = finalText
+                }
+                handleInputChange('description', finalText)
+              }}
+              onKeyDown={(e) => {
+                if (!editorRef.current) return
+                const MAX = 255
+                const textLen = (editorRef.current.innerText || '').length
+                const selection = window.getSelection()
+                const hasSelection = selection && !selection.isCollapsed && selection.toString().length > 0
+                const isModifier = e.ctrlKey || e.metaKey || e.altKey
+                const allowedKeys = [
+                  'Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','PageUp','PageDown'
+                ]
+                const isPrintable = e.key.length === 1 || e.key === 'Enter'
+                if (!isModifier && !hasSelection && textLen >= MAX && (isPrintable || e.key === 'Enter')) {
+                  e.preventDefault()
+                }
+              }}
               onInput={() => {
                 if (editorRef.current) {
-                  const content = editorRef.current.innerHTML
-                  const cleanContent = content === "<br>" || content === "<div><br></div>" ? "" : content
-
-                  if (cleanContent.length <= 255) {
-                    handleInputChange("description", cleanContent)
-                  } else {
-                    const truncated = cleanContent.substring(0, 255)
-                    editorRef.current.innerHTML = truncated
-                    handleInputChange("description", truncated)
+                  const MAX = 255
+                  const text = editorRef.current.innerText || ''
+                  const truncated = text.length > MAX ? text.substring(0, MAX) : text
+                  if (truncated !== text) {
+                    editorRef.current.innerText = truncated
                   }
+                  handleInputChange('description', truncated)
                 }
               }}
               onFocus={() => {
-                if (
-                  editorRef.current &&
-                  (editorRef.current.innerHTML === "" || editorRef.current.innerHTML === "<br>")
-                ) {
-                  editorRef.current.innerHTML = ""
+                if (editorRef.current && (editorRef.current.innerText || '').trim() === "") {
+                  editorRef.current.innerText = ""
                 }
               }}
               onBlur={() => {
                 if (editorRef.current) {
-                  const content = editorRef.current.innerHTML
-                  if (content === "<br>" || content === "<div><br></div>" || content.trim() === "") {
-                    editorRef.current.innerHTML = ""
+                  const text = (editorRef.current.innerText || '').trim()
+                  if (text === "") {
+                    editorRef.current.innerText = ""
                     handleInputChange("description", "")
                   }
                 }
               }}
-              className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1"
+              className="outline-none resize-none min-h-[60px] focus:ring-2 focus:ring-[#488BBA] rounded p-1 whitespace-pre-wrap"
               style={{ wordBreak: "break-word" }}
               suppressContentEditableWarning={true}
             />
+            <div className="absolute bottom-2 right-2 text-xs text-gray-500 select-none">
+              {(formData.description ? formData.description.length : 0)}/255
+            </div>
 
             {/* Attachment Preview */}
             {attachments.length > 0 && (
