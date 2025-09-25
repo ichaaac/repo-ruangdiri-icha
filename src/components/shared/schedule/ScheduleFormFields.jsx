@@ -380,7 +380,7 @@ const ScheduleFormFields = ({
             </span>
           </button>
           {dropdowns.notification && !loading && (
-            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10">
+            <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-50">
               {notificationOptions.map((option) => (
                 <button
                   key={option.value}
