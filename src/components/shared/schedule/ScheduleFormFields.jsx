@@ -243,11 +243,19 @@ const ScheduleFormFields = ({
                   <div 
                     className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
                     onMouseLeave={handleTooltipLeave}
+                    ref={(el) => {
+                      if (!el) return
+                      const target = el.querySelector(`[data-time='${dateInfo.startTime}']`)
+                      if (target && typeof target.scrollIntoView === 'function') {
+                        target.scrollIntoView({ block: 'center' })
+                      }
+                    }}
                   >
                     {timeOptions.map((time) => (
                       <button
                         key={time}
                         type="button"
+                        data-time={time}
                         onClick={() => {
                           updateAdditionalDate(index, "startTime", time)
                           handleDropdownToggle(`timeStart_${index}`)
@@ -279,11 +287,19 @@ const ScheduleFormFields = ({
                   <div 
                     className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
                     onMouseLeave={handleTooltipLeave}
+                    ref={(el) => {
+                      if (!el) return
+                      const target = el.querySelector(`[data-time='${dateInfo.endTime}']`)
+                      if (target && typeof target.scrollIntoView === 'function') {
+                        target.scrollIntoView({ block: 'center' })
+                      }
+                    }}
                   >
                     {timeOptions.map((time) => (
                       <button
                         key={time}
                         type="button"
+                        data-time={time}
                         onClick={() => {
                           updateAdditionalDate(index, "endTime", time)
                           handleDropdownToggle(`timeEnd_${index}`)
