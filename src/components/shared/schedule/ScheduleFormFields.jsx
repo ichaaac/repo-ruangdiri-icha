@@ -588,7 +588,10 @@ const ScheduleFormFields = ({
                                   <button
                                     key={participant.id}
                                     type="button"
-                                    onClick={() => handleParticipantSelect(participant, 0)}
+                                    onClick={() => {
+                                      handleParticipantSelect(participant, 0)
+                                      handleDropdownToggle("participants1")
+                                    }}
                                     onMouseEnter={(e) => showTooltip && handleTooltipHover(e, fullName)}
                                     onMouseLeave={handleTooltipLeave}
                                     className="w-full px-3 py-2 text-left hover:bg-gray-100"
@@ -677,7 +680,10 @@ const ScheduleFormFields = ({
                                   <button
                                     key={participant.id}
                                     type="button"
-                                    onClick={() => handleParticipantSelect(participant, 1)}
+                                    onClick={() => {
+                                      handleParticipantSelect(participant, 1)
+                                      handleDropdownToggle("participants2")
+                                    }}
                                     onMouseEnter={(e) => showTooltip && handleTooltipHover(e, fullName)}
                                     onMouseLeave={handleTooltipLeave}
                                     className="w-full px-3 py-2 text-left hover:bg-gray-100"
