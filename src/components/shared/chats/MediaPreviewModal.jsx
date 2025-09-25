@@ -1,6 +1,6 @@
 // src/components/shared/chats/components/MediaPreviewModal.jsx - FIXED: Hooks Order
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MediaPreviewModal = ({ 
@@ -13,6 +13,16 @@ const MediaPreviewModal = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [imageErrors, setImageErrors] = useState(new Set());
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const translateStartRef = useRef({ x: 0, y: 0 });
+  const movedRef = useRef(false);
+  const clickOffsetRef = useRef({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+  const imgRef = useRef(null);
 
   // FIXED: Always call hooks in the same order - don't return early before all hooks
   // Update currentIndex when initialIndex changes
@@ -45,6 +55,42 @@ const MediaPreviewModal = ({
     };
   }, [isOpen, currentIndex, mediaItems.length]); // Add dependencies
 
+  // Reset zoom/pan when switching media or opening
+  useEffect(() => {
+    setIsZoomed(false);
+    setTranslate({ x: 0, y: 0 });
+    movedRef.current = false;
+    setZoomOrigin({ x: 50, y: 50 });
+  }, [currentIndex, isOpen]);
+
+  const ZOOM_SCALE = 2;
+
+  const clampTranslate = (tx, ty) => {
+    const container = containerRef.current;
+    const img = imgRef.current;
+    if (!container || !img) return { x: tx, y: ty };
+
+    const contW = container.clientWidth;
+    const contH = container.clientHeight;
+    const baseW = img.offsetWidth; // pre-transform width
+    const baseH = img.offsetHeight; // pre-transform height
+
+    const scaledW = baseW * ZOOM_SCALE;
+    const scaledH = baseH * ZOOM_SCALE;
+
+    const extraW = Math.max(0, scaledW - contW);
+    const extraH = Math.max(0, scaledH - contH);
+    // translate is applied AFTER scale; max translate is half of overflow
+    const maxX = extraW / 2;
+    const maxY = extraH / 2;
+
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+    return {
+      x: clamp(tx, -maxX, maxX),
+      y: clamp(ty, -maxY, maxY),
+    };
+  };
+  
   // FIXED: Early return AFTER all hooks are called
   if (!isOpen || !mediaItems.length) return null;
 
@@ -143,7 +189,7 @@ const MediaPreviewModal = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 sm:bg-black/60 md:bg-black/70 z-50 flex items-center justify-center backdrop-blur-[1px]"
+        className="fixed inset-0 bg-black/30 sm:bg-black/35 md:bg-black/40 z-50 flex items-center justify-center backdrop-blur-[0.5px]"
         onClick={onClose}
       >
         {/* FIXED: Fixed size modal container */}
@@ -151,11 +197,11 @@ const MediaPreviewModal = ({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-[92vw] max-w-[640px] h-[60vh] max-h-[560px] sm:w-[90vw] sm:max-w-[800px] sm:h-[70vh] sm:max-h-[600px]"
+          className="relative bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden w-[84vw] max-w-[420px] h-[48vh] max-h-[380px]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50 h-16">
+          <div className="flex items-center justify-between p-2 border-b border-gray-100 bg-gray-50 h-12">
             <div className="flex items-center gap-2">
               <span 
                 className="material-icons text-lg"
@@ -204,12 +250,12 @@ const MediaPreviewModal = ({
           </div>
 
           {/* FIXED: Content area with side navigation */}
-          <div className="relative h-full bg-gray-100" style={{ height: 'calc(100% - 4rem)' }}>
+          <div className="relative h-full bg-gray-100" style={{ height: 'calc(100% - 3rem)' }}>
             {/* FIXED: Left Navigation Button - Positioned on the side */}
             {mediaItems.length > 1 && currentIndex > 0 && (
               <button
                 onClick={goToPrevious}
-                className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 z-10 p-2.5 sm:p-3 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10 p-2 bg-black/40 text-white rounded-full hover:bg-black/60 transition-colors"
                 title="Previous"
               >
                 <span className="material-icons">chevron_left</span>
@@ -220,7 +266,7 @@ const MediaPreviewModal = ({
             {mediaItems.length > 1 && currentIndex < mediaItems.length - 1 && (
               <button
                 onClick={goToNext}
-                className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 z-10 p-2.5 sm:p-3 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 z-10 p-2 bg-black/40 text-white rounded-full hover:bg-black/60 transition-colors"
                 title="Next"
               >
                 <span className="material-icons">chevron_right</span>
@@ -228,21 +274,82 @@ const MediaPreviewModal = ({
             )}
 
             {/* Media Content - Fixed container size */}
-            <div className="w-full h-full flex items-center justify-center p-4">
+            <div ref={containerRef} className="w-full h-full flex items-center justify-center p-3 overflow-hidden">
               {isImage ? (
                 <img
+                  ref={imgRef}
                   key={`${currentMedia.id || currentIndex}-${currentIndex}`}
                   src={currentMedia.attachmentUrl?.startsWith('http') ? 
                        currentMedia.attachmentUrl : 
                        `https://${currentMedia.attachmentUrl}`}
                   alt="Attachment"
-                  className="max-w-full max-h-full object-contain rounded-lg"
+                  className={`max-w-full max-h-full object-contain rounded-lg select-none ${isZoomed ? (isDragging ? 'cursor-grabbing' : 'cursor-zoom-out') : 'cursor-zoom-in'}`}
+                  style={{
+                    transformOrigin: '50% 50%',
+                    transform: isZoomed 
+                      ? `translate(${translate.x}px, ${translate.y}px) scale(${ZOOM_SCALE})` 
+                      : 'translate(0px, 0px) scale(1)',
+                    transition: isDragging ? 'none' : 'transform 150ms ease-out',
+                    willChange: 'transform',
+                    touchAction: 'none',
+                  }}
+                  onPointerDown={(e) => {
+                    // Record start point and prepare for drag or click-zoom
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    clickOffsetRef.current = { x: e.clientX - cx, y: e.clientY - cy };
+                    movedRef.current = false;
+                    dragStartRef.current = { x: e.clientX, y: e.clientY };
+                    translateStartRef.current = translate;
+                    if (isZoomed) {
+                      setIsDragging(true);
+                    }
+                    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+                  }}
+                  onPointerMove={(e) => {
+                    if (!isZoomed || !isDragging) return;
+                    const dx = e.clientX - dragStartRef.current.x;
+                    const dy = e.clientY - dragStartRef.current.y;
+                    if (Math.abs(dx) + Math.abs(dy) > 3) movedRef.current = true;
+                    const next = {
+                      x: translateStartRef.current.x + dx,
+                      y: translateStartRef.current.y + dy,
+                    };
+                    setTranslate(clampTranslate(next.x, next.y));
+                  }}
+                  onPointerUp={(e) => {
+                    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+                    if (!isZoomed) {
+                      // Zoom in on tap/click if not moved
+                      if (!movedRef.current) {
+                        const desired = { 
+                          x: -clickOffsetRef.current.x * ZOOM_SCALE, 
+                          y: -clickOffsetRef.current.y * ZOOM_SCALE 
+                        };
+                        const clamped = clampTranslate(desired.x, desired.y);
+                        setTranslate(clamped);
+                        setIsZoomed(true);
+                      }
+                    } else {
+                      // When zoomed: if it was just a tap (no drag), toggle zoom out
+                      if (!movedRef.current) {
+                        setIsZoomed(false);
+                        setTranslate({ x: 0, y: 0 });
+                      }
+                      setIsDragging(false);
+                    }
+                  }}
+                  onPointerCancel={() => {
+                    setIsDragging(false);
+                  }}
+                  draggable={false}
                   onError={handleImageError}
                 />
               ) : (
                 <div className="text-center">
                   <span 
-                    className="material-icons text-6xl mb-4 block"
+                    className="material-icons text-4xl mb-2 block"
                     style={{ color: '#488BBA' }}
                   >
                     {getFileIcon(currentMedia.attachmentType)}
