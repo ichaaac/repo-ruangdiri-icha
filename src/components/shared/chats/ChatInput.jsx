@@ -247,6 +247,16 @@ const ChatInput = ({
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
   const textareaRef = useRef(null);
 
+  const focusTextarea = () => {
+    if (textareaRef.current) {
+      try {
+        textareaRef.current.focus();
+        const len = textareaRef.current.value?.length || 0;
+        textareaRef.current.setSelectionRange(len, len);
+      } catch {}
+    }
+  };
+
   // Load persisted message when switching conversations
   useEffect(() => {
     if (selectedConversation?.sessionId) {
@@ -446,6 +456,8 @@ const ChatInput = ({
         
         // Clear session message storage after successful send
         clearSessionMessage(selectedConversation.sessionId);
+        // Keep focus on input for faster follow-up typing
+        focusTextarea();
         return;
       }
 
@@ -524,6 +536,9 @@ const ChatInput = ({
               prev.filter(item => item.uploadState !== UPLOAD_STATES.SUCCESS)
             );
           }, 1000);
+
+          // Refocus input so user can continue typing
+          focusTextarea();
         }
         
         if (uploadFailedCount > 0) {
@@ -671,7 +686,7 @@ const ChatInput = ({
               placeholder={isChatDisabled ? "Chat is disabled..." : "Type a message here..."}
               className="text-sm leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none w-full min-h-[40px] max-h-[120px] placeholder-gray-400 overflow-y-auto"
               rows="1"
-              disabled={isChatDisabled || isSending || isUploadingFiles}
+              disabled={isChatDisabled}
               style={{ 
                 scrollbarWidth: 'thin',
                 scrollbarColor: '#CBD5E1 transparent'
