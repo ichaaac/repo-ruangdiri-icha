@@ -230,7 +230,7 @@ const MessageBubble = ({
             </div>
           )}
           
-          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end mr-6 sm:mr-10' : 'items-start ml-6 sm:ml-10'} ${messageWidthClass} min-w-0`}>
+          <div className={`flex flex-col gap-1.5 ${isOwn ? 'items-end mr-6 sm:mr-10' : 'items-start'} ${messageWidthClass} min-w-0`}>
             <p className={`text-xs font-light text-zinc-500 ${isOwn ? 'text-right' : ''}`}>
               {isOwn ? 'You' : (sender?.name || 'Unknown')}
             </p>
