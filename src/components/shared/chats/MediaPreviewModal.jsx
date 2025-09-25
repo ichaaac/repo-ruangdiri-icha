@@ -1,6 +1,7 @@
 // src/components/shared/chats/components/MediaPreviewModal.jsx - FIXED: Hooks Order
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MediaPreviewModal = ({ 
@@ -32,28 +33,54 @@ const MediaPreviewModal = ({
     }
   }, [isOpen, initialIndex, currentIndex]);
 
-  // Handle keyboard events
+  // Handle keyboard events and block typing while modal open
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!isOpen) return; // Check inside the effect, not before hook
-      
+      if (!isOpen) return;
+      const allowed = ['Escape', 'ArrowLeft', 'ArrowRight'];
       if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
-      } else if (e.key === 'ArrowLeft') {
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        e.stopPropagation();
         goToPrevious();
-      } else if (e.key === 'ArrowRight') {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        e.stopPropagation();
         goToNext();
+        return;
+      }
+      if (!allowed.includes(e.key)) {
+        // Block any other typing/interactions while modal is open
+        e.preventDefault();
+        e.stopPropagation();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('keydown', handleKeyDown, true);
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [isOpen, currentIndex, mediaItems.length]); // Add dependencies
+  }, [isOpen]);
+
+  // Lock body scroll when modal open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
 
   // Reset zoom/pan when switching media or opening
   useEffect(() => {
@@ -183,13 +210,13 @@ const MediaPreviewModal = ({
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/30 sm:bg-black/35 md:bg-black/40 z-50 flex items-center justify-center backdrop-blur-[0.5px]"
+        className="fixed inset-0 bg-black/30 sm:bg-black/35 md:bg-black/40 z-[10000] flex items-center justify-center backdrop-blur-[0.5px]"
         onClick={onClose}
       >
         {/* FIXED: Fixed size modal container */}
@@ -381,7 +408,8 @@ const MediaPreviewModal = ({
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
