@@ -9,24 +9,18 @@ import { extractAllMediaItems, findMediaIndex } from './utils/mediaUtils';
 // FIXED: Message Status - Pure socket event flow
 const MessageStatus = ({ messageData, isOwn }) => {
   if (!isOwn) return null;
-  
+
+  // Derive states once at the top
+  const isRead = messageData?.isRead === true;            // from message_read event
+  const isDelivered = messageData?.isDelivered === true;  // from delivery_receipt event
+  const isSent = messageData?.isSent === true || !!messageData?.id;
+  const isOptimistic = messageData?.isOptimistic === true;
+
   // Handle sending/uploading states
   if (messageData?.isSending || messageData?.isUploading) {
     return (
       <div className="flex items-center ml-2" title="Sending...">
         <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
-      </div>
-    );
-  } 
-  
-  // Delivery receipt: grey double checks
-  if (!isRead && isDelivered) {
-    return (
-      <div className="flex items-center ml-2" title="Delivered">
-        <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-          <path d="M1.5 5L4 7.5L7.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M5.5 5L8 7.5L11.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
       </div>
     );
   }
@@ -42,12 +36,18 @@ const MessageStatus = ({ messageData, isOwn }) => {
       </div>
     );
   }
-  
-  // FIXED: Follow exact socket event flow
-  const isRead = messageData?.isRead === true; // from message_read event
-  const isDelivered = messageData?.isDelivered === true; // from delivery_receipt event  
-  const isSent = messageData?.isSent === true || messageData?.id;
-  const isOptimistic = messageData?.isOptimistic === true;
+
+  // Delivery receipt: grey double checks
+  if (!isRead && isDelivered) {
+    return (
+      <div className="flex items-center ml-2" title="Delivered">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
+          <path d="M1.5 5L4 7.5L7.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M5.5 5L8 7.5L11.5 4" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+  }
   
   if (isOptimistic) {
     return (
