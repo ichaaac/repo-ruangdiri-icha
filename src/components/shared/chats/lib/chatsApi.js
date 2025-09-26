@@ -743,12 +743,15 @@ export const chatsApi = {
     }
   },
 
-  // Mark as read
-  async markAsRead(sessionId) {
+  // Mark as read for messages up to a specific messageId
+  async markAsRead(sessionId, messageId) {
     if (sessionId === 'team-ruangdiri') return;
 
     try {
-      const response = await apiClient.put(`/chat/sessions/${sessionId}/read`);
+      if (!messageId) {
+        return { status: 'skipped', reason: 'missing_message_id' };
+      }
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/messages/read`, { messageId });
       
       if (response.data?.status === 'success') {
         console.log('✅ Marked session as read:', sessionId);

@@ -203,8 +203,14 @@ const ChatPage = () => {
       if (selectedSession && !selectedSession.isTeamChat && selectedSession.hasUnread) {
         try {
           console.log('👁️ Window focused, marking session as read...');
-          await chatsApi.markAsRead(selectedSession.sessionId);
-          await refetchSessions();
+          const list = messages || [];
+          const userId = currentUserId;
+          const opponentMsgs = list.filter(m => m.senderId && m.senderId !== userId);
+          const lastMsg = (opponentMsgs.length > 0 ? opponentMsgs[opponentMsgs.length - 1] : list[list.length - 1]) || null;
+          const messageId = lastMsg?.id;
+          if (messageId) {
+            await chatsApi.markAsRead(selectedSession.sessionId, messageId);
+          }
         } catch (error) {
           console.error('❌ Failed to mark as read on window focus:', error);
         }

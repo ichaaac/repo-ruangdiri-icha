@@ -54,15 +54,24 @@ export const useChats = () => {
   const currentPresenceRef = useRef('away');
   const awayPresenceTimeoutRef = useRef(null);
 
-  const markCurrentSessionReadThrottled = useCallback(async () => {
+  const markCurrentSessionReadThrottled = useCallback(async (explicitMessageId) => {
     if (!selectedSession?.sessionId) return;
     const now = Date.now();
     if (now - lastReadPutRef.current < 1000) return; // 1s throttle
     lastReadPutRef.current = now;
     try {
-      await chatsApi.markAsRead(selectedSession.sessionId);
+      let messageId = explicitMessageId;
+      if (!messageId) {
+        const list = messages.messages || [];
+        const opponentMsgs = list.filter(m => m.senderId && m.senderId !== userId);
+        const lastMsg = (opponentMsgs.length > 0 ? opponentMsgs[opponentMsgs.length - 1] : list[list.length - 1]) || null;
+        messageId = lastMsg?.id;
+      }
+      if (messageId) {
+        await chatsApi.markAsRead(selectedSession.sessionId, messageId);
+      }
     } catch {}
-  }, [selectedSession?.sessionId]);
+  }, [selectedSession?.sessionId, messages.messages, userId]);
 
   const sendPresenceThrottled = useCallback(async (status) => {
     if (!selectedSession?.sessionId) return;
@@ -389,7 +398,7 @@ export const useChats = () => {
     }
     // If we are in the room and received opponent's message, mark read (throttled)
     if (messageData.senderId !== userId && selectedSession?.sessionId) {
-      markCurrentSessionReadThrottled();
+      markCurrentSessionReadThrottled(messageData.id);
     }
   }, [userId, messages, selectedSession?.sessionId, markCurrentSessionReadThrottled]);
 
