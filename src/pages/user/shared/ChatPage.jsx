@@ -143,6 +143,39 @@ const ChatPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Update chat presence via API when tab/window visibility changes
+  useEffect(() => {
+    const updatePresence = async (status) => {
+      if (!selectedSession || selectedSession.isTeamChat) return;
+      try {
+        await chatsApi.updatePresence(selectedSession.sessionId, status);
+      } catch (e) {
+        console.warn('Presence update failed:', e?.message || e);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      const status = document.visibilityState === 'visible' ? 'present' : 'away';
+      updatePresence(status);
+    };
+
+    const handleFocus = () => updatePresence('present');
+    const handleBlur = () => updatePresence('away');
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    // Initial sync on mount or when session changes
+    handleVisibilityChange();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [selectedSession?.sessionId, selectedSession?.isTeamChat]);
+
   // Auto mark as read ketika user focus ke window dan ada selected session
   useEffect(() => {
     const handleWindowFocus = async () => {

@@ -832,6 +832,25 @@ export const chatsApi = {
     }
   },
 
+  // Update presence status for a session (triggers Ably presence event via backend)
+  async updatePresence(sessionId, status) {
+    // status: 'present' | 'away'
+    if (!sessionId || sessionId === 'team-ruangdiri') return;
+
+    try {
+      const normalized = (status || '').toLowerCase() === 'present' ? 'present' : 'away';
+      const response = await apiClient.put(`/chat/sessions/${sessionId}/presence`, { status: normalized });
+      if (response?.data?.status !== 'success') {
+        console.warn('Presence update did not return success', response?.data);
+      }
+      return response?.data;
+    } catch (error) {
+      console.error('Error updating presence:', error);
+      // Bubble up for optional handling by caller
+      throw error;
+    }
+  },
+
   // Send typing indicator  
   async sendTypingIndicator(sessionId, isTyping) {
     if (sessionId === 'team-ruangdiri') return;
