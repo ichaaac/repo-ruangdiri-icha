@@ -248,11 +248,11 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     setOpenNotif(false);
   }, [location.pathname]);
 
-  const handleViewAllNotifications = () => {
+  const handleViewAllNotifications = (toFromChild) => {
     setOpenNotif(false);
     // If currently on screening, use designed popup via custom event
     if (location.pathname.includes('/screening')) {
-      const to = (() => {
+      const fallback = (() => {
         const path = location.pathname
         const isSchool = path.includes('/organization/school');
         const isCompany = path.includes('/organization/company');
@@ -260,12 +260,18 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
         if (isCompany) return "/organization/company/notifications";
         return "/notifications";
       })();
+      const to = toFromChild || fallback;
       window.dispatchEvent(new CustomEvent('rd:attempt-navigation', { detail: { to } }))
       return;
     }
+    // Prefer target provided by dropdown (includes ?tab=...)
+    if (toFromChild) {
+      navigate(toFromChild);
+      return;
+    }
+    // Fallback based on org when no target provided
     const isSchool = location.pathname.includes('/organization/school');
     const isCompany = location.pathname.includes('/organization/company');
-    
     if (isSchool) {
       navigate("/organization/school/notifications");
     } else if (isCompany) {

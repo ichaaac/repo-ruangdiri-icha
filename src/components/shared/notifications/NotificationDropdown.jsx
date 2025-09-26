@@ -209,8 +209,9 @@ const NotificationDropdown = ({ onViewAll, onClose }) => {
     if (org === "company") return "/organization/company/notifications";
     return "/notifications"; // ⬅ fallback ke global, bukan /user/student/notifications
   })();
-  if (onViewAll) onViewAll(to);
-else navigate(to);
+  const finalTo = selectedTab === 'counseling' ? `${to}?tab=counseling` : `${to}?tab=all`;
+  if (onViewAll) onViewAll(finalTo);
+else navigate(finalTo);
 }}
 
           className="w-full text-sm text-[#488abe] hover:text-[#3399E9] font-medium"

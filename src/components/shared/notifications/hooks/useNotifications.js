@@ -1,6 +1,7 @@
 // src/components/shared/notifications/hooks/useNotifications.js
 
 import { useState, useCallback, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import notificationSocket from "../lib/socket"
 import { notificationsAPI } from "../lib/api"
@@ -12,7 +13,12 @@ import {
 
 export const useNotifications = () => {
   const queryClient = useQueryClient()
-  const [selectedTab, setSelectedTab] = useState("all")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = (() => {
+    const tab = (searchParams.get('tab') || '').toLowerCase()
+    return tab === 'counseling' ? 'counseling' : 'all'
+  })()
+  const [selectedTab, setSelectedTab] = useState(initialTab)
 
   const { data: unreadData } = useQuery({
     queryKey: ['notifications-unread-count'],
@@ -126,7 +132,15 @@ export const useNotifications = () => {
 
   const handleTabChange = useCallback((tab) => {
     setSelectedTab(tab)
-  }, [])
+    // sync tab to URL so deep-linking and back/forward behave as expected
+    try {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        next.set('tab', tab)
+        return next
+      }, { replace: true })
+    } catch {}
+  }, [setSearchParams])
 
   const handleMarkAsRead = useCallback((notificationId) => {
     markAsReadMutation.mutate([notificationId])
