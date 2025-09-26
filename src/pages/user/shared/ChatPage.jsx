@@ -145,24 +145,42 @@ const ChatPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Update chat presence via API when tab/window visibility changes
+  // Update chat presence via API when tab/window visibility changes (throttled + 10s away delay)
   useEffect(() => {
-    const updatePresence = async (status) => {
+    let lastPresenceAt = 0;
+    let lastStatus = 'away';
+    let awayTimer = null;
+
+    const updatePresenceThrottled = async (status) => {
       if (!selectedSession || selectedSession.isTeamChat) return;
+      const normalized = status === 'present' ? 'present' : 'away';
+      const now = Date.now();
+      if (normalized === lastStatus && (now - lastPresenceAt) < 15000) return;
+      lastStatus = normalized;
+      lastPresenceAt = now;
       try {
-        await chatsApi.updatePresence(selectedSession.sessionId, status);
+        await chatsApi.updatePresence(selectedSession.sessionId, normalized);
       } catch (e) {
         console.warn('Presence update failed:', e?.message || e);
       }
     };
 
     const handleVisibilityChange = () => {
-      const status = document.visibilityState === 'visible' ? 'present' : 'away';
-      updatePresence(status);
+      const isVisible = document.visibilityState === 'visible';
+      if (isVisible) {
+        if (awayTimer) { clearTimeout(awayTimer); awayTimer = null; }
+        updatePresenceThrottled('present');
+      } else {
+        if (awayTimer) { clearTimeout(awayTimer); }
+        awayTimer = setTimeout(() => {
+          updatePresenceThrottled('away');
+          awayTimer = null;
+        }, 10000); // 10s grace before away
+      }
     };
 
-    const handleFocus = () => updatePresence('present');
-    const handleBlur = () => updatePresence('away');
+    const handleFocus = () => { if (awayTimer) { clearTimeout(awayTimer); awayTimer = null; } updatePresenceThrottled('present'); };
+    const handleBlur = () => { if (awayTimer) { clearTimeout(awayTimer); } awayTimer = setTimeout(() => { updatePresenceThrottled('away'); awayTimer = null; }, 10000); };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
@@ -175,6 +193,7 @@ const ChatPage = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('blur', handleBlur);
+      if (awayTimer) { clearTimeout(awayTimer); awayTimer = null; }
     };
   }, [selectedSession?.sessionId, selectedSession?.isTeamChat]);
 

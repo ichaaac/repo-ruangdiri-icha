@@ -48,6 +48,36 @@ export const useChats = () => {
 
   const userId = useMemo(() => user?.id, [user?.id]);
 
+  // Throttles for read and presence updates
+  const lastReadPutRef = useRef(0);
+  const lastPresencePutRef = useRef(0);
+  const currentPresenceRef = useRef('away');
+  const awayPresenceTimeoutRef = useRef(null);
+
+  const markCurrentSessionReadThrottled = useCallback(async () => {
+    if (!selectedSession?.sessionId) return;
+    const now = Date.now();
+    if (now - lastReadPutRef.current < 1000) return; // 1s throttle
+    lastReadPutRef.current = now;
+    try {
+      await chatsApi.markAsRead(selectedSession.sessionId);
+    } catch {}
+  }, [selectedSession?.sessionId]);
+
+  const sendPresenceThrottled = useCallback(async (status) => {
+    if (!selectedSession?.sessionId) return;
+    const normalized = status === 'present' ? 'present' : 'away';
+    const now = Date.now();
+    const unchanged = currentPresenceRef.current === normalized;
+    const tooSoon = now - lastPresencePutRef.current < 15000; // 15s throttle
+    if (unchanged && tooSoon) return;
+    lastPresencePutRef.current = now;
+    currentPresenceRef.current = normalized;
+    try {
+      await chatsApi.updatePresence(selectedSession.sessionId, normalized);
+    } catch {}
+  }, [selectedSession?.sessionId]);
+
   // Store user data
   useEffect(() => {
     if (user && user.id) {
@@ -222,14 +252,14 @@ export const useChats = () => {
         [sessionId]: parsedUnreadCount
       }));
 
-      // Auto mark as read if session is open
+      // Auto mark as read if session is open (throttled)
       if (selectedSession?.sessionId === sessionId && parsedUnreadCount > 0) {
         setTimeout(() => {
-          chatsApi.markAsRead(sessionId).catch(() => {});
-        }, 1000);
+          markCurrentSessionReadThrottled();
+        }, 800);
       }
     }
-  }, [userId, selectedSession?.sessionId]);
+  }, [userId, selectedSession?.sessionId, markCurrentSessionReadThrottled]);
 
   // Setup Socket.io listeners
   useEffect(() => {
@@ -269,21 +299,12 @@ export const useChats = () => {
     }
     
     try {
-      // Mark as read and reset unread count
-      if (!session.isTeamChat && session.hasUnread && shouldMarkAsRead) {
+      // Reset unread count immediately for UI; server read PUT is handled separately
+      if (!session.isTeamChat && (session.hasUnread || shouldMarkAsRead)) {
         setUnreadCounts(prev => ({
           ...prev,
           [session.sessionId]: 0
         }));
-        
-        chatsApi.markAsRead(session.sessionId).catch(() => {
-          // Revert on error
-          setUnreadCounts(prev => ({
-            ...prev,
-            [session.sessionId]: session.unreadCount || 0
-          }));
-        });
-        
         session.hasUnread = false;
         session.unreadCount = 0;
       }
@@ -310,10 +331,14 @@ export const useChats = () => {
       } else if (session.sessionId === 'team-ruangdiri') {
         await ably.connect(session.sessionId, userId);
       }
+
+      // On entering room: send presence and mark as read (throttled)
+      await sendPresenceThrottled('present');
+      await markCurrentSessionReadThrottled();
     } catch (error) {
       ChatsLogger.log('error', 'Session selection failed', error);
     }
-  }, [selectedSession?.sessionId, ably, userId]);
+  }, [selectedSession?.sessionId, ably, userId, sendPresenceThrottled, markCurrentSessionReadThrottled]);
 
   // Auto-select Team RuangDiri
   useEffect(() => {
@@ -362,7 +387,11 @@ export const useChats = () => {
     if (transformedMessage.text?.trim() || transformedMessage.attachmentUrl) {
       messages.addMessage(transformedMessage);
     }
-  }, [userId, messages]);
+    // If we are in the room and received opponent's message, mark read (throttled)
+    if (messageData.senderId !== userId && selectedSession?.sessionId) {
+      markCurrentSessionReadThrottled();
+    }
+  }, [userId, messages, selectedSession?.sessionId, markCurrentSessionReadThrottled]);
 
   // Simple session status handler
   const handleAblySessionStatus = useCallback((statusData) => {
@@ -448,6 +477,44 @@ export const useChats = () => {
       handleAblyMessage, handleAblySessionStatus, handleAblyTyping, 
       handleAblyUnreadCount, handleAblyReadReceipt, handleAblyDeliveryReceipt, 
       handleAblyUserPresence]);
+
+  // Presence management (visibility-based) with throttle
+  useEffect(() => {
+    const handleVisibility = () => {
+      const isVisible = document.visibilityState === 'visible';
+      if (isVisible) {
+        if (awayPresenceTimeoutRef.current) {
+          clearTimeout(awayPresenceTimeoutRef.current);
+          awayPresenceTimeoutRef.current = null;
+        }
+        sendPresenceThrottled('present');
+      } else {
+        if (awayPresenceTimeoutRef.current) {
+          clearTimeout(awayPresenceTimeoutRef.current);
+        }
+        awayPresenceTimeoutRef.current = setTimeout(() => {
+          sendPresenceThrottled('away');
+          awayPresenceTimeoutRef.current = null;
+        }, 10000); // 10s grace before marking away
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+    // Initial presence when session becomes active
+    if (selectedSession?.sessionId) {
+      sendPresenceThrottled('present');
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      if (awayPresenceTimeoutRef.current) {
+        clearTimeout(awayPresenceTimeoutRef.current);
+        awayPresenceTimeoutRef.current = null;
+      }
+    };
+  }, [selectedSession?.sessionId, sendPresenceThrottled]);
 
   // Simple typing handler
   const handleTyping = useCallback((text) => {
