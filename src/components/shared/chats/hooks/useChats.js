@@ -128,7 +128,7 @@ export const useChats = () => {
     return sessions;
   }, [sessionsQuery.data?.sessions, user?.role, userId, unreadCounts]);
 
-  // SIMPLIFIED: Handle user presence from Ably - just update state
+  // SIMPLIFIED: Handle user presence from Ably - just update state (no invalidation, no delivery side-effects)
   const handleAblyUserPresence = useCallback((presenceData) => {
     ChatsLogger.log('presence', 'User presence update', presenceData);
     
@@ -143,24 +143,7 @@ export const useChats = () => {
         timestamp
       }
     }));
-
-    // SIMPLIFIED: Update message status when recipient presence changes
-    if (selectedSession?.sessionId) {
-      queryClient.setQueryData(['chat-messages', selectedSession.sessionId], (oldMessages = []) => {
-        return oldMessages.map(message => {
-          if (message.senderId === userId && !message.isRead) {
-            return {
-              ...message,
-              recipientPresence: status,
-              isDelivered: true,
-              deliveredAt: timestamp
-            };
-          }
-          return message;
-        });
-      });
-    }
-  }, [selectedSession?.sessionId, userId, queryClient]);
+  }, []);
 
   // SIMPLIFIED: Handle read receipts from Ably - just mark as read
   const handleAblyReadReceipt = useCallback((readData) => {
