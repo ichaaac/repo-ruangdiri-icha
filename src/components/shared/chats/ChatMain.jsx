@@ -26,6 +26,7 @@ const ChatMain = ({
   onFileUpload,
   typingStatus,
   currentUserId, // FIXED: Receive currentUserId prop
+  recipientPresence,
   // FIXED: Infinite scroll props
   onLoadMoreMessages,
   hasMoreMessages,
@@ -93,6 +94,7 @@ const ChatMain = ({
         selectedConversation={selectedConversation}
         onToggleSidebar={onToggleSidebar}
         connectionStatus={connectionStatus}
+        recipientPresence={recipientPresence}
         isPsychologist={isPsychologist}
         onEndSession={onEndSession}
         isEndingSession={isEndingSession}
@@ -110,6 +112,7 @@ const ChatMain = ({
         hasMoreMessages={hasMoreMessages}
         isLoadingMore={isLoadingMoreMessages}
         currentUserId={currentUserId} // FIXED: Pass currentUserId for message status
+        recipientPresence={recipientPresence}
       />
 
       {/* Enhanced Input Area with WhatsApp-like file upload */}
