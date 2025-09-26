@@ -205,9 +205,11 @@ const ChatPage = () => {
           console.log('👁️ Window focused, marking session as read...');
           const list = messages || [];
           const userId = currentUserId;
+          const reUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
           const opponentMsgs = list.filter(m => m.senderId && m.senderId !== userId);
-          const lastMsg = (opponentMsgs.length > 0 ? opponentMsgs[opponentMsgs.length - 1] : list[list.length - 1]) || null;
-          const messageId = lastMsg?.id;
+          const candidates = [...opponentMsgs].reverse().concat([...list].reverse());
+          const lastValid = candidates.find(m => m && typeof m.id === 'string' && reUUID.test(m.id));
+          const messageId = lastValid?.id;
           if (messageId) {
             await chatsApi.markAsRead(selectedSession.sessionId, messageId);
           }

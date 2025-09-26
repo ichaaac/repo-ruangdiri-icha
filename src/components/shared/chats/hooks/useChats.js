@@ -48,6 +48,13 @@ export const useChats = () => {
 
   const userId = useMemo(() => user?.id, [user?.id]);
 
+  // Helper: validate UUID v4
+  const isValidUUID = useCallback((id) => {
+    if (typeof id !== 'string') return false;
+    const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return re.test(id);
+  }, []);
+
   // Throttles for read and presence updates
   const lastReadPutRef = useRef(0);
   const lastPresencePutRef = useRef(0);
@@ -61,17 +68,18 @@ export const useChats = () => {
     lastReadPutRef.current = now;
     try {
       let messageId = explicitMessageId;
-      if (!messageId) {
-        const list = messages.messages || [];
+      const list = messages.messages || [];
+      if (!isValidUUID(messageId)) {
         const opponentMsgs = list.filter(m => m.senderId && m.senderId !== userId);
-        const lastMsg = (opponentMsgs.length > 0 ? opponentMsgs[opponentMsgs.length - 1] : list[list.length - 1]) || null;
-        messageId = lastMsg?.id;
+        const lastValidOpponent = [...opponentMsgs].reverse().find(m => isValidUUID(m.id));
+        const lastValidAny = lastValidOpponent || [...list].reverse().find(m => isValidUUID(m.id));
+        messageId = lastValidAny?.id;
       }
-      if (messageId) {
+      if (isValidUUID(messageId)) {
         await chatsApi.markAsRead(selectedSession.sessionId, messageId);
       }
     } catch {}
-  }, [selectedSession?.sessionId, messages.messages, userId]);
+  }, [selectedSession?.sessionId, messages.messages, userId, isValidUUID]);
 
   const sendPresenceThrottled = useCallback(async (status) => {
     if (!selectedSession?.sessionId) return;
@@ -366,7 +374,7 @@ export const useChats = () => {
     const messageContent = messageData.content || messageData.message || '';
     
     const transformedMessage = {
-      id: messageData.id || `realtime-${Date.now()}`,
+      id: messageData.messageId || messageData.id || `realtime-${Date.now()}`,
       text: messageContent,
       time: messageData.time || new Date().toLocaleTimeString("id-ID", {
         hour: '2-digit',
@@ -398,7 +406,7 @@ export const useChats = () => {
     }
     // If we are in the room and received opponent's message, mark read (throttled)
     if (messageData.senderId !== userId && selectedSession?.sessionId) {
-      markCurrentSessionReadThrottled(messageData.id);
+      markCurrentSessionReadThrottled(messageData.messageId || messageData.id);
     }
   }, [userId, messages, selectedSession?.sessionId, markCurrentSessionReadThrottled]);
 
