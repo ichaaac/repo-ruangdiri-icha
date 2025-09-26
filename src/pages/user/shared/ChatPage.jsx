@@ -54,6 +54,8 @@ const ChatPage = () => {
     hasMoreMessages,
     isLoadingMoreMessages,
     typingUsers
+  ,
+    recipientPresence // ADDED: presence of the other user in the current session
   } = useChats();
 
   // Handle AI service selection
@@ -311,33 +313,34 @@ const ChatPage = () => {
 
         {/* Chat Main Area - Independent scroll container */}
         <div className="flex-1 h-full">
-          <ChatMain
-            selectedConversation={selectedSession}
-            messages={messages}
-            messageText={messageText}
-            onMessageChange={handleTyping}
-            onSendMessage={sendCurrentMessage}
-            onAIServiceSelection={handleAIService}
-            onToggleSidebar={toggleSidebar}
-            onEndSession={handleEndSession}
-            canSendMessage={canSendMessage}
-            canSendMessageWithText={canSendMessageWithText}
-            isSending={isSendingMessage}
-            connectionStatus={connectionStatus}
-            getSessionStatus={getSessionStatus}
-            onBookingClick={handleBookingClick}
-            userType={userType}
-            isPsychologist={isPsychologist}
-            isEndingSession={isEndingSession}
-            onFileUpload={sendFile}
-            typingStatus={typingStatus}
-            currentUserId={currentUserId} // FIXED: Pass currentUserId
-            // FIXED: Pass infinite scroll props
-            onLoadMoreMessages={loadMoreMessages}
-            hasMoreMessages={hasMoreMessages}
-            isLoadingMoreMessages={isLoadingMoreMessages}
-            typingUsers={typingUsers}
-          />
+      <ChatMain 
+        selectedConversation={selectedSession}
+        messages={messages}
+        messageText={messageText}
+        onMessageChange={handleTyping}
+        onSendMessage={sendCurrentMessage}
+        onAIServiceSelection={handleAIService}
+        onToggleSidebar={toggleSidebar}
+        onEndSession={handleEndSession}
+        canSendMessage={canSendMessage}
+        canSendMessageWithText={canSendMessageWithText}
+        isSending={isSendingMessage}
+        connectionStatus={connectionStatus}
+        getSessionStatus={getSessionStatus}
+        onBookingClick={handleBookingClick}
+        userType={userType}
+        isPsychologist={isPsychologist}
+        isEndingSession={isEndingSession}
+        onFileUpload={sendFile}
+        typingStatus={typingStatus}
+        currentUserId={currentUserId} // FIXED: Pass currentUserId
+        recipientPresence={recipientPresence}
+        // FIXED: Pass infinite scroll props
+        onLoadMoreMessages={loadMoreMessages}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingMoreMessages={isLoadingMoreMessages}
+        typingUsers={typingUsers}
+      />
         </div>
       </div>
 
