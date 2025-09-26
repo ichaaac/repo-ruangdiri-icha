@@ -1,11 +1,12 @@
-// src/components/shared/chats/components/ChatHeader.jsx
+// src/components/shared/chats/ChatHeader.jsx
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 const ChatHeader = ({ 
   selectedConversation, 
   onToggleSidebar, 
   connectionStatus, 
+  recipientPresence = 'unknown',
   isPsychologist, 
   onEndSession, 
   isEndingSession,
@@ -25,7 +26,7 @@ const ChatHeader = ({
         <div className="w-[35px] h-[35px] sm:w-[45px] sm:h-[45px] rounded-full overflow-hidden flex-shrink-0">
           {selectedConversation?.isTeamChat ? (
             <div className="w-full h-full bg-[#1E5A89] flex items-center justify-center">
-              <span className="text-white text-lg sm:text-xl">🤖</span>
+              <span className="text-white text-lg sm:text-xl">AI</span>
             </div>
           ) : selectedConversation?.avatar ? (
             <img
@@ -50,10 +51,10 @@ const ChatHeader = ({
             {selectedConversation?.name || 'Unknown'}
           </h2>
           
-          {/* Typing indicator */}
+          {/* Typing indicator / status */}
           {selectedConversation?.isTeamChat ? (
             <p className="text-xs font-light" style={{ color: '#488BBA' }}>
-              🤖 AI Assistant - Always Available
+              AI Assistant • Always Available
             </p>
           ) : typingStatus ? (
             <motion.div 
@@ -85,12 +86,27 @@ const ChatHeader = ({
             </motion.div>
           ) : (
             <div className="flex items-center gap-2">
+              {/* Connection status */}
               <p className={`text-xs font-light ${
                 connectionStatus === 'connected' ? 'text-green-500' : 'text-gray-500'
               }`}>
-                {connectionStatus === 'connected' ? '🟢 Online' : '🔴 Offline'}
+                {connectionStatus === 'connected' ? 'Online' : 'Offline'}
               </p>
-              
+
+              {/* Presence indicator (non-team chat) */}
+              {!selectedConversation?.isTeamChat && (
+                <>
+                  <span className={`inline-block w-2 h-2 rounded-full ${
+                    recipientPresence === 'present' ? 'bg-green-500' : recipientPresence === 'away' ? 'bg-gray-400' : 'bg-gray-300'
+                  }`} />
+                  <span className={`text-xs font-light ${
+                    recipientPresence === 'present' ? 'text-green-600' : 'text-gray-500'
+                  }`}>
+                    {recipientPresence === 'present' ? 'present' : recipientPresence === 'away' ? 'away' : ''}
+                  </span>
+                </>
+              )}
+
               {selectedConversation?.status && (
                 <>
                   <span className="text-gray-400">•</span>
@@ -154,3 +170,4 @@ const ChatHeader = ({
 };
 
 export default ChatHeader;
+
