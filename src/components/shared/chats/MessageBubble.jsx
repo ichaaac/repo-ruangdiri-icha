@@ -7,7 +7,7 @@ import MediaPreviewModal from './MediaPreviewModal';
 import { extractAllMediaItems, findMediaIndex } from './utils/mediaUtils';
 
 // FIXED: Message Status - Pure socket event flow
-const MessageStatus = ({ messageData, isOwn }) => {
+const MessageStatus = ({ messageData, isOwn, recipientPresence = 'unknown' }) => {
   if (!isOwn) return null;
 
   // Derive states once at the top
@@ -71,6 +71,17 @@ const MessageStatus = ({ messageData, isOwn }) => {
       </div>
     );
   } 
+  
+  // Sent but not delivered/read: single check
+  if (isSent && !isDelivered && !isRead) {
+    return (
+      <div className="flex items-center ml-2" title="Sent">
+        <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+          <path d="M1.5 5L4 7.5L10.5 1" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    );
+  }
   
   if (isDelivered || isSent) {
     // Step 1: message sent → Single checkmark
@@ -325,6 +336,7 @@ const MessageBubble = ({
               <MessageStatus 
                 messageData={messageData} 
                 isOwn={isOwn}
+                recipientPresence={recipientPresence}
               />
             </div>
           </div>
