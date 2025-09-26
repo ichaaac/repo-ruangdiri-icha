@@ -213,6 +213,32 @@ export const useChats = () => {
           return message;
         });
       });
+
+      // Also update conversations list (sidebar) so lastMessageData reflects read state
+      queryClient.setQueryData(['chat-sessions'], (oldData) => {
+        if (!oldData) return oldData;
+        const data = typeof oldData === 'object' ? { ...oldData } : oldData;
+        const sessions = data.sessions || data;
+        if (!Array.isArray(sessions)) return oldData;
+
+        const updated = sessions.map(sess => {
+          if (sess.sessionId !== selectedSession.sessionId) return sess;
+          if (sess.lastMessageData && messageIds.includes(sess.lastMessageData.id) && sess.lastMessageData.senderId === userId) {
+            return {
+              ...sess,
+              lastMessageData: {
+                ...sess.lastMessageData,
+                isRead: true,
+                readAt,
+                readBy: readByUserId
+              }
+            };
+          }
+          return sess;
+        });
+
+        return data.sessions ? { ...data, sessions: updated } : updated;
+      });
     }
   }, [selectedSession?.sessionId, userId, queryClient]);
 
