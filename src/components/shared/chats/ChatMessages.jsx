@@ -38,6 +38,21 @@ const ChatMessages = ({
   const typingList = Object.values(typingUsers || {}).filter(u => u && u.isTyping);
   const isTypingSomeone = typingList.length > 0;
 
+  // Helper: scroll to bottom with optional smooth behavior
+  const scrollToBottom = useCallback((smooth = false) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const behavior = smooth ? 'smooth' : 'auto';
+    try {
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({ top: container.scrollHeight, behavior });
+      } else if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
+        container.scrollTop = container.scrollHeight;
+      }
+    } catch {}
+  }, [messagesEndRef]);
+
   // Smooth-scroll to bottom when typing bubble appears and user is at bottom
   useEffect(() => {
     if (!isTypingSomeone) return;
@@ -46,10 +61,10 @@ const ChatMessages = ({
     try {
       // Let the bubble mount, then scroll smoothly
       requestAnimationFrame(() => {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        scrollToBottom(true);
       });
     } catch {}
-  }, [isTypingSomeone, shouldAutoScroll, isUserScrolling, isLoadingMore, messagesEndRef]);
+  }, [isTypingSomeone, shouldAutoScroll, isUserScrolling, isLoadingMore, scrollToBottom]);
   
   // Group messages by date first
   const messageGroups = groupMessagesByDate(messages);
@@ -105,17 +120,14 @@ const ChatMessages = ({
   }, [handleScroll]);
 
   const handleScrollToBottom = useCallback(() => {
-    if (messagesEndRef.current && messagesContainerRef.current) {
-      try {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        const container = messagesContainerRef.current;
-        container.scrollTop = container.scrollHeight;
-        setShouldAutoScroll(true);
-        setIsUserScrolling(false);
-        setShowScrollDown(false);
-      } catch {}
-    }
-  }, [messagesEndRef]);
+    if (!messagesContainerRef.current) return;
+    try {
+      scrollToBottom(true);
+      setShouldAutoScroll(true);
+      setIsUserScrolling(false);
+      setShowScrollDown(false);
+    } catch {}
+  }, [scrollToBottom]);
 
   // Maintain scroll position after loading older messages
   useEffect(() => {
@@ -139,9 +151,7 @@ const ChatMessages = ({
     
     if (hasNewMessages && shouldAutoScroll && !isUserScrolling && !isLoadingMore && messagesEndRef.current) {
       setTimeout(() => {
-        if (messagesEndRef.current && shouldAutoScroll && !isUserScrolling) {
-          messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
+        if (shouldAutoScroll && !isUserScrolling) scrollToBottom(true);
       }, 100);
     }
     
@@ -222,8 +232,7 @@ const ChatMessages = ({
         className="absolute inset-0 overflow-y-auto messages-scroll"
         style={{
           scrollbarWidth: 'auto',
-          scrollbarColor: '#6B7280 #E5E7EB',
-          scrollBehavior: 'smooth'
+          scrollbarColor: '#6B7280 #E5E7EB'
         }}
       >
         <div className="min-h-full flex flex-col">
