@@ -21,8 +21,12 @@ export const getCurrentUser = () => {
  * @returns {string} User's timezone (e.g., 'WIB', 'WITA', 'WIT')
  */
 export const getCurrentUserTimezone = () => {
+  // Prefer explicit key saved by auth flow
+  const storedTz = localStorage.getItem('userTimezone');
+  if (storedTz) return storedTz;
+  // Fallback to user object if present
   const userData = getCurrentUser();
-  return userData?.userTimezone || 'WIB';
+  return userData?.userTimezone || userData?.timezone || 'WIB';
 };
 
 /**
@@ -30,6 +34,14 @@ export const getCurrentUserTimezone = () => {
  * @returns {boolean} True if user is psychologist
  */
 export const isCurrentUserPsychologist = () => {
+  // Strong source of truth from auth flow
+  const storedRole = localStorage.getItem('userRole');
+  if (storedRole && storedRole !== 'psychologist') return false;
+  if (storedRole === 'psychologist') return true;
+  // If an organization admin context exists, definitely not a psychologist
+  const orgType = localStorage.getItem('organizationType');
+  if (orgType === 'school' || orgType === 'company') return false;
+  // Fallback to full user object if present
   const userData = getCurrentUser();
   return userData?.role === 'psychologist';
 };
@@ -39,13 +51,17 @@ export const isCurrentUserPsychologist = () => {
  * @returns {Object|null} Psychologist data or null
  */
 export const getCurrentUserAsPsychologist = () => {
+  const storedRole = localStorage.getItem('userRole');
+  if (storedRole !== 'psychologist') return null;
+  const orgType = localStorage.getItem('organizationType');
+  if (orgType === 'school' || orgType === 'company') return null;
   const userData = getCurrentUser();
   if (userData?.role === 'psychologist') {
     return {
       id: userData.id,
       fullName: userData.fullName || userData.name,
       email: userData.email,
-      role: userData.role
+      role: userData.role,
     };
   }
   return null;
