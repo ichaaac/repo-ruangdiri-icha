@@ -25,6 +25,7 @@ const ChatMain = ({
   isEndingSession = false,
   onFileUpload,
   typingStatus,
+  typingUsers,
   currentUserId, // FIXED: Receive currentUserId prop
   recipientPresence,
   // FIXED: Infinite scroll props
@@ -113,6 +114,7 @@ const ChatMain = ({
         isLoadingMore={isLoadingMoreMessages}
         currentUserId={currentUserId} // FIXED: Pass currentUserId for message status
         recipientPresence={recipientPresence}
+        typingUsers={typingUsers}
       />
 
       {/* Enhanced Input Area with WhatsApp-like file upload */}

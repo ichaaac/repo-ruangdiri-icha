@@ -18,7 +18,8 @@ const ChatMessages = ({
   isLoadingMore,
   currentUserId,
   sessionAttachments = [], // ADDED: Session attachments for media navigation
-  recipientPresence = 'unknown' // ADDED: Recipient presence for read receipts
+  recipientPresence = 'unknown', // ADDED: Recipient presence for read receipts
+  typingUsers = {}
 }) => {
   const messagesContainerRef = useRef(null);
   const [isNearTop, setIsNearTop] = useState(false);
@@ -32,6 +33,10 @@ const ChatMessages = ({
   const isLoadingRef = useRef(false);
 
   const sessionStatus = getSessionStatus?.() || 'ready';
+  
+  // Typing users (for WA-like bubble indicator)
+  const typingList = Object.values(typingUsers || {}).filter(u => u && u.isTyping);
+  const isTypingSomeone = typingList.length > 0;
   
   // Group messages by date first
   const messageGroups = groupMessagesByDate(messages);
@@ -342,6 +347,65 @@ const ChatMessages = ({
                 </p>
               </div>
             )}
+
+            {/* Typing indicator bubble (WhatsApp-like) */}
+            <AnimatePresence>
+              {isTypingSomeone && !selectedConversation?.isTeamChat && (
+                <motion.div
+                  key="typing-bubble"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full px-4 sm:px-5"
+                >
+                  <div className="flex flex-col gap-2.5 items-start">
+                    <div className="flex gap-2 items-start">
+                      {/* Avatar */}
+                      <div className="w-[27px] h-[54px] flex items-center flex-shrink-0">
+                        <div className="w-[27px] h-[27px] rounded-full overflow-hidden">
+                          {selectedConversation?.avatar ? (
+                            <img
+                              src={selectedConversation.avatar}
+                              alt={selectedConversation?.name || 'Profile'}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { e.target.src = '/empty-profile.svg'; }}
+                            />
+                          ) : (
+                            <img
+                              src="/empty-profile.svg"
+                              alt="Profile"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bubble */}
+                      <div className="bg-white rounded-3xl px-4 py-3 min-h-[38px] shadow-sm border border-gray-100">
+                        <div className="flex items-end gap-1">
+                          <motion.span
+                            className="w-2 h-2 bg-[#488BBA] rounded-full inline-block"
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                          />
+                          <motion.span
+                            className="w-2 h-2 bg-[#488BBA] rounded-full inline-block"
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.1 }}
+                          />
+                          <motion.span
+                            className="w-2 h-2 bg-[#488BBA] rounded-full inline-block"
+                            animate={{ y: [0, -3, 0] }}
+                            transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Invisible anchor for auto-scroll */}
             <div 
