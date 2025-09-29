@@ -1,6 +1,6 @@
 // src/components/shared/chats/ChatHeader.jsx
 import React from 'react';
-import { motion } from 'framer-motion';
+// Removed framer-motion usage here since typing indicator moved to ChatMain
 
 const ChatHeader = ({ 
   selectedConversation, 
@@ -51,39 +51,11 @@ const ChatHeader = ({
             {selectedConversation?.name || 'Unknown'}
           </h2>
           
-          {/* Typing indicator / status */}
+          {/* Status (typing indicator handled in ChatMain) */}
           {selectedConversation?.isTeamChat ? (
             <p className="text-xs font-light" style={{ color: '#488BBA' }}>
               AI Assistant • Always Available
             </p>
-          ) : typingStatus ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              className="flex items-center gap-2"
-            >
-              <div className="flex gap-1">
-                <motion.div 
-                  className="w-1 h-1 bg-[#488BBA] rounded-full"
-                  animate={{ y: [0, -3, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-                />
-                <motion.div 
-                  className="w-1 h-1 bg-[#488BBA] rounded-full"
-                  animate={{ y: [0, -3, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.1 }}
-                />
-                <motion.div 
-                  className="w-1 h-1 bg-[#488BBA] rounded-full"
-                  animate={{ y: [0, -3, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-                />
-              </div>
-              <span className="text-xs font-light text-[#488BBA]">
-                {typingStatus}
-              </span>
-            </motion.div>
           ) : (
             <div className="flex items-center gap-2">
               {/* Connection status */}
@@ -170,4 +142,3 @@ const ChatHeader = ({
 };
 
 export default ChatHeader;
-
