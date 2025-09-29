@@ -385,17 +385,17 @@ const ChatMessages = ({
                       <div className="bg-white rounded-3xl px-4 py-3 min-h-[38px] shadow-sm border border-gray-100">
                         <div className="flex items-end gap-1">
                           <motion.span
-                            className="w-2 h-2 bg-[#488BBA] rounded-full inline-block"
+                            className="w-1 h-1 bg-[#488BBA] rounded-full inline-block"
                             animate={{ y: [0, -3, 0] }}
                             transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
                           />
                           <motion.span
-                            className="w-2 h-2 bg-[#488BBA] rounded-full inline-block"
+                            className="w-1 h-1 bg-[#488BBA] rounded-full inline-block"
                             animate={{ y: [0, -3, 0] }}
                             transition={{ duration: 0.6, repeat: Infinity, delay: 0.1 }}
                           />
                           <motion.span
-                            className="w-2 h-2 bg-[#488BBA] rounded-full inline-block"
+                            className="w-1 h-1 bg-[#488BBA] rounded-full inline-block"
                             animate={{ y: [0, -3, 0] }}
                             transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
                           />
