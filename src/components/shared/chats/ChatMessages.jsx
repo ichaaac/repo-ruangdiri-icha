@@ -37,6 +37,19 @@ const ChatMessages = ({
   // Typing users (for WA-like bubble indicator)
   const typingList = Object.values(typingUsers || {}).filter(u => u && u.isTyping);
   const isTypingSomeone = typingList.length > 0;
+
+  // Smooth-scroll to bottom when typing bubble appears and user is at bottom
+  useEffect(() => {
+    if (!isTypingSomeone) return;
+    if (!messagesContainerRef.current || !messagesEndRef.current) return;
+    if (!shouldAutoScroll || isUserScrolling || isLoadingMore) return;
+    try {
+      // Let the bubble mount, then scroll smoothly
+      requestAnimationFrame(() => {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      });
+    } catch {}
+  }, [isTypingSomeone, shouldAutoScroll, isUserScrolling, isLoadingMore, messagesEndRef]);
   
   // Group messages by date first
   const messageGroups = groupMessagesByDate(messages);
@@ -209,7 +222,8 @@ const ChatMessages = ({
         className="absolute inset-0 overflow-y-auto messages-scroll"
         style={{
           scrollbarWidth: 'auto',
-          scrollbarColor: '#6B7280 #E5E7EB'
+          scrollbarColor: '#6B7280 #E5E7EB',
+          scrollBehavior: 'smooth'
         }}
       >
         <div className="min-h-full flex flex-col">
