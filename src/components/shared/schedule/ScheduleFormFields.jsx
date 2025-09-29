@@ -62,6 +62,7 @@ const ScheduleFormFields = ({
   loadingPsychologists,
   loadingParticipants,
   getAvailableLocations,
+  organizationType,
   handleInputChange,
   toggleDropdown,
   handleFileSelect,
@@ -80,6 +81,7 @@ const ScheduleFormFields = ({
 }) => {
   const selectedEventType = eventTypes.find((type) => type.value === formData.type) || eventTypes[0]
   const showParticipants = formData.type === "counseling"
+  const maxParticipants = organizationType === 'company' ? 1 : 2
 
   // State for tooltips
   const [hoveredTooltip, setHoveredTooltip] = useState(null)
@@ -409,10 +411,6 @@ const ScheduleFormFields = ({
                 {/* FIXED: Psychologist Field - Auto-disable for psychologist users */}
                 <div>
                   <div className="relative">
-                    {!formData.selectedPsychologist && (
-                      <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
-                    )}
-                    
                     {/* FIXED: Show selected psychologist or auto-fill for psychologist users */}
                     {formData.selectedPsychologist ? (
                       <div className={`relative w-full px-3 py-2 border rounded-md min-h-[42px] flex items-center ${
@@ -467,6 +465,8 @@ const ScheduleFormFields = ({
                         } pl-6`}
                         style={{ minHeight: "42px" }}
                       >
+                        {/* Required asterisk only when empty */}
+                        <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
                         <span>
                           {isUserPsychologist ? "Psikolog" : "Email/nama Psikolog"}
                         </span>
@@ -519,16 +519,15 @@ const ScheduleFormFields = ({
                 {/* Participant 1 Field */}
                 <div>
                   <div className="relative">
-                    {!formData.selectedParticipants[0] && (
+                    {/* Hide required asterisk while psychologist dropdown is open */}
+                    {!formData.selectedParticipants[0] && !dropdowns.psychologist && (
                       <span className="absolute left-2 top-3 text-[#EE4266] text-sm pointer-events-none z-10">*</span>
                     )}
                     <button
                       type="button"
-                      onClick={() =>
-                        !loading && formData.selectedParticipants.length < 2 && handleDropdownToggle("participants1")
-                      }
+                      onClick={() => !loading && formData.selectedParticipants.length < maxParticipants && handleDropdownToggle("participants1")}
                       disabled={
-                        loading || (formData.selectedParticipants.length >= 2 && !formData.selectedParticipants[0])
+                        loading || (formData.selectedParticipants.length >= maxParticipants && !formData.selectedParticipants[0])
                       }
                       className={`relative w-full py-2 text-left border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#488BBA] disabled:bg-gray-100 ${
                         formData.selectedParticipants[0] ? "px-3 py-2" : "pl-6"
@@ -536,7 +535,7 @@ const ScheduleFormFields = ({
                       style={{ minHeight: "42px" }}
                     >
                       {!formData.selectedParticipants[0] ? (
-                        <span className="text-gray-500">Email/nama Klien 1</span>
+                        <span className="text-gray-500">{organizationType === 'company' ? 'Email/nama Klien' : 'Email/nama Klien 1'}</span>
                       ) : (
                         <div className="flex items-center gap-2 py-1">
                           <div className="px-2.5 py-1 bg-[#eeeeee] rounded-[5px] flex items-center gap-2 max-w-full">
@@ -562,7 +561,7 @@ const ScheduleFormFields = ({
                     </button>
                     {dropdowns.participants1 &&
                       !loading &&
-                      (formData.selectedParticipants.length < 2 || !formData.selectedParticipants[0]) && (
+                      (formData.selectedParticipants.length < maxParticipants || !formData.selectedParticipants[0]) && (
                         <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto"
                              onMouseLeave={handleTooltipLeave}>
                           <div className="p-2 border-b">
@@ -611,7 +610,8 @@ const ScheduleFormFields = ({
                   </div>
                 </div>
 
-                {/* Participant 2 Field (Optional) */}
+                {/* Participant 2 Field (Optional) - hidden for company org */}
+                {organizationType !== 'company' && (
                 <div>
                   <div className="relative">
                     <button
@@ -702,6 +702,7 @@ const ScheduleFormFields = ({
                       )}
                   </div>
                 </div>
+                )}
               </div>
             </div>
           </div>
