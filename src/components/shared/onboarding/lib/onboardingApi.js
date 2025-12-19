@@ -9,7 +9,7 @@ const onboardingApi = {
   completeProfileOnboarding: async (onboardingData) => { // ✅ FIXED: Unified function name
     try {
       const response = await apiClient.patch('/users/profile', { // ✅ FIXED: Unified endpoint
-        isOnboarded: "1",
+        isOnboarded: true,
         ...onboardingData
       });
       return response.data;
@@ -26,7 +26,7 @@ const onboardingApi = {
   skipOnboarding: async () => { // ✅ FIXED: Unified function name
     try {
       const response = await apiClient.patch('/users/profile', { // ✅ FIXED: Unified endpoint
-        isOnboarded: "1"
+        isOnboarded: true
       });
       return response.data;
     } catch (error) {

@@ -1,4 +1,4 @@
-// src/routes/Routes.jsx
+// src/routes/Routes.jsx - FIXED VERSION
 import React, { lazy, Suspense } from "react";
 import { useRoutes } from "react-router-dom";
 import routes from "./RouteConfig";
@@ -22,37 +22,15 @@ const LoadingFallback = () => (
  * @returns {JSX.Element} The rendered routes based on current location
  */
 const AppRoutes = () => {
-  // Process routes for lazy loading
-  const processedRoutes = processRoutesForLazyLoading(routes);
-  
-  // Use the processed routes
-  const element = useRoutes(processedRoutes);
+  // ✅ NO CHANGES NEEDED - This file is correct
+  // Just use routes as-is
+  const element = useRoutes(routes);
   
   return (
     <Suspense fallback={<LoadingFallback />}>
       {element}
     </Suspense>
   );
-};
-
-/**
- * Helper function to recursively process routes for lazy loading
- * Wraps route elements in Suspense boundaries when needed
- * 
- * @param {Array} routes - The routes to process
- * @returns {Array} Processed routes
- */
-const processRoutesForLazyLoading = (routes) => {
-  return routes.map((route) => {
-    const processedRoute = { ...route };
-    
-    // If the route has children, process them recursively
-    if (route.children) {
-      processedRoute.children = processRoutesForLazyLoading(route.children);
-    }
-    
-    return processedRoute;
-  });
 };
 
 export default AppRoutes;

@@ -25,18 +25,35 @@ apiClient.interceptors.request.use(
 );
 
 // === RESPONSE INTERCEPTOR ===
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const isPasswordChange = error.config.url?.includes("/users/change-password");
-    const isLoginAttempt = error.config.url?.includes("/auth/login");
+// Add request interceptor to check token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
     
-    if (error.response?.status === 401 && !isLoginAttempt && !isPasswordChange) {
-      // Clear auth data on 401 (except for login and password change)
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("organizationType");
-      window.location.href = "/login";
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+      console.log('🔑 Token added to request:', config.url);
+    } else {
+      console.warn('⚠️ No token found for request:', config.url);
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle 401
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      console.error('❌ 401 Unauthorized - clearing token');
+      localStorage.clear();
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
@@ -572,6 +589,21 @@ export const getMe = async () => {
     return response.data;
   } catch (error) {
     handleApiError(error, "getMe");
+  }
+};
+
+// Force fresh GET for /users/me bypassing browser/server caching (ETag/304)
+export const getMeFresh = async () => {
+  try {
+    const response = await apiClient.get("/users/me", {
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error, "getMeFresh");
   }
 };
 

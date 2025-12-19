@@ -11,6 +11,7 @@ import clsx from "clsx"
 
 // ✅ FIXED: Import the updated onboarding API
 import onboardingApi from "./lib/onboardingApi"
+import { getMeFresh } from "@/lib/api"
 
 // Components & utilities
 import TextareaAutosize from "react-textarea-autosize"
@@ -153,7 +154,7 @@ const OnboardingForm = () => {
   useEffect(() => {
     return () => {
       if (profilePicturePreview) {
-        URL.revokeObjectURL(profilePicturePicturePreview)
+        URL.revokeObjectURL(profilePicturePreview)
       }
     }
   }, [profilePicturePreview])
@@ -192,69 +193,114 @@ const OnboardingForm = () => {
 
   // ✅ FIXED: Simplified onboarding logic using unified API
   const completeOnboarding = async (formData = {}) => {
-    setIsSubmitting(true)
+  setIsSubmitting(true);
 
-    try {
-      // Step 1: Upload profile picture if selected
-      if (selectedProfilePicture) {
-        try {
-          await onboardingApi.uploadProfilePicture(selectedProfilePicture) // ✅ FIXED: Use unified upload function
-          console.log("Profile picture uploaded successfully")
-        } catch (error) {
-          console.error("Profile picture upload failed:", error)
-          toast.error("Foto profil gagal diupload")
-        }
+  try {
+    // Step 1: Upload profile picture if selected
+    if (selectedProfilePicture) {
+      try {
+        await onboardingApi.uploadProfilePicture(selectedProfilePicture);
+        console.log("✅ Profile picture uploaded successfully");
+      } catch (error) {
+        console.error("❌ Profile picture upload failed:", error);
+        toast.error("Foto profil gagal diupload");
       }
-
-      // Step 2: Complete onboarding with form data
-      const onboardingData = {}
-      
-      if (formData && typeof formData === 'object') {
-        if (formData.address?.trim()) {
-          onboardingData.address = formData.address.trim()
-        }
-        if (formData.phone?.trim() && !isEmptyPhone(formData.phone)) {
-          onboardingData.phone = formData.phone.trim()
-        }
-      }
-
-      console.log("Completing onboarding with data:", onboardingData)
-      
-      // ✅ FIXED: Use unified complete function
-      let response = await onboardingApi.completeProfileOnboarding(onboardingData)
-
-      console.log("Onboarding API response:", response)
-      toast.success("Profil berhasil disimpan!")
-
-      // ✅ FIXED: Enhanced cache clearing and user refetch
-      console.log("Clearing cache and refetching user data...")
-      
-      queryClient.clear()
-      
-      await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-      await queryClient.invalidateQueries({ queryKey: ["user"] })
-      await queryClient.invalidateQueries({ queryKey: ["auth"] })
-      
-      if (refetchUser) {
-        try {
-          await refetchUser()
-          console.log("User data refetched successfully")
-        } catch (error) {
-          console.error("Failed to refetch user:", error)
-        }
-      }
-
-      setTimeout(() => {
-        redirectToDashboard()
-      }, 1500)
-
-    } catch (error) {
-      console.error("Onboarding failed:", error)
-      toast.error("Gagal menyimpan profil")
-    } finally {
-      setIsSubmitting(false)
     }
+
+    // Step 2: Complete onboarding with form data
+    const onboardingData = {
+      isOnboarded: true  // ✅ CRITICAL: Always set this!
+    };
+    
+    if (formData && typeof formData === 'object') {
+      if (formData.address?.trim()) {
+        onboardingData.address = formData.address.trim();
+      }
+      if (formData.phone?.trim() && !isEmptyPhone(formData.phone)) {
+        onboardingData.phone = formData.phone.trim();
+      }
+    }
+
+    console.log("📤 Completing onboarding with data:", onboardingData);
+    
+    let response = await onboardingApi.completeProfileOnboarding(onboardingData);
+
+    console.log("📥 Onboarding API response:", response);
+    console.log("🔍 isOnboarded in response:", response?.data?.isOnboarded);
+    
+    // ✅ FIX: Check if token is still valid
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      console.error("❌ No token found after onboarding!");
+      toast.error("Session expired. Please login again.");
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    toast.success("Profil berhasil disimpan!");
+
+    // ✅ CRITICAL: Clear cache and refetch user
+    console.log("🔄 Clearing cache and refetching user data...");
+    
+    queryClient.clear();
+    
+    await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+    await queryClient.invalidateQueries({ queryKey: ["user"] });
+    await queryClient.invalidateQueries({ queryKey: ["auth"] });
+    
+    // ✅ FIX: Wait for refetch to complete
+    if (refetchUser) {
+      try {
+        console.log("🔄 Refetching user...");
+        const refetchResult = await refetchUser();
+        console.log("✅ User data refetched:", refetchResult);
+        
+        // ✅ Check if refetch was successful
+        if (!refetchResult.data) {
+          console.error("❌ Refetch returned no data!");
+          toast.error("Failed to load profile. Please login again.");
+          navigate('/login', { replace: true });
+          return;
+        }
+        
+        console.log("✅ Fresh user isOnboarded:", refetchResult.data?.isOnboarded);
+        
+      } catch (error) {
+        console.error("❌ Failed to refetch user:", error);
+        
+        // ✅ Check if error is 401 Unauthorized
+        if (error.response?.status === 401) {
+          console.error("❌ Unauthorized - token invalid!");
+          localStorage.clear();
+          toast.error("Session expired. Please login again.");
+          navigate('/login', { replace: true });
+          return;
+        }
+      }
+    }
+
+    // ✅ Wait a bit before redirect to ensure state is updated
+    setTimeout(() => {
+      redirectToDashboard();
+    }, 500);
+
+  } catch (error) {
+    console.error("❌ Onboarding failed:", error);
+    console.error("❌ Error response:", error.response?.data);
+    
+    // ✅ Check if error is 401
+    if (error.response?.status === 401) {
+      localStorage.clear();
+      toast.error("Session expired. Please login again.");
+      navigate('/login', { replace: true });
+      return;
+    }
+    
+    toast.error("Gagal menyimpan profil");
+  } finally {
+    setIsSubmitting(false);
   }
+};
 
   const onSubmit = async (data) => {
     console.log("Form submitted with data:", data)
@@ -294,25 +340,25 @@ const OnboardingForm = () => {
       
       // ✅ FIXED: Use unified skip API method
       let response = await onboardingApi.skipOnboarding()
-      
+
       console.log("Skip onboarding API response:", response)
       toast.success("Onboarding dilewati!")
 
-      // ✅ FIXED: Enhanced cache clearing and user refetch
-      console.log("Clearing cache and refetching user data...")
-      
-      queryClient.clear()
-      
-      await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
-      await queryClient.invalidateQueries({ queryKey: ["user"] })
-      await queryClient.invalidateQueries({ queryKey: ["auth"] })
-      
-      if (refetchUser) {
-        try {
-          await refetchUser()
-          console.log("User data refetched successfully")
-        } catch (error) {
-          console.error("Failed to refetch user:", error)
+      // Force fresh /users/me to bypass 304 cached response
+      try {
+        const fresh = await getMeFresh()
+        const updatedUser = fresh?.data || null
+        if (updatedUser) {
+          queryClient.setQueryData(["currentUser"], updatedUser)
+          console.log("Updated currentUser cache with fresh server response (skip)")
+        } else {
+          await queryClient.invalidateQueries({ queryKey: ["currentUser"] })
+          if (refetchUser) await refetchUser()
+        }
+      } catch (err) {
+        console.error("Fresh getMe failed after skip:", err)
+        if (refetchUser) {
+          try { await refetchUser() } catch (e) { console.error(e) }
         }
       }
 

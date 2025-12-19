@@ -56,37 +56,13 @@ const Login = () => {
 		}
 	};
 
-	// ✅ ENABLED: Auto redirect if already authenticated
-	useEffect(() => {
-		// Only redirect if user is authenticated and on login page
-		if (isAuthenticated() && user && location.pathname === '/login') {
-			console.log("User already authenticated, redirecting...");
-			
-			// Let ProtectedRoute handle the onboarding/dashboard routing
-			if (needsOnboarding()) {
-				navigate('/onboarding', { replace: true });
-			} else {
-				// Navigate to appropriate dashboard
-				const userRole = user.role;
-				const orgType = user.organization?.type;
-				
-				if (userRole === "student") {
-					navigate("/user/student/screening", { replace: true });
-				} else if (userRole === "employee") {
-					navigate("/user/employee/screening", { replace: true });
-				} else if (userRole === "psychologist") {
-					navigate("/user/psychologist/chat", { replace: true });
-				} else if (orgType === "school") {
-					navigate("/organization/school/dashboard", { replace: true });
-				} else if (orgType === "company") {
-					navigate("/organization/company/dashboard", { replace: true });
-				} else {
-					navigate("/", { replace: true });
-				}
-			}
-		}
-	}, [isAuthenticated, user, needsOnboarding, navigate, location.pathname]);
 
+	// ===================================================
+	// AUTO REDIRECT LOGIC (MUST BE DISABLED!)
+	// ===================================================
+
+	// ❌ DELETED: useAuth.js handles ALL redirects!
+	
 	useEffect(() => {
 		const navEntries = performance.getEntriesByType("navigation");
 		const isRefresh = navEntries[0]?.type === "reload";
@@ -390,7 +366,7 @@ const Login = () => {
 				<div className="w-[90%] max-w-[454px] max-md:p-0 max-md:mt-5">
 					{/* General error message tooltip */}
 					{errorMessage && (emailTouched || passwordTouched) && (
-						<div className="flex items-center px-[15px] py-3 mb-4 text-[14px] leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] inline-flex h-[44px]">
+						<div className="inline-flex items-center px-[15px] py-3 mb-4 text-[14px] leading-4 text-rose-500 bg-pink-100 border border-red-500 border-solid rounded-[200px] h-[44px]">
 							<span
 								className="material-icons mr-[9px]"
 								style={{ fontSize: "26px" }}
@@ -510,7 +486,7 @@ const Login = () => {
 							type="button"
 							onClick={handleGoogleSignIn}
 							disabled={isGoogleSubmitting || login.isPending}
-							className="w-full mb-4 flex items-center justify-center gap-3 h-[52px] rounded-[50px] border border-zinc-300 bg-white text-zinc-800 font-medium hover:bg-gray-50 transition-colors hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-transform"
+							className="w-full mb-4 flex items-center justify-center gap-3 h-[52px] rounded-[50px] border border-zinc-300 bg-white text-zinc-800 font-medium hover:bg-gray-50 hover:shadow-sm hover:scale-[1.01] active:scale-[0.99] transition"
 						>
 							{isGoogleSubmitting ? (
 								<span className="material-icons animate-spin">sync</span>
@@ -537,8 +513,8 @@ const Login = () => {
 						<button
 							type="submit"
 							disabled={login.isPending || isGoogleSubmitting}
-							className={`mb-4 w-full text-base text-white bg-primary cursor-pointer border-none h-[52px] rounded-[50px] hover:bg-primary-variant1 transition-colors flex items-center justify-center hover:scale-[1.01] active:scale-[0.99] transition-transform
-                        ${login.isPending ? "opacity-70 cursor-not-allowed" : ""}`}
+							className={`mb-4 w-full text-base text-white bg-primary cursor-pointer border-none h-[52px] rounded-[50px] hover:bg-primary-variant1 transition flex items-center justify-center hover:scale-[1.01] active:scale-[0.99]
+		                        ${login.isPending ? "opacity-70 cursor-not-allowed" : ""}`}
 						>
 							{login.isPending ? (
 								<span className="flex items-center">

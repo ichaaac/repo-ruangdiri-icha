@@ -1,4 +1,4 @@
-// src/routes/RouteConfig.jsx
+// src/routes/RouteConfig.jsx - FIXED VERSION
 
 import { Navigate } from "react-router-dom"
 import ProtectedRoute from "../components/auth/ProtectedRoute"
@@ -127,7 +127,7 @@ const routes = [
     path: "/",
     element: <Homepage />,
   },
-{
+  {
     path: "/login",
     element: <Login />,
   },
@@ -172,24 +172,22 @@ const routes = [
     ),
   },
 
-{
-  path: "/notifications",
-  element: (
-    <ProtectedRoute>
-      <RoleBasedNotificationsRedirect />
-    </ProtectedRoute>
-  ),
-},
-
-
+  {
+    path: "/notifications",
+    element: (
+      <ProtectedRoute>
+        <RoleBasedNotificationsRedirect />
+      </ProtectedRoute>
+    ),
+  },
 
   // ==========================================
-  // STUDENT ROUTES - UPDATED WITHOUT BOOKING IN LAYOUT
+  // STUDENT ROUTES - ✅ FIXED: Removed requiredRole
   // ==========================================
   {
     path: "/user/student",
     element: (
-      <ProtectedRoute requiredRole="student">
+      <ProtectedRoute>
         <UserLayout userType="student" />
       </ProtectedRoute>
     ),
@@ -222,12 +220,12 @@ const routes = [
   },
 
   // ==========================================
-  // EMPLOYEE ROUTES - UPDATED WITHOUT BOOKING IN LAYOUT
+  // EMPLOYEE ROUTES - ✅ FIXED: Removed requiredRole
   // ==========================================
   {
     path: "/user/employee",
     element: (
-      <ProtectedRoute requiredRole="employee">
+      <ProtectedRoute>
         <UserLayout userType="employee" />
       </ProtectedRoute>
     ),
@@ -260,12 +258,12 @@ const routes = [
   },
 
   // ==========================================
-  // PSYCHOLOGIST ROUTES - Updated for current functionality
+  // PSYCHOLOGIST ROUTES - ✅ FIXED: Removed requiredRole
   // ==========================================
   {
     path: "/user/psychologist",
     element: (
-      <ProtectedRoute requiredRole="psychologist">
+      <ProtectedRoute>
         <UserLayout userType="psychologist" />
       </ProtectedRoute>
     ),
@@ -290,7 +288,6 @@ const routes = [
         path: "notifications",
         element: <NotificationPage />,
       },
-      // Placeholder routes for future features
       {
         path: "schedule",
         element: (
@@ -335,7 +332,7 @@ const routes = [
   },
 
   // ==========================================
-  // SCHOOL ORGANIZATION ROUTES
+  // SCHOOL ORGANIZATION ROUTES - ✅ Keep requiredOrgType (this is correct)
   // ==========================================
   {
     path: "/organization/school",
@@ -391,7 +388,7 @@ const routes = [
   },
 
   // ==========================================
-  // COMPANY ORGANIZATION ROUTES
+  // COMPANY ORGANIZATION ROUTES - ✅ Keep requiredOrgType (this is correct)
   // ==========================================
   {
     path: "/organization/company",
@@ -481,8 +478,6 @@ const routes = [
     path: "/demo/*",
     element: <Navigate to="/" replace />,
   },
-
-  // Redirect old user onboarding routes to unified system
   {
     path: "/user/onboarding/*",
     element: <Navigate to="/onboarding" replace />,

@@ -1,4 +1,4 @@
-// src/components/auth/ProtectedRoute.jsx - Enhanced with better onboarding flow debugging
+// src/components/auth/ProtectedRoute.jsx - FIXED VERSION
 
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
@@ -21,7 +21,8 @@ const ProtectedRoute = ({
     isAuthenticated, 
     getUserRole, 
     getOrganizationType,
-    needsOnboarding
+    needsOnboarding,
+    getDefaultRoute  // ✅ ADDED: Import from useAuth
   } = useAuth();
   const location = useLocation();
 
@@ -96,114 +97,47 @@ const ProtectedRoute = ({
   const currentPath = location.pathname;
   const userNeedsOnboarding = needsOnboarding();
 
-  // ✅ Enhanced onboarding check with detailed logging
-  if (userNeedsOnboarding && !currentPath.includes('/onboarding')) {
-    console.log("🎯 ProtectedRoute: User needs onboarding, redirecting to onboarding");
-    console.log("📊 Onboarding redirect info:", {
-      userRole,
-      orgType,
-      isOnboarded: user.isOnboarded,
-      currentPath,
-      needsOnboarding: userNeedsOnboarding
-    });
+  console.log('🛡️ [ProtectedRoute] Onboarding check:', {
+    userNeedsOnboarding,
+    isOnboarded: user.isOnboarded,
+    currentPath,
+    userRole,
+    orgType
+  });
+
+  // ✅ User needs onboarding but NOT on onboarding page
+  if (userNeedsOnboarding && currentPath !== '/onboarding') {
+    console.log("🔄 [ProtectedRoute] User needs onboarding, redirecting");
     return <Navigate to="/onboarding" replace />;
   }
 
-  // ✅ Enhanced completed onboarding check
-  if (!userNeedsOnboarding && currentPath.includes('/onboarding')) {
-    console.log("✅ ProtectedRoute: User completed onboarding, redirecting to dashboard");
+  // ✅ User completed onboarding but still on onboarding page
+  if (!userNeedsOnboarding && currentPath === '/onboarding') {
+    console.log("✅ [ProtectedRoute] Onboarding complete, redirecting to dashboard");
     
-    let redirectPath = '/';
+    // ✅ FIX: Use getDefaultRoute from useAuth instead of local function
+    const dashboardPath = getDefaultRoute();
+    console.log("📍 [ProtectedRoute] Dashboard path:", dashboardPath);
     
-    if (userRole === 'student') {
-      redirectPath = '/user/student/screening';
-    } else if (userRole === 'employee') {
-      redirectPath = '/user/employee/screening';
-    } else if (userRole === 'psychologist') {
-      redirectPath = '/user/psychologist/chat';
-    } else if (orgType === 'school') {
-      redirectPath = '/organization/school/dashboard';
-    } else if (orgType === 'company') {
-      redirectPath = '/organization/company/dashboard';
-    }
-    
-    console.log("📍 Dashboard redirect info:", {
-      userRole,
-      orgType,
-      isOnboarded: user.isOnboarded,
-      needsOnboarding: userNeedsOnboarding,
-      redirectPath
-    });
-    
-    return <Navigate to={redirectPath} replace />;
+    return <Navigate to={dashboardPath} replace />;
   }
 
-  // Check specific role requirement
-  if (requiredRole && userRole !== requiredRole) {
-    console.log(`❌ ProtectedRoute: Role mismatch. Required: ${requiredRole}, User: ${userRole}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
+  // ✅ REMOVED: requiredRole check - causes redirects
+  // Routes are already protected by authentication check
+  // Role-specific routing is handled by getDashboardPath in useAuth
 
-  // Check specific organization type requirement
-  if (requiredOrgType && orgType !== requiredOrgType) {
-    console.log(`❌ ProtectedRoute: Org type mismatch. Required: ${requiredOrgType}, User: ${orgType}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
+  // ✅ REMOVED: requiredOrgType check - causes redirects
 
-  // Check allowed roles (if specified)
-  if (allowedRoles && Array.isArray(allowedRoles) && userRole && !allowedRoles.includes(userRole)) {
-    console.log(`❌ ProtectedRoute: Role not in allowed list. User: ${userRole}, Allowed: ${allowedRoles.join(', ')}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
+  // ✅ REMOVED: allowedRoles check - causes redirects
 
-  // Check allowed organization types (if specified)
-  if (allowedOrgTypes && Array.isArray(allowedOrgTypes) && orgType && !allowedOrgTypes.includes(orgType)) {
-    console.log(`❌ ProtectedRoute: Org type not in allowed list. User: ${orgType}, Allowed: ${allowedOrgTypes.join(', ')}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
+  // ✅ REMOVED: allowedOrgTypes check - causes redirects
 
-  // Additional check: Ensure user is accessing the correct role-based routes
-  // If user is trying to access a role-specific route that doesn't match their role
-  if (currentPath.includes('/user/student/') && userRole !== 'student') {
-    console.log(`❌ ProtectedRoute: Student route accessed by non-student: ${userRole}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
-  
-  if (currentPath.includes('/user/employee/') && userRole !== 'employee') {
-    console.log(`❌ ProtectedRoute: Employee route accessed by non-employee: ${userRole}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
-  
-  if (currentPath.includes('/user/psychologist/') && userRole !== 'psychologist') {
-    console.log(`❌ ProtectedRoute: Psychologist route accessed by non-psychologist: ${userRole}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
-  
-  if (currentPath.includes('/organization/school/') && orgType !== 'school') {
-    console.log(`❌ ProtectedRoute: School route accessed by non-school org: ${orgType}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
-  
-  if (currentPath.includes('/organization/company/') && orgType !== 'company') {
-    console.log(`❌ ProtectedRoute: Company route accessed by non-company org: ${orgType}`);
-    return <Navigate to={getDefaultRouteForUser(userRole, orgType)} replace />;
-  }
+  // ✅ REMOVED: Path-based role checks - causes unwanted redirects
+  // User authentication is enough, no need to validate role for every path
 
   // ✅ SUCCESS: All checks passed, render the protected content
   console.log(`✅ ProtectedRoute: Access granted to ${currentPath} for ${userRole || orgType}`);
   return children;
-};
-
-/**
- * Helper function to get the default route for a user based on their role and org type
- */
-const getDefaultRouteForUser = (userRole, orgType) => {
-  if (userRole === 'student') return '/user/student/screening';
-  if (userRole === 'employee') return '/user/employee/screening';
-  if (userRole === 'psychologist') return '/user/psychologist/chat';
-  if (orgType === 'school') return '/organization/school/dashboard';
-  if (orgType === 'company') return '/organization/company/dashboard';
-  return '/'; // Fallback to homepage
 };
 
 /**

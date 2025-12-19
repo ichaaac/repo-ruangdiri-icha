@@ -11,62 +11,86 @@ export const useAuth = () => {
   const location = useLocation()
 
   const {
-    data: user,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: async () => {
-      const token = localStorage.getItem("token")
-      if (!token) return null
+  data: user,
+  isLoading,
+  error,
+  refetch,
+} = useQuery({
+  queryKey: ["currentUser"],
+  queryFn: async () => {
+    const token = localStorage.getItem("token");
+    
+    // ✅ Check if token exists
+    if (!token) {
+      console.log("❌ No token found");
+      return null;
+    }
 
-      try {
-        const response = await getMe()
-        if (response?.status === "success") {
-          const userData = response.data
+    console.log("🔑 Token exists, fetching user...");
 
-          // Store timezone from user profile
-          if (userData?.timezone) {
-            localStorage.setItem("userTimezone", userData.timezone)
-          }
+    try {
+      const response = await getMe();
+      
+      console.log("📥 getMe response:", response);
+      
+      if (response?.status === "success") {
+        const userData = response.data;
 
-          // Store organization type if exists (for admin users)
-          const orgType = userData?.organization?.type
-          if (orgType) {
-            localStorage.setItem("organizationType", orgType)
-            queryClient.setQueryData([`${orgType}-profile`], userData)
-          }
-
-          // Store user role if exists (for regular users)
-          const userRole = userData?.role
-          if (userRole) {
-            localStorage.setItem("userRole", userRole)
-          }
-
-          return userData
+        // Store timezone from user profile
+        if (userData?.timezone) {
+          localStorage.setItem("userTimezone", userData.timezone);
         }
-        return null
-      } catch (e) {
-        console.error("Error fetching user data:", e)
-        if (e.response?.status === 401) {
-          localStorage.removeItem("token")
-          localStorage.removeItem("organizationType")
-          localStorage.removeItem("userRole")
-          localStorage.removeItem("userTimezone")
-          // 🔐 E2E: Clear E2E keys on auth error
-          localStorage.removeItem("e2e_account_keys")
-          localStorage.removeItem("e2e_private_key")
+
+        // Store organization type if exists
+        const orgType = userData?.organization?.type;
+        if (orgType) {
+          localStorage.setItem("organizationType", orgType);
+          queryClient.setQueryData([`${orgType}-profile`], userData);
         }
-        return null
+
+        // Store user role if exists
+        const userRole = userData?.role;
+        if (userRole) {
+          localStorage.setItem("userRole", userRole);
+        }
+
+        console.log("✅ User data fetched:", {
+          id: userData.id,
+          email: userData.email,
+          role: userData.role,
+          isOnboarded: userData.isOnboarded
+        });
+
+        return userData;
       }
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    cacheTime: 15 * 60 * 1000, // 15 minutes
-  })
+      
+      console.error("❌ getMe returned non-success status");
+      return null;
+      
+    } catch (e) {
+      console.error("❌ Error fetching user data:", e);
+      console.error("❌ Error status:", e.response?.status);
+      console.error("❌ Error data:", e.response?.data);
+      
+      // ✅ Handle 401 Unauthorized
+      if (e.response?.status === 401) {
+        console.error("❌ Token invalid or expired!");
+        localStorage.removeItem("token");
+        localStorage.removeItem("organizationType");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userTimezone");
+        localStorage.removeItem("e2e_account_keys");
+        localStorage.removeItem("e2e_private_key");
+      }
+      return null;
+    }
+  },
+  retry: false,
+  refetchOnWindowFocus: false,
+  refetchOnMount: 'always',  // ✅ Always refetch on mount
+  cacheTime: 0,  // ✅ Don't cache
+  staleTime: 0,  // ✅ Always stale
+});
 
   // 🔐 FIXED: Setup E2E keys during login (check server status first)
   const setupE2EKeys = async (userPassword) => {
@@ -280,34 +304,96 @@ export const useAuth = () => {
 
   // Smart redirect logic with loop prevention
   const redirectAfterLogin = (userData, currentPath) => {
-    // Prevent redirect if already on correct page
-    if (currentPath.includes('/onboarding') && userData.isOnboarded === false) {
-      console.log("Already on onboarding page, no redirect needed")
-      return
+  console.log('='.repeat(80));
+  console.log('🎯 [redirectAfterLogin] Starting redirect logic');
+  console.log('👤 User data:', {
+    id: userData.id,
+    email: userData.email,
+    role: userData.role,
+    isOnboarded: userData.isOnboarded
+  });
+  console.log('📍 Current path:', currentPath);
+  
+  // ✅ CRITICAL: Check onboarding status
+  if (userData.isOnboarded === false) {
+    // User needs onboarding
+    if (currentPath === '/onboarding') {
+      console.log('✅ Already on onboarding page, staying here');
+      console.log('='.repeat(80));
+      return; // Don't redirect if already on onboarding
     }
-
-    if (userData.isOnboarded === false) {
-      console.log("User needs onboarding, redirecting...")
-      navigate("/onboarding", { replace: true })
-    } else {
-      console.log("User completed onboarding, redirecting to dashboard...")
-      const dashboardPath = getDashboardPath(userData)
-      navigate(dashboardPath, { replace: true })
-    }
+    
+    console.log('🔄 User needs onboarding, redirecting to /onboarding');
+    console.log('='.repeat(80));
+    navigate('/onboarding', { replace: true });
+    return;
   }
+  
+  // ✅ User completed onboarding, go to dashboard
+  if (userData.isOnboarded === true) {
+    console.log('✅ User completed onboarding');
+    const dashboardPath = getDashboardPath(userData);
+    console.log('🎯 Redirecting to:', dashboardPath);
+    
+    // Don't redirect if already on correct dashboard
+    if (currentPath === dashboardPath) {
+      console.log('✅ Already on correct dashboard, staying here');
+      console.log('='.repeat(80));
+      return;
+    }
+    
+    console.log('='.repeat(80));
+    navigate(dashboardPath, { replace: true });
+    return;
+  }
+  
+  // ✅ Fallback (should never reach here)
+  console.warn('⚠️ isOnboarded status unclear:', userData.isOnboarded);
+  console.log('='.repeat(80));
+};
 
   // Get dashboard path based on user role/org
-  const getDashboardPath = (userData) => {
-    const userRole = userData.role
-    const orgType = userData.organization?.type
+  // Get dashboard path based on user role/org
+const getDashboardPath = (userData) => {
+  const userRole = userData?.role
+  const orgType = userData?.organization?.type
 
-    if (userRole === "student") return "/user/student/screening"
-    if (userRole === "employee") return "/user/employee/screening"
-    if (userRole === "psychologist") return "/user/psychologist/chat"
-    if (orgType === "school") return "/organization/school/dashboard"
-    if (orgType === "company") return "/organization/company/dashboard"
-    return "/"
+  console.log('🎯 [getDashboardPath] Determining redirect for:', { userRole, orgType });
+
+  // Handle all user roles
+  switch (userRole) {
+    case 'client':
+      console.log('✅ Client → /dashboard');
+      return '/dashboard';
+      
+    case 'student':
+      console.log('✅ Student → /user/student/screening');
+      return '/user/student/screening';
+      
+    case 'employee':
+      console.log('✅ Employee → /user/employee/screening');
+      return '/user/employee/screening';
+      
+    case 'psychologist':
+      console.log('✅ Psychologist → /user/psychologist/chat');
+      return '/user/psychologist/chat';
+      
+    default:
+      // Check organization type for admin users
+      if (orgType === 'school') {
+        console.log('✅ School Admin → /organization/school/dashboard');
+        return '/organization/school/dashboard';
+      }
+      if (orgType === 'company') {
+        console.log('✅ Company Admin → /organization/company/dashboard');
+        return '/organization/company/dashboard';
+      }
+      
+      // Fallback
+      console.warn('⚠️ Unknown user type, redirecting to /dashboard');
+      return '/dashboard';
   }
+}
 
   const forgotPassword = useMutation({
     mutationFn: async (email) => {
@@ -634,7 +720,10 @@ export const useAuth = () => {
     isOrganizationAdmin,
     isRegularUser,
     getUserTypeLabel,
-    getDefaultRoute,
+    getDefaultRoute: () => {
+      if (!user) return '/';
+      return getDashboardPath(user);
+    },
     refetchUser: refetch,
     // 🔐 FIXED: Export E2E functions
     hasE2EKeys,
