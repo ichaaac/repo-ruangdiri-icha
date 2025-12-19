@@ -19,6 +19,8 @@ export default defineConfig(({ command, mode }) => {
     build: {
       outDir: 'dist',
     },
-  define: { 'process.env': {} },
+    define: { 
+      'process.env': env 
+    },
   }
 })
