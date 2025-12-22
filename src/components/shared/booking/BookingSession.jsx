@@ -391,7 +391,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
       <div className="w-full h-72 left-0 top-0 absolute bg-gradient-to-b from-teal-200 to-indigo-500" />
 
       {/* Main Content Card */}
-      <div className="absolute left-[20px] right-[20px] top-[142px] bg-white rounded-tl-[10px] rounded-tr-[10px] shadow-[0px_12px_27px_0px_rgba(0,0,0,0.07)] shadow-[0px_49px_49px_0px_rgba(0,0,0,0.06)] shadow-[0px_111px_67px_0px_rgba(0,0,0,0.04)] shadow-[0px_198px_79px_0px_rgba(0,0,0,0.01)] shadow-[0px_309px_86px_0px_rgba(0,0,0,0.00)] min-h-[calc(100vh-162px)] max-md:left-[10px] max-md:right-[10px] max-md:top-[120px]" />
+      <div className="absolute left-[20px] right-[20px] top-[142px] bg-white rounded-tl-[10px] rounded-tr-[10px] shadow-[0px_12px_27px_0px_rgba(0,0,0,0.07)] shadow-[0px_49px_49px_0px_rgba(0,0,0,0.06)] shadow-[0px_111px_67px_0px_rgba(0,0,0,0.04)] shadow-[0px_198px_79px_0px_rgba(0,0,0,0.01)]   min-h-[calc(100vh-162px)] max-md:left-[10px] max-md:right-[10px] max-md:top-[120px]" />
 
       {/* Logo */}
       <div className="w-24 left-1/2 top-[26px] absolute transform -translate-x-1/2 inline-flex flex-col justify-start items-start gap-2.5 overflow-hidden max-md:w-20 max-md:top-[20px]">
