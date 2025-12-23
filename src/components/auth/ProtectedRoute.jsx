@@ -105,38 +105,9 @@ const ProtectedRoute = ({
     orgType
   });
 
-  // ✅ User needs onboarding but NOT on onboarding page
-  if (userNeedsOnboarding && currentPath !== '/onboarding') {
-    console.log("🔄 [ProtectedRoute] User needs onboarding, redirecting");
-    return <Navigate to="/onboarding" replace />;
-  }
-
-  // ✅ User completed onboarding but still on onboarding page
-  if (!userNeedsOnboarding && currentPath === '/onboarding') {
-    console.log("✅ [ProtectedRoute] Onboarding complete, redirecting to dashboard");
-    
-    // ✅ FIX: Use getDefaultRoute from useAuth instead of local function
-    const dashboardPath = getDefaultRoute();
-    console.log("📍 [ProtectedRoute] Dashboard path:", dashboardPath);
-    
-    return <Navigate to={dashboardPath} replace />;
-  }
-
-  // ✅ REMOVED: requiredRole check - causes redirects
-  // Routes are already protected by authentication check
-  // Role-specific routing is handled by getDashboardPath in useAuth
-
-  // ✅ REMOVED: requiredOrgType check - causes redirects
-
-  // ✅ REMOVED: allowedRoles check - causes redirects
-
-  // ✅ REMOVED: allowedOrgTypes check - causes redirects
-
-  // ✅ REMOVED: Path-based role checks - causes unwanted redirects
-  // User authentication is enough, no need to validate role for every path
-
-  // ✅ SUCCESS: All checks passed, render the protected content
-  console.log(`✅ ProtectedRoute: Access granted to ${currentPath} for ${userRole || orgType}`);
+  // ✅ FIX: At the very end, just render children
+  // Don't check onboarding here - that's handled by redirectAfterLogin
+  console.log('✅ ProtectedRoute: Access granted to', location.pathname, 'for', getUserRole());
   return children;
 };
 

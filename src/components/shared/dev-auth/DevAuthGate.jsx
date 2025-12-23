@@ -4,15 +4,26 @@ import React, { useEffect, useMemo, useState } from 'react';
 const STORAGE_KEY = 'rd.devAuth.v1';
 
 const DevAuthGate = () => {
-  const enabled = import.meta.env.VITE_ENABLE_DEV_AUTH;
+  // FIX: Convert string to boolean properly
+  const enabled = import.meta.env.VITE_ENABLE_DEV_AUTH === 'true'; // ← UBAH INI
   const expectedUser = import.meta.env.VITE_BASIC_AUTH_USER || 'dev';
   const expectedPass = import.meta.env.VITE_BASIC_AUTH_PASS || 'dev';
-  const ttlMinutes = Number(import.meta.env.VITE_DEV_AUTH_TTL_MIN || '10'); // 12h
+  const ttlMinutes = Number(import.meta.env.VITE_DEV_AUTH_TTL_MIN || '10');
 
   const [open, setOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Debug log - remove after fixing
+  useEffect(() => {
+    console.log('🔐 DevAuth Status:', {
+      enabled,
+      rawValue: import.meta.env.VITE_ENABLE_DEV_AUTH,
+      expectedUser,
+      expectedPass: expectedPass ? '***' : 'not set'
+    });
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -40,7 +51,19 @@ const DevAuthGate = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (username === expectedUser && password === expectedPass) {
+    
+    // Trim whitespace untuk keamanan
+    const inputUser = username.trim();
+    const inputPass = password.trim();
+    
+    console.log('🔑 Login attempt:', {
+      inputUser,
+      expectedUser,
+      userMatch: inputUser === expectedUser,
+      passMatch: inputPass === expectedPass
+    });
+    
+    if (inputUser === expectedUser && inputPass === expectedPass) {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({ ok: true, ts: Date.now() })
@@ -49,6 +72,8 @@ const DevAuthGate = () => {
       setOpen(false);
     } else {
       setError('Invalid credentials');
+      // Clear password untuk security
+      setPassword('');
     }
   };
 
@@ -109,4 +134,3 @@ const DevAuthGate = () => {
 };
 
 export default DevAuthGate;
-

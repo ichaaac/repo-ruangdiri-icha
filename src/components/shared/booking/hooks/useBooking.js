@@ -114,15 +114,18 @@ export const useBooking = (userType = "student") => {
       return result
     }
 
-    // Fallback to weekly schedule approach
-    const dates = []
+    // Change from 28 to 60 days
     const today = new Date()
+    const sixtyDaysFromNow = new Date(today.getTime() + (60 * 24 * 60 * 60 * 1000))  // ✅ 60 days
     const availableDaysOfWeek = [...new Set(psychologistAvailability.map((slot) => slot.dayOfWeek))]
+    const dates = []
 
-    for (let i = 0; i <= 60; i++) {
+    for (let i = 0; i <= 28; i++) {
       const date = new Date(today)
       date.setDate(today.getDate() + i)
       const dayOfWeek = date.getDay()
+      const currentDate = new Date(date)
+      const isBeyond60Days = currentDate > sixtyDaysFromNow
       if (availableDaysOfWeek.includes(dayOfWeek)) {
         dates.push({
           value: date.toISOString().split("T")[0],
@@ -133,6 +136,7 @@ export const useBooking = (userType = "student") => {
             year: "numeric",
           }),
           dayOfWeek,
+          isBeyond60Days,
         })
       }
     }

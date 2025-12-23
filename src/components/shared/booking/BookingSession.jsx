@@ -81,18 +81,18 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
       const isToday = currentDate.toDateString() === new Date().toDateString()
       
       // Disable dates beyond 4 weeks (28 days) from today
-      const today = new Date()
-      const fourWeeksFromNow = new Date(today.getTime() + (28 * 24 * 60 * 60 * 1000))
-      const isBeyondFourWeeks = currentDate > fourWeeksFromNow
+      // const today = new Date()
+      // const fourWeeksFromNow = new Date(today.getTime() + (28 * 24 * 60 * 60 * 1000))
+      // const isBeyondFourWeeks = currentDate > fourWeeksFromNow
 
       days.push({
         day,
         dateStr,
-        isAvailable: isAvailable && !isPast && !isBeyondFourWeeks,
+        isAvailable: isAvailable && !isPast,
         isSelected,
         isPast,
         isToday,
-        isBeyondFourWeeks,
+
       })
     }
 

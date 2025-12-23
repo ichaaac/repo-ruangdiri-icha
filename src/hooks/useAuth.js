@@ -307,51 +307,75 @@ export const useAuth = () => {
   console.log('='.repeat(80));
   console.log('🎯 [redirectAfterLogin] Starting redirect logic');
   console.log('👤 User data:', {
-    id: userData.id,
-    email: userData.email,
-    role: userData.role,
-    isOnboarded: userData.isOnboarded
+    id: userData?.id,
+    email: userData?.email,
+    role: userData?.role,
+    isOnboarded: userData?.isOnboarded
   });
   console.log('📍 Current path:', currentPath);
   
-  // ✅ CRITICAL: Check onboarding status
+  // ✅ Guard clause
+  if (!userData) {
+    console.log('❌ No user data');
+    console.log('='.repeat(80));
+    return;
+  }
+  
+  // ✅ Prevent rapid redirects (loop protection)
+  const REDIRECT_KEY = 'last_redirect_attempt';
+  const lastRedirect = sessionStorage.getItem(REDIRECT_KEY);
+  const now = Date.now();
+  
+  if (lastRedirect && (now - parseInt(lastRedirect)) < 1000) {
+    console.warn('⚠️ Redirect attempted too soon, preventing loop');
+    console.log('='.repeat(80));
+    return;
+  }
+  
+  sessionStorage.setItem(REDIRECT_KEY, now.toString());
+  
+  // ✅ Check onboarding status
   if (userData.isOnboarded === false) {
-    // User needs onboarding
     if (currentPath === '/onboarding') {
-      console.log('✅ Already on onboarding page, staying here');
+      console.log('✅ Already on onboarding');
       console.log('='.repeat(80));
-      return; // Don't redirect if already on onboarding
+      return;
     }
     
-    console.log('🔄 User needs onboarding, redirecting to /onboarding');
+    console.log('🔄 Redirecting to onboarding');
     console.log('='.repeat(80));
     navigate('/onboarding', { replace: true });
     return;
   }
   
-  // ✅ User completed onboarding, go to dashboard
+  // ✅ User is onboarded
   if (userData.isOnboarded === true) {
-    console.log('✅ User completed onboarding');
-    const dashboardPath = getDashboardPath(userData);
-    console.log('🎯 Redirecting to:', dashboardPath);
+    console.log('✅ User onboarded');
     
-    // Don't redirect if already on correct dashboard
+    const dashboardPath = getDashboardPath(userData);
+    console.log('🎯 Dashboard path:', dashboardPath);
+    console.log('📍 Current path:', currentPath);
+    
+    // ✅ Already on target dashboard? Stay there
     if (currentPath === dashboardPath) {
-      console.log('✅ Already on correct dashboard, staying here');
+      console.log('✅ Already on dashboard, staying');
       console.log('='.repeat(80));
       return;
     }
     
+    // ✅ Coming from login or onboarding? Redirect to dashboard
+    if (currentPath === '/login' || currentPath === '/onboarding') {
+      console.log('🎯 Redirecting from', currentPath, 'to', dashboardPath);
+      console.log('='.repeat(80));
+      navigate(dashboardPath, { replace: true });
+      return;
+    }
+    
+    // ✅ On some other page? Let them stay
+    console.log('ℹ️ User on different page, allowing navigation');
     console.log('='.repeat(80));
-    navigate(dashboardPath, { replace: true });
-    return;
   }
-  
-  // ✅ Fallback (should never reach here)
-  console.warn('⚠️ isOnboarded status unclear:', userData.isOnboarded);
-  console.log('='.repeat(80));
 };
-
   // Get dashboard path based on user role/org
   // Get dashboard path based on user role/org
 const getDashboardPath = (userData) => {
