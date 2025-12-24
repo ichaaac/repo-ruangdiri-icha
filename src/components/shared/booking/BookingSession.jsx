@@ -238,6 +238,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     locations,
     timeSlots,
     availableDates,
+    availableQuota,
     selectedDate,
     selectedTimeSlot,
     selectedLocation,
@@ -366,8 +367,14 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     return titleMap[methodId] || titleMap["online"]
   }
 
-  // Get remaining quota from user data
-  const remainingQuota = user?.organization?.remainingQuota || 0
+  // UPDATED: Get dynamic quota from availability (time-slot based)
+  const remainingQuota = availableQuota ?? 0
+
+  // Debug: Log quota values
+  console.log("🔍 [BookingSession] availableQuota:", availableQuota)
+  console.log("🔍 [BookingSession] remainingQuota:", remainingQuota)
+  console.log("🔍 [BookingSession] loading.quota:", loading.quota)
+  console.log("🔍 [BookingSession] errors.quota:", errors.quota)
 
   // Show loading state while methods are loading
   if (loading.methods) {
@@ -636,22 +643,36 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
             </div>
           </div>
 
-          {/* Subscription Type Column */}
+          {/* UPDATED: Availability Info Column */}
           <div className="flex-1 flex flex-col gap-3">
-            <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Tipe Langganan</div>
+            <div className="text-neutral-600 text-sm font-bold font-['Public_Sans']">Ketersediaan Sesi</div>
             <div className={`${fieldHeight} px-2.5 py-2 bg-zinc-100 rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-gray-500 flex items-center`}>
               <div className="flex-1 h-5 rounded-[5px] flex flex-col justify-center items-start gap-2.5">
                 <div className="flex-1 flex items-center gap-4">
-                  <div className="text-gray-600 text-sm font-normal font-['Public_Sans']">Organisasi</div>
+                  {loading.quota ? (
+                    <div className="text-gray-400 text-sm font-normal font-['Public_Sans']">Loading...</div>
+                  ) : errors.quota ? (
+                    <div className="text-gray-400 text-sm font-normal font-['Public_Sans']">-</div>
+                  ) : (
+                    <div className="text-gray-600 text-sm font-normal font-['Public_Sans']">
+                      {remainingQuota > 0 ? "Tersedia" : "Tidak Tersedia"}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Quota Info - Right aligned */}
+            {/* UPDATED: Dynamic Quota Info - Right aligned */}
             <div className="flex justify-end items-center gap-[5px]">
               <span className="material-icons text-[#EE4266] text-base">info</span>
               <div className="text-[#EE4266] text-xs font-normal font-['Public_Sans'] leading-4">
-                Kuota tersisa untuk konseling : {remainingQuota}
+                {loading.quota ? (
+                  "Loading slot tersedia..."
+                ) : errors.quota ? (
+                  "Slot tersedia untuk konseling : -"
+                ) : (
+                  `Slot tersedia untuk konseling : ${remainingQuota}`
+                )}
               </div>
             </div>
           </div>

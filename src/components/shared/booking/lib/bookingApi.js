@@ -34,6 +34,9 @@ export const createBookingApi = (userType = "student") => {
               totalPsychologists: typeof t.totalPsychologists === 'number' ? t.totalPsychologists : undefined,
               bookedPsychologists: typeof t.bookedPsychologists === 'number' ? t.bookedPsychologists : undefined,
               availabilityRate: typeof t.availabilityRate === 'number' ? t.availabilityRate : undefined,
+              // ✅ FIXED: Add psychologist IDs from backend
+              availablePsychologistIds: Array.isArray(t.availablePsychologistIds) ? t.availablePsychologistIds : [],
+              bookedPsychologistIds: Array.isArray(t.bookedPsychologistIds) ? t.bookedPsychologistIds : [],
               // legacy flags
               isBooked: typeof t.isBooked === 'boolean' ? t.isBooked : undefined,
               hasScheduledSessions: false,
@@ -569,17 +572,31 @@ export const createBookingApi = (userType = "student") => {
     // Get user's subscription info
     getSubscriptionInfo: async () => {
       try {
+        console.log("🔍 [bookingApi] Fetching subscription info from /users/subscription")
         const response = await apiClient.get("/users/subscription")
 
+        console.log("🔍 [bookingApi] Full response:", response)
+        console.log("🔍 [bookingApi] response.data:", response.data)
+        console.log("🔍 [bookingApi] response.data.data:", response.data.data)
+
         if (response.data && response.data.status === "success") {
+          // Extract subscription data
+          const subscriptionData = response.data.data || {}
+
+          // Handle remainingQuota - use nullish coalescing to preserve 0 value
+          const remainingQuota = subscriptionData.remainingQuota ?? subscriptionData.quota ?? 0
+
+          console.log("🔍 [bookingApi] Extracted remainingQuota:", remainingQuota)
+          console.log("🔍 [bookingApi] subscriptionData:", subscriptionData)
+
           return {
             ...response,
             data: {
               ...response.data,
               data: {
-                ...response.data.data,
-                displayType: response.data.data.type === "organization" ? "Organisasi" : "Individual",
-                remainingQuota: response.data.data.remainingQuota || 0,
+                ...subscriptionData,
+                displayType: subscriptionData.type === "organization" ? "Organisasi" : "Individual",
+                remainingQuota: remainingQuota,
               },
             },
           }
@@ -588,6 +605,7 @@ export const createBookingApi = (userType = "student") => {
         return response
       } catch (error) {
         console.error("Error fetching subscription info:", error)
+        console.error("Error details:", error.response?.data)
         // Return fallback subscription info
         return {
           status: "fallback",
@@ -628,6 +646,10 @@ export const createBookingApi = (userType = "student") => {
           validationErrors.push("Psychologist name is required")
         }
 
+        if (!bookingData.psychologistId) {
+          validationErrors.push("Psychologist ID is required")
+        }
+
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(", ")}`)
         }
@@ -639,7 +661,7 @@ export const createBookingApi = (userType = "student") => {
           date: bookingData.date,
           startTime: bookingData.startTime,
           endTime: bookingData.endTime,
-          psychologistName: bookingData.psychologistName,
+          psychologistId: bookingData.psychologistId, // ✅ FIXED: Send psychologistId to backend
           timezone: bookingData.timezone || "Asia/Jakarta",
         }
 

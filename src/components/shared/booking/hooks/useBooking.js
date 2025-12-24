@@ -180,17 +180,27 @@ export const useBooking = (userType = "student") => {
     })
 
     // Convert available slots
-    const slots = availableSlots.map((availability, index) => ({
-      startTime: availability.startTime.substring(0, 5),
-      endTime: availability.endTime.substring(0, 5),
-      psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
-      psychologistId: availability.psychologist?.id || availability.psychologistId,
-      available: true,
-      displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
-      uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-a-${index}`,
-      scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-      hasScheduledSessions: availability.hasScheduledSessions,
-    }))
+    const slots = availableSlots.map((availability, index) => {
+      // ✅ FIXED: Get psychologistId from availablePsychologistIds array
+      const psychologistId = availability.psychologist?.id
+        || availability.psychologistId
+        || (availability.availablePsychologistIds && availability.availablePsychologistIds.length > 0
+          ? availability.availablePsychologistIds[0]
+          : undefined);
+
+      return {
+        startTime: availability.startTime.substring(0, 5),
+        endTime: availability.endTime.substring(0, 5),
+        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Available Psychologist",
+        psychologistId: psychologistId, // ✅ FIXED: Use psychologistId from available list
+        availablePsychologistIds: availability.availablePsychologistIds || [], // ✅ ADDED: Keep full list for reference
+        available: true,
+        displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
+        uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-a-${index}`,
+        scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+        hasScheduledSessions: availability.hasScheduledSessions,
+      };
+    })
 
     // Include unavailable slots from isBooked
     const unavailableFromBooked = source
@@ -200,18 +210,27 @@ export const useBooking = (userType = "student") => {
         }
         return availability.isBooked === true
       })
-      .map((availability, index) => ({
-        startTime: availability.startTime.substring(0, 5),
-        endTime: availability.endTime.substring(0, 5),
-        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
-        psychologistId: availability.psychologist?.id || availability.psychologistId,
-        available: false,
-        displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (${typeof availability.availablePsychologists === 'number' ? 'Penuh' : 'Sudah dibooking'})`,
-        uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-u-${index}`,
-        scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-        hasScheduledSessions: availability.hasScheduledSessions,
-        reason: typeof availability.availablePsychologists === 'number' ? `Tidak cukup psikolog tersedia (sisa: ${availability.availablePsychologists ?? 0})` : "Sudah dibooking",
-      }))
+      .map((availability, index) => {
+        // ✅ FIXED: Get psychologistId even for unavailable slots
+        const psychologistId = availability.psychologist?.id
+          || availability.psychologistId
+          || (availability.availablePsychologistIds && availability.availablePsychologistIds.length > 0
+            ? availability.availablePsychologistIds[0]
+            : undefined);
+
+        return {
+          startTime: availability.startTime.substring(0, 5),
+          endTime: availability.endTime.substring(0, 5),
+          psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
+          psychologistId: psychologistId,
+          available: false,
+          displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (${typeof availability.availablePsychologists === 'number' ? 'Penuh' : 'Sudah dibooking'})`,
+          uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-u-${index}`,
+          scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+          hasScheduledSessions: availability.hasScheduledSessions,
+          reason: typeof availability.availablePsychologists === 'number' ? `Tidak cukup psikolog tersedia (sisa: ${availability.availablePsychologists ?? 0})` : "Sudah dibooking",
+        };
+      })
 
     // Also include unavailable from overbooked heuristic (without duplicating booked ones)
     const unavailableFromOverbooked = source
@@ -220,18 +239,27 @@ export const useBooking = (userType = "student") => {
         const scheduledSessionsCount = availability.scheduledSessions?.length || 0
         return availability.hasScheduledSessions && scheduledSessionsCount >= 2
       })
-      .map((availability, index) => ({
-        startTime: availability.startTime.substring(0, 5),
-        endTime: availability.endTime.substring(0, 5),
-        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
-        psychologistId: availability.psychologist?.id || availability.psychologistId,
-        available: false,
-        displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak tersedia)`,
-        uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-o-${index}`,
-        scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-        hasScheduledSessions: availability.hasScheduledSessions,
-        reason: "Psikolog tidak tersedia",
-      }))
+      .map((availability, index) => {
+        // ✅ FIXED: Get psychologistId
+        const psychologistId = availability.psychologist?.id
+          || availability.psychologistId
+          || (availability.availablePsychologistIds && availability.availablePsychologistIds.length > 0
+            ? availability.availablePsychologistIds[0]
+            : undefined);
+
+        return {
+          startTime: availability.startTime.substring(0, 5),
+          endTime: availability.endTime.substring(0, 5),
+          psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
+          psychologistId: psychologistId,
+          available: false,
+          displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak tersedia)`,
+          uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-o-${index}`,
+          scheduledSessionsCount: availability.scheduledSessions?.length || 0,
+          hasScheduledSessions: availability.hasScheduledSessions,
+          reason: "Psikolog tidak tersedia",
+        };
+      })
 
     const allSlots = [...slots, ...unavailableFromBooked, ...unavailableFromOverbooked]
 
@@ -247,14 +275,41 @@ export const useBooking = (userType = "student") => {
     return allSlots
   }, [selectedDate, psychologistAvailability])
 
-  // Get user's subscription info (from user data)
-  const subscriptionInfo = user?.organization
-    ? {
-        displayType: "Organisasi",
-        remainingQuota: user.organization.remainingQuota || 0,
-        totalQuota: user.organization.totalQuota || 0,
+  // UPDATED: Calculate dynamic quota from availability (time-slot based)
+  const availableQuota = useCallback(() => {
+    if (!psychologistAvailability || psychologistAvailability.length === 0) {
+      console.log("🔍 [useBooking] No availability data, quota = 0")
+      return 0
+    }
+
+    // Count all available slots (not fully booked)
+    const availableSlots = psychologistAvailability.filter((slot) => {
+      // Check if slot has available psychologists
+      if (typeof slot.availablePsychologists === 'number') {
+        return slot.availablePsychologists >= availabilityThreshold
       }
-    : null
+      // Check if slot is not booked
+      if (typeof slot.isBooked === 'boolean') {
+        return slot.isBooked === false
+      }
+      // Fallback: check scheduled sessions
+      const scheduledCount = slot.scheduledSessions?.length || 0
+      return !slot.hasScheduledSessions || scheduledCount < 2
+    })
+
+    const quota = availableSlots.length
+
+    console.log("🔍 [useBooking] Total slots:", psychologistAvailability.length)
+    console.log("🔍 [useBooking] Available slots:", quota)
+
+    return quota
+  }, [psychologistAvailability, availabilityThreshold])
+
+  // Debug: Log quota whenever availability changes
+  useEffect(() => {
+    const quota = availableQuota()
+    console.log("🔍 [useBooking] Dynamic quota updated:", quota)
+  }, [availableQuota])
 
   // Create booking mutation
   const createBookingMutation = useMutation({
@@ -437,6 +492,7 @@ export const useBooking = (userType = "student") => {
     locations: locationsLoading,
     timeSlots: false, // Computed from availability data
     availableDates: availabilityLoading,
+    quota: availabilityLoading, // UPDATED: Quota loading same as availability
     creating: createBookingMutation.isPending,
   }
 
@@ -445,6 +501,7 @@ export const useBooking = (userType = "student") => {
     locations: locationsError,
     timeSlots: null,
     availableDates: availabilityError,
+    quota: availabilityError, // UPDATED: Quota error same as availability
     creating: createBookingMutation.error,
   }
 
@@ -454,7 +511,7 @@ export const useBooking = (userType = "student") => {
     locations,
     timeSlots: timeSlots(), // Call function to get computed time slots
     availableDates: availableDates(), // Call function to get computed available dates
-    subscriptionInfo,
+    availableQuota: availableQuota(), // UPDATED: Dynamic quota from availability
     config,
 
     // State
