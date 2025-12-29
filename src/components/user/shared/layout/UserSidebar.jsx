@@ -6,13 +6,13 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useAuth } from "../../../../hooks/useAuth"
 import { useChats } from "../../../shared/chats/hooks/useChats"
 /**
- * Unified Responsive Sidebar Component untuk Student, Employee, dan Psychologist
+ * Unified Responsive Sidebar Component untuk Student, Employee, Client, dan Psychologist
  */
 const UserSidebar = ({
   expanded,
   setExpanded,
   onHoverChange,
-  userType = "student", // "student", "employee", atau "psychologist"
+  userType = "student", // "student", "employee", "client", atau "psychologist"
   isMobile = false,
 }) => {
   const location = useLocation()
@@ -52,7 +52,7 @@ const UserSidebar = ({
         },
         {
           label: "Mental Health Screening",
-          icon: "psychology", 
+          icon: "psychology",
           path: `/user/student/screening`,
           disabled: false
         },
@@ -95,6 +95,34 @@ const UserSidebar = ({
           label: "Pesan",
           icon: "chat",
           path: `/user/employee/chat`,
+          disabled: false,
+          hasUnreadBadge: true
+        }
+      ],
+      client: [
+        {
+          label: "Dashboard",
+          icon: "dashboard",
+          path: `/user/client/dashboard`,
+          disabled: false
+        },
+        {
+          label: "Mental Health Screening",
+          icon: "psychology",
+          path: `/user/client/screening`,
+          disabled: false
+        },
+        {
+          label: "Booking Sesi",
+          icon: "event_available",
+          path: `/booking-session/client`,
+          disabled: false,
+          isExternal: true
+        },
+        {
+          label: "Pesan",
+          icon: "chat",
+          path: `/user/client/chat`,
           disabled: false,
           hasUnreadBadge: true
         }
@@ -246,6 +274,7 @@ const UserSidebar = ({
     if (userType === "student") return "S"
     if (userType === "employee") return "E"
     if (userType === "psychologist") return "P"
+    if (userType === "client") return "C"
     return "U"
   }
 
@@ -253,6 +282,7 @@ const UserSidebar = ({
     if (userType === "student") return "Siswa"
     if (userType === "employee") return "Pegawai"
     if (userType === "psychologist") return "Psikolog"
+    if (userType === "client") return "Klien"
     return "User"
   }
 

@@ -393,11 +393,15 @@ const getDashboardPath = (userData) => {
     case 'employee':
       console.log('✅ Employee → /user/employee/screening');
       return '/user/employee/screening';
-      
+
     case 'psychologist':
       console.log('✅ Psychologist → /user/psychologist/chat');
       return '/user/psychologist/chat';
-      
+
+    case 'client':
+      console.log('✅ Client → /user/client/dashboard');
+      return '/user/client/dashboard';
+
     default:
       // Check organization type for admin users
       if (orgType === 'school') {
@@ -701,7 +705,7 @@ const getDashboardPath = (userData) => {
 
   const isRegularUser = () => {
     const userRole = getUserRole()
-    return userRole && ["student", "employee", "psychologist"].includes(userRole)
+    return userRole && ["student", "employee", "psychologist", "client"].includes(userRole)
   }
 
   const getUserTypeLabel = () => {
@@ -711,6 +715,7 @@ const getDashboardPath = (userData) => {
     if (userRole === "student") return "Siswa"
     if (userRole === "employee") return "Pegawai"
     if (userRole === "psychologist") return "Psikolog"
+    if (userRole === "client") return "Klien"
     if (orgType === "school") return "Admin Sekolah"
     if (orgType === "company") return "Admin Perusahaan"
     return "User"

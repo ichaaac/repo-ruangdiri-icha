@@ -112,6 +112,7 @@ const RoleBasedNotificationsRedirect = () => {
   if (role === "student") return <Navigate to="/user/student/notifications" replace />
   if (role === "employee") return <Navigate to="/user/employee/notifications" replace />
   if (role === "psychologist") return <Navigate to="/user/psychologist/notifications" replace />
+  if (role === "client") return <Navigate to="/user/client/notifications" replace />
   if (org === "school") return <Navigate to="/organization/school/notifications" replace />
   if (org === "company") return <Navigate to="/organization/company/notifications" replace />
   return <Navigate to="/" replace />
@@ -327,6 +328,44 @@ const routes = [
             icon="analytics"
           />
         ),
+      },
+    ],
+  },
+
+  // ==========================================
+  // CLIENT ROUTES - ✅ NEW: Added routing for client role
+  // ==========================================
+  {
+    path: "/user/client",
+    element: (
+      <ProtectedRoute>
+        <UserLayout userType="client" />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <Navigate to="dashboard" replace />,
+      },
+      {
+        path: "dashboard",
+        element: <UserDashboard />,
+      },
+      {
+        path: "screening",
+        element: <MentalHealthScreening />,
+      },
+      {
+        path: "chat",
+        element: <ChatPage />,
+      },
+      {
+        path: "profile",
+        element: <UserProfile />,
+      },
+      {
+        path: "notifications",
+        element: <NotificationPage />,
       },
     ],
   },
