@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill:*)",
+      "Bash(find:*)",
+      "Bash(npm run dev:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(npm install:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(dir /s /b .env*)"
+    ]
+  }
+}

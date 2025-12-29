@@ -4,22 +4,25 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import 'dayjs/locale/id'; // Import Indonesian locale
 
 // Initialize dayjs plugins and locale
 dayjs.extend(relativeTime);
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale('id'); // Set Indonesian locale
 
-// NEW: Parse backend ISO as *local* time, ignoring trailing 'Z' (no timezone shift)
+// FIXED: Parse backend UTC timestamp and convert to local timezone (WIB/Jakarta)
 const parseBackendLocal = (ts) => {
   if (!ts) return null;
-  if (typeof ts === 'string') {
-    const normalized = ts.replace(/Z$/, ''); // drop trailing Z so it's treated as local
-    return dayjs(normalized);
-  }
-  return dayjs(ts);
+  // Parse as UTC, then convert to local browser timezone
+  // Backend sends: "2025-12-29T12:57:00.000Z" (UTC)
+  // This converts to: 19:57 (WIB = UTC+7)
+  return dayjs.utc(ts).local();
 };
 
 /**
@@ -36,7 +39,7 @@ export const formatChatTime = (timestamp) => {
 /**
  * FIXED: Generate floating date header for chat sections (like WhatsApp)
  * - Today: "Hari ini"
- * - Yesterday: "Kemarin" 
+ * - Yesterday: "Kemarin"
  * - More than 48 hours (2+ days): "Senin, 18 Agustus 2025"
  * This appears as floating header above message groups
  */
@@ -49,12 +52,12 @@ export const formatChatDateHeader = (timestamp) => {
 
   if (messageDate.isSame(startOfToday)) return 'Hari ini';
   if (messageDate.isSame(startOfYesterday)) return 'Kemarin';
-  
+
   // For messages older than 48 hours (2+ days), show full date
   if (messageDate.isBefore(twoDaysAgo)) {
     return messageDate.format('dddd, DD MMMM YYYY');
   }
-  
+
   // Edge case: exactly 2 days ago
   return messageDate.format('dddd, DD MMMM YYYY');
 };

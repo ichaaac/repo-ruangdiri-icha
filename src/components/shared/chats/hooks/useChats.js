@@ -398,7 +398,18 @@ export const useChats = () => {
   // SIMPLIFIED: Handle Ably message - just decrypt and add
   const handleAblyMessage = useCallback((messageData) => {
     const messageContent = messageData.content || messageData.message || '';
-    
+
+    // DEBUG: Log raw message data from socket
+    console.log('🔔 Socket message received:', {
+      messageId: messageData.messageId || messageData.id,
+      hasAttachment: !!(messageData.attachmentUrl || messageData.attachmentType),
+      attachmentUrl: messageData.attachmentUrl,
+      attachmentType: messageData.attachmentType,
+      attachmentName: messageData.attachmentName,
+      messageType: messageData.messageType,
+      RAW_DATA: messageData
+    });
+
     const transformedMessage = {
       id: messageData.messageId || messageData.id || `realtime-${Date.now()}`,
       text: messageContent,
@@ -411,8 +422,8 @@ export const useChats = () => {
       isUser: messageData.senderId === userId,
       sender: {
         id: messageData.senderId || 'unknown',
-        name: messageData.senderId === userId 
-          ? 'You' 
+        name: messageData.senderId === userId
+          ? 'You'
           : (messageData.senderFullname || 'Unknown User'),
         role: messageData.senderRole || 'user',
         profilePicture: messageData.senderProfilePicture || null

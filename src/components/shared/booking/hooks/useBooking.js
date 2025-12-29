@@ -44,8 +44,39 @@ export const useBooking = (userType = "student") => {
     queryFn: () => bookingApi.getAvailableTimeSlots(),
     staleTime: 3 * 60 * 1000, // 3 minutes
     select: (data) => {
+      console.log("=== BACKEND AVAILABILITY RESPONSE ===")
       console.log("Raw availability data:", data)
-      return data?.data || []
+
+      // ✅ DEBUG: Extract and log all psychologist IDs from response
+      const availabilityData = data?.data || []
+      const psychologistIds = new Set()
+      availabilityData.forEach(slot => {
+        if (slot.psychologistId) psychologistIds.add(slot.psychologistId)
+        if (slot.psychologist?.id) psychologistIds.add(slot.psychologist.id)
+        if (slot.availablePsychologistIds) {
+          slot.availablePsychologistIds.forEach(id => psychologistIds.add(id))
+        }
+      })
+
+      console.log("🔍 All psychologist IDs from backend:", Array.from(psychologistIds))
+      console.log("🔍 Total slots from backend:", availabilityData.length)
+
+      // ✅ Check for invalid IDs
+      const invalidIds = Array.from(psychologistIds).filter(id =>
+        id && id.startsWith('8f875267')
+      )
+      const validIds = Array.from(psychologistIds).filter(id =>
+        id && id.startsWith('7d3c1c42')
+      )
+
+      if (invalidIds.length > 0) {
+        console.error("❌ INVALID PSYCHOLOGIST IDs DETECTED:", invalidIds)
+      }
+      if (validIds.length > 0) {
+        console.log("✅ VALID PSYCHOLOGIST IDs FOUND:", validIds)
+      }
+
+      return availabilityData
     },
   })
 
@@ -144,12 +175,23 @@ export const useBooking = (userType = "student") => {
     return dates
   }, [psychologistAvailability])
 
-  // UPDATED: Calculate time slots with psychologist availability filtering
+  // UPDATED: Fixed 7 hourly time slots with psychologist availability filtering
   const timeSlots = useCallback(() => {
     if (!selectedDate || !psychologistAvailability || psychologistAvailability.length === 0) {
       console.log("No selected date or availability data for time slots")
       return []
     }
+
+    // ✅ FIXED: Define 7 fixed hourly slots
+    const FIXED_SLOTS = [
+      { start: '09:00', end: '10:00' },
+      { start: '10:00', end: '11:00' },
+      { start: '11:00', end: '12:00' },
+      { start: '13:00', end: '14:00' },
+      { start: '14:00', end: '15:00' },
+      { start: '15:00', end: '16:00' },
+      { start: '16:00', end: '17:00' },
+    ]
 
     const selectedDateObj = new Date(selectedDate)
     const dayOfWeek = selectedDateObj.getDay()
@@ -167,101 +209,91 @@ export const useBooking = (userType = "student") => {
 
     console.log("Day availability (selected source):", source)
 
-    // Determine availability: if isBooked flag exists, use it; otherwise fallback to scheduledSessions logic
-    const availableSlots = source.filter((availability) => {
-      if (typeof availability.availablePsychologists === 'number') {
-        return availability.availablePsychologists >= availabilityThreshold
-      }
-      if (typeof availability.isBooked === 'boolean') {
-        return availability.isBooked === false
-      }
-      const scheduledSessionsCount = availability.scheduledSessions?.length || 0
-      return !availability.hasScheduledSessions || scheduledSessionsCount < 2
-    })
+    // ✅ Map each fixed slot to check availability from backend data
+    const allSlots = FIXED_SLOTS.map((fixedSlot, index) => {
+      // Find matching availability from backend for this time slot
+      const matchingAvailability = source.find((availability) => {
+        const backendStart = availability.startTime.substring(0, 5)
+        const backendEnd = availability.endTime.substring(0, 5)
+        return backendStart === fixedSlot.start && backendEnd === fixedSlot.end
+      })
 
-    // Convert available slots
-    const slots = availableSlots.map((availability, index) => {
-      // ✅ FIXED: Get psychologistId from availablePsychologistIds array
-      const psychologistId = availability.psychologist?.id
-        || availability.psychologistId
-        || (availability.availablePsychologistIds && availability.availablePsychologistIds.length > 0
-          ? availability.availablePsychologistIds[0]
-          : undefined);
+      // Check if this slot is available
+      let isAvailable = false
+      let psychologistId = undefined
+      let psychologistName = "Psikolog Tersedia"
+      let availablePsychologistIds = []
+      let scheduledSessionsCount = 0
+      let reason = "Tidak ada psikolog tersedia"
 
-      return {
-        startTime: availability.startTime.substring(0, 5),
-        endTime: availability.endTime.substring(0, 5),
-        psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Available Psychologist",
-        psychologistId: psychologistId, // ✅ FIXED: Use psychologistId from available list
-        availablePsychologistIds: availability.availablePsychologistIds || [], // ✅ ADDED: Keep full list for reference
-        available: true,
-        displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB`,
-        uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-a-${index}`,
-        scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-        hasScheduledSessions: availability.hasScheduledSessions,
-      };
-    })
-
-    // Include unavailable slots from isBooked
-    const unavailableFromBooked = source
-      .filter((availability) => {
-        if (typeof availability.availablePsychologists === 'number') {
-          return availability.availablePsychologists < availabilityThreshold
+      if (matchingAvailability) {
+        // Check availability using backend data
+        if (typeof matchingAvailability.availablePsychologists === 'number') {
+          isAvailable = matchingAvailability.availablePsychologists >= availabilityThreshold
+          reason = isAvailable
+            ? undefined
+            : `Tidak cukup psikolog tersedia (sisa: ${matchingAvailability.availablePsychologists})`
+        } else if (typeof matchingAvailability.isBooked === 'boolean') {
+          isAvailable = matchingAvailability.isBooked === false
+          reason = isAvailable ? undefined : "Sudah dibooking"
+        } else {
+          scheduledSessionsCount = matchingAvailability.scheduledSessions?.length || 0
+          isAvailable = !matchingAvailability.hasScheduledSessions || scheduledSessionsCount < 2
+          reason = isAvailable ? undefined : "Psikolog tidak tersedia"
         }
-        return availability.isBooked === true
-      })
-      .map((availability, index) => {
-        // ✅ FIXED: Get psychologistId even for unavailable slots
-        const psychologistId = availability.psychologist?.id
-          || availability.psychologistId
-          || (availability.availablePsychologistIds && availability.availablePsychologistIds.length > 0
-            ? availability.availablePsychologistIds[0]
-            : undefined);
 
-        return {
-          startTime: availability.startTime.substring(0, 5),
-          endTime: availability.endTime.substring(0, 5),
-          psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
-          psychologistId: psychologistId,
-          available: false,
-          displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (${typeof availability.availablePsychologists === 'number' ? 'Penuh' : 'Sudah dibooking'})`,
-          uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-u-${index}`,
-          scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-          hasScheduledSessions: availability.hasScheduledSessions,
-          reason: typeof availability.availablePsychologists === 'number' ? `Tidak cukup psikolog tersedia (sisa: ${availability.availablePsychologists ?? 0})` : "Sudah dibooking",
-        };
-      })
+        // Get psychologist info if available
+        if (isAvailable) {
+          // ✅ TRUST BACKEND: Backend already filters with INNER JOIN, no validation needed
+          psychologistId = matchingAvailability.psychologist?.id
+            || matchingAvailability.psychologistId
+            || (matchingAvailability.availablePsychologistIds && matchingAvailability.availablePsychologistIds.length > 0
+              ? matchingAvailability.availablePsychologistIds[0]
+              : undefined)
 
-    // Also include unavailable from overbooked heuristic (without duplicating booked ones)
-    const unavailableFromOverbooked = source
-      .filter((availability) => {
-        if (typeof availability.isBooked === 'boolean') return false
-        const scheduledSessionsCount = availability.scheduledSessions?.length || 0
-        return availability.hasScheduledSessions && scheduledSessionsCount >= 2
-      })
-      .map((availability, index) => {
-        // ✅ FIXED: Get psychologistId
-        const psychologistId = availability.psychologist?.id
-          || availability.psychologistId
-          || (availability.availablePsychologistIds && availability.availablePsychologistIds.length > 0
-            ? availability.availablePsychologistIds[0]
-            : undefined);
+          psychologistName = matchingAvailability.psychologist?.fullName
+            || matchingAvailability.psychologistName
+            || "Psikolog Tersedia"
 
-        return {
-          startTime: availability.startTime.substring(0, 5),
-          endTime: availability.endTime.substring(0, 5),
-          psychologistName: availability.psychologist?.fullName || availability.psychologistName || "Unknown Psychologist",
-          psychologistId: psychologistId,
-          available: false,
-          displayTime: `${availability.startTime.substring(0, 5)} - ${availability.endTime.substring(0, 5)} WIB (Tidak tersedia)`,
-          uniqueId: `${availability.date || 'any'}-${availability.startTime}-${availability.endTime}-o-${index}`,
-          scheduledSessionsCount: availability.scheduledSessions?.length || 0,
-          hasScheduledSessions: availability.hasScheduledSessions,
-          reason: "Psikolog tidak tersedia",
-        };
-      })
+          availablePsychologistIds = matchingAvailability.availablePsychologistIds || []
+        } else {
+          // For unavailable slots, still get psychologist info
+          psychologistId = matchingAvailability.psychologist?.id
+            || matchingAvailability.psychologistId
+            || (matchingAvailability.availablePsychologistIds && matchingAvailability.availablePsychologistIds.length > 0
+              ? matchingAvailability.availablePsychologistIds[0]
+              : undefined)
 
-    const allSlots = [...slots, ...unavailableFromBooked, ...unavailableFromOverbooked]
+          psychologistName = matchingAvailability.psychologist?.fullName
+            || matchingAvailability.psychologistName
+            || "Unknown Psychologist"
+        }
+      }
+
+      // Build display time
+      const displayTime = isAvailable
+        ? `${fixedSlot.start} - ${fixedSlot.end} WIB`
+        : `${fixedSlot.start} - ${fixedSlot.end} WIB (${reason || 'Tidak tersedia'})`
+
+      const slot = {
+        startTime: fixedSlot.start,
+        endTime: fixedSlot.end,
+        psychologistName: psychologistName,
+        psychologistId: psychologistId,
+        availablePsychologistIds: availablePsychologistIds,
+        available: isAvailable,
+        displayTime: displayTime,
+        uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
+        scheduledSessionsCount: scheduledSessionsCount,
+        hasScheduledSessions: matchingAvailability?.hasScheduledSessions || false,
+        reason: reason,
+      }
+
+      // ✅ DEBUG: Log psychologist info for each slot
+      console.log(`[Slot ${fixedSlot.start}-${fixedSlot.end}] psychologistId:`, psychologistId, "| available:", isAvailable, "| availablePsychologistIds:", availablePsychologistIds)
+
+      return slot
+    })
 
     // Sort by time; prioritize available
     allSlots.sort((a, b) => {
@@ -271,9 +303,13 @@ export const useBooking = (userType = "student") => {
       return a.startTime.localeCompare(b.startTime)
     })
 
-    console.log("Final time slots with availability:", allSlots)
+    console.log("=== FINAL TIME SLOTS (7 fixed slots) ===")
+    console.log("Total slots:", allSlots.length)
+    console.log("Available slots:", allSlots.filter(s => s.available).length)
+    console.log("Slots with psychologistId:", allSlots.filter(s => s.psychologistId).length)
+    console.log("All slots:", allSlots)
     return allSlots
-  }, [selectedDate, psychologistAvailability])
+  }, [selectedDate, psychologistAvailability, availabilityThreshold])
 
   // UPDATED: Calculate dynamic quota from availability (time-slot based)
   const availableQuota = useCallback(() => {
@@ -416,7 +452,41 @@ export const useBooking = (userType = "student") => {
       bookingData.locationId = selectedLocation.id
     }
 
-    console.log("Final booking data:", bookingData)
+    // ✅ DEBUG: Log booking data before submission
+    console.log("=== DEBUG BOOKING DATA ===")
+    console.log("Selected time slot:", selectedTimeSlot)
+    console.log("psychologistId FROM SLOT:", bookingData.psychologistId)
+    console.log("availablePsychologistIds FROM SLOT:", selectedTimeSlot.availablePsychologistIds)
+    console.log("Full bookingData:", JSON.stringify(bookingData, null, 2))
+
+    // ✅ VALIDATION: Check which ID is being used
+    if (bookingData.psychologistId?.startsWith('8f875267')) {
+      console.error("❌❌❌ SENDING INVALID PSYCHOLOGIST ID! ❌❌❌")
+      console.error("Invalid ID:", bookingData.psychologistId)
+      console.error("This ID does NOT exist in database!")
+      console.error("Selected slot details:", selectedTimeSlot)
+    } else if (bookingData.psychologistId?.startsWith('7d3c1c42')) {
+      console.log("✅✅✅ Sending VALID psychologist ID ✅✅✅")
+      console.log("Valid ID:", bookingData.psychologistId)
+    } else {
+      console.warn("⚠️ Unknown psychologist ID format:", bookingData.psychologistId)
+    }
+
+    // ✅ VALIDATION: Check if psychologistId exists
+    if (!bookingData.psychologistId) {
+      console.error("❌ psychologistId is missing!")
+      console.error("Selected time slot:", selectedTimeSlot)
+
+      // Try to get from availablePsychologistIds array
+      if (selectedTimeSlot.availablePsychologistIds && selectedTimeSlot.availablePsychologistIds.length > 0) {
+        bookingData.psychologistId = selectedTimeSlot.availablePsychologistIds[0]
+        console.warn("⚠️ Using psychologistId from availablePsychologistIds:", bookingData.psychologistId)
+      } else {
+        throw new Error("Psychologist ID is missing. Please select a different time slot.")
+      }
+    }
+
+    console.log("Final booking data (after validation):", bookingData)
 
     const result = await createBookingMutation.mutateAsync(bookingData)
     return result?.data?.data || result

@@ -371,7 +371,21 @@ export const createBookingApi = (userType = "student") => {
           const payload = response.data.data
           const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
-          console.log("Backend availability data:", availabilityData)
+          console.log("=== BACKEND AVAILABILITY RESPONSE ===")
+          console.log("Full response:", response.data)
+          console.log("Flattened availability data:", availabilityData)
+
+          // ✅ DEBUG: Extract and log all psychologist IDs
+          const allPsychologistIds = new Set()
+          availabilityData.forEach(slot => {
+            if (slot.psychologist?.id) allPsychologistIds.add(slot.psychologist.id)
+            if (slot.psychologistId) allPsychologistIds.add(slot.psychologistId)
+            if (slot.availablePsychologistIds) {
+              slot.availablePsychologistIds.forEach(id => allPsychologistIds.add(id))
+            }
+          })
+          console.log("All psychologist IDs found:", Array.from(allPsychologistIds))
+          console.log("=".repeat(50))
 
           // If no specific filtering needed, return all availability data
           if (!date && !psychologistId) {
@@ -654,13 +668,22 @@ export const createBookingApi = (userType = "student") => {
           throw new Error(`Validation failed: ${validationErrors.join(", ")}`)
         }
 
+        // ✅ FIXED: Ensure time format includes seconds (HH:MM:SS)
+        const formatTimeWithSeconds = (time) => {
+          if (!time) return time
+          // If already has seconds (HH:MM:SS), return as is
+          if (time.split(':').length === 3) return time
+          // If only HH:MM, add :00
+          return `${time}:00`
+        }
+
         // Transform data for API
         const transformedData = {
           method: bookingData.method, // 'online', 'offline', 'chat'
           notes: bookingData.notes || "",
           date: bookingData.date,
-          startTime: bookingData.startTime,
-          endTime: bookingData.endTime,
+          startTime: formatTimeWithSeconds(bookingData.startTime), // ✅ FIXED: Add :00 if missing
+          endTime: formatTimeWithSeconds(bookingData.endTime), // ✅ FIXED: Add :00 if missing
           psychologistId: bookingData.psychologistId, // ✅ FIXED: Send psychologistId to backend
           timezone: bookingData.timezone || "Asia/Jakarta",
         }

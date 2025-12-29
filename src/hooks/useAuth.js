@@ -386,14 +386,10 @@ const getDashboardPath = (userData) => {
 
   // Handle all user roles
   switch (userRole) {
-    case 'client':
-      console.log('✅ Client → /dashboard');
-      return '/dashboard';
-      
     case 'student':
       console.log('✅ Student → /user/student/screening');
       return '/user/student/screening';
-      
+
     case 'employee':
       console.log('✅ Employee → /user/employee/screening');
       return '/user/employee/screening';

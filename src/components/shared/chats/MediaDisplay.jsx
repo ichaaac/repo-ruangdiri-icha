@@ -2,36 +2,90 @@
 
 import React, { useState } from 'react';
 
-const MediaDisplay = ({ 
-  attachmentUrl, 
-  attachmentType, 
-  attachmentName, 
+const MediaDisplay = ({
+  attachmentUrl,
+  attachmentType,
+  attachmentName,
   attachmentSize,
   onOpenPreview,
-  isInGroup = false 
+  isInGroup = false
 }) => {
   const [hasError, setHasError] = useState(false);
-  
-  if (!attachmentUrl) return null;
+
+  // DEBUG: Log attachmentUrl untuk troubleshooting
+  console.log('📎 MediaDisplay received:', {
+    attachmentUrl,
+    attachmentType,
+    attachmentName,
+    attachmentSize,
+    isImage: attachmentType?.startsWith('image/')
+  });
+
+  if (!attachmentUrl) {
+    console.warn('⚠️ MediaDisplay: attachmentUrl is null/undefined');
+    return null;
+  }
 
   const isImage = attachmentType?.startsWith('image/');
 
-  // Normalize URL with error handling
+  // ENHANCED: Normalize URL with better backend URL handling
   const normalizeUrl = (url) => {
     if (!url) return '/image-placeholder.svg';
     const trimmed = url.trim();
-    
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
-    if (trimmed.startsWith('//')) return `${window.location.protocol}${trimmed}`;
-    if (trimmed.startsWith('/')) return `${window.location.origin}${trimmed}`;
-    return `https://${trimmed}`;
+
+    // Full URL with protocol
+    if (/^https?:\/\//i.test(trimmed)) {
+      console.log('✅ Full URL detected:', trimmed);
+      return trimmed;
+    }
+
+    // Protocol-relative URL
+    if (trimmed.startsWith('//')) {
+      const normalized = `${window.location.protocol}${trimmed}`;
+      console.log('🔗 Protocol-relative URL normalized:', normalized);
+      return normalized;
+    }
+
+    // Absolute path - prepend backend upload URL
+    if (trimmed.startsWith('/')) {
+      // Use VITE_UPLOAD_URL from environment (backend base URL for file uploads)
+      const uploadUrl = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:3132';
+      const normalized = `${uploadUrl}${trimmed}`;
+      console.log('🔗 Absolute path normalized:', normalized);
+      return normalized;
+    }
+
+    // FIXED: Handle backend paths without leading slash (e.g., 'chat-attachments/...' or 'uploads/...')
+    if (trimmed.startsWith('chat-attachments/') || trimmed.startsWith('uploads/')) {
+      const uploadUrl = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:3132';
+      const normalized = `${uploadUrl}/${trimmed}`;
+      console.log('🔗 Relative backend path normalized:', normalized);
+      return normalized;
+    }
+
+    // Assume HTTPS if no protocol (external URL)
+    const normalized = `https://${trimmed}`;
+    console.log('🔗 No protocol, assuming HTTPS:', normalized);
+    return normalized;
   };
 
   const fullUrl = normalizeUrl(attachmentUrl);
+  console.log('🖼️ Final URL for display:', fullUrl);
 
-  // FIXED: Image error handler that prevents infinite loops
+  // FIXED: Image error handler with detailed logging
   const handleImageError = (e) => {
     if (!hasError) {
+      console.error('❌ Failed to load image:', {
+        originalUrl: attachmentUrl,
+        normalizedUrl: fullUrl,
+        errorEvent: e,
+        possibleIssues: [
+          'Backend not serving static files',
+          'CORS blocking the request',
+          'File path incorrect on backend',
+          'File not uploaded successfully'
+        ]
+      });
       setHasError(true);
       e.currentTarget.src = '/image-placeholder.svg';
     }

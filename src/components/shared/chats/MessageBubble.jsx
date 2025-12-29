@@ -152,14 +152,14 @@ const MessageText = ({ message, hasMedia, isOwn }) => {
 };
 
 // SIMPLIFIED: MessageBubble - Just display data from socket events
-const MessageBubble = ({ 
-  message, 
-  isOwn = false, 
-  sender, 
-  time, 
+const MessageBubble = ({
+  message,
+  isOwn = false,
+  sender,
+  time,
   showTime = true,
-  showOptions, 
-  onOptionClick, 
+  showOptions,
+  onOptionClick,
   actions,
   attachmentUrl,
   attachmentType,
@@ -188,7 +188,7 @@ const MessageBubble = ({
 
   const handleOpenPreview = useCallback(() => {
     if (!hasMedia) return;
-    
+
     const currentMediaItem = {
       id: messageData?.id,
       attachmentUrl,
@@ -267,7 +267,7 @@ const MessageBubble = ({
               ${hasMedia ? 'p-2' : 'px-4 py-3 min-h-[47px]'}
             `}>
               {hasMedia && (
-                <MediaDisplay 
+                <MediaDisplay
                   attachmentUrl={attachmentUrl}
                   attachmentType={attachmentType}
                   attachmentName={attachmentName}

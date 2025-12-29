@@ -326,18 +326,72 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
   const handleSubmit = async () => {
     try {
+      // ✅ DEBUG: Log selected data before submission
+      console.log("=== BOOKING SUBMISSION DEBUG ===")
+      console.log("Selected time slot:", selectedTimeSlot)
+      console.log("Psychologist ID from slot:", selectedTimeSlot?.psychologistId)
+      console.log("Available psychologist IDs:", selectedTimeSlot?.availablePsychologistIds)
+
+      // ✅ VALIDATION: Check if psychologist ID exists
+      if (!selectedTimeSlot?.psychologistId && (!selectedTimeSlot?.availablePsychologistIds || selectedTimeSlot.availablePsychologistIds.length === 0)) {
+        console.error("❌ Psychologist ID is missing from selected time slot!")
+        toast.error("Psychologist ID missing. Please select time slot again.")
+        return
+      }
+
       const result = await handleBookingSubmit()
 
-      if (onSuccess && typeof onSuccess === "function") {
-        onSuccess(result)
-      } else {
-        navigate(`/user/${userType}/booking-complete`, {
+      // Handle chat booking redirect with pre-filled message
+      if (result?.method === 'chat' && result?.sessionId) {
+        // Store initial message in sessionStorage to avoid URL length limits
+        if (result?.notes) {
+          sessionStorage.setItem('chatInitialMessage', result.notes)
+        }
+
+        // Navigate to chat page with sessionId
+        navigate(`/user/${userType}/chat?sessionId=${result.sessionId}`, {
+          replace: true,
+        })
+        return
+      }
+
+      // Handle chat booking with failed session creation
+      if (result?.method === 'chat' && !result?.sessionId) {
+        navigate(`/user/${userType}/booking-complete?warning=chat_unavailable`, {
           state: { bookingResult: result, methodOverride: currentSelectedMethod?.id },
           replace: true,
         })
+        return
+      }
+
+      // ✅ FIXED: Redirect to tickets page for non-chat bookings
+      if (onSuccess && typeof onSuccess === "function") {
+        onSuccess(result)
+      } else {
+        // Redirect to tickets page with booking ID
+        if (result?.id) {
+          console.log("✅ Booking successful, redirecting to ticket:", result.id)
+          navigate(`/user/${userType}/tickets/${result.id}`, {
+            replace: true,
+          })
+        } else {
+          // Fallback to booking-complete if no booking ID
+          console.warn("⚠️ No booking ID received, redirecting to booking-complete")
+          navigate(`/user/${userType}/booking-complete`, {
+            state: { bookingResult: result, methodOverride: currentSelectedMethod?.id },
+            replace: true,
+          })
+        }
       }
     } catch (error) {
       console.error("Booking submission error:", error)
+
+      // Show error message to user
+      const errorMessage = error?.response?.data?.message
+        || error?.message
+        || "Booking gagal. Silakan coba lagi."
+
+      toast.error(errorMessage)
     }
   }
 

@@ -1,7 +1,7 @@
 // src/pages/user/shared/ChatPage.jsx - FIXED: Complete Integration with Infinite Scroll
 
 import React, { useCallback, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useChats } from '@/components/shared/chats/hooks/useChats';
 import { chatsApi } from '@/components/shared/chats/lib/chatsApi';
@@ -11,6 +11,7 @@ import ChatMain from '@/components/shared/chats/ChatMain';
 const ChatPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const userType = user?.role || 'student';
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isEndingSession, setIsEndingSession] = useState(false);
@@ -57,6 +58,19 @@ const ChatPage = () => {
   ,
     recipientPresence // ADDED: presence of the other user in the current session
   } = useChats();
+
+  // Pre-fill chat message from booking redirect
+  useEffect(() => {
+    // Read initial message from sessionStorage (set by booking flow)
+    const storedMessage = sessionStorage.getItem('chatInitialMessage');
+    if (storedMessage) {
+      console.log('📝 Pre-filling chat message from booking:', storedMessage);
+      // Pre-fill the message input using handleTyping
+      handleTyping(storedMessage);
+      // Clean up after reading
+      sessionStorage.removeItem('chatInitialMessage');
+    }
+  }, [handleTyping]);
 
   // Handle AI service selection
   const handleAIService = useCallback(async (option) => {

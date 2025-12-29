@@ -125,7 +125,6 @@ const OnboardingForm = () => {
   // Determine if user is organization or regular user
   const userRole = getUserRole()
   const orgType = getOrganizationType()
-  // const isOrganization = ['school', 'company'].includes(orgType) || user?.organization // ✅ REMOVED: No longer needed for API calls
 
   const {
     register,
@@ -211,7 +210,7 @@ const OnboardingForm = () => {
     const onboardingData = {
       isOnboarded: true  // ✅ CRITICAL: Always set this!
     };
-    
+
     if (formData && typeof formData === 'object') {
       if (formData.address?.trim()) {
         onboardingData.address = formData.address.trim();
@@ -469,8 +468,8 @@ const OnboardingForm = () => {
                   onBlur={field.onBlur}
                   inputClassName={clsx(
                     "w-full h-[42px] border-[1.5px] text-base px-4 transition-colors",
-                    errors.phone || phoneValidationError 
-                      ? "border-red-500" 
+                    errors.phone || phoneValidationError
+                      ? "border-red-500"
                       : "border-zinc-300",
                   )}
                   disabled={isSubmitting || isSkipping}

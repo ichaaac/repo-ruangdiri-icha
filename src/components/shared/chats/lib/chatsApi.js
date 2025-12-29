@@ -428,6 +428,17 @@ export const chatsApi = {
             });
           }
 
+          // DEBUG: Log message with attachment
+          if (msg.attachmentUrl || msg.attachmentType) {
+            console.log('📎 Message with attachment found:', {
+              id: msg.id,
+              attachmentUrl: msg.attachmentUrl,
+              attachmentType: msg.attachmentType,
+              attachmentName: msg.attachmentName,
+              messageType: msg.messageType
+            });
+          }
+
           return {
             id: msg.id,
             sessionId: msg.sessionId,
@@ -696,7 +707,11 @@ export const chatsApi = {
           messageId: msg.id,
           fileName: file.name,
           attachmentUrl: msg.attachmentUrl,
-          captionLength: displayMessage.length
+          attachmentType: msg.attachmentType,
+          attachmentName: msg.attachmentName,
+          attachmentSize: msg.attachmentSize,
+          captionLength: displayMessage.length,
+          FULL_RESPONSE: msg
         });
         
         const result = {
