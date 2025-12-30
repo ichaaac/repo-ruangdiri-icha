@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { loadImageWithHeaders, revokeImageUrl } from './utils/imageLoader';
 
 const MediaPreviewModal = ({ 
   isOpen, 
@@ -18,6 +19,8 @@ const MediaPreviewModal = ({
   const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [imageBlobUrl, setImageBlobUrl] = useState('');
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const translateStartRef = useRef({ x: 0, y: 0 });
   const movedRef = useRef(false);
@@ -90,6 +93,69 @@ const MediaPreviewModal = ({
     setZoomOrigin({ x: 50, y: 50 });
   }, [currentIndex, isOpen]);
 
+  // FIXED: Load image with custom headers for ngrok compatibility
+  useEffect(() => {
+    if (!isOpen || !mediaItems.length) {
+      return;
+    }
+
+    const currentMedia = mediaItems[currentIndex];
+    if (!currentMedia) {
+      return;
+    }
+
+    const isImage = currentMedia?.attachmentType?.startsWith('image/');
+    const attachmentUrl = currentMedia?.attachmentUrl;
+
+    // Only load images with headers if it's an image type
+    if (!isImage || !attachmentUrl) {
+      return;
+    }
+
+    let isMounted = true;
+    let currentBlobUrl = '';
+
+    const loadImage = async () => {
+      setIsLoadingImage(true);
+      setImageErrors(new Set()); // Clear previous errors
+
+      try {
+        // Normalize URL
+        const fullUrl = attachmentUrl?.startsWith('http') ?
+                       attachmentUrl :
+                       `https://${attachmentUrl}`;
+
+        // Load image with custom headers
+        const blobUrl = await loadImageWithHeaders(fullUrl);
+
+        if (isMounted) {
+          currentBlobUrl = blobUrl;
+          setImageBlobUrl(blobUrl);
+          setIsLoadingImage(false);
+        } else {
+          // Component unmounted during load, cleanup immediately
+          revokeImageUrl(blobUrl);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load preview image with headers:', error);
+        if (isMounted) {
+          setImageErrors(prev => new Set([...prev, attachmentUrl]));
+          setIsLoadingImage(false);
+        }
+      }
+    };
+
+    loadImage();
+
+    // Cleanup: revoke blob URL when component unmounts or media changes
+    return () => {
+      isMounted = false;
+      if (currentBlobUrl) {
+        revokeImageUrl(currentBlobUrl);
+      }
+    };
+  }, [currentIndex, isOpen, mediaItems]); // ✅ FIXED: Removed imageBlobUrl from dependencies
+
   const ZOOM_SCALE = 2;
 
   const clampTranslate = (tx, ty) => {
@@ -150,44 +216,50 @@ const MediaPreviewModal = ({
 
   const handleDownload = async (e) => {
     e.preventDefault();
-    
+
     try {
       const mediaUrl = currentMedia.attachmentUrl;
-      
+
       if (!mediaUrl) {
         throw new Error('No media URL available');
       }
 
       const fullUrl = mediaUrl.startsWith('http') ? mediaUrl : `https://${mediaUrl}`;
-      
+
       try {
-        const response = await fetch(fullUrl);
+        // FIXED: Add ngrok header for download
+        const response = await fetch(fullUrl, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+          },
+        });
+
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
+
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
-        
+
         const link = document.createElement('a');
         link.href = downloadUrl;
         link.download = currentMedia.attachmentName || `attachment_${Date.now()}`;
-        
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
-        
+
       } catch (fetchError) {
         const link = document.createElement('a');
         link.href = fullUrl;
         link.download = 'attachment';
         link.target = '_blank';
-        
+
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
-      
+
     } catch (error) {
       console.error('Download failed:', error);
     }
@@ -303,14 +375,23 @@ const MediaPreviewModal = ({
             {/* Media Content - Fixed container size */}
             <div ref={containerRef} className="w-full h-full flex items-center justify-center p-3 overflow-hidden">
               {isImage ? (
-                <img
-                  ref={imgRef}
-                  key={`${currentMedia.id || currentIndex}-${currentIndex}`}
-                  src={currentMedia.attachmentUrl?.startsWith('http') ? 
-                       currentMedia.attachmentUrl : 
-                       `https://${currentMedia.attachmentUrl}`}
-                  alt="Attachment"
-                  className={`max-w-full max-h-full object-contain rounded-lg select-none ${isZoomed ? (isDragging ? 'cursor-grabbing' : 'cursor-zoom-out') : 'cursor-zoom-in'}`}
+                <>
+                  {/* Loading Indicator */}
+                  {isLoadingImage && !imageBlobUrl && (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                      <span className="text-sm text-gray-500">Loading image...</span>
+                    </div>
+                  )}
+
+                  {/* Image Display - Using blob URL from fetch with headers */}
+                  {!isLoadingImage && imageBlobUrl && (
+                    <img
+                      ref={imgRef}
+                      key={`${currentMedia.id || currentIndex}-${currentIndex}`}
+                      src={imageBlobUrl}
+                      alt="Attachment"
+                      className={`max-w-full max-h-full object-contain rounded-lg select-none ${isZoomed ? (isDragging ? 'cursor-grabbing' : 'cursor-zoom-out') : 'cursor-zoom-in'}`}
                   style={{
                     transformOrigin: '50% 50%',
                     transform: isZoomed 
@@ -373,6 +454,16 @@ const MediaPreviewModal = ({
                   draggable={false}
                   onError={handleImageError}
                 />
+                  )}
+
+                  {/* Error State */}
+                  {!isLoadingImage && !imageBlobUrl && imageErrors.size > 0 && (
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="material-icons text-5xl text-gray-400">broken_image</span>
+                      <span className="text-sm text-gray-500">Failed to load image</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center">
                   <span 

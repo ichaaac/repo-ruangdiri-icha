@@ -9,7 +9,11 @@
       "Bash(npm install:*)",
       "Bash(tasklist:*)",
       "Bash(findstr:*)",
-      "Bash(dir /s /b .env*)"
+      "Bash(dir /s /b .env*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(dir:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

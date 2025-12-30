@@ -1,6 +1,7 @@
 // src/components/shared/chats/components/MediaDisplay.jsx - WhatsApp Style Clean
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { loadImageWithHeaders, revokeImageUrl } from './utils/imageLoader';
 
 const MediaDisplay = ({
   attachmentUrl,
@@ -11,6 +12,8 @@ const MediaDisplay = ({
   isInGroup = false
 }) => {
   const [hasError, setHasError] = useState(false);
+  const [imageBlobUrl, setImageBlobUrl] = useState('');
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
 
   // DEBUG: Log attachmentUrl untuk troubleshooting
   console.log('📎 MediaDisplay received:', {
@@ -69,6 +72,55 @@ const MediaDisplay = ({
     return normalized;
   };
 
+  // FIXED: Load image with custom headers for ngrok compatibility
+  useEffect(() => {
+    // Only load images with headers if it's an image type
+    if (!isImage || !attachmentUrl) {
+      return;
+    }
+
+    let isMounted = true;
+    let currentBlobUrl = '';
+
+    const loadImage = async () => {
+      setIsLoadingImage(true);
+      setHasError(false);
+
+      try {
+        // Normalize URL first
+        const fullUrl = normalizeUrl(attachmentUrl);
+
+        // Load image with custom headers
+        const blobUrl = await loadImageWithHeaders(fullUrl);
+
+        if (isMounted) {
+          currentBlobUrl = blobUrl;
+          setImageBlobUrl(blobUrl);
+          setIsLoadingImage(false);
+        } else {
+          // Component unmounted during load, cleanup immediately
+          revokeImageUrl(blobUrl);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load image with headers:', error);
+        if (isMounted) {
+          setHasError(true);
+          setIsLoadingImage(false);
+        }
+      }
+    };
+
+    loadImage();
+
+    // Cleanup: revoke blob URL when component unmounts or URL changes
+    return () => {
+      isMounted = false;
+      if (currentBlobUrl) {
+        revokeImageUrl(currentBlobUrl);
+      }
+    };
+  }, [attachmentUrl, isImage]); // ✅ FIXED: Removed imageBlobUrl from dependencies
+
   const fullUrl = normalizeUrl(attachmentUrl);
   console.log('🖼️ Final URL for display:', fullUrl);
 
@@ -93,26 +145,32 @@ const MediaDisplay = ({
 
   const handleQuickDownload = async (e) => {
     e.stopPropagation();
-    
+
     try {
       if (!fullUrl || fullUrl === '/image-placeholder.svg') {
         throw new Error('No valid media URL available');
       }
-      
-      const response = await fetch(fullUrl);
+
+      // FIXED: Add ngrok header for download as well
+      const response = await fetch(fullUrl, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
+
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = attachmentName || `download_${Date.now()}`;
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
     } catch (error) {
       console.error('Quick download failed:', error);
@@ -134,26 +192,41 @@ const MediaDisplay = ({
     <div className={`${isInGroup ? 'w-full' : 'mt-2 w-full max-w-xs'}`}>
       {isImage ? (
         <div className="relative group cursor-pointer" onClick={onOpenPreview}>
-          <img
-            src={hasError ? '/image-placeholder.svg' : fullUrl}
-            alt="Attachment"
-            className={`w-full ${isInGroup ? 'h-32' : 'h-48'} rounded-lg object-cover transition-opacity hover:opacity-90`}
-            onError={handleImageError}
-            loading="lazy"
-          />
-          
-          {/* Overlay Controls - Only Download */}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={handleQuickDownload}
-                className="bg-green-600 rounded-full p-2 shadow-lg hover:bg-green-700 transition-colors"
-                title="Download"
-              >
-                <span className="material-icons text-white text-lg">download</span>
-              </button>
+          {/* Loading Indicator */}
+          {isLoadingImage && !imageBlobUrl && (
+            <div className={`w-full ${isInGroup ? 'h-32' : 'h-48'} rounded-lg bg-gray-200 flex items-center justify-center`}>
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <span className="text-xs text-gray-500">Loading image...</span>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Image Display - Using blob URL from fetch with headers */}
+          {!isLoadingImage && (imageBlobUrl || hasError) && (
+            <img
+              src={hasError ? '/image-placeholder.svg' : imageBlobUrl}
+              alt="Attachment"
+              className={`w-full ${isInGroup ? 'h-32' : 'h-48'} rounded-lg object-cover transition-opacity hover:opacity-90`}
+              onError={handleImageError}
+              loading="lazy"
+            />
+          )}
+
+          {/* Overlay Controls - Only Download */}
+          {!isLoadingImage && (imageBlobUrl || hasError) && (
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={handleQuickDownload}
+                  className="bg-green-600 rounded-full p-2 shadow-lg hover:bg-green-700 transition-colors"
+                  title="Download"
+                >
+                  <span className="material-icons text-white text-lg">download</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div
