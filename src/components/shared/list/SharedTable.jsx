@@ -549,8 +549,8 @@ const saveEditing = (id) => {
                             ) : (
                               <div className="text-sm text-gray-600">
                                 {item.classroom && item.grade
-                                  ? `${item.classroom} - ${item.grade}`
-                                  : item.classroom || "-"}
+                                  ? `${item.grade} - ${item.classroom}`
+                                  : item.grade || "-"}
                               </div>
                             )}
                           </td>

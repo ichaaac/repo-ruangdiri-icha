@@ -77,12 +77,12 @@ const TableRow = React.forwardRef(({ item, type = "student", config = {} }, ref)
       {/* Kelas/Departemen - Center aligned */}
       <td className={`${commonCellClass} text-center truncate`} style={{ width: "20%" }}>
         <div className="max-w-full" title={
-          type === "student" 
-            ? (item.classroom && item.grade ? `${item.classroom} - ${item.grade}` : item.classroom || item.kelas || "-")
+          type === "student"
+            ? (item.classroom && item.grade ? `${item.grade} - ${item.classroom}` : item.grade || item.kelas || "-")
             : item.department || "-"
         }>
-          {type === "student" 
-            ? (item.classroom && item.grade ? `${item.classroom} - ${item.grade}` : item.classroom || item.kelas || "-")
+          {type === "student"
+            ? (item.classroom && item.grade ? `${item.grade} - ${item.classroom}` : item.grade || item.kelas || "-")
             : item.department || "-"
           }
         </div>
