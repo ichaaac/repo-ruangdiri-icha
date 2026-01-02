@@ -206,15 +206,35 @@ export const useAcademicInfo = () => {
   return useQuery({
     queryKey: ["academicInfo"],
     queryFn: async () => {
-      const res = await apiClient.get("/students/academic-info")
-      return res.data
+      try {
+        const res = await apiClient.get("/students/academic-info")
+        if (res.data?.status === "fail" || !res.data?.data) {
+          return {
+            data: {
+              classrooms: [],
+              grades: [],
+            },
+          }
+        }
+        return res.data
+      } catch (error) {
+        if (error.response?.status === 404) {
+          return {
+            data: {
+              classrooms: [],
+              grades: [],
+            },
+          }
+        }
+        throw error
+      }
     },
     retry: 1,
     staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     placeholderData: {
       data: {
-        classrooms: ["X", "XI", "XII"],
-        grades: ["A", "B", "C", "D"],
+        classrooms: [],
+        grades: [],
       },
     },
   })
@@ -227,15 +247,35 @@ export const useEmployeeRoles = () => {
   return useQuery({
     queryKey: ["employeeRoles"],
     queryFn: async () => {
-      const res = await apiClient.get("/employees/roles")
-      return res.data
+      try {
+        const res = await apiClient.get("/employees/roles")
+        if (res.data?.status === "fail" || !res.data?.data) {
+          return {
+            data: {
+              departments: [],
+              positions: [],
+            },
+          }
+        }
+        return res.data
+      } catch (error) {
+        if (error.response?.status === 404) {
+          return {
+            data: {
+              departments: [],
+              positions: [],
+            },
+          }
+        }
+        throw error
+      }
     },
     retry: 1,
     staleTime: 10 * 60 * 1000, // 10 minutes - rarely changes
     placeholderData: {
       data: {
-        departments: ["Finance", "Engineering", "Marketing", "HR", "Operations"],
-        positions: ["Manager", "Staff", "Coordinator", "Head", "Specialist"],
+        departments: [],
+        positions: [],
       },
     },
   })

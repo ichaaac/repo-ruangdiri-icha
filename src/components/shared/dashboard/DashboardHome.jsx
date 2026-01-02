@@ -33,15 +33,13 @@ const DashboardHome = ({
   onReportClick = () => {},
   sidebarExpanded = false,
 }) => {
-  // FIXED: Initialize semester based on current month
-  const getCurrentSemester = () => {
+  // FIXED: Initialize with current year
+  const getCurrentYear = () => {
     const currentDate = getCurrentDateInfo()
-    const currentMonth = parseInt(currentDate.month) // month as number (1-12)
-    // If month 1-6 (Jan-Jun) -> firstHalf, if month 7-12 (Jul-Dec) -> secondHalf  
-    return currentMonth <= 6 ? "firstHalf" : "secondHalf"
+    return parseInt(currentDate.year) // current year as number
   }
-  
-  const [currentHalf, setCurrentHalf] = useState(getCurrentSemester())
+
+  const [selectedYear, setSelectedYear] = useState(getCurrentYear())
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
 
@@ -100,17 +98,17 @@ const DashboardHome = ({
 
   // UPDATED: Create stable yearly stats filters to prevent multiple fetches, handle "All" option
   const yearlyStatsFilters = useMemo(() => {
-    const filters = { year: "2025" }
-    
+    const filters = { year: selectedYear.toString() }
+
     if (type === "student") {
       filters.classroom = barChartClassroom === "All" ? "All" : (barChartClassroom || "All")
       filters.grade = barChartGrade === "All" ? "All" : (barChartGrade || "All")
     } else {
       filters.department = barChartClassroom === "All" ? "All" : (barChartClassroom || "All")
     }
-    
+
     return filters
-  }, [type, barChartClassroom, barChartGrade])
+  }, [type, barChartClassroom, barChartGrade, selectedYear])
 
   // UPDATED: Only fetch yearly stats when we have stable filters (including "All")
   const shouldFetchYearlyStats = Boolean(
@@ -185,16 +183,13 @@ const DashboardHome = ({
 
   const getSemesterData = useCallback(() => {
     const yearlyData = yearlyStatsData?.data || []
-    const allMonths =
-      currentHalf === "firstHalf"
-        ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-        : ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    const allMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     return allMonths.map((month) => {
       const existingData = yearlyData.find((item) => item.month === month)
       return existingData || { month, atRisk: 0, monitored: 0, stable: 0 }
     })
-  }, [yearlyStatsData, currentHalf])
+  }, [yearlyStatsData])
 
   const getOverallPieData = useCallback(() => {
     const overall = metrics?.mentalHealth?.overall || {}
@@ -238,24 +233,26 @@ const DashboardHome = ({
   }, [metrics?.status?.counseling])
 
   const canNavigateNext = useCallback(() => {
-    const yearlyData = yearlyStatsData?.data || []
-    if (currentHalf === "firstHalf") {
-      const secondHalfMonths = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-      return yearlyData.some((item) => secondHalfMonths.includes(item.month))
-    }
-    return false
-  }, [yearlyStatsData, currentHalf])
+    // Allow navigation up to current year + 1 (untuk melihat data tahun depan)
+    const currentYear = getCurrentYear()
+    return selectedYear < (currentYear + 1)
+  }, [selectedYear])
 
-  const canNavigatePrev = useCallback(() => currentHalf === "secondHalf", [currentHalf])
+  const canNavigatePrev = useCallback(() => {
+    // Allow navigation back to 2024
+    return selectedYear > 2024
+  }, [selectedYear])
 
   const handleNext = () => {
-    if (canNavigateNext() && currentHalf === "firstHalf") {
-      setCurrentHalf("secondHalf")
+    if (canNavigateNext()) {
+      setSelectedYear(prev => prev + 1)
     }
   }
 
   const handlePrev = () => {
-    if (canNavigatePrev()) setCurrentHalf("firstHalf")
+    if (canNavigatePrev()) {
+      setSelectedYear(prev => prev - 1)
+    }
   }
 
   // Enhanced label renderer yang ikut bergerak dengan zoom
@@ -594,7 +591,7 @@ const DashboardHome = ({
                 </div>
 
                 <div className="text-center mb-3">
-                  <h3 className="text-lg font-bold text-gray-700">2025</h3>
+                  <h3 className="text-lg font-bold text-gray-700">{selectedYear}</h3>
                 </div>
                 <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
                   <div className="w-full h-full overflow-hidden">
