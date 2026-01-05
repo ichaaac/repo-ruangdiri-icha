@@ -10,9 +10,17 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
+      retry: false, // Disable retry untuk mencegah multiple error
       staleTime: 60000,
-      // cacheTime: 300000, 
+      // cacheTime: 300000,
+      // Suppress error toast globally - let components handle errors
+      onError: () => {
+        // Do nothing - suppress all query errors from showing toast
+        // Components can handle their own errors if needed
+      },
+    },
+    mutations: {
+      // Keep mutation behavior as is for now
     },
   },
 });

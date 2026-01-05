@@ -164,8 +164,7 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       } else if (tabType === "not_screened") {
         queryParams.append("screeningStatus", "not_screened")
       } else if (tabType === "not_counseled") {
-        // Not counseled specifically for at_risk people
-        queryParams.append("screeningStatus", "at_risk")
+        // Not counseled - semua karyawan yang belum konseling
         queryParams.append("counselingStatus", "0")
       }
 
@@ -304,7 +303,6 @@ export const usePdfReport = () => {
       } else if (reportType === "not_screened") {
         queryParams.append("screeningStatus", "not_screened")
       } else if (reportType === "not_counseled") {
-        queryParams.append("screeningStatus", "at_risk")
         queryParams.append("counselingStatus", "0")
       }
 

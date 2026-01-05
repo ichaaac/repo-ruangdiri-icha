@@ -612,20 +612,13 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
               </div>
             </div>
 
-            {/* Time Picker - Disabled when no psychologist available; toast on click */}
+            {/* Time Picker - Tanpa toast, langsung gray out di dropdown */}
             {selectedDate && (
               <div className="time-dropdown relative">
                 <div
-                  className={`${fieldClasses} ${isNoPsychologistAvailable ? "bg-zinc-100 cursor-not-allowed opacity-70" : ""}`}
-                  onClick={() => {
-                    if (isNoPsychologistAvailable) {
-                      toast.error("Psikolog tidak tersedia")
-                      return
-                    }
-                    setShowTimePicker(!showTimePicker)
-                  }}
+                  className={fieldClasses}
+                  onClick={() => setShowTimePicker(!showTimePicker)}
                   role="button"
-                  aria-disabled={isNoPsychologistAvailable}
                 >
                   <div className="justify-center">
                     <span className="text-red-500 text-sm font-normal font-['Public_Sans']">*</span>
@@ -637,50 +630,47 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
                   </div>
                   <span className="material-icons text-gray-600">expand_more</span>
 
-            {/* Time Dropdown - UPDATED WITH AVAILABILITY STATUS */}
-                  {showTimePicker && !isNoPsychologistAvailable && (
+            {/* Time Dropdown - List dengan gray out untuk booked slots */}
+                  {showTimePicker && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto z-[9999] mt-1">
-                      {loading.availableDates ? (
+                      {loading.timeSlots ? (
                         <div className="px-3 py-2 text-sm text-gray-500">Loading available times...</div>
                       ) : timeSlots?.length > 0 ? (
                         timeSlots.map((slot, index) => (
                           <button
                             key={slot.uniqueId || `${slot.date || 'any'}-${slot.startTime}-${slot.endTime}-${index}`}
                             className={`w-full px-3 py-2 text-sm text-left border-b border-gray-100 last:border-b-0 transition-colors ${
-                              slot.available 
-                                ? "hover:bg-gray-100 text-gray-900 cursor-pointer" 
-                                : "text-gray-400 cursor-not-allowed bg-gray-50"
-                            } ${
-                              selectedTimeSlot?.uniqueId === slot.uniqueId 
-                                ? "bg-blue-50 border-blue-200" 
-                                : ""
+                              slot.isBooked || !slot.available
+                                ? "bg-gray-200 text-gray-400 cursor-not-allowed opacity-70" // GRAY OUT untuk booked/unavailable
+                                : selectedTimeSlot?.uniqueId === slot.uniqueId
+                                ? "bg-blue-50 border-blue-200 text-gray-900" // Selected
+                                : "hover:bg-gray-100 text-gray-900 cursor-pointer" // Available
                             }`}
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (slot.available) {
+                              if (slot.available && !slot.isBooked) {
                                 handleTimeSlotSelection(slot)
                                 setShowTimePicker(false)
-                              } else {
-                                toast.error("Psikolog tidak tersedia")
                               }
+                              // Hapus toast error, biarkan gray out saja
                             }}
-                            aria-disabled={!slot.available}
-                            title={slot.available ? "" : slot.reason || "Psikolog tidak tersedia"}
+                            disabled={slot.isBooked || !slot.available}
+                            title={slot.available && !slot.isBooked ? "" : slot.reason || "Slot tidak tersedia"}
                           >
-                            {/* Psychologist name hidden (show time only) */}
-                            
-                            {/* Time Display */}
                             <div className="flex items-center justify-between">
                               <span>
                                 {slot.displayTime || `${slot.startTime} - ${slot.endTime} WIB`}
                               </span>
-                              
-                              {/* Availability Indicator removed for cleaner disabled UX */}
+                              {(slot.isBooked || !slot.available) && (
+                                <span className="text-xs text-gray-400">
+                                  {slot.isBooked ? "Sudah Terbooking" : "Tidak tersedia"}
+                                </span>
+                              )}
                             </div>
                           </button>
                         ))
                       ) : (
-                        <div className="px-3 py-2 text-sm text-gray-500">No available times</div>
+                        <div className="px-3 py-2 text-sm text-gray-500">Tidak ada slot tersedia</div>
                       )}
                     </div>
                   )}

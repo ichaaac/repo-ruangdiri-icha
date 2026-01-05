@@ -243,6 +243,30 @@ export const createBookingApi = (userType = "student") => {
   }
 
   return {
+    // Get booked slots for a specific psychologist and date
+    getBookedSlots: async (psychologistId, date, timezone = 'Asia/Jakarta') => {
+      try {
+        const response = await apiClient.get(
+          `/psychologists/${psychologistId}/booked-slots`,
+          {
+            params: { date, timezone }
+          }
+        )
+
+        if (response.data && response.data.status === "success") {
+          return {
+            status: "success",
+            data: response.data.data,
+          }
+        }
+
+        return response
+      } catch (error) {
+        console.error("Error fetching booked slots:", error)
+        throw error
+      }
+    },
+
     // Get available counseling methods
     getCounselingMethods: async () => {
       try {

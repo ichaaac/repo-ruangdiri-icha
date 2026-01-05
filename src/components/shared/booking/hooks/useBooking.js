@@ -46,6 +46,7 @@ export const useBooking = (userType = "student") => {
     select: (data) => {
       console.log("=== BACKEND AVAILABILITY RESPONSE ===")
       console.log("Raw availability data:", data)
+      console.log("Full data object:", JSON.stringify(data, null, 2))
 
       // ✅ DEBUG: Extract and log all psychologist IDs from response
       const availabilityData = data?.data || []
@@ -60,6 +61,19 @@ export const useBooking = (userType = "student") => {
 
       console.log("🔍 All psychologist IDs from backend:", Array.from(psychologistIds))
       console.log("🔍 Total slots from backend:", availabilityData.length)
+
+      // 🔍 Log each slot's availability info
+      console.log("🔍 DETAILED SLOT AVAILABILITY:")
+      availabilityData.forEach((slot, index) => {
+        console.log(`  [${index}] ${slot.date || 'weekly'} ${slot.startTime}-${slot.endTime}:`, {
+          availablePsychologists: slot.availablePsychologists,
+          totalPsychologists: slot.totalPsychologists,
+          bookedPsychologists: slot.bookedPsychologists,
+          isBooked: slot.isBooked,
+          psychologistId: slot.psychologist?.id || slot.psychologistId,
+          availablePsychologistIds: slot.availablePsychologistIds
+        })
+      })
 
       // ✅ Check for invalid IDs
       const invalidIds = Array.from(psychologistIds).filter(id =>
@@ -175,23 +189,191 @@ export const useBooking = (userType = "student") => {
     return dates
   }, [psychologistAvailability])
 
-  // UPDATED: Fixed 7 hourly time slots with psychologist availability filtering
+  // UPDATED: Fetch booked slots when date is selected
+  const {
+    data: bookedSlotsData,
+    isLoading: bookedSlotsLoading,
+    refetch: refetchBookedSlots,
+  } = useQuery({
+    queryKey: ["booked-slots", selectedDate],
+    queryFn: async () => {
+      if (!selectedDate || !psychologistAvailability || psychologistAvailability.length === 0) {
+        return { bookedSlots: [], availableSlots: [] }
+      }
+
+      // Extract unique psychologist IDs from availability data
+      const psychologistIds = new Set()
+      psychologistAvailability.forEach(slot => {
+        if (slot.psychologistId) psychologistIds.add(slot.psychologistId)
+        if (slot.psychologist?.id) psychologistIds.add(slot.psychologist.id)
+        if (slot.availablePsychologistIds && Array.isArray(slot.availablePsychologistIds)) {
+          slot.availablePsychologistIds.forEach(id => psychologistIds.add(id))
+        }
+      })
+
+      console.log("=== FETCHING BOOKED SLOTS ===")
+      console.log("Date:", selectedDate)
+      console.log("Psychologist IDs:", Array.from(psychologistIds))
+      console.log("psychologistAvailability data:", psychologistAvailability)
+
+      if (psychologistIds.size === 0) {
+        console.error("❌ NO PSYCHOLOGIST IDs FOUND! Cannot fetch booked slots.")
+        console.log("psychologistAvailability:", psychologistAvailability)
+        return { bookedSlots: [], availableSlots: [] }
+      }
+
+      // Fetch booked slots for each psychologist
+      const allBookedSlots = []
+      const allAvailableSlots = []
+
+      for (const psychologistId of psychologistIds) {
+        try {
+          console.log(`Calling API for psychologist: ${psychologistId}`)
+          const result = await bookingApi.getBookedSlots(psychologistId, selectedDate)
+          console.log(`API Response for ${psychologistId}:`, result)
+
+          if (result.status === "success" && result.data) {
+            console.log(`✅ Success! Data:`, result.data)
+
+            // Combine booked and available slots with psychologist info
+            if (result.data.bookedSlots) {
+              result.data.bookedSlots.forEach(slot => {
+                const bookedSlot = {
+                  ...slot,
+                  psychologistId: result.data.psychologistId,
+                  isBooked: true,
+                }
+                console.log(`Adding BOOKED slot:`, bookedSlot)
+                allBookedSlots.push(bookedSlot)
+              })
+            }
+            if (result.data.availableSlots) {
+              result.data.availableSlots.forEach(slot => {
+                const availableSlot = {
+                  ...slot,
+                  psychologistId: result.data.psychologistId,
+                  isBooked: false,
+                }
+                console.log(`Adding AVAILABLE slot:`, availableSlot)
+                allAvailableSlots.push(availableSlot)
+              })
+            }
+          } else {
+            console.warn(`❌ API returned non-success status:`, result)
+          }
+        } catch (error) {
+          // Suppress error, just log it - don't show toast
+          console.error(`❌ Failed to fetch booked slots for psychologist ${psychologistId}:`, error)
+        }
+      }
+
+      console.log("=== FETCH COMPLETE ===")
+      console.log("Total booked slots:", allBookedSlots.length, allBookedSlots)
+      console.log("Total available slots:", allAvailableSlots.length, allAvailableSlots)
+      console.log("🔴 BOOKED SLOTS SUMMARY:")
+      allBookedSlots.forEach(slot => {
+        console.log(`  ❌ ${slot.startTime}-${slot.endTime} (Psychologist: ${slot.psychologistId})`)
+      })
+
+      return {
+        bookedSlots: allBookedSlots,
+        availableSlots: allAvailableSlots,
+      }
+    },
+    enabled: !!selectedDate && psychologistAvailability && psychologistAvailability.length > 0,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    retry: false, // Don't retry on error
+    onError: () => {
+      // Suppress all errors from this query - no toast
+      console.log("Booked slots query error suppressed")
+    },
+  })
+
+  // UPDATED: Fixed 7 hourly time slots with booked slots data
   const timeSlots = useCallback(() => {
-    if (!selectedDate || !psychologistAvailability || psychologistAvailability.length === 0) {
-      console.log("No selected date or availability data for time slots")
+    if (!selectedDate) {
+      console.log("No selected date for time slots")
       return []
     }
 
     // ✅ FIXED: Define 7 fixed hourly slots
     const FIXED_SLOTS = [
-      { start: '09:00', end: '10:00' },
-      { start: '10:00', end: '11:00' },
-      { start: '11:00', end: '12:00' },
-      { start: '13:00', end: '14:00' },
-      { start: '14:00', end: '15:00' },
-      { start: '15:00', end: '16:00' },
-      { start: '16:00', end: '17:00' },
+      { start: '09:00:00', end: '10:00:00' },
+      { start: '10:00:00', end: '11:00:00' },
+      { start: '11:00:00', end: '12:00:00' },
+      { start: '13:00:00', end: '14:00:00' },
+      { start: '14:00:00', end: '15:00:00' },
+      { start: '15:00:00', end: '16:00:00' },
+      { start: '16:00:00', end: '17:00:00' },
     ]
+
+    // Use booked slots data if available and has data
+    if (bookedSlotsData && (bookedSlotsData.bookedSlots?.length > 0 || bookedSlotsData.availableSlots?.length > 0)) {
+      const { bookedSlots = [], availableSlots = [] } = bookedSlotsData
+
+      // Combine all slots
+      const combinedSlots = [...bookedSlots, ...availableSlots]
+        .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+      console.log("=== USING BOOKED SLOTS DATA FROM API ===")
+      console.log("Booked slots:", bookedSlots)
+      console.log("Available slots:", availableSlots)
+      console.log("Combined slots:", combinedSlots)
+      console.log("🎯 Processing slots for date:", selectedDate)
+
+      // Map to fixed slots format
+      const result = FIXED_SLOTS.map((fixedSlot, index) => {
+        // Find matching slot from backend
+        const matchingSlot = combinedSlots.find(slot => {
+          const backendStart = slot.startTime.substring(0, 5)
+          const backendEnd = slot.endTime.substring(0, 5)
+          const fixedStart = fixedSlot.start.substring(0, 5)
+          const fixedEnd = fixedSlot.end.substring(0, 5)
+          return backendStart === fixedStart && backendEnd === fixedEnd
+        })
+
+        if (matchingSlot) {
+          const slotData = {
+            startTime: fixedSlot.start.substring(0, 5),
+            endTime: fixedSlot.end.substring(0, 5),
+            psychologistId: matchingSlot.psychologistId,
+            psychologistName: matchingSlot.psychologistName || "Psikolog Tersedia",
+            available: !matchingSlot.isBooked,
+            isBooked: matchingSlot.isBooked,
+            displayTime: `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`,
+            uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
+            reason: matchingSlot.isBooked ? matchingSlot.bookingInfo || "Sudah dibooking" : undefined,
+          }
+          console.log(`✅ Slot ${slotData.startTime}-${slotData.endTime}: isBooked=${slotData.isBooked}, available=${slotData.available}, psychologistId=${slotData.psychologistId}`)
+          return slotData
+        }
+
+        // No matching slot - mark as unavailable
+        const unavailableSlot = {
+          startTime: fixedSlot.start.substring(0, 5),
+          endTime: fixedSlot.end.substring(0, 5),
+          available: false,
+          isBooked: false,
+          displayTime: `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`,
+          uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
+          reason: "Tidak ada psikolog tersedia",
+        }
+        console.log(`Slot ${unavailableSlot.startTime}-${unavailableSlot.endTime}: NO DATA (unavailable)`)
+        return unavailableSlot
+      })
+
+      console.log("=== FINAL SLOTS FROM API ===", result)
+      return result
+    }
+
+    console.log("=== NO BOOKED SLOTS DATA, USING FALLBACK ===")
+    console.log("bookedSlotsData:", bookedSlotsData)
+
+    // Fallback to old logic if booked slots not available yet
+    if (!psychologistAvailability || psychologistAvailability.length === 0) {
+      console.log("No availability data for time slots")
+      return []
+    }
 
     const selectedDateObj = new Date(selectedDate)
     const dayOfWeek = selectedDateObj.getDay()
@@ -215,7 +397,9 @@ export const useBooking = (userType = "student") => {
       const matchingAvailability = source.find((availability) => {
         const backendStart = availability.startTime.substring(0, 5)
         const backendEnd = availability.endTime.substring(0, 5)
-        return backendStart === fixedSlot.start && backendEnd === fixedSlot.end
+        const fixedStart = fixedSlot.start.substring(0, 5)
+        const fixedEnd = fixedSlot.end.substring(0, 5)
+        return backendStart === fixedStart && backendEnd === fixedEnd
       })
 
       // Check if this slot is available
@@ -272,12 +456,12 @@ export const useBooking = (userType = "student") => {
 
       // Build display time
       const displayTime = isAvailable
-        ? `${fixedSlot.start} - ${fixedSlot.end} WIB`
-        : `${fixedSlot.start} - ${fixedSlot.end} WIB (${reason || 'Tidak tersedia'})`
+        ? `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`
+        : `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB (${reason || 'Tidak tersedia'})`
 
       const slot = {
-        startTime: fixedSlot.start,
-        endTime: fixedSlot.end,
+        startTime: fixedSlot.start.substring(0, 5),
+        endTime: fixedSlot.end.substring(0, 5),
         psychologistName: psychologistName,
         psychologistId: psychologistId,
         availablePsychologistIds: availablePsychologistIds,
@@ -309,7 +493,7 @@ export const useBooking = (userType = "student") => {
     console.log("Slots with psychologistId:", allSlots.filter(s => s.psychologistId).length)
     console.log("All slots:", allSlots)
     return allSlots
-  }, [selectedDate, psychologistAvailability, availabilityThreshold])
+  }, [selectedDate, psychologistAvailability, bookedSlotsData, availabilityThreshold])
 
   // UPDATED: Calculate dynamic quota from availability (time-slot based)
   const availableQuota = useCallback(() => {
@@ -560,7 +744,7 @@ export const useBooking = (userType = "student") => {
   const loading = {
     methods: methodsLoading,
     locations: locationsLoading,
-    timeSlots: false, // Computed from availability data
+    timeSlots: bookedSlotsLoading, // UPDATED: Use booked slots loading
     availableDates: availabilityLoading,
     quota: availabilityLoading, // UPDATED: Quota loading same as availability
     creating: createBookingMutation.isPending,
