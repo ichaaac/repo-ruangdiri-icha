@@ -580,6 +580,30 @@ const api = {
 };
 
 // === STANDALONE FUNCTIONS ===
+
+const STUDENT_ENDPOINT = "/students";
+
+/**
+ * Get student list for permit (SMA level)
+ */
+export const getStudentListForPermit = async (userCode, name) => {
+    const params = {
+        level: "SMA",
+    };
+
+    if (name) {
+        params.name = name;
+    }
+
+    const { data } = await apiClient.get(STUDENT_ENDPOINT, {
+        headers: {
+            "x-user-id": userCode,
+        },
+        params,
+    });
+    return data;
+};
+
 /**
  * Standalone getMe function for direct use
  */
