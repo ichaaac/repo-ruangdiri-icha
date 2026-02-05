@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   PieChart,
   Pie,
@@ -102,6 +103,9 @@ const DashboardHome = ({
   }, [options, type, barChartClassroom, barChartGrade])
 
   const { user: authUser } = useAuth?.() || { user: {} }
+  const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.replace(/\/dashboard$/, "")
 
   const yearlyStatsFilters = useMemo(() => {
     const filters = { year: selectedYear.toString() }
@@ -277,6 +281,7 @@ const DashboardHome = ({
             total={summary.notScreened?.total || 0}
             icon="group"
             variant="blue"
+            onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=belum-skrining`)}
           />
           <SummaryCard
             title={`${config.entityName} Berisiko`}
@@ -284,6 +289,7 @@ const DashboardHome = ({
             total={summary.atRisk?.total || 0}
             icon="error_outline"
             variant="pink"
+            onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=berisiko`)}
           />
           <SummaryCard
             title={`${config.entityName} Belum Konseling`}
@@ -291,6 +297,7 @@ const DashboardHome = ({
             total={summary.notCounseled?.total || 0}
             icon="schedule"
             variant="neutral"
+            onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=belum-konseling`)}
           />
         </div>
 
