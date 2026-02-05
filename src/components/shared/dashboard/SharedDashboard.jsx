@@ -1,6 +1,4 @@
-// src/components/shared/dashboard/SharedDashboard.jsx - UPDATED removed email modal, added PDF download
-
-import { useState, useEffect, useMemo } from "react"
+import { useMemo } from "react"
 import DashboardHome from "./DashboardHome"
 import DashboardTabList from "./DashboardTabList"
 import { useDashboard, useDashboardTabData } from "../../../hooks/useDashboardMetrics"
@@ -83,7 +81,7 @@ const SharedDashboard = ({
       data: allData, // Keep the full structure for DashboardTable
       metadata: {
         ...metadata,
-        // Don't override totalData - let MetricCard use monthly stats
+        // Don't override totalData - let SummaryCard use monthly stats
         totalData: metadata.totalData || 0,
       },
       hasNextPage,
@@ -105,12 +103,6 @@ const SharedDashboard = ({
   // Handle return to home
   const handleReturnHome = () => {
     onDashboardTabChange("home")
-  }
-
-  // Handle report click - now handled by individual components with PDF download
-  const handleReportClick = (reportName) => {
-    console.log(`Report triggered: ${reportName}`)
-    // Individual components now handle their own PDF downloads
   }
 
   // FIXED: Get count for specific tab type from monthly stats ONLY
@@ -186,8 +178,6 @@ const SharedDashboard = ({
           user={user}
           dateDisplay={dateDisplay}
           onCardClick={handleCardClick}
-          onReportClick={handleReportClick}
-          refetchDashboard={refetchDashboard}
           sidebarExpanded={sidebarExpanded}
         />
       ) : (
@@ -196,7 +186,7 @@ const SharedDashboard = ({
           activeCard={selectedDashboardTab}
           tabData={tabData}
           config={enhancedConfig}
-          metrics={metrics} // FIXED: Pass metrics for MetricCard counts
+          metrics={metrics}
           user={user}
           onClose={() => handleReturnHome()}
           onCardClick={handleCardClick}
