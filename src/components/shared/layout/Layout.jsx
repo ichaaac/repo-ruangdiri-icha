@@ -1,12 +1,12 @@
 // src/components/shared/layout/Layout.jsx - WITH CHATWIDGET INTEGRATION
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useDashboard } from "../../../hooks/useDashboardMetrics";
-import { useAuth } from "../../../hooks/useAuth";
-import ChatWidget from "../chats/ChatWidget";
 import TopRightControl from "./TopRightControl";
+// import { useAuth } from "../../../hooks/useAuth";
+// import ChatWidget from "../chats/ChatWidget";
 
 /**
  * Responsive Layout Component for both School and Company
@@ -18,7 +18,6 @@ const Layout = ({
   startExpanded = false,
 }) => {
   const location = useLocation();
-  const { user } = useAuth?.() || { user: {} };
   
   const [expanded, setExpanded] = useState(startExpanded);
   const [sidebarHovered, setSidebarHovered] = useState(false);
@@ -74,28 +73,6 @@ const Layout = ({
     return "80px"; // 60px sidebar + 20px gap
   };
 
-  // 🔥 Calculate ChatWidget positioning based on sidebar state
-  const getChatWidgetStyle = () => {
-    if (isMobile) {
-      // Mobile: Standard bottom-right positioning
-      return {
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        zIndex: 40 // Below sidebar (z-40) but above content
-      };
-    }
-    
-    // Desktop: Adjust for sidebar
-    const sidebarWidth = (expanded || sidebarHovered) ? 237 : 60;
-    return {
-      position: 'fixed',
-      bottom: '24px',
-      right: '24px',
-      zIndex: 40 // Below sidebar but above content
-    };
-  };
-
   // Force window resize event when sidebar state changes
   useEffect(() => {
     const dispatchResize = () => {
@@ -110,47 +87,41 @@ const Layout = ({
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
-      <TopRightControl  />
-      {/* FIXED: Responsive Sidebar with dashboard metrics */}
-      <Sidebar 
-        expanded={expanded} 
-      setExpanded={setExpanded} 
+      {/* Sidebar */}
+      <Sidebar
+        expanded={expanded}
+        setExpanded={setExpanded}
         onHoverChange={setSidebarHovered}
         organizationType={organizationType}
         menuItems={menuItems}
         isMobile={isMobile}
         selectedDashboardTab={selectedDashboardTab}
         onDashboardTabChange={handleDashboardTabChange}
-        dashboardMetrics={dashboardMetrics} // FIXED: Pass metrics for tab state
+        dashboardMetrics={dashboardMetrics}
       />
 
-      {/* Main content area with responsive margin - FIXED: Proper stretching */}
-      <div 
-        className="flex-1 transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
-        style={{ 
+      {/* Main content area: TopBar + Page content */}
+      <div
+        className="flex-1 flex flex-col transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
+        style={{
           marginLeft: getContentMargin(),
-          // FIXED: Allow stretching when sidebar collapses
           width: `calc(100vw - ${getContentMargin()})`,
           maxWidth: `calc(100vw - ${getContentMargin()})`,
         }}
       >
-        <Outlet context={{ 
-          sidebarExpanded: expanded || sidebarHovered,
-          selectedDashboardTab,
-          onDashboardTabChange: handleDashboardTabChange,
-          dashboardMetrics, // FIXED: Pass metrics to children
-        }} />
-      </div>
+        {/* Top navbar */}
+        <TopRightControl />
 
-      {/* 🔥 CHATWIDGET - Layout Level Implementation */}
-      {/* <div style={getChatWidgetStyle()}>
-        <ChatWidget 
-          className="layout-chat-widget"
-          // Pass sidebar state for potential future enhancements
-          sidebarExpanded={expanded || sidebarHovered}
-          isMobile={isMobile}
-        />
-      </div> */}
+        {/* Page content */}
+        <div className="flex-1">
+          <Outlet context={{
+            sidebarExpanded: expanded || sidebarHovered,
+            selectedDashboardTab,
+            onDashboardTabChange: handleDashboardTabChange,
+            dashboardMetrics,
+          }} />
+        </div>
+      </div>
     </div>
   );
 };

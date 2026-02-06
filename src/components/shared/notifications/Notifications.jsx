@@ -1,386 +1,442 @@
 // src/components/shared/notifications/Notifications.jsx
+// ═══════════════════════════════════════════════════════════════════════════════
+// REVAMPED Notification Page — UI uses MOCK DATA for now.
+// Old API integration is COMMENTED OUT below. Uncomment when ready to integrate.
+// ═══════════════════════════════════════════════════════════════════════════════
 
-import React, { useCallback, useRef, forwardRef } from "react"
-import { useNotifications } from "./hooks/useNotifications"
+import { useState, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
+import {
+  LuSettings,
+  LuCircleCheck,
+  LuCircleAlert,
+  LuOctagonAlert,
+  LuBell,
+  LuClock,
+} from "react-icons/lu"
 
-const LoadingState = () => (
-  <div className="flex justify-center items-center py-12">
-    <span className="material-icons animate-spin text-[#488BBE] text-3xl mr-3">sync</span>
-    <span className="text-[#488BBE]">Memuat notifikasi...</span>
-  </div>
-)
+// ╔═══════════════════════════════════════════════════════════════════════════════
+// ║ OLD INTEGRATION — COMMENTED OUT (uncomment when API is ready)
+// ╚═══════════════════════════════════════════════════════════════════════════════
+// import { useNotifications } from "./hooks/useNotifications"
 
-const ErrorState = ({ error }) => (
-  <div className="text-center py-12">
-    <span className="material-icons text-red-500 text-5xl mb-4 block">error_outline</span>
-    <p className="text-red-500 font-semibold mb-2">Gagal memuat notifikasi</p>
-    <p className="text-gray-600 mb-4 text-sm">
-      {error?.message || "Terjadi kesalahan saat mengambil data notifikasi."}
-    </p>
-    <button
-      onClick={() => window.location.reload()}
-      className="px-4 py-2 bg-[#488BBE] text-white rounded-full hover:bg-[#3399E9] text-sm transition-colors"
-    >
-      Coba Lagi
-    </button>
-  </div>
-)
+// ─── Mock Data ───────────────────────────────────────────────────────────────
+const MOCK_NOTIFICATIONS = [
+  {
+    id: "1",
+    title: "Berhasil Mengubah Password",
+    description: "Anda berhasil mengubah password login pada akun ini",
+    type: "settings",
+    isRead: false,
+    timeLabel: "10 menit yang lalu",
+    category: "all",
+  },
+  {
+    id: "2",
+    title: "Konseling Selesai",
+    description: "Sesi konseling dengan Eberto telah selesai",
+    type: "success",
+    isRead: false,
+    timeLabel: "20 menit yang lalu",
+    category: "counseling",
+  },
+  {
+    id: "3",
+    title: "Konseling Tertunda",
+    description: "Sesi konseling dengan Conman telah ditunda hingga pemberitahuan lebih lanjut",
+    type: "warning",
+    isRead: false,
+    timeLabel: "1 jam yang lalu",
+    category: "counseling",
+  },
+  {
+    id: "4",
+    title: "Siswa Membutuhkan Perhatian",
+    description: "Terdapat siswa dengan hasil skrining yang perlu ditindaklanjuti.",
+    type: "danger",
+    isRead: false,
+    timeLabel: "Kemarin, 19.00",
+    category: "all",
+  },
+  {
+    id: "5",
+    title: "Permintaan Konseling",
+    description: "Berthold mengajukan permintaan sesi konseling pribadi",
+    type: "request",
+    isRead: true,
+    timeLabel: "Rabu 19 Jan 2026, 19.00",
+    category: "counseling",
+  },
+]
 
-const EmptyState = () => (
-  <div className="text-center py-12">
-    <span className="material-icons text-gray-400 text-5xl mb-4 block">notifications_none</span>
-    <p className="text-gray-500 text-lg mb-2">Tidak ada notifikasi</p>
-    <p className="text-gray-400 text-sm">Notifikasi akan muncul di sini saat ada aktivitas baru</p>
-  </div>
-)
+// ─── Icon Config: type → { Icon, bgColor, iconColor } ───────────────────────
+const ICON_MAP = {
+  settings: {
+    Icon: LuSettings,
+    bgColor: "#EAF2FF",
+    iconColor: "#155DFC",
+  },
+  success: {
+    Icon: LuCircleCheck,
+    bgColor: "#EAFBF0",
+    iconColor: "#16A34A",
+  },
+  warning: {
+    Icon: LuCircleAlert,
+    bgColor: "#FFF4E5",
+    iconColor: "#F59E0B",
+  },
+  danger: {
+    Icon: LuOctagonAlert,
+    bgColor: "#FFECEE",
+    iconColor: "#EF4444",
+  },
+  request: {
+    Icon: LuBell,
+    bgColor: "#EAF2FF",
+    iconColor: "#155DFC",
+  },
+}
 
-const LoadingSpinner = ({ text = "Loading..." }) => (
-  <div className="flex items-center gap-2">
-    <span className="material-icons animate-spin text-[#488BBE] text-lg">sync</span>
-    <span className="text-[#488BBE] text-sm">{text}</span>
-  </div>
-)
+const getIconConfig = (type) => ICON_MAP[type] || ICON_MAP.request
 
-const NotificationHeader = ({ unreadCount, onMarkAllAsRead, isMarkingAllAsRead }) => (
-  <div className="mb-8">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
-      <h1 className="text-xl font-semibold text-[#488BBE]">Notifikasi</h1>     
-      {/* {unreadCount > 0 && (
-        <button
-          onClick={onMarkAllAsRead}
-          disabled={isMarkingAllAsRead}
-          className="text-sm text-[#488BBE] hover:text-[#3399E9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 self-start sm:self-auto"
-        >
-          {isMarkingAllAsRead && <span className="material-icons animate-spin text-sm">sync</span>}
-          {isMarkingAllAsRead ? "Menandai..." : "Tandai Semua Dibaca"}
-        </button>
-      )} */}
-    </div>
-  </div>
-)
-
-const NotificationTabs = ({ selectedTab, unreadCount, counselingCount, onTabChange, formatCount }) => {
+// ─── NotificationIcon ────────────────────────────────────────────────────────
+const NotificationIcon = ({ type }) => {
+  const { Icon, bgColor, iconColor } = getIconConfig(type)
   return (
-    <div className="flex items-center gap-5 sm:gap-8 mb-3 overflow-x-auto border-b border-gray-200">
-      <button
-        onClick={() => onTabChange("all")}
-        className={`flex items-center gap-1 whitespace-nowrap pb-2 border-b-2 ${
-          selectedTab === "all" 
-            ? "font-bold text-[#535353] border-[#488BBA]" 
-            : "font-normal text-[#8a8a8a] hover:text-[#535353] border-transparent"
-        } transition-colors`}
-      >
-        <span>Semua</span>
-        {unreadCount > 0 && (
-          <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-            {formatCount(unreadCount)}
-          </div>
-        )}
-      </button>
-
-      <button
-        onClick={() => onTabChange("counseling")}
-        className={`flex items-center gap-1 whitespace-nowrap pb-2 border-b-2 ${
-          selectedTab === "counseling" 
-            ? "font-bold text-[#535353] border-[#488BBA]" 
-            : "font-normal text-[#8a8a8a] hover:text-[#535353] border-transparent"
-        } transition-colors`}
-      >
-        <span>Konseling</span>
-        {counselingCount > 0 && (
-          <div className="bg-[#EE4266] text-white text-xs font-semibold px-2 py-1 rounded-full min-w-[24px] h-5 flex items-center justify-center">
-            {formatCount(counselingCount)}
-          </div>
-        )}
-      </button>
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        minWidth: 44,
+        borderRadius: 9999,
+        backgroundColor: bgColor,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Icon size={20} strokeWidth={2} color={iconColor} />
     </div>
   )
 }
 
-const getNotificationIcon = (notification) => {
-  const { type, subType } = notification
-  
-  if (type === 'schedule') {
-    if (notification.title?.toLowerCase().includes('buat') || notification.title?.toLowerCase().includes('created')) {
-      return 'event'
-    }
-    if (notification.title?.toLowerCase().includes('ubah') || notification.title?.toLowerCase().includes('updated')) {
-      return 'event_available'
-    }
-    if (notification.title?.toLowerCase().includes('hapus') || notification.title?.toLowerCase().includes('deleted')) {
-      return 'event_busy'
-    }
-    if (notification.title?.toLowerCase().includes('reminder') || notification.title?.toLowerCase().includes('pengingat')) {
-      return 'schedule'
-    }
-    return 'check_circle'
-  }
-  
-  if (type === 'system') {
-    return 'settings'
-  }
-  
-  if (type === 'report') {
-    return 'assessment'
-  }
-  
-  if (subType === 'counseling') {
-    return 'psychology'
-  }
-  
-  return 'notifications'
-}
+// ─── NotificationItem ────────────────────────────────────────────────────────
+const NotificationItem = ({ notification, onMarkAsRead }) => {
+  const { id, title, description, type, isRead, timeLabel } = notification
+  const [hovered, setHovered] = useState(false)
 
-const getNotificationIconColor = (notification) => {
-  const { type, subType } = notification
-  
-  if (type === 'schedule') {
-    return '#9BCA61'
-  }
-  
-  if (type === 'system') {
-    return '#535353'
-  }
-  
-  if (type === 'report') {
-    return '#488BBE'
-  }
-  
-  if (subType === 'counseling') {
-    return '#9986ff'
-  }
-  
-  return '#535353'
-}
-
-const isNotificationRead = (notification) => {
-  return notification.status === 'read' || notification.isRead || notification.readAt;
-}
-
-const NotificationItem = forwardRef(({ notification, onMarkAsRead, isMarkingAsRead, formatTimeAgo }, ref) => {
   const handleClick = () => {
-    if (!isNotificationRead(notification) && !isMarkingAsRead) {
-      onMarkAsRead(notification.id)
-    }
+    if (!isRead) onMarkAsRead(id)
   }
 
-  const isRead = isNotificationRead(notification)
+  const getBgColor = () => {
+    if (isRead) return hovered ? "#F8FAFC" : "#FFFFFF"
+    return hovered ? "#EDF3FF" : "#F4F7FF"
+  }
 
   return (
     <div
-      ref={ref}
       onClick={handleClick}
-      className={`h-auto min-h-[45px] px-4 py-3 rounded-md flex items-start gap-4 transition-all duration-200 ${
-        isRead 
-          ? "bg-[#f2f2f2] cursor-default opacity-70" 
-          : "bg-white border border-gray-100 cursor-pointer hover:bg-gray-50 hover:shadow-sm"
-      } ${isMarkingAsRead ? "opacity-50" : ""}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "16px 20px",
+        minHeight: 72,
+        backgroundColor: getBgColor(),
+        cursor: isRead ? "default" : "pointer",
+        transition: "background-color 0.15s ease",
+        gap: 16,
+      }}
     >
-      <div className="flex-shrink-0 flex items-center justify-center">
-        <span 
-          className="material-icons"
-          style={{ 
-            color: getNotificationIconColor(notification),
-            fontSize: '35px'
+      {/* Circle icon */}
+      <NotificationIcon type={type} />
+
+      {/* Text content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            fontSize: 16,
+            fontWeight: 500,
+            color: "#0B0F1A",
+            lineHeight: 1.3,
+            margin: 0,
           }}
         >
-          {getNotificationIcon(notification)}
+          {title}
+        </p>
+        <p
+          style={{
+            fontSize: 14,
+            fontWeight: 400,
+            color: "#6F7480",
+            lineHeight: 1.4,
+            margin: "4px 0 0 0",
+          }}
+        >
+          {description}
+        </p>
+      </div>
+
+      {/* Timestamp */}
+      <div
+        style={{
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginLeft: 16,
+        }}
+      >
+        <LuClock size={16} strokeWidth={2} color="#6F7480" />
+        <span
+          style={{
+            fontSize: 14,
+            fontWeight: 400,
+            color: "#6F7480",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {timeLabel}
         </span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-col gap-1">
-          <p className={`text-sm font-semibold leading-tight ${
-            isRead ? "text-gray-500" : "text-[#535353]"
-          }`}>
-            {notification.title}
-          </p>
-          
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 text-xs">
-            {notification.message && (
-              <>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-[#9986ff] rounded-full flex-shrink-0"></div>
-                  <span className={`font-medium ${isRead ? "text-gray-400" : "text-[#535353]"}`}>
-                    {notification.message}
-                  </span>
-                </div>
-                <span className={`hidden sm:inline mx-1 ${isRead ? "text-gray-400" : "text-[#535353]"}`}>|</span>
-              </>
-            )}
-            <span className="text-[#8a8a8a] font-light">
-              {formatTimeAgo(notification.createdAt)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {!isRead && (
-        <div className="flex-shrink-0 w-2 h-2 bg-[#488BBE] rounded-full mt-2 animate-pulse"></div>
-      )}
-      
-      {isRead && (
-        <div className="flex-shrink-0 mt-2">
-          <span className="material-icons text-gray-400 text-sm">done</span>
-        </div>
-      )}
-    </div>
-  )
-})
-
-NotificationItem.displayName = "NotificationItem"
-
-const NotificationList = ({ 
-  groupedNotifications, 
-  hasNextPage, 
-  isFetchingNextPage, 
-  onMarkAsRead, 
-  onFetchNextPage, 
-  getDateLabel,
-  formatTimeAgo,
-  isMarkingAsRead 
-}) => {
-  const observer = useRef()
-  
-  const lastElementRef = useCallback((node) => {
-    if (isFetchingNextPage) return
-    if (observer.current) observer.current.disconnect()
-    
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasNextPage) {
-        onFetchNextPage()
-      }
-    }, {
-      threshold: 0.1,
-      rootMargin: "0px 0px 100px 0px"
-    })
-    
-    if (node) observer.current.observe(node)
-  }, [isFetchingNextPage, hasNextPage, onFetchNextPage])
-
-  const hasNotifications = Object.keys(groupedNotifications).length > 0
-  
-  if (!hasNotifications) {
-    return <EmptyState />
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="max-h-[70vh] overflow-y-auto space-y-6 pr-2">
-        {Object.entries(groupedNotifications).map(([dateKey, notifications], groupIndex) => {
-          const isLastGroup = groupIndex === Object.keys(groupedNotifications).length - 1
-          
-          return (
-            <div key={dateKey} className="space-y-1">
-              
-              <div className="text-xs font-normal text-[#8a8a8a] mb-1 sticky top-0 bg-white py-2 z-10">
-                {getDateLabel(dateKey)}
-              </div>
-
-              <div className="space-y-1">
-                {notifications.map((notification, index) => {
-                  const isLastItem = isLastGroup && index === notifications.length - 1
-                  
-                  return (
-                    <NotificationItem
-                      key={notification.id}
-                      ref={isLastItem ? lastElementRef : null}
-                      notification={notification}
-                      onMarkAsRead={onMarkAsRead}
-                      isMarkingAsRead={isMarkingAsRead}
-                      formatTimeAgo={formatTimeAgo}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
-        
-        {isFetchingNextPage && (
-          <div className="flex justify-center py-4">
-            <LoadingSpinner text="Memuat notifikasi lainnya..." />
-          </div>
-        )}
-        
-        {!hasNextPage && hasNotifications && (
-          <div className="text-center py-4 text-gray-400 text-sm">
-            Semua notifikasi telah dimuat
-          </div>
-        )}
       </div>
     </div>
   )
 }
 
-const Notifications = ({ sidebarExpanded = false }) => {
-  const {
-    groupedNotifications,
-    totalCount,
-    unreadCount, // This is generalCount from the hook
-    counselingCount,
-    selectedTab,
-    isLoading,
-    isError,
-    error,
-    hasNextPage,
-    isFetchingNextPage,
-    handleTabChange,
-    handleMarkAsRead,
-    handleMarkAllAsRead,
-    fetchNextPage,
-    getDateLabel,
-    formatTimeAgo,
-    formatCount,
-    isMarkingAsRead,
-    isMarkingAllAsRead,
-  } = useNotifications();
+// ─── NotificationTabs ────────────────────────────────────────────────────────
+const TAB_OPTIONS = [
+  { key: "all", label: "Semua" },
+  { key: "counseling", label: "Konseling" },
+]
 
-  // 🔥 ADDED: Calculate the total unread count for the "All" tab
-  const totalUnreadAllCount = unreadCount + counselingCount;
+const NotificationTabs = ({ selectedTab, onTabChange, hasUnread, onMarkAllRead }) => (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "stretch",
+      justifyContent: "space-between",
+      borderBottom: "1px solid #ECEEF0",
+      paddingLeft: 0,
+      paddingRight: 20,
+    }}
+  >
+    {/* Tab buttons — no left padding so active bg touches card edge */}
+    <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+      {TAB_OPTIONS.map(({ key, label }) => {
+        const isActive = selectedTab === key
+        return (
+          <button
+            key={key}
+            onClick={() => onTabChange(key)}
+            style={{
+              padding: "14px 24px",
+              fontSize: 16,
+              fontWeight: isActive ? 500 : 400,
+              color: isActive ? "#155DFC" : "#0F172B",
+              background: isActive ? "#F4F7FF" : "transparent",
+              border: "none",
+              borderBottom: isActive ? "2px solid #155DFC" : "2px solid transparent",
+              cursor: "pointer",
+              transition: "color 0.15s ease, background-color 0.15s ease",
+              marginBottom: -1,
+              fontFamily: "inherit",
+            }}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
 
-  return (
-    <div className="w-full min-h-screen overflow-x-hidden bg-white">
-      <div className="px-4 sm:px-6 lg:px-8 pt-[100px] pb-8">
-        <div className="max-w-full lg:max-w-6xl xl:max-w-7xl mx-auto">
-          
-          {/* 🔥 UPDATED: Pass total count to the header */}
-          <NotificationHeader 
-            unreadCount={totalUnreadAllCount}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            isMarkingAllAsRead={isMarkingAllAsRead}
-          />
+    {/* Mark all as read */}
+    {hasUnread && (
+      <button
+        onClick={onMarkAllRead}
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+          color: "#E8655B",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "14px 0",
+          transition: "opacity 0.15s ease",
+          fontFamily: "inherit",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+      >
+        Sudah dibaca semua
+      </button>
+    )}
+  </div>
+)
 
-          {/* 🔥 UPDATED: Pass total to "unreadCount" and keep counselingCount separate */}
-          <NotificationTabs
-            selectedTab={selectedTab}
-            unreadCount={totalUnreadAllCount} 
-            counselingCount={counselingCount}
-            onTabChange={handleTabChange}
-            formatCount={formatCount}
-          />
+// ─── Empty State ─────────────────────────────────────────────────────────────
+const EmptyState = () => (
+  <div style={{ textAlign: "center", padding: "48px 24px" }}>
+    <LuBell size={40} strokeWidth={1.5} color="#CBD5E1" />
+    <p style={{ color: "#6F7480", fontSize: 15, marginTop: 12 }}>
+      Tidak ada notifikasi
+    </p>
+  </div>
+)
 
-          {isLoading ? (
-            <LoadingState />
-          ) : isError ? (
-            <ErrorState error={error} />
-          ) : (
-            <NotificationList
-              groupedNotifications={groupedNotifications}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-              onMarkAsRead={handleMarkAsRead}
-              onFetchNextPage={fetchNextPage}
-              getDateLabel={getDateLabel}
-              formatTimeAgo={formatTimeAgo}
-              isMarkingAsRead={isMarkingAsRead}
-            />
-          )}
+// ═════════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═════════════════════════════════════════════════════════════════════════════════
+const Notifications = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = (() => {
+    const tab = (searchParams.get("tab") || "").toLowerCase()
+    return tab === "counseling" ? "counseling" : "all"
+  })()
 
-        </div>
-      </div>
-    </div>
-  );
-};
+  const [selectedTab, setSelectedTab] = useState(initialTab)
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS)
 
-export default Notifications;
+  // ── Tab handler (syncs URL query param) ──────────────────────────────────
+  const handleTabChange = useCallback(
+    (tab) => {
+      setSelectedTab(tab)
+      try {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev)
+            next.set("tab", tab)
+            return next
+          },
+          { replace: true }
+        )
+      } catch {
+        // ignore navigation errors
+      }
+    },
+    [setSearchParams]
+  )
+
+  // ── Mark single as read ──────────────────────────────────────────────────
+  const handleMarkAsRead = useCallback((id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    )
+  }, [])
+
+  // ── Mark all as read ─────────────────────────────────────────────────────
+  const handleMarkAllAsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+  }, [])
+
+  // ── Filtered list by tab ─────────────────────────────────────────────────
+  const filteredNotifications =
+    selectedTab === "counseling"
+      ? notifications.filter((n) => n.category === "counseling")
+      : notifications
+
+  const hasUnread = notifications.some((n) => !n.isRead)
+
+  // ╔═════════════════════════════════════════════════════════════════════════════
+  // ║ OLD INTEGRATION — COMMENTED OUT (uncomment when API is ready)
+  // ║
+  // ║ const {
+  // ║   groupedNotifications,
+  // ║   totalCount,
+  // ║   unreadCount,
+  // ║   counselingCount,
+  // ║   selectedTab,
+  // ║   isLoading,
+  // ║   isError,
+  // ║   error,
+  // ║   hasNextPage,
+  // ║   isFetchingNextPage,
+  // ║   handleTabChange,
+  // ║   handleMarkAsRead,
+  // ║   handleMarkAllAsRead,
+  // ║   fetchNextPage,
+  // ║   getDateLabel,
+  // ║   formatTimeAgo,
+  // ║   formatCount,
+  // ║   isMarkingAsRead,
+  // ║   isMarkingAllAsRead,
+  // ║ } = useNotifications();
+  // ║
+  // ║ const totalUnreadAllCount = unreadCount + counselingCount;
+  // ╚═════════════════════════════════════════════════════════════════════════════
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        fontFamily: "'Plus Jakarta Sans', 'Public Sans', sans-serif",
+      }}
+    >
+      <div style={{ padding: "32px 40px 40px 40px" }}>
+        {/* ── Breadcrumb ───────────────────────────────────────────────── */}
+        <nav style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 400, color: "#6F7480" }}>
+            Dashboard
+          </span>
+          <span style={{ fontSize: 15, color: "#6F7480" }}>/</span>
+          <span style={{ fontSize: 15, fontWeight: 500, color: "#E8655B" }}>
+            Notifikasi
+          </span>
+        </nav>
+
+        {/* ── Heading ──────────────────────────────────────────────────── */}
+        <h1 style={{ fontSize: 24, fontWeight: 500, color: "#0B0F1A", margin: "0 0 6px 0" }}>
+          Notifikasi
+        </h1>
+        <p style={{ fontSize: 15, fontWeight: 400, color: "#6F7480", margin: "0 0 32px 0", lineHeight: 1.5 }}>
+          Pantau pembaruan penting seputar skrining, konseling, dan aktivitas siswa secara real-time.
+        </p>
+
+        {/* ── Card container ───────────────────────────────────────────── */}
+        <div
+          style={{
+            borderRadius: 12,
+            border: "1px solid #E2E8F0",
+            overflow: "hidden",
+            backgroundColor: "#FFFFFF",
+          }}
+        >
+          {/* Tabs */}
+          <NotificationTabs
+            selectedTab={selectedTab}
+            onTabChange={handleTabChange}
+            hasUnread={hasUnread}
+            onMarkAllRead={handleMarkAllAsRead}
+          />
+
+          {/* Notification list */}
+          <div>
+            {filteredNotifications.length === 0 ? (
+              <EmptyState />
+            ) : (
+              filteredNotifications.map((notification, index) => (
+                <div key={notification.id}>
+                  {index > 0 && (
+                    <div
+                      style={{
+                        height: 1,
+                        backgroundColor: "#ECEEF0",
+                      }}
+                    />
+                  )}
+                  <NotificationItem
+                    notification={notification}
+                    onMarkAsRead={handleMarkAsRead}
+                  />
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Notifications
