@@ -84,8 +84,6 @@ const DetailLaporanPage = () => {
         : "/organizations/employees/period"
 
       const res = await apiClient.get(`${endpoint}?${params}`)
-      console.log("📊 [DetailLaporan] Full axios response:", res)
-      console.log("📊 [DetailLaporan] res.data:", JSON.stringify(res.data, null, 2)?.substring(0, 2000))
       return res.data
     },
     staleTime: 2 * 60 * 1000,
@@ -94,8 +92,6 @@ const DetailLaporanPage = () => {
   // Extract items and metadata from response
   const { items: allItems, metadata } = useMemo(() => {
     if (!rawResponse) return { items: [], metadata: { totalData: 0, totalPages: 1 } }
-
-    console.log("📊 [DetailLaporan] rawResponse:", rawResponse)
 
     const entityKey = type === "student" ? "students" : "employees"
     let items = []
@@ -122,7 +118,6 @@ const DetailLaporanPage = () => {
       meta.totalPages = Math.ceil(meta.totalData / ITEMS_PER_PAGE)
     }
 
-    console.log("📊 [DetailLaporan] Extracted items:", items.length, "metadata:", meta)
     return { items: Array.isArray(items) ? items : [], metadata: meta }
   }, [rawResponse, type])
 
@@ -279,7 +274,7 @@ const DetailLaporanPage = () => {
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
-      <div style={{ padding: "0 40px", paddingTop: 88 }}>
+      <div style={{ padding: "0 40px", paddingTop: 32 }}>
         {/* Breadcrumb */}
         <nav className="flex items-center" style={{ gap: 8, marginBottom: 24 }}>
           <button
