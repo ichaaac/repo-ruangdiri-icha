@@ -1,6 +1,5 @@
-// src/components/shared/dashboard/DashboardHome.jsx - UPDATED with "All" option support
-
-import { useCallback, useState, useEffect, useRef, useMemo } from "react"
+import { useCallback, useMemo, useState, useEffect } from "react"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   PieChart,
   Pie,
@@ -12,15 +11,63 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  Sector,
+  Legend,
 } from "recharts"
 import { Menu } from "@headlessui/react"
-import MetricCard from "./MetricCard"
+import SummaryCard from "./SummaryCard"
+import ChartCard from "./ChartCard"
+import MonthChip from "./MonthChip"
 import CustomBranchingDropdown from "./CustomBranchingDropdown"
 import { useAuth } from "../../../hooks/useAuth"
-import { useYearlyStats, usePdfReport } from "../../../hooks/useDashboardMetrics"
+import { useYearlyStats } from "../../../hooks/useDashboardMetrics"
 import { getCurrentDateInfo } from "../../../lib/date"
-import TopRightControl from "../layout/TopRightControl"
+
+const CHART_COLORS = {
+  risk: "#FF7D7D",
+  watch: "#FFCB8E",
+  safe: "#6DC5D1",
+}
+
+const CustomChartTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div
+        style={{
+          background: "#fff",
+          padding: 12,
+          borderRadius: 8,
+          border: "1px solid #E2E8F0",
+          fontSize: 13,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        }}
+      >
+        {label && (
+          <p style={{ fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+            {label}
+          </p>
+        )}
+        {payload.map((entry, index) => (
+          <div
+            key={index}
+            style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}
+          >
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: entry.color || entry.payload?.color,
+              }}
+            />
+            <span style={{ color: "#64748B" }}>{entry.name}:</span>
+            <span style={{ fontWeight: 600, color: "#1E293B" }}>{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  return null
+}
 
 const DashboardHome = ({
   type = "student",
@@ -30,107 +77,58 @@ const DashboardHome = ({
   user = {},
   dateDisplay = "",
   onCardClick = () => {},
-  onReportClick = () => {},
-  sidebarExpanded = false,
 }) => {
-  // FIXED: Initialize with current year
   const getCurrentYear = () => {
     const currentDate = getCurrentDateInfo()
-    return parseInt(currentDate.year) // current year as number
+    return parseInt(currentDate.year)
   }
 
   const [selectedYear, setSelectedYear] = useState(getCurrentYear())
   const [barChartClassroom, setBarChartClassroom] = useState("")
   const [barChartGrade, setBarChartGrade] = useState("")
 
-  // PDF download hook
-  const { downloadPdfReport } = usePdfReport()
-
-  // PieChart hover states
-  const [hoveredPieIndex, setHoveredPieIndex] = useState(-1)
-  const [screeningHoveredIndex, setScreeningHoveredIndex] = useState(-1)
-  const [counselingHoveredIndex, setCounselingHoveredIndex] = useState(-1)
-
-  // Tooltip states
-  const [showOverallTooltip, setShowOverallTooltip] = useState(false)
-  const [showScreeningTooltip, setShowScreeningTooltip] = useState(false)
-  const [showCounselingTooltip, setShowCounselingTooltip] = useState(false)
-
-  // Timeout refs
-  const hoverTimeoutRef = useRef(null)
-  const screeningTimeoutRef = useRef(null)
-  const counselingTimeoutRef = useRef(null)
-  const tooltipTimeoutRef = useRef(null)
-  const screeningTooltipTimeoutRef = useRef(null)
-  const counselingTooltipTimeoutRef = useRef(null)
-
-  const HOVER_DELAY = 25
-
-  // UPDATED: Initialize filters with "All" as default to prevent multiple fetches
   useEffect(() => {
     if (type === "student") {
       if (!barChartClassroom && options?.classrooms?.length > 0) {
-        setBarChartClassroom("All") // Default to "All" for student classroom
+        setBarChartClassroom("All")
       }
       if (!barChartGrade && options?.grades?.length > 0) {
-        setBarChartGrade("All") // Default to "All" for student grade
+        setBarChartGrade("All")
       }
     } else {
       if (!barChartClassroom && options?.departments?.length > 0) {
-        setBarChartClassroom("All") // Default to "All" for employee department
+        setBarChartClassroom("All")
       }
     }
   }, [options, type, barChartClassroom, barChartGrade])
 
-  // Cleanup timeouts
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
-      if (screeningTimeoutRef.current) clearTimeout(screeningTimeoutRef.current)
-      if (counselingTimeoutRef.current) clearTimeout(counselingTimeoutRef.current)
-      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
-      if (screeningTooltipTimeoutRef.current) clearTimeout(screeningTooltipTimeoutRef.current)
-      if (counselingTooltipTimeoutRef.current) clearTimeout(counselingTooltipTimeoutRef.current)
-    }
-  }, [])
-
   const { user: authUser } = useAuth?.() || { user: {} }
+  const navigate = useNavigate()
+  const location = useLocation()
+  const basePath = location.pathname.replace(/\/dashboard$/, "")
 
-  // UPDATED: Create stable yearly stats filters to prevent multiple fetches, handle "All" option
   const yearlyStatsFilters = useMemo(() => {
     const filters = { year: selectedYear.toString() }
-
     if (type === "student") {
       filters.classroom = barChartClassroom === "All" ? "All" : (barChartClassroom || "All")
       filters.grade = barChartGrade === "All" ? "All" : (barChartGrade || "All")
     } else {
       filters.department = barChartClassroom === "All" ? "All" : (barChartClassroom || "All")
     }
-
     return filters
   }, [type, barChartClassroom, barChartGrade, selectedYear])
 
-  // UPDATED: Only fetch yearly stats when we have stable filters (including "All")
-  const shouldFetchYearlyStats = Boolean(
-    type === "student" 
-      ? (barChartClassroom && barChartGrade)
-      : barChartClassroom
-  )
-
-  const { data: yearlyStatsData } = useYearlyStats(type, yearlyStatsFilters, {
-    enabled: shouldFetchYearlyStats
-  })
+  const { data: yearlyStatsData } = useYearlyStats(type, yearlyStatsFilters)
 
   const handleBarChartClassroomChange = useCallback(
     (classroom) => {
       if (classroom !== barChartClassroom) {
         setBarChartClassroom(classroom)
         if (type === "student" && options?.grades?.length > 0) {
-          // Reset grade selection whenever classroom changes
           if (barChartGrade !== "All") {
             setBarChartGrade("All")
           } else if (!barChartGrade) {
-            setBarChartGrade("All") // Default to "All"
+            setBarChartGrade("All")
           }
         }
       }
@@ -152,577 +150,356 @@ const DashboardHome = ({
     [barChartClassroom],
   )
 
-  const handleReportDownload = async (reportType) => {
-    try {
-      const additionalParams = {}
-      
-      // Add current filters to the download
-      if (type === "student") {
-        if (barChartClassroom) additionalParams.classroom = barChartClassroom
-        if (barChartGrade) additionalParams.grade = barChartGrade
-      } else {
-        if (barChartClassroom) additionalParams.department = barChartClassroom
-      }
-
-      // FIXED: Add total count to download ALL data instead of just 10
-      if (reportType === "at_risk") {
-        additionalParams.totalCount = metrics?.summary?.atRisk?.count || 1000
-      } else if (reportType === "not_screened") {
-        additionalParams.totalCount = metrics?.summary?.notScreened?.count || 1000
-      } else if (reportType === "not_counseled") {
-        additionalParams.totalCount = metrics?.summary?.notCounseled?.count || 1000
-      }
-
-      await downloadPdfReport(type, reportType, additionalParams)
-      onReportClick(reportType) // Still call the original handler for any additional logic
-    } catch (error) {
-      console.error('Failed to download PDF report:', error)
-      // You can add error handling here (toast notification, etc.)
-    }
-  }
-
   const getSemesterData = useCallback(() => {
-    const yearlyData = yearlyStatsData?.data || []
-    const allMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-    return allMonths.map((month) => {
-      const existingData = yearlyData.find((item) => item.month === month)
-      return existingData || { month, atRisk: 0, monitored: 0, stable: 0 }
-    })
+    return yearlyStatsData?.data || []
   }, [yearlyStatsData])
 
   const getOverallPieData = useCallback(() => {
     const overall = metrics?.mentalHealth?.overall || {}
     const data = [
-      { name: "Berisiko", value: overall.atRisk || 0, color: "#ED8768" },
-      { name: "Pengawasan", value: overall.monitored || 0, color: "#FCBC03" },
-      { name: "Stabil", value: overall.stable || 0, color: "#9BCA61" },
+      { name: "Berisiko", value: overall.atRisk || 0, color: CHART_COLORS.risk },
+      { name: "Pengawasan", value: overall.monitored || 0, color: CHART_COLORS.watch },
+      { name: "Aman", value: overall.stable || 0, color: CHART_COLORS.safe },
     ]
-    
-    // If all values are 0, return single gray segment
-    const hasData = data.some(item => item.value > 0)
-    if (!hasData) {
-      return [{ name: "Tidak ada data", value: 1, color: "#D9D9D9" }]
-    }
-    
+    const hasData = data.some((item) => item.value > 0)
+    if (!hasData) return [{ name: "Tidak ada data", value: 1, color: "#D9D9D9" }]
     return data
   }, [metrics?.mentalHealth?.overall])
 
   const getScreeningData = useCallback(() => {
     const screening = metrics?.status?.screening || {}
     const data = [
-      { name: "Belum Skrining", value: screening.notCompleted || 0, color: "#6DC4C6" },
-      { name: "Sudah Skrining", value: screening.completed || 0, color: "#E284B3" },
+      { name: "Belum Skrining", value: screening.notCompleted || 0, color: CHART_COLORS.safe },
+      { name: "Sudah Skrining", value: screening.completed || 0, color: CHART_COLORS.risk },
     ]
-    
-    // If all values are 0, return single gray segment
-    const hasData = data.some(item => item.value > 0)
-    if (!hasData) {
-      return [{ name: "Tidak ada data", value: 1, color: "#535353" }]
-    }
-    
+    const hasData = data.some((item) => item.value > 0)
+    if (!hasData) return [{ name: "Tidak ada data", value: 1, color: "#D9D9D9" }]
     return data
   }, [metrics?.status?.screening])
 
   const getCounselingData = useCallback(() => {
     const counseling = metrics?.status?.counseling || {}
-    return [
-      { name: "Belum Konseling", value: counseling.notCompleted || 0, color: "#C194E9" },
-      { name: "Sudah Konseling", value: counseling.completed || 0, color: "#F1D961" },
+    const data = [
+      { name: "Belum Konseling", value: counseling.notCompleted || 0, color: CHART_COLORS.risk },
+      { name: "Sudah Konseling", value: counseling.completed || 0, color: CHART_COLORS.safe },
     ]
+    const hasData = data.some((item) => item.value > 0)
+    if (!hasData) return [{ name: "Tidak ada data", value: 1, color: "#D9D9D9" }]
+    return data
   }, [metrics?.status?.counseling])
 
-  const canNavigateNext = useCallback(() => {
-    // Allow navigation up to current year + 1 (untuk melihat data tahun depan)
-    const currentYear = getCurrentYear()
-    return selectedYear < (currentYear + 1)
-  }, [selectedYear])
+  const canNavigateNext = useCallback(() => selectedYear < getCurrentYear() + 1, [selectedYear])
+  const canNavigatePrev = useCallback(() => selectedYear > 2024, [selectedYear])
+  const handleNext = () => { if (canNavigateNext()) setSelectedYear((prev) => prev + 1) }
+  const handlePrev = () => { if (canNavigatePrev()) setSelectedYear((prev) => prev - 1) }
 
-  const canNavigatePrev = useCallback(() => {
-    // Allow navigation back to 2024
-    return selectedYear > 2024
-  }, [selectedYear])
-
-  const handleNext = () => {
-    if (canNavigateNext()) {
-      setSelectedYear(prev => prev + 1)
-    }
-  }
-
-  const handlePrev = () => {
-    if (canNavigatePrev()) {
-      setSelectedYear(prev => prev - 1)
-    }
-  }
-
-  // Enhanced label renderer yang ikut bergerak dengan zoom
-  const renderCustomizedLabel = useCallback(
-    ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value, index }, hoveredIndex) => {
-      if (value === 0) return null
-
-      const RADIAN = Math.PI / 180
-      // Adjust radius based on hover state - jika di-hover, radius lebih besar
-      const isHovered = hoveredIndex === index
-      const adjustedOuterRadius = isHovered ? outerRadius + 10 : outerRadius
-      const radius = innerRadius + (adjustedOuterRadius - innerRadius) * 0.5
-      const x = cx + radius * Math.cos(-midAngle * RADIAN)
-      const y = cy + radius * Math.sin(-midAngle * RADIAN)
-
-      return (
-        <text
-          x={x}
-          y={y}
-          fill="white"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize={12}
-          style={{
-            pointerEvents: "none",
-            transition: "all 0.25s ease-out", // Smooth transition untuk label
-          }}
-        >
-          {`${(percent * 100).toFixed(0)}%`}
-        </text>
-      )
-    },
-    [],
-  )
-
-  // Active shape dengan smooth zoom
-  const renderActiveShape = (props) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props
+  const renderDonutChart = (data, innerR = 85, outerR = 110) => {
+    const total = data.reduce((s, d) => s + d.value, 0)
+    const withPct = data.map((d) => ({
+      ...d,
+      percentage: total > 0 ? `${Math.round((d.value / total) * 100)}%` : "0%",
+    }))
 
     return (
-      <g>
-        <Sector
-          cx={cx}
-          cy={cy}
-          innerRadius={innerRadius}
-          outerRadius={outerRadius + 10}
-          startAngle={startAngle}
-          endAngle={endAngle}
-          fill={fill}
-          style={{
-            transition: "all 0.25s ease-out",
-          }}
-        />
-      </g>
-    )
-  }
-
-  const createDelayedHoverHandlers = (setHoveredIndex, setShowTooltip, hoverTimeoutRef, tooltipTimeoutRef) => {
-    const handleMouseEnter = (_, index) => {
-      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
-      if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current)
-
-      hoverTimeoutRef.current = setTimeout(() => {
-        setHoveredIndex(index)
-      }, HOVER_DELAY)
-
-      tooltipTimeoutRef.current = setTimeout(() => {
-        setShowTooltip(true)
-      }, HOVER_DELAY)
-    }
-
-    const handleMouseLeave = () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current)
-        hoverTimeoutRef.current = null
-      }
-      if (tooltipTimeoutRef.current) {
-        clearTimeout(tooltipTimeoutRef.current)
-        tooltipTimeoutRef.current = null
-      }
-
-      setHoveredIndex(-1)
-      setShowTooltip(false)
-    }
-
-    return { handleMouseEnter, handleMouseLeave }
-  }
-
-  const overallHandlers = createDelayedHoverHandlers(
-    setHoveredPieIndex,
-    setShowOverallTooltip,
-    hoverTimeoutRef,
-    tooltipTimeoutRef,
-  )
-
-  const screeningHandlers = createDelayedHoverHandlers(
-    setScreeningHoveredIndex,
-    setShowScreeningTooltip,
-    screeningTimeoutRef,
-    screeningTooltipTimeoutRef,
-  )
-
-  const counselingHandlers = createDelayedHoverHandlers(
-    setCounselingHoveredIndex,
-    setShowCounselingTooltip,
-    counselingTimeoutRef,
-    counselingTooltipTimeoutRef,
-  )
-
-  const renderEnhancedPieChart = (data, hoveredIndex, showTooltip, handlers) => {
-    return (
-      <div style={{ width: "280px", height: "280px", margin: "0 auto" }} onMouseLeave={handlers.handleMouseLeave}>
-        <PieChart width={280} height={280}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
           <Pie
-            data={data}
+            data={withPct}
             cx="50%"
             cy="50%"
-            labelLine={false}
-            label={(props) => renderCustomizedLabel(props, hoveredIndex)} // Pass hoveredIndex ke label
-            outerRadius="80%"
-            innerRadius="50%"
+            innerRadius={innerR}
+            outerRadius={outerR}
+            paddingAngle={3}
+            cornerRadius={6}
             dataKey="value"
-            isAnimationActive={false}
-            activeIndex={hoveredIndex}
-            activeShape={renderActiveShape}
-            onMouseEnter={handlers.handleMouseEnter}
-            onMouseLeave={handlers.handleMouseLeave}
+            stroke="none"
+            startAngle={90}
+            endAngle={-270}
           >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+            {withPct.map((entry, i) => (
+              <Cell key={`cell-${i}`} fill={entry.color} />
             ))}
           </Pie>
-          {showTooltip && (
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload?.length) {
-                  const data = payload[0].payload
-                  return (
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg text-sm p-2">
-                      <p className="font-semibold text-gray-900">{data.name}</p>
-                      <p className="text-gray-600">{`Jumlah: ${data.value}`}</p>
-                    </div>
-                  )
-                }
-                return null
-              }}
-            />
-          )}
+          <Tooltip content={<CustomChartTooltip />} />
+          <Legend
+            verticalAlign="bottom"
+            align="center"
+            iconType="circle"
+            iconSize={12}
+            formatter={(value) => {
+              const item = withPct.find((d) => d.name === value)
+              return (
+                <span style={{ color: "#334155", fontSize: 14, fontWeight: 400, marginLeft: 4 }}>
+                  {value} ({item?.percentage || "0%"})
+                </span>
+              )
+            }}
+          />
         </PieChart>
-      </div>
+      </ResponsiveContainer>
     )
   }
+
+  const summary = metrics?.summary || {}
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-     <div className="px-4 sm:px-6 lg:px-8 xl:px-20 mt-6 sm:mt-8 pt-[72px]">
-      <div className="w-full lg:w-auto">
-          <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-extrabold text-[#488BBE] break-words leading-tight">
-            Halo, {user?.fullName || authUser?.fullName || "User"}
-          </h1>
-        </div>
-      </div>
-
-      <div className="mt-4 sm:mt-6">
-        <div className="px-4 sm:px-6 lg:px-8 xl:px-20">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-6">
-            <div className="w-full">
-              <MetricCard
-                title={`Total ${config.entityName} Berisiko`}
-                count={metrics.summary?.atRisk?.count || 0}
-                total={metrics.summary?.atRisk?.total || 0}
-                icon="assignment_late"
-                isActive={true}
-                isDisabled={(metrics.summary?.atRisk?.count || 0) === 0}
-                isReportEnabled={(metrics.summary?.atRisk?.count || 0) > 0}
-                onCardClick={() => onCardClick("at_risk")}
-                onReportClick={() => handleReportDownload("at_risk")}
-              />
-            </div>
-            <div className="w-full">
-              <MetricCard
-                title={`Total ${config.entityName} Belum Skrining`}
-                count={metrics.summary?.notScreened?.count || 0}
-                total={metrics.summary?.notScreened?.total || 0}
-                icon="article"
-                isActive={true}
-                isDisabled={(metrics.summary?.notScreened?.count || 0) === 0}
-                isReportEnabled={(metrics.summary?.notScreened?.count || 0) > 0}
-                onCardClick={() => onCardClick("not_screened")}
-                onReportClick={() => handleReportDownload("not_screened")}
-              />
-            </div>
-            <div className="w-full">
-              <MetricCard
-                title={`Total ${config.entityName} Belum Konseling`}
-                count={metrics.summary?.notCounseled?.count || 0}
-                total={metrics.summary?.notCounseled?.total || 0}
-                icon="article"
-                isActive={true}
-                isDisabled={(metrics.summary?.notCounseled?.count || 0) === 0}
-                isReportEnabled={(metrics.summary?.notCounseled?.count || 0) > 0}
-                onCardClick={() => onCardClick("not_counseled")}
-                onReportClick={() => handleReportDownload("not_counseled")}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="bg-blue-50 rounded-tl-xl rounded-tr-xl p-3 sm:p-5 mt-[19px]"
+      {/* Header */}
+      <div style={{ padding: "0 40px", marginTop: 24, paddingTop: 72 }}>
+        <h1
           style={{
-            width: "100%",
-            maxWidth: `calc(100% - 40px)`,
-            marginLeft: "20px",
-            marginRight: "20px",
-            position: "relative",
-            zIndex: 1,
+            fontSize: 24,
+            lineHeight: "120%",
+            fontWeight: 400,
+            color: "#0B0F1A",
           }}
         >
-          <h2 className="text-lg leading-4 text-primary mb-4">
-            Status <span className="font-bold">Kesehatan Mental </span>
-            <span className="font-bold text-primary">{config.entityName}</span>
+          Halo, {user?.fullName || authUser?.fullName || "Admin"}!
+        </h1>
+        <p
+          style={{
+            fontSize: 18,
+            lineHeight: "140%",
+            fontWeight: 400,
+            color: "#6F7480",
+            marginTop: 4,
+          }}
+        >
+          Selamat datang kembali! Berikut ringkasan data hari ini.
+        </p>
+      </div>
+
+      <div style={{ padding: "28px 40px 40px 40px" }}>
+        {/* Summary Cards */}
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          style={{ gap: 20 }}
+        >
+          <SummaryCard
+            title={`${config.entityName} Belum Skrining`}
+            count={summary.notScreened?.count || 0}
+            total={summary.notScreened?.total || 0}
+            icon="group"
+            variant="blue"
+            onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=belum-skrining`)}
+          />
+          <SummaryCard
+            title={`${config.entityName} Berisiko`}
+            count={summary.atRisk?.count || 0}
+            total={summary.atRisk?.total || 0}
+            icon="error_outline"
+            variant="pink"
+            onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=berisiko`)}
+          />
+          <SummaryCard
+            title={`${config.entityName} Belum Konseling`}
+            count={summary.notCounseled?.count || 0}
+            total={summary.notCounseled?.total || 0}
+            icon="schedule"
+            variant="neutral"
+            onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=belum-konseling`)}
+          />
+        </div>
+
+        {/* Charts Section */}
+        <div style={{ marginTop: 32 }}>
+          <h2
+            style={{
+              fontSize: 24,
+              lineHeight: "120%",
+              fontWeight: 500,
+              color: "#0B0F1A",
+              marginBottom: 20,
+            }}
+          >
+            Status Kesehatan Mental {config.entityName}
           </h2>
 
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
-            <div className="w-full lg:w-2/5">
-              <div className="flex flex-col h-full px-3 sm:px-4 py-4 sm:py-5 w-full text-sm bg-white rounded-2xl border border-solid border-zinc-300 text-zinc-500">
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-5 justify-between w-full mb-4">
-                  <p className="text-s sm:text-md">Status Kesehatan Mental {config.entityName} Keseluruhan</p>
-                  <p className="text-xs sm:text-sm text-right">{dateDisplay}</p>
+          {/* Row 1: Overall donut + Bar chart */}
+          <div
+            className="grid grid-cols-1 lg:grid-cols-2"
+            style={{ gap: 20 }}
+          >
+            <ChartCard
+              title={
+                <div>
+                  <h3 style={{ fontSize: 20, fontWeight: 400, color: "#6F7480", lineHeight: "140%", margin: 0 }}>
+                    Status Kesehatan Mental {config.entityName}
+                  </h3>
                 </div>
-                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
-                  <div className="absolute inset-0">
-                    {renderEnhancedPieChart(getOverallPieData(), hoveredPieIndex, showOverallTooltip, overallHandlers)}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-center mt-4">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-[#ED8768]"></div>
-                    <p className="text-xs sm:text-sm">Berisiko</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-[#FCBC03]"></div>
-                    <p className="text-xs sm:text-sm">Pengawasan</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 rounded-full bg-[#9BCA61]"></div>
-                    <p className="text-xs sm:text-sm">Stabil</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+              }
+              chipSlot={<MonthChip label={dateDisplay} />}
+              className="h-[450px]"
+            >
+              {renderDonutChart(getOverallPieData(), 85, 110)}
+            </ChartCard>
 
-            <div className="w-full lg:w-3/5">
-              <div
-                className="h-full px-3 sm:px-4 pt-4 pb-4 w-full bg-white rounded-2xl border border-solid border-zinc-300 flex flex-col"
-                style={{ position: "relative", zIndex: 2 }}
-              >
-                <div
-                  className="flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between w-full text-sm leading-6 text-zinc-500 mb-4"
-                  style={{ position: "relative", zIndex: 10 }}
-                >
-                  <p className="text-xs sm:text-sm">
-                    Status Kesehatan Mental{" "}
-                    <span className="font-extrabold">
-                      {config.entityName} {type === "student" ? "Kelas " : ""}
-                      {barChartClassroom === "All" ? "Semua" : barChartClassroom}
-                      {type === "student" && barChartGrade && barChartGrade !== "All" ? ` ${barChartGrade}` : ""}
-                    </span>
-                  </p>
-                  <div className="flex gap-2 flex-shrink-0" style={{ position: "relative", zIndex: 99999 }}>
-                    {type === "student" ? (
-                      <div className="relative" style={{ zIndex: 99999 }}>
-                        <CustomBranchingDropdown
-                          selectedClassroom={barChartClassroom}
-                          selectedGrade={barChartGrade}
-                          onClassroomSelect={handleBarChartClassroomChange}
-                          onGradeSelect={handleBarChartGradeChange}
-                          classrooms={options?.classrooms || []}
-                          grades={options?.grades || []}
-                          showAllOption={true}
-                        />
-                      </div>
-                    ) : (
-                      <Menu as="div" className="relative" style={{ zIndex: 99999 }}>
-                        <Menu.Button className="flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer text-gray-700">
-                          <span className="self-stretch my-auto">
-                            {barChartClassroom === "All" ? "Semua" : (barChartClassroom || config.filterLabel)}
-                          </span>
-                          <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
-                        </Menu.Button>
-                        <Menu.Items
-                          className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                          style={{ zIndex: 99999 }}
-                        >
-                          {/* Add "All" option first */}
-                          <Menu.Item key="All">
+            <ChartCard
+              title={
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 400, color: "#6F7480", lineHeight: "140%", margin: 0 }}>
+                    Status Kesehatan Mental
+                  </h3>
+                  <h4 style={{ fontSize: 20, fontWeight: 500, color: "#0F172B", lineHeight: "140%", margin: 0, marginTop: 2 }}>
+                    {config.entityName} {type === "student" ? "Kelas " : ""}
+                    {barChartClassroom === "All" ? "Semua" : barChartClassroom}
+                    {type === "student" && barChartGrade && barChartGrade !== "All" ? ` ${barChartGrade}` : ""}
+                    {" - "}{selectedYear}
+                  </h4>
+                </div>
+              }
+              chipSlot={
+                <div className="flex gap-2" style={{ position: "relative", zIndex: 99999 }}>
+                  {type === "student" ? (
+                    <CustomBranchingDropdown
+                      selectedClassroom={barChartClassroom}
+                      selectedGrade={barChartGrade}
+                      onClassroomSelect={handleBarChartClassroomChange}
+                      onGradeSelect={handleBarChartGradeChange}
+                      classrooms={options?.classrooms || []}
+                      grades={options?.grades || []}
+                      showAllOption={true}
+                    />
+                  ) : (
+                    <Menu as="div" className="relative" style={{ zIndex: 99999 }}>
+                      <Menu.Button
+                        className="flex items-center gap-1 cursor-pointer transition-colors"
+                        style={{
+                          backgroundColor: "#EAF2FF",
+                          padding: "8px 12px",
+                          borderRadius: 12,
+                          color: "#2F65CB",
+                          fontWeight: 600,
+                          fontSize: 14,
+                        }}
+                      >
+                        <span>{barChartClassroom === "All" ? "Semua" : (barChartClassroom || config.filterLabel)}</span>
+                        <span className="material-icons text-sm">keyboard_arrow_down</span>
+                      </Menu.Button>
+                      <Menu.Items
+                        className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                        style={{ zIndex: 99999 }}
+                      >
+                        <Menu.Item key="All">
+                          {({ active }) => (
+                            <div
+                              className={`w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors ${
+                                barChartClassroom === "All"
+                                  ? "bg-[#3399E9] text-white font-semibold"
+                                  : active ? "bg-[#E2F9FF] text-gray-900" : "text-gray-700 hover:bg-gray-50"
+                              }`}
+                              onClick={() => handleBarChartDepartmentChange("All")}
+                            >
+                              Semua
+                            </div>
+                          )}
+                        </Menu.Item>
+                        {(options?.departments || []).map((department) => (
+                          <Menu.Item key={department}>
                             {({ active }) => (
                               <div
                                 className={`w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors ${
-                                  barChartClassroom === "All"
+                                  barChartClassroom === department
                                     ? "bg-[#3399E9] text-white font-semibold"
-                                    : active
-                                      ? "bg-[#E2F9FF] text-gray-900"
-                                      : "text-gray-700 hover:bg-gray-50"
+                                    : active ? "bg-[#E2F9FF] text-gray-900" : "text-gray-700 hover:bg-gray-50"
                                 }`}
-                                onClick={() => handleBarChartDepartmentChange("All")}
+                                onClick={() => handleBarChartDepartmentChange(department)}
                               >
-                                Semua
+                                {department}
                               </div>
                             )}
                           </Menu.Item>
-                          {/* Existing departments */}
-                          {(options?.departments || []).map((department) => (
-                            <Menu.Item key={department}>
-                              {({ active }) => (
-                                <div
-                                  className={`w-full text-left px-4 py-2 text-sm cursor-pointer transition-colors ${
-                                    barChartClassroom === department
-                                      ? "bg-[#3399E9] text-white font-semibold"
-                                      : active
-                                        ? "bg-[#E2F9FF] text-gray-900"
-                                        : "text-gray-700 hover:bg-gray-50"
-                                  }`}
-                                  onClick={() => handleBarChartDepartmentChange(department)}
-                                >
-                                  {department}
-                                </div>
-                              )}
-                            </Menu.Item>
-                          ))}
-                        </Menu.Items>
-                      </Menu>
-                    )}
-                  </div>
+                        ))}
+                      </Menu.Items>
+                    </Menu>
+                  )}
                 </div>
-
-                <div className="text-center mb-3">
-                  <h3 className="text-lg font-bold text-gray-700">{selectedYear}</h3>
-                </div>
-                <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
-                  <div className="w-full h-full overflow-hidden">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={getSemesterData()}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                        barSize={12}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "white",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: "8px",
-                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                          }}
-                        />
-                        <Bar dataKey="atRisk" fill="#ED8768" name="Berisiko" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="monitored" fill="#FCBC03" name="Pengawasan" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="stable" fill="#9BCA61" name="Stabil" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Chevron buttons - HARDCODED position */}
-                  <button
-                    disabled={!canNavigatePrev()}
-                    onClick={handlePrev}
-                    className={`absolute left-3 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
-                      canNavigatePrev()
-                        ? "text-[#488BBE] hover:text-[#3a7ba8]"
-                        : "text-gray-300 cursor-not-allowed"
-                    }`}
-                    style={{ 
-                      zIndex: 1,
-                      top: '60px',
-                      left: '-20px' // Hardcoded - tengah dari 250px chart
-                    }}
+              }
+              className="h-[450px]"
+            >
+              <div className="w-full h-full relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={getSemesterData()}
+                    margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+                    barGap={6}
+                    barCategoryGap="25%"
                   >
-                    <span className="material-icons text-2xl sm:text-3xl">chevron_left</span>
-                  </button>
-                  <button
-                    disabled={!canNavigateNext()}
-                    onClick={handleNext}
-                    className={`absolute right-3 flex items-center justify-center w-10 sm:w-12 h-10 sm:h-12 rounded-full transition-colors ${
-                      canNavigateNext()
-                        ? "text-[#488BBE] hover:text-[#3a7ba8]"
-                        : "text-gray-300 cursor-not-allowed"
-                    }`}
-                    style={{ 
-                      zIndex: 1,
-                      top: '60px',
-                      right: '-20px' // Hardcoded - tengah dari 250px chart
-                    }}
-                  >
-                    <span className="material-icons text-2xl sm:text-3xl">chevron_right</span>
-                  </button>
-                </div>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8ECF0" />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 13 }}
+                      dy={8}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 13 }}
+                      domain={[0, 200]}
+                      ticks={[0, 50, 100, 150, 200]}
+                    />
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Bar dataKey="atRisk" fill={CHART_COLORS.risk} name="Berisiko" radius={[8, 8, 0, 0]} barSize={18} />
+                    <Bar dataKey="monitored" fill={CHART_COLORS.watch} name="Pengawasan" radius={[8, 8, 0, 0]} barSize={18} />
+                    <Bar dataKey="stable" fill={CHART_COLORS.safe} name="Aman" radius={[8, 8, 0, 0]} barSize={18} />
+                  </BarChart>
+                </ResponsiveContainer>
+
+                {/* Year nav chevrons */}
+                <button
+                  disabled={!canNavigatePrev()}
+                  onClick={handlePrev}
+                  className={`absolute flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
+                    canNavigatePrev() ? "text-[#488BBE] hover:text-[#3a7ba8]" : "text-gray-300 cursor-not-allowed"
+                  }`}
+                  style={{ zIndex: 1, top: "50%", left: "-16px", transform: "translateY(-50%)" }}
+                >
+                  <span className="material-icons text-2xl">chevron_left</span>
+                </button>
+                <button
+                  disabled={!canNavigateNext()}
+                  onClick={handleNext}
+                  className={`absolute flex items-center justify-center w-10 h-10 rounded-full transition-colors ${
+                    canNavigateNext() ? "text-[#488BBE] hover:text-[#3a7ba8]" : "text-gray-300 cursor-not-allowed"
+                  }`}
+                  style={{ zIndex: 1, top: "50%", right: "-16px", transform: "translateY(-50%)" }}
+                >
+                  <span className="material-icons text-2xl">chevron_right</span>
+                </button>
               </div>
-            </div>
+            </ChartCard>
           </div>
 
-          <div className="mt-[5px] w-full">
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
-              <div className="w-full lg:w-6/12">
-                <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
-                  Status <span className="font-bold">Skrining {config.entityName}</span>
-                </h2>
-                <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
-                  <div className="px-4 py-4">
-                    <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
+          {/* Row 2: Screening donut + Counseling donut */}
+          <div
+            className="grid grid-cols-1 lg:grid-cols-2"
+            style={{ gap: 20, marginTop: 20 }}
+          >
+            <ChartCard
+              title={
+                <h3 style={{ fontSize: 20, fontWeight: 500, color: "#0F172B", lineHeight: "140%", margin: 0 }}>
+                  Status Skrining {config.entityName}
+                </h3>
+              }
+              chipSlot={<MonthChip label={dateDisplay} />}
+              className="h-[400px]"
+            >
+              {renderDonutChart(getScreeningData(), 70, 95)}
+            </ChartCard>
 
-                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
-                      <div className="absolute inset-0">
-                        {renderEnhancedPieChart(
-                          getScreeningData(),
-                          screeningHoveredIndex,
-                          showScreeningTooltip,
-                          screeningHandlers,
-                        )}
-                      </div>
-                      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#6DC4C6]"></div>
-                          <p className="text-xs sm:text-sm">Belum Skrining</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#E284B3]"></div>
-                          <p className="text-xs sm:text-sm">Sudah Skrining</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full lg:w-6/12">
-                <h2 className="text-base sm:text-lg leading-4 text-primary mb-4">
-                  Status <span className="font-bold">Konseling {config.entityName}</span>
-                </h2>
-                <div className="w-full bg-white rounded-xl border border-solid border-zinc-300 overflow-hidden">
-                  <div className="px-4 py-4">
-                    <p className="text-xs sm:text-sm text-right mb-4 text-zinc-500">{dateDisplay}</p>
-
-                    <div className="h-[250px] sm:h-[280px] lg:h-[300px] w-full relative">
-                      <div className="absolute inset-0">
-                        {renderEnhancedPieChart(
-                          getCounselingData(),
-                          counselingHoveredIndex,
-                          showCounselingTooltip,
-                          counselingHandlers,
-                        )}
-                      </div>
-                      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#C194E9]"></div>
-                          <p className="text-xs sm:text-sm">Belum Konseling</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-3 h-3 rounded-full bg-[#F1D961]"></div>
-                          <p className="text-xs sm:text-sm">Sudah Konseling</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ChartCard
+              title={
+                <h3 style={{ fontSize: 20, fontWeight: 500, color: "#0F172B", lineHeight: "140%", margin: 0 }}>
+                  Status Konseling {config.entityName}
+                </h3>
+              }
+              chipSlot={<MonthChip label={dateDisplay} />}
+              className="h-[400px]"
+            >
+              {renderDonutChart(getCounselingData(), 70, 95)}
+            </ChartCard>
           </div>
         </div>
       </div>

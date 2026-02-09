@@ -1,64 +1,28 @@
-// src/components/shared/layout/TopRightControl.jsx - FIXED: Restored original socket logic
+// src/components/shared/layout/TopRightControl.jsx
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsAPI } from "@/components/shared/notifications/lib/api";
 import notificationSocket from "@/components/shared/notifications/lib/socket";
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
+import { LuBell } from "react-icons/lu";
+import { useAuth } from "../../../hooks/useAuth";
 
-// START: Language Switcher Component (No logic changes here)
-const LanguageSwitcher = () => {
-  const [selectedLang, setSelectedLang] = useState('ID');
-
-  const handleSelectLang = (lang) => {
-    setSelectedLang(lang);
-  };
-
-  const baseButtonClass = "w-14 h-full flex justify-center items-center gap-1.5 cursor-pointer transition-all duration-300 ease-in-out";
-  const activeClass = "bg-white rounded-[20px] shadow-[-1px_0px_1px_0px_rgba(0,0,0,0.13)]";
-  const inactiveClass = "text-white";
-  
-  const activeTextClass = "text-sm font-bold leading-tight";
-  const inactiveTextClass = "text-sm font-normal leading-tight";
-
-  return (
-    <div 
-      className="w-28 h-7 relative flex items-center rounded-[39px] outline outline-1 outline-[#488BBA]"
-      style={{ backgroundColor: '#488BBA' }}
-    >
-      <div
-        onClick={() => handleSelectLang('EN')}
-        className={`${baseButtonClass} ${selectedLang === 'EN' ? activeClass : inactiveClass}`}
-      >
-        <img src="/icon/us-flag.png" alt="US Flag" className="w-4 h-4" />
-        <span className={selectedLang === 'EN' ? "text-[#488BBA] " + activeTextClass : inactiveTextClass}>EN</span>
-      </div>
-      <div
-        onClick={() => handleSelectLang('ID')}
-        className={`${baseButtonClass} ${selectedLang === 'ID' ? activeClass : inactiveClass}`}
-      >
-        <img src="/icon/id-flag.png" alt="ID Flag" className="w-4 h-4" />
-        <span className={selectedLang === 'ID' ? "text-[#488BBA] " + activeTextClass : inactiveTextClass}>ID</span>
-      </div>
-    </div>
-  );
-};
-// END: Language Switcher Component
-
-
-const TopRightControl = ({ className = "", isAbsolute = true }) => {
+const TopRightControl = () => {
   const [openNotif, setOpenNotif] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketRetryCount, setSocketRetryCount] = useState(0);
+  const [fallbackAvatar, setFallbackAvatar] = useState(false);
   const notifRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { user: userData } = useAuth?.() || { user: {} };
 
-  // 🔥 ORIGINAL LOGIC: Use the SAME query key as hooks with new structure
-  const { data: unreadData, isLoading, error: unreadError } = useQuery({
-    queryKey: ['notifications-unread-count'],
+  // ── Unread count query ──────────────────────────────────────────────────
+  const { data: unreadData, isLoading } = useQuery({
+    queryKey: ["notifications-unread-count"],
     queryFn: notificationsAPI.getUnreadCount,
     staleTime: Infinity,
     cacheTime: Infinity,
@@ -68,13 +32,11 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
     retry: 3,
   });
 
-  // 🔥 ORIGINAL LOGIC: Use generalCount instead of count
-  const unreadCount = (unreadData?.generalCount || 0) + (unreadData?.counselingCount || 0);
+  const unreadCount =
+    (unreadData?.generalCount || 0) + (unreadData?.counselingCount || 0);
 
-  // 🔥 ORIGINAL LOGIC: Socket setup dengan better connection monitoring. THIS IS THE RESTORED LOGIC.
+  // ── Socket setup ────────────────────────────────────────────────────────
   useEffect(() => {
-    console.log('🔗 TopRightControl: Setting up socket connection')
-    
     let isComponentMounted = true;
     let statusCheckInterval = null;
 
@@ -82,155 +44,101 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       try {
         await notificationSocket.connect();
         if (isComponentMounted) {
-          console.log('✅ TopRightControl: Socket connected successfully');
           setIsSocketConnected(true);
           setSocketRetryCount(0);
         }
-      } catch (err) {
+      } catch {
         if (isComponentMounted) {
-          console.error('❌ TopRightControl: Socket connection failed:', err);
           setIsSocketConnected(false);
-          setSocketRetryCount(prev => prev + 1);
+          setSocketRetryCount((prev) => prev + 1);
         }
       }
     };
 
-    // Initial connection
     initializeSocket();
 
-    // 🔥 ORIGINAL LOGIC: Better status monitoring
     statusCheckInterval = setInterval(() => {
       if (isComponentMounted) {
         const actualStatus = notificationSocket.isSocketConnected();
-        if (actualStatus !== isSocketConnected) {
-          // console.log('🔄 TopRightControl: Status sync - updating from', isSocketConnected, 'to', actualStatus);
-          setIsSocketConnected(actualStatus);
-        }
+        setIsSocketConnected((prev) => {
+          if (prev !== actualStatus) return actualStatus;
+          return prev;
+        });
       }
-    }, 5000); // Check every 5 seconds
+    }, 5000);
 
-    // 🔥 ORIGINAL LOGIC: MINIMAL REALTIME UPDATE HANDLERS
-    // This part is crucial for refreshing the unread count.
-    const handleRealtimeUpdate = (event, payload) => {
+    const handleRealtimeUpdate = () => {
       if (!isComponentMounted) return;
-      
-      console.log(`🔔 TopRightControl: Received '${event}' event:`, payload);
-      queryClient.invalidateQueries({ 
-        queryKey: ['notifications-unread-count'],
-        refetchType: 'active'
+      queryClient.invalidateQueries({
+        queryKey: ["notifications-unread-count"],
+        refetchType: "active",
       });
     };
 
-    const createdHandler = (payload) => handleRealtimeUpdate('notification:created', payload);
-    const readHandler = (payload) => handleRealtimeUpdate('notification:read', payload);
-    const markAllReadHandler = (payload) => handleRealtimeUpdate('notification:mark-all-read', payload);
+    const createdHandler = () => handleRealtimeUpdate();
+    const readHandler = () => handleRealtimeUpdate();
+    const markAllReadHandler = () => handleRealtimeUpdate();
 
-    // 🔥 ORIGINAL LOGIC: Monitor socket connection status
     const handleConnect = () => {
       if (isComponentMounted) {
-        console.log('🔗 TopRightControl: Socket connected');
         setIsSocketConnected(true);
         setSocketRetryCount(0);
       }
-    }
-
+    };
     const handleDisconnect = () => {
-      if (isComponentMounted) {
-        console.log('❌ TopRightControl: Socket disconnected');
-        setIsSocketConnected(false);
-      }
-    }
-
+      if (isComponentMounted) setIsSocketConnected(false);
+    };
     const handleReconnected = () => {
       if (isComponentMounted) {
-        console.log('🔄 TopRightControl: Socket reconnected');
         setIsSocketConnected(true);
         setSocketRetryCount(0);
-        // Refresh unread count after reconnection
-        queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+        queryClient.invalidateQueries({
+          queryKey: ["notifications-unread-count"],
+        });
       }
-    }
+    };
 
-    // 🔥 ORIGINAL LOGIC: ADD SOCKET LISTENERS
-    notificationSocket.on('notification:created', createdHandler);
-    notificationSocket.on('notification:read', readHandler);
-    notificationSocket.on('notification:mark-all-read', markAllReadHandler);
-    notificationSocket.on('socket:reconnected', handleReconnected);
+    notificationSocket.on("notification:created", createdHandler);
+    notificationSocket.on("notification:read", readHandler);
+    notificationSocket.on("notification:mark-all-read", markAllReadHandler);
+    notificationSocket.on("socket:reconnected", handleReconnected);
 
-    // Add connection listeners if socket exists
     if (notificationSocket.socket) {
-      notificationSocket.socket.on('connect', handleConnect);
-      notificationSocket.socket.on('disconnect', handleDisconnect);
-    }
-
-    // Check initial socket status
-    const initialStatus = notificationSocket.isSocketConnected();
-    if (isComponentMounted) {
-      setIsSocketConnected(initialStatus);
+      notificationSocket.socket.on("connect", handleConnect);
+      notificationSocket.socket.on("disconnect", handleDisconnect);
     }
 
     return () => {
       isComponentMounted = false;
-      
-      // Clear intervals
-      if (statusCheckInterval) {
-        clearInterval(statusCheckInterval);
-      }
-      
-      // 🔥 ORIGINAL LOGIC: CLEANUP SOCKET LISTENERS
-      notificationSocket.off('notification:created', createdHandler);
-      notificationSocket.off('notification:read', readHandler);
-      notificationSocket.off('notification:mark-all-read', markAllReadHandler);
-      notificationSocket.off('socket:reconnected', handleReconnected);
-      
+      if (statusCheckInterval) clearInterval(statusCheckInterval);
+      notificationSocket.off("notification:created", createdHandler);
+      notificationSocket.off("notification:read", readHandler);
+      notificationSocket.off("notification:mark-all-read", markAllReadHandler);
+      notificationSocket.off("socket:reconnected", handleReconnected);
       if (notificationSocket.socket) {
-        notificationSocket.socket.off('connect', handleConnect);
-        notificationSocket.socket.off('disconnect', handleDisconnect);
+        notificationSocket.socket.off("connect", handleConnect);
+        notificationSocket.socket.off("disconnect", handleDisconnect);
       }
-      
-      console.log('🧹 TopRightControl: Cleaned up listeners');
-    }
-  }, [queryClient])
+    };
+  }, [queryClient]);
 
-  // 🔥 ORIGINAL LOGIC: FORCE RECONNECT FUNCTION
+  // ── Force reconnect ─────────────────────────────────────────────────────
   const handleForceReconnect = () => {
-    console.log('🔄 Force reconnecting socket...');
-    notificationSocket.forceReconnect()
-      .then(() => {
-        console.log('✅ Force reconnect successful');
-        setIsSocketConnected(true);
-      })
-      .catch(err => {
-        console.error('❌ Force reconnect failed:', err);
-        setIsSocketConnected(false);
-      });
+    notificationSocket
+      .forceReconnect()
+      .then(() => setIsSocketConnected(true))
+      .catch(() => setIsSocketConnected(false));
   };
 
-  // 🔥 ORIGINAL LOGIC: SIMPLIFIED: Format badge count
+  // ── Badge format ────────────────────────────────────────────────────────
   const formatBadgeCount = (count) => {
-    if (isLoading || count === 0) return null
-    if (count > 99) return "99+"
-    return count.toString()
-  }
+    if (isLoading || count === 0) return null;
+    if (count > 99) return "99+";
+    return count.toString();
+  };
+  const displayCount = formatBadgeCount(unreadCount);
 
-  const displayCount = formatBadgeCount(unreadCount)
-
-  // 🔥 ORIGINAL LOGIC: UPDATED DEBUG LOGGING with clean structure
-  // console.log('🎯 TopRightControl CLEAN DEBUG:', {
-  //   unreadCount: unreadCount,
-  //   generalCount: unreadData?.generalCount,
-  //   counselingCount: unreadData?.counselingCount,
-  //   displayCount,
-  //   isLoading,
-  //   isSocketConnected,
-  //   socketRetryCount,
-  //   queryData: unreadData,
-  //   unreadError: unreadError?.message || null,
-  //   socketStatus: notificationSocket.getConnectionStatus(),
-  //   hasToken: !!localStorage.getItem('token')
-  // })
-
-  // Close on outside click
+  // ── Close dropdown on outside click ─────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
@@ -238,143 +146,172 @@ const TopRightControl = ({ className = "", isAbsolute = true }) => {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Close dropdown when navigating
+  // ── Close dropdown on route change ──────────────────────────────────────
   useEffect(() => {
     setOpenNotif(false);
   }, [location.pathname]);
 
+  // ── View all handler ────────────────────────────────────────────────────
   const handleViewAllNotifications = (toFromChild) => {
     setOpenNotif(false);
-    // If currently on screening, use designed popup via custom event
-    if (location.pathname.includes('/screening')) {
+    if (location.pathname.includes("/screening")) {
       const fallback = (() => {
-        const path = location.pathname
-        const isSchool = path.includes('/organization/school');
-        const isCompany = path.includes('/organization/company');
-        if (isSchool) return "/organization/school/notifications";
-        if (isCompany) return "/organization/company/notifications";
+        const path = location.pathname;
+        if (path.includes("/organization/school"))
+          return "/organization/school/notifications";
+        if (path.includes("/organization/company"))
+          return "/organization/company/notifications";
         return "/notifications";
       })();
       const to = toFromChild || fallback;
-      window.dispatchEvent(new CustomEvent('rd:attempt-navigation', { detail: { to } }))
+      window.dispatchEvent(
+        new CustomEvent("rd:attempt-navigation", { detail: { to } })
+      );
       return;
     }
-    // Prefer target provided by dropdown (includes ?tab=...)
     if (toFromChild) {
       navigate(toFromChild);
       return;
     }
-    // Fallback based on org when no target provided
-    const isSchool = location.pathname.includes('/organization/school');
-    const isCompany = location.pathname.includes('/organization/company');
-    if (isSchool) {
-      navigate("/organization/school/notifications");
-    } else if (isCompany) {
-      navigate("/organization/company/notifications");
-    } else {
-      navigate("/notifications");
-    }
+    const isSchool = location.pathname.includes("/organization/school");
+    const isCompany = location.pathname.includes("/organization/company");
+    if (isSchool) navigate("/organization/school/notifications");
+    else if (isCompany) navigate("/organization/company/notifications");
+    else navigate("/notifications");
   };
 
-  const wrapperClass = isAbsolute
-    ? "absolute top-[29px] right-[12px] z-50"
-    : "flex justify-end w-full";
-
-  // 🔥 ORIGINAL LOGIC: ENHANCED: Better status determination
-  const getConnectionStatus = () => {
-    if (isSocketConnected) return 'connected';
-    if (socketRetryCount > 0) return 'retrying';
-    return 'disconnected';
+  // ── Avatar helper ───────────────────────────────────────────────────────
+  const getInitial = () => {
+    const name = userData?.fullName || userData?.name || "";
+    return name.charAt(0).toUpperCase() || "U";
   };
-
-  const connectionStatus = getConnectionStatus();
 
   return (
-    <div className={`${wrapperClass} ${className} flex items-center gap-4 sm:gap-6`}>
-      {/* Language Switch - INTEGRATED */}
-      <LanguageSwitcher />
+    <div
+      style={{
+        width: "100%",
+        height: 64,
+        backgroundColor: "#FFFFFF",
+        borderBottom: "1px solid #ECEEF0",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        padding: "0 40px",
+        fontFamily: "'Plus Jakarta Sans', 'Public Sans', sans-serif",
+        position: "sticky",
+        top: 0,
+        zIndex: 40,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        {/* Bell button */}
+        <div className="relative" ref={notifRef}>
+          <button
+            aria-label="Notifications"
+            onClick={() => setOpenNotif(!openNotif)}
+            onDoubleClick={handleForceReconnect}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 9999,
+              backgroundColor: "#FFFFFF",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0px 0px 4px rgba(31, 31, 31, 0.20)",
+              position: "relative",
+              transition: "background-color 0.15s ease",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "#F4F7FF")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "#FFFFFF")
+            }
+          >
+            <LuBell size={20} strokeWidth={2} color="#0F172B" />
 
-      {/* Notification Container */}
-      <div className="relative" ref={notifRef}>
-        <button
-          aria-label="Notifications"
-          onClick={() => setOpenNotif(!openNotif)}
-          onDoubleClick={handleForceReconnect}
-          className={`material-icons text-xl sm:text-2xl transition-colors relative inline-flex items-center justify-center ${
-            connectionStatus === 'connected' 
-              ? "text-zinc-500 hover:text-[#488BBE]" 
-              : connectionStatus === 'retrying'
-              ? "text-orange-400 hover:text-orange-500"
-              : "text-red-400 hover:text-red-500"
-          }`}
-          title={
-            connectionStatus === 'connected' 
-              ? "Notifications (Connected)" 
-              : connectionStatus === 'retrying'
-              ? `Notifications (Retrying... ${socketRetryCount})`
-              : "Notification service offline (Double-click to retry)"
-          }
-        >
-          notifications
-          
-          {/* 🔥 ORIGINAL LOGIC: ENHANCED CONNECTION STATUS INDICATOR */}
-          {connectionStatus !== 'connected' && (
-            <span 
-              className={`absolute flex items-center justify-center text-white font-bold rounded-full ${
-                connectionStatus === 'retrying' ? 'bg-orange-500 animate-pulse' : 'bg-red-500'
-              }`}
-              style={{
-                position: 'absolute',
-                top: '-4px',
-                left: '-4px',
-                width: '8px',
-                height: '8px',
-                fontSize: '1px',
-                zIndex: 10000,
-              }}
-              title={connectionStatus === 'retrying' ? 'Retrying...' : 'Offline'}
+            {/* Badge count */}
+            {displayCount && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -4,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9999,
+                  backgroundColor: "#EE4266",
+                  color: "#FFFFFF",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 4px",
+                  border: "2px solid #FFFFFF",
+                  lineHeight: 1,
+                }}
+              >
+                {displayCount}
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown */}
+          {openNotif && (
+            <NotificationDropdown
+              onViewAll={handleViewAllNotifications}
+              onClose={() => setOpenNotif(false)}
             />
           )}
-          
-          {/* 🔥 ORIGINAL LOGIC: SIMPLIFIED BADGE COUNT using generalCount */}
-          {displayCount && (
-            <span 
-              className="absolute flex items-center justify-center text-white font-bold rounded-full bg-[#EE4266] animate-pulse"
+        </div>
+
+        {/* Avatar */}
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 9999,
+            overflow: "hidden",
+            flexShrink: 0,
+            cursor: "pointer",
+          }}
+        >
+          {userData?.profilePicture && !fallbackAvatar ? (
+            <img
+              src={userData.profilePicture}
+              alt="Profile"
               style={{
-                position: 'absolute',
-                top: '-8px',
-                right: '-8px',
-                minWidth: '20px',
-                height: '20px',
-                fontSize: '11px',
-                lineHeight: '1',
-                zIndex: 9999,
-                textDecoration: 'none',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                fontWeight: 'bold',
-                color: 'white',
-                backgroundColor: '#EE4266',
-                border: '2px solid white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+              onError={() => setFallbackAvatar(true)}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                backgroundColor: "#488BBE",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#FFFFFF",
+                fontSize: 16,
+                fontWeight: 600,
               }}
             >
-              {displayCount}
-            </span>
+              {getInitial()}
+            </div>
           )}
-        </button>
-
-        {/* 🔥 ORIGINAL LOGIC: SIMPLIFIED DROPDOWN */}
-        {openNotif && (
-          <NotificationDropdown
-            onViewAll={handleViewAllNotifications}
-            onClose={() => setOpenNotif(false)}
-          />
-        )}
+        </div>
       </div>
     </div>
   );

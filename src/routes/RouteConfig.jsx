@@ -31,6 +31,7 @@ import CompanySchedule from "../pages/organization/company/CompanySchedule"
 
 // === SCHOOL PAGES ===
 import SchoolDashboard from "../pages/organization/school/SchoolDashboard"
+import DetailLaporanPage from "../components/shared/dashboard/DetailLaporanPage"
 import StudentListPage from "../pages/organization/school/StudentListPage"
 import SchoolProfilePage from "../pages/organization/school/SchoolProfilePage"
 import StudentDetailPage from "../pages/organization/school/StudentDetailPage"
@@ -406,6 +407,10 @@ const routes = [
         element: <SchoolSchedule />,
       },
       {
+        path: "detail-laporan",
+        element: <DetailLaporanPage />,
+      },
+      {
         path: "notifications",
         element: <NotificationPage />,
       },
@@ -460,6 +465,10 @@ const routes = [
       {
         path: "schedule",
         element: <CompanySchedule />,
+      },
+      {
+        path: "detail-laporan",
+        element: <DetailLaporanPage />,
       },
       {
         path: "notifications",

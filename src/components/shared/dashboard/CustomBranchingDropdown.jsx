@@ -190,12 +190,20 @@ const CustomBranchingDropdown = ({
       <div
         ref={triggerRef}
         onClick={handleToggle}
-        className="relative z-0 flex gap-1 items-center self-start whitespace-nowrap text-sm border border-gray-200 rounded-md px-3 py-2 hover:bg-gray-50 transition-colors bg-white cursor-pointer"
+        className="relative z-0 flex gap-1 items-center self-start whitespace-nowrap cursor-pointer transition-colors"
+        style={{
+          backgroundColor: "#EAF2FF",
+          borderRadius: 12,
+          padding: "8px 12px",
+          fontSize: 14,
+          fontWeight: 600,
+          color: "#2F65CB",
+        }}
       >
-        <span className="self-stretch my-auto text-gray-700">
+        <span className="self-stretch my-auto">
           {getDisplayText()}
         </span>
-        <span className="material-icons text-sm text-gray-500">keyboard_arrow_down</span>
+        <span className="material-icons text-sm">keyboard_arrow_down</span>
       </div>
 
       {/* Dropdown Container with SMART positioning */}
