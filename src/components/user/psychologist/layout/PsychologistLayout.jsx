@@ -65,26 +65,25 @@ const PsychologistLayout = ({
 
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
-      <TopRightControl />
-      
       {/* Psychologist Sidebar */}
-      <PsychologistSidebar 
-        expanded={expanded} 
-        setExpanded={setExpanded} 
+      <PsychologistSidebar
+        expanded={expanded}
+        setExpanded={setExpanded}
         onHoverChange={setSidebarHovered}
         isMobile={isMobile}
       />
 
       {/* Main content area with responsive margin */}
-      <div 
+      <div
         className="flex-1 transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
-        style={{ 
+        style={{
           marginLeft: getContentMargin(),
           width: `calc(100vw - ${getContentMargin()})`,
           maxWidth: `calc(100vw - ${getContentMargin()})`,
         }}
       >
-        <Outlet context={{ 
+        <TopRightControl />
+        <Outlet context={{
           sidebarExpanded: expanded || sidebarHovered,
           userType: "psychologist",
         }} />

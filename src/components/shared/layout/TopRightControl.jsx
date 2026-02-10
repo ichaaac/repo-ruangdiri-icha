@@ -6,10 +6,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsAPI } from "@/components/shared/notifications/lib/api";
 import notificationSocket from "@/components/shared/notifications/lib/socket";
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
-import { LuBell } from "react-icons/lu";
+import { LuBell, LuHeadphones } from "react-icons/lu";
 import { useAuth } from "../../../hooks/useAuth";
 
-const TopRightControl = () => {
+const TopRightControl = ({ transparent = false }) => {
   const [openNotif, setOpenNotif] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketRetryCount, setSocketRetryCount] = useState(0);
@@ -194,8 +194,8 @@ const TopRightControl = () => {
       style={{
         width: "100%",
         height: 64,
-        backgroundColor: "#FFFFFF",
-        borderBottom: "1px solid #ECEEF0",
+        backgroundColor: transparent ? "transparent" : "#FFFFFF",
+        borderBottom: transparent ? "none" : "1px solid #ECEEF0",
         display: "flex",
         alignItems: "center",
         justifyContent: "flex-end",
@@ -207,6 +207,26 @@ const TopRightControl = () => {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        {/* Support link */}
+        <button
+          onClick={() => {}}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#0F172B",
+            fontSize: 14,
+            fontWeight: 500,
+            padding: 0,
+          }}
+        >
+          <LuHeadphones size={20} strokeWidth={2} />
+          <span>Support</span>
+        </button>
+
         {/* Bell button */}
         <div className="relative" ref={notifRef}>
           <button

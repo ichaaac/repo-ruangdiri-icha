@@ -16,6 +16,17 @@ const VARIANTS = {
   },
 }
 
+const INACTIVE_STYLE = {
+  bg: "#F3F4F6",
+  iconBg: "#E5E7EB",
+  iconColor: "#9CA3AF",
+  titleColor: "#9CA3AF",
+  countColor: "#9CA3AF",
+  progressLabelColor: "#D1D5DB",
+  progressColor: "#9CA3AF",
+  dividerColor: "#E5E7EB",
+}
+
 const SummaryCard = ({
   title,
   count,
@@ -31,14 +42,14 @@ const SummaryCard = ({
 
   return (
     <div
-      className={`relative flex flex-col justify-between ${isInactive ? "opacity-70" : ""}`}
+      className="relative flex flex-col justify-between"
       style={{
-        backgroundColor: v.bg,
+        backgroundColor: isInactive ? INACTIVE_STYLE.bg : v.bg,
         borderRadius: 12,
         padding: "24px 28px",
         height: 207,
-        border: isActive ? "2px dashed #488BBE" : "2px solid transparent",
-        boxShadow: isActive ? "0 4px 12px rgba(72, 139, 190, 0.15)" : "none",
+        border: "2px solid transparent",
+        boxShadow: "none",
       }}
     >
       <div className="flex justify-between items-start">
@@ -47,7 +58,7 @@ const SummaryCard = ({
             style={{
               fontSize: 14,
               fontWeight: 500,
-              color: "#64748B",
+              color: isInactive ? INACTIVE_STYLE.titleColor : "#64748B",
               lineHeight: "140%",
             }}
           >
@@ -57,7 +68,7 @@ const SummaryCard = ({
             style={{
               fontSize: 32,
               fontWeight: 400,
-              color: "#0F172B",
+              color: isInactive ? INACTIVE_STYLE.countColor : "#0F172B",
               lineHeight: "120%",
             }}
           >
@@ -71,12 +82,12 @@ const SummaryCard = ({
             height: 56,
             padding: 16,
             borderRadius: 8,
-            backgroundColor: v.iconBg,
+            backgroundColor: isInactive ? INACTIVE_STYLE.iconBg : v.iconBg,
           }}
         >
           <span
             className="material-icons-outlined"
-            style={{ color: v.iconColor, fontSize: 24 }}
+            style={{ color: isInactive ? INACTIVE_STYLE.iconColor : v.iconColor, fontSize: 24 }}
           >
             {icon}
           </span>
@@ -84,14 +95,14 @@ const SummaryCard = ({
       </div>
 
       <div className="flex flex-col" style={{ gap: 16 }}>
-        <div style={{ height: 1, backgroundColor: "#DADDE1", width: "100%" }} />
+        <div style={{ height: 1, backgroundColor: isInactive ? INACTIVE_STYLE.dividerColor : "#DADDE1", width: "100%" }} />
         <div className="flex justify-between items-end">
           <div className="flex flex-col" style={{ gap: 4 }}>
             <span
               style={{
                 fontSize: 12,
                 fontWeight: 500,
-                color: "#94A3B8",
+                color: isInactive ? INACTIVE_STYLE.progressLabelColor : "#94A3B8",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
               }}
@@ -103,7 +114,7 @@ const SummaryCard = ({
                 style={{
                   fontSize: 20,
                   fontWeight: 400,
-                  color: "#0F172B",
+                  color: isInactive ? INACTIVE_STYLE.progressColor : "#0F172B",
                   lineHeight: "120%",
                 }}
               >
@@ -113,7 +124,7 @@ const SummaryCard = ({
                 style={{
                   fontSize: 20,
                   fontWeight: 400,
-                  color: "#0F172B",
+                  color: isInactive ? INACTIVE_STYLE.progressColor : "#0F172B",
                   lineHeight: "120%",
                 }}
               >
@@ -126,19 +137,19 @@ const SummaryCard = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                if (!isInactive) onLihatLaporan()
+                onLihatLaporan()
               }}
               style={{
                 fontSize: 14,
                 fontWeight: 400,
-                color: isInactive ? "#94A3B8" : "#E8655B",
+                color: isInactive ? "#9CA3AF" : "#E8655B",
                 background: "none",
                 border: "none",
-                cursor: isInactive ? "default" : "pointer",
+                cursor: "pointer",
                 padding: 0,
               }}
               onMouseEnter={(e) => {
-                if (!isInactive) e.currentTarget.style.textDecoration = "underline"
+                e.currentTarget.style.textDecoration = "underline"
               }}
               onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
             >
