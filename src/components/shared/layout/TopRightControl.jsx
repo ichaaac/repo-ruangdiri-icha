@@ -14,11 +14,13 @@ const TopRightControl = ({ transparent = false }) => {
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [socketRetryCount, setSocketRetryCount] = useState(0);
   const [fallbackAvatar, setFallbackAvatar] = useState(false);
+  const [openAvatarDropdown, setOpenAvatarDropdown] = useState(false);
   const notifRef = useRef(null);
+  const avatarRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { user: userData } = useAuth?.() || { user: {} };
+  const { user: userData, getUserRole, logout } = useAuth?.() || { user: {}, getUserRole: () => null, logout: { mutateAsync: () => {} } };
 
   // ── Unread count query ──────────────────────────────────────────────────
   const { data: unreadData, isLoading } = useQuery({
@@ -138,20 +140,24 @@ const TopRightControl = ({ transparent = false }) => {
   };
   const displayCount = formatBadgeCount(unreadCount);
 
-  // ── Close dropdown on outside click ─────────────────────────────────────
+  // ── Close dropdowns on outside click ────────────────────────────────────
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setOpenNotif(false);
+      }
+      if (avatarRef.current && !avatarRef.current.contains(event.target)) {
+        setOpenAvatarDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── Close dropdown on route change ──────────────────────────────────────
+  // ── Close dropdowns on route change ─────────────────────────────────────
   useEffect(() => {
     setOpenNotif(false);
+    setOpenAvatarDropdown(false);
   }, [location.pathname]);
 
   // ── View all handler ────────────────────────────────────────────────────
@@ -206,21 +212,22 @@ const TopRightControl = ({ transparent = false }) => {
         zIndex: 40,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, height: 48 }}>
         {/* Support link */}
         <button
           onClick={() => {}}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 8,
             background: "none",
             border: "none",
             cursor: "pointer",
             color: "#0F172B",
             fontSize: 14,
             fontWeight: 500,
-            padding: 0,
+            padding: "12px 0",
+            height: 48,
           }}
         >
           <LuHeadphones size={20} strokeWidth={2} />
@@ -234,25 +241,17 @@ const TopRightControl = ({ transparent = false }) => {
             onClick={() => setOpenNotif(!openNotif)}
             onDoubleClick={handleForceReconnect}
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 9999,
-              backgroundColor: "#FFFFFF",
+              width: 48,
+              height: 48,
+              background: "none",
               border: "none",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0px 0px 4px rgba(31, 31, 31, 0.20)",
+              padding: "16px 8px",
               position: "relative",
-              transition: "background-color 0.15s ease",
             }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "#F4F7FF")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "#FFFFFF")
-            }
           >
             <LuBell size={20} strokeWidth={2} color="#0F172B" />
 
@@ -261,8 +260,8 @@ const TopRightControl = ({ transparent = false }) => {
               <span
                 style={{
                   position: "absolute",
-                  top: -4,
-                  right: -4,
+                  top: 6,
+                  right: 2,
                   minWidth: 18,
                   height: 18,
                   borderRadius: 9999,
@@ -274,7 +273,6 @@ const TopRightControl = ({ transparent = false }) => {
                   alignItems: "center",
                   justifyContent: "center",
                   padding: "0 4px",
-                  border: "2px solid #FFFFFF",
                   lineHeight: 1,
                 }}
               >
@@ -292,43 +290,122 @@ const TopRightControl = ({ transparent = false }) => {
           )}
         </div>
 
-        {/* Avatar */}
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 9999,
-            overflow: "hidden",
-            flexShrink: 0,
-            cursor: "pointer",
-          }}
-        >
-          {userData?.profilePicture && !fallbackAvatar ? (
-            <img
-              src={userData.profilePicture}
-              alt="Profile"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-              onError={() => setFallbackAvatar(true)}
-            />
-          ) : (
+        {/* Avatar + Dropdown */}
+        <div className="relative" ref={avatarRef}>
+          <div
+            onClick={() => setOpenAvatarDropdown((prev) => !prev)}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 100,
+              overflow: "hidden",
+              flexShrink: 0,
+              cursor: "pointer",
+            }}
+          >
+            {userData?.profilePicture && !fallbackAvatar ? (
+              <img
+                src={userData.profilePicture}
+                alt="Profile"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+                onError={() => setFallbackAvatar(true)}
+              />
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "#488BBE",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#FFFFFF",
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                {getInitial()}
+              </div>
+            )}
+          </div>
+
+          {/* Avatar Dropdown */}
+          {openAvatarDropdown && (
             <div
               style={{
-                width: "100%",
-                height: "100%",
-                backgroundColor: "#488BBE",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#FFFFFF",
-                fontSize: 16,
-                fontWeight: 600,
+                position: "absolute",
+                top: 56,
+                right: 0,
+                width: 200,
+                backgroundColor: "#FFFFFF",
+                borderRadius: 8,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                border: "1px solid #ECEEF0",
+                zIndex: 50,
+                overflow: "hidden",
+                fontFamily: "'Plus Jakarta Sans', 'Public Sans', sans-serif",
               }}
             >
-              {getInitial()}
+              <button
+                onClick={() => {
+                  const role = getUserRole() || "student";
+                  setOpenAvatarDropdown(false);
+                  navigate(`/user/${role}/profile`);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "#0F172B",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#F8FAFC")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              >
+                <span className="material-icons" style={{ fontSize: 18, color: "#64748B" }}>person</span>
+                Profil
+              </button>
+              <div style={{ height: 1, backgroundColor: "#ECEEF0" }} />
+              <button
+                onClick={async () => {
+                  setOpenAvatarDropdown(false);
+                  try {
+                    await logout.mutateAsync();
+                  } catch {
+                    // logout handled by useAuth onSettled
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "#EF4444",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FEF2F2")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              >
+                <span className="material-icons" style={{ fontSize: 18, color: "#EF4444" }}>logout</span>
+                Keluar
+              </button>
             </div>
           )}
         </div>
