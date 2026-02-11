@@ -89,27 +89,27 @@ const UserLayout = ({
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
       <DevAuthGate />
-      <TopRightControl />
-      
+
       {/* User Sidebar */}
-      <UserSidebar 
-        expanded={expanded} 
-        setExpanded={setExpanded} 
+      <UserSidebar
+        expanded={expanded}
+        setExpanded={setExpanded}
         onHoverChange={setSidebarHovered}
         userType={userType}
         isMobile={isMobile}
       />
 
       {/* Main content area with responsive margin */}
-      <div 
+      <div
         className="flex-1 transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
-        style={{ 
+        style={{
           marginLeft: getContentMargin(),
           width: `calc(100vw - ${getContentMargin()})`,
           maxWidth: `calc(100vw - ${getContentMargin()})`,
         }}
       >
-        <Outlet context={{ 
+        <TopRightControl transparent={location.pathname.endsWith('/dashboard')} />
+        <Outlet context={{
           sidebarExpanded: expanded || sidebarHovered,
           userType,
         }} />

@@ -57,11 +57,21 @@ const DetailLaporanPage = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const currentDate = getCurrentDateInfo()
 
-  // Data summary dari API (sama seperti dashboard)
+  // Data summary dari API (sama seperti dashboard) — this is the source of truth for counts
   const { metrics, isLoading: metricsLoading } = useDashboard(type)
   const summary = metrics?.summary || {}
 
-  // Data tabel langsung dari API dengan server-side pagination
+  // Check if summary says there's data for the active type
+  const summaryCountForActiveType = (() => {
+    switch (reportConfig.cardId) {
+      case "not_screened": return summary.notScreened?.count || 0
+      case "at_risk": return summary.atRisk?.count || 0
+      case "not_counseled": return summary.notCounseled?.count || 0
+      default: return 0
+    }
+  })()
+
+  // Only fetch table data if summary says count > 0 (list endpoint filter is broader than summary)
   const { data: rawResponse, isLoading: tableLoading } = useQuery({
     queryKey: ["detailLaporan", type, reportConfig.key, currentDate.year, currentDate.month, currentPage],
     queryFn: async () => {
@@ -87,6 +97,7 @@ const DetailLaporanPage = () => {
       return res.data
     },
     staleTime: 2 * 60 * 1000,
+    enabled: !metricsLoading && summaryCountForActiveType > 0,
   })
 
   // Extract items and metadata from response
@@ -121,16 +132,21 @@ const DetailLaporanPage = () => {
     return { items: Array.isArray(items) ? items : [], metadata: meta }
   }, [rawResponse, type])
 
+  // If summary says count is 0, don't show list data (list endpoint filter is broader)
+  const effectiveItems = summaryCountForActiveType === 0 ? [] : allItems
+
   // Filter client-side berdasarkan search (only for current page data)
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return allItems
-    return allItems.filter((item) =>
+    if (!searchQuery.trim()) return effectiveItems
+    return effectiveItems.filter((item) =>
       (item.fullName || item.nama || "").toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [allItems, searchQuery])
+  }, [effectiveItems, searchQuery])
 
   // Use server-side pagination - totalPages from metadata
-  const totalPages = Math.max(1, metadata.totalPages || Math.ceil(metadata.totalData / ITEMS_PER_PAGE) || 1)
+  const totalPages = summaryCountForActiveType === 0
+    ? 1
+    : Math.max(1, metadata.totalPages || Math.ceil(metadata.totalData / ITEMS_PER_PAGE) || 1)
   // Data is already paginated from server, no need to slice
   const paginatedData = filteredData
 
