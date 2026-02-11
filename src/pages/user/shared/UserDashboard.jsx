@@ -1,4 +1,4 @@
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -105,12 +105,35 @@ const CustomXAxisTick = (props) => {
 
 // --- Sub-Components ---
 
-const EmptyState = ({ message, icon = 'info' }) => (
-  <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-    <span className="material-icons text-4xl mb-2">{icon}</span>
-    <p className="text-sm">{message}</p>
+const CalendarEmptyIcon = ({ color = '#9CA3AF', size = 24 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <path d="M8 2V5" stroke={color} strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M16 2V5" stroke={color} strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3.5 9.08984H20.5" stroke={color} strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z" stroke={color} strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M15.6947 13.6992H15.7037" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M15.6947 16.6992H15.7037" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M11.9955 13.6992H12.0045" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M11.9955 16.6992H12.0045" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8.29431 13.6992H8.30329" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8.29431 16.6992H8.30329" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const SectionEmptyState = ({ title, subtitle, iconElement }) => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div className="flex items-center justify-center mb-4" style={{ width: 56, height: 56, borderRadius: 60, backgroundColor: '#F6F6F6', padding: 16 }}>
+      {iconElement}
+    </div>
+    <p className="text-center mb-1" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 18, fontWeight: 500, lineHeight: '140%', color: '#0F172B' }}>{title}</p>
+    <p className="text-center" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 14, fontWeight: 400, lineHeight: '140%', color: '#3F4555' }}>{subtitle}</p>
   </div>
 );
+
+const emptyChartData = [
+  { month: 'Jan' }, { month: 'Feb' }, { month: 'Mar' },
+  { month: 'Apr' }, { month: 'May' }, { month: 'Jun' }
+];
 
 const ChartIcon = ({ color = '#E8655B', size = 24 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -142,21 +165,14 @@ const SectionHeader = ({ icon, title, subtitle, iconBg = '#ECF9FC', iconColor = 
 );
 
 const ProgressChartCard = ({ data }) => {
-  if (!data || data.length === 0) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1">
-        <SectionHeader title="Grafik Progress" subtitle="Perkembangan kesehatan mental Anda" iconBg="#ECF9FC" iconElement={<ChartIcon color="#E8655B" size={24} />} />
-        <EmptyState message="Belum ada data asesmen" icon="show_chart" />
-      </div>
-    );
-  }
+  const isEmpty = !data || data.length === 0;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1 min-w-0 flex flex-col">
       <SectionHeader title="Grafik Progress" subtitle="Perkembangan kesehatan mental Anda" iconBg="#ECF9FC" iconElement={<ChartIcon color="#E8655B" size={24} />} />
-      <div className="flex-1 min-h-[200px]">
+      <div className="flex-1 min-h-[200px] relative">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
+          <ComposedChart data={isEmpty ? emptyChartData : data} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -177,10 +193,23 @@ const ProgressChartCard = ({ data }) => {
               width={80}
               tick={<CustomYAxisTick />}
             />
-            <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" />
-            <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} />
+            {!isEmpty && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" />}
+            {!isEmpty && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} />}
           </ComposedChart>
         </ResponsiveContainer>
+        {isEmpty && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ left: 80, right: 20 }}>
+            <div className="flex flex-col items-center" style={{ backgroundColor: '#FDFEFF', border: '1px solid #ECEEF0', borderRadius: 12, padding: 20, gap: 16 }}>
+              <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 60, backgroundColor: '#F6F6F6', padding: 12 }}>
+                <ChartIcon color="#9CA3AF" size={24} />
+              </div>
+              <div className="flex flex-col items-center">
+                <p className="text-center" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 14, fontWeight: 500, lineHeight: '140%', color: '#0F172B' }}>Belum ada progress perkembangan</p>
+                <p className="text-center" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 12, fontWeight: 400, lineHeight: '140%', color: '#3F4555' }}>Saat ini Anda belum ada progress perkembangan</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -191,7 +220,11 @@ const CounselingSessionCard = ({ session }) => {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
         <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" icon="calendar_month" iconColor="#E8655B" />
-        <EmptyState message="Tidak ada sesi mendatang" icon="event_busy" />
+        <SectionEmptyState
+          title="Belum ada sesi konseling"
+          subtitle="Saat ini Anda belum ada jadwal sesi konseling"
+          iconElement={<CalendarEmptyIcon color="#9CA3AF" size={24} />}
+        />
       </div>
     );
   }
@@ -326,6 +359,12 @@ const UserDashboard = () => {
   const { user } = useAuth?.() || { user: {} };
   const { userType = 'student' } = useOutletContext() || {};
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const demoMode = searchParams.get('demo') || 'filled';
+  const progressData = demoMode === 'empty' ? [] : chartData;
+  const sessionData = demoMode === 'empty' ? null : upcomingSession;
+  const historyData = demoMode === 'empty' ? [] : counselingHistory;
 
   return (
     <div className="min-h-screen bg-white">
@@ -401,7 +440,7 @@ const UserDashboard = () => {
           </nav>
 
           {/* Title */}
-          <h1 className="text-3xl font-extrabold text-[#1F2937] mb-3">Dashboard</h1>
+          <h1 className="font-bold text-[#434343] mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, lineHeight: '110%' }}>Dashboard</h1>
           <p className="text-base text-[#6B7280]">
             Halaman ini digunakan untuk informasi utama kesehatan mental dan aktivitas konseling.
           </p>
@@ -418,7 +457,7 @@ const UserDashboard = () => {
                 <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#E8655B' }}>neurology</span>
               </div>
               <div>
-                <h2 className="font-bold text-[#1F2937]" style={{ fontSize: 18 }}>Asesmen Kesehatan Mental</h2>
+                <h2 className="font-semibold text-[#1F2937]" style={{ fontSize: 18 }}>Asesmen Kesehatan Mental</h2>
                 <p className="text-[#6B7280] text-sm mt-1">Kenali kondisi kesehatan mentalmu dengan tes singkat 5 menit. Hasil akan membantu konselor memahami kebutuhanmu.</p>
               </div>
             </div>
@@ -434,8 +473,8 @@ const UserDashboard = () => {
 
         {/* Two-Column: Chart + Session */}
         <div className="flex flex-col xl:flex-row xl:items-stretch gap-6 mb-6">
-          <ProgressChartCard data={chartData} />
-          <CounselingSessionCard session={upcomingSession} />
+          <ProgressChartCard data={progressData} />
+          <CounselingSessionCard session={sessionData} />
         </div>
 
         {/* Riwayat Konseling */}
@@ -451,11 +490,15 @@ const UserDashboard = () => {
             </button>
           </div>
 
-          {counselingHistory.length === 0 ? (
-            <EmptyState message="Belum ada riwayat konseling" icon="history" />
+          {historyData.length === 0 ? (
+            <SectionEmptyState
+              title="Belum ada riwayat konseling"
+              subtitle="Saat ini Anda belum melakukan sesi konseling"
+              iconElement={<HistoryIcon color="#9CA3AF" size={24} />}
+            />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {counselingHistory.map((session) => (
+              {historyData.map((session) => (
                 <HistoryCard key={session.id} session={session} />
               ))}
             </div>
