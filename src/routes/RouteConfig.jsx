@@ -44,6 +44,8 @@ import UserDashboard from "../pages/user/shared/UserDashboard"
 
 // === STANDALONE BOOKING COMPONENTS ===
 import BookingContainer from "@/components/shared/booking/BookingContainer"
+import BookingMethodPage from "@/pages/user/shared/BookingMethodPage"
+import BookingChatPage from "@/pages/user/shared/BookingChatPage"
 import PsychologistProfilePage from "@/pages/user/psychologist/profile/PsychologistProfilePage"
 import SchedulePage from "@/components/shared/schedule/SchedulePage"
 
@@ -217,6 +219,14 @@ const routes = [
       {
         path: "notifications",
         element: <NotificationPage />,
+      },
+      {
+        path: "booking-session",
+        element: <BookingMethodPage />,
+      },
+      {
+        path: "booking-chat",
+        element: <BookingChatPage />,
       },
     ],
   },

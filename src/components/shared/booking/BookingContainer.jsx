@@ -1,7 +1,7 @@
 // src/components/shared/booking/BookingContainer.jsx
 
 import { useState } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, useLocation } from "react-router-dom"
 import BookingPage from "./BookingPage"
 import BookingSession from "./BookingSession"
 import TopRightControl from "../layout/TopRightControl"
@@ -13,12 +13,18 @@ const BookingContainer = ({
 }) => {
   const { userType: urlUserType } = useParams() // Get userType from URL
   const navigate = useNavigate()
-  
+  const location = useLocation()
+
   // Use prop userType first, then URL parameter, then default to "student"
   const userType = propUserType || urlUserType || "student"
 
-  const [currentStep, setCurrentStep] = useState("method") // 'method' | 'form' | 'success'
-  const [selectedMethod, setSelectedMethod] = useState(null)
+  // Support pre-selected method from navigation state (from BookingMethodPage)
+  const initialMethod = location.state?.selectedMethod || null
+
+  const [currentStep, setCurrentStep] = useState(() =>
+    initialMethod ? "form" : "method"
+  )
+  const [selectedMethod, setSelectedMethod] = useState(() => initialMethod)
   const [bookingResult, setBookingResult] = useState(null)
 
   // Handle method selection from BookingPage

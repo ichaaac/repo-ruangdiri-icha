@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import UserSidebar from "./UserSidebar";
+import StudentSidebar from "../../student/layout/StudentSidebar";
 import { useAuth } from "../../../../hooks/useAuth";
 import ChatWidget from "../../../shared/chat-widget/ChatWidget";
 import TopRightControl from "../../../shared/layout/TopRightControl";
@@ -46,11 +47,11 @@ const UserLayout = ({
       return "60px"; // Always collapsed on mobile
     }
     
-    // Desktop: Use different spacing based on sidebar state
+    // Desktop: Match exact sidebar width (no gap - pages handle their own padding)
     if (expanded || sidebarHovered) {
-      return "257px"; // 237px sidebar + 20px gap
+      return userType === "student" ? "280px" : "237px";
     }
-    return "80px"; // 60px sidebar + 20px gap
+    return "60px"; // exact sidebar width
   };
 
   // Calculate ChatWidget positioning based on sidebar state
@@ -89,27 +90,36 @@ const UserLayout = ({
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
       <DevAuthGate />
-      <TopRightControl />
-      
-      {/* User Sidebar */}
-      <UserSidebar 
-        expanded={expanded} 
-        setExpanded={setExpanded} 
-        onHoverChange={setSidebarHovered}
-        userType={userType}
-        isMobile={isMobile}
-      />
+
+      {/* Sidebar - Student gets custom sidebar */}
+      {userType === "student" ? (
+        <StudentSidebar
+          expanded={expanded}
+          setExpanded={setExpanded}
+          onHoverChange={setSidebarHovered}
+          isMobile={isMobile}
+        />
+      ) : (
+        <UserSidebar
+          expanded={expanded}
+          setExpanded={setExpanded}
+          onHoverChange={setSidebarHovered}
+          userType={userType}
+          isMobile={isMobile}
+        />
+      )}
 
       {/* Main content area with responsive margin */}
-      <div 
+      <div
         className="flex-1 transition-all duration-300 min-h-screen bg-white overflow-x-hidden"
-        style={{ 
+        style={{
           marginLeft: getContentMargin(),
           width: `calc(100vw - ${getContentMargin()})`,
           maxWidth: `calc(100vw - ${getContentMargin()})`,
         }}
       >
-        <Outlet context={{ 
+        <TopRightControl transparent={location.pathname.endsWith('/dashboard') || location.pathname.endsWith('/booking-session') || location.pathname.endsWith('/booking-chat')} />
+        <Outlet context={{
           sidebarExpanded: expanded || sidebarHovered,
           userType,
         }} />
