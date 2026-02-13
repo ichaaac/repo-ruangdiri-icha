@@ -1,226 +1,64 @@
 import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
-import { useOutletContext, useNavigate } from "react-router-dom"
+import { useOutletContext, useNavigate, Link } from "react-router-dom"
 import { useScreening } from "./hooks/useScreening"
 import ExitConfirmationPopup from "./ExitConfirmationPopUp"
 
-// Question Card Component
-const QuestionCard = ({ question, selectedAnswer, onAnswerSelect, responseOptions, currentQuestion }) => {
-  return (
-    <div className="w-full flex flex-col justify-start items-center gap-7 px-4 md:px-0">
-      {/* Header */}
-      <div className="self-stretch flex flex-col justify-start items-center gap-5">
-        <div className="self-stretch text-center justify-start text-[#488BBE] text-4xl font-bold max-md:text-2xl">
-          Skrining Kesehatan Mental
-        </div>
-        <div className="justify-start text-gray-700 text-base font-normal max-md:text-sm max-md:text-center">
-          Jawablah pertanyaan berikut yang paling sesuai dengan kondisi kamu dalam 2 minggu terakhir.
-        </div>
-      </div>
+// ─── Answer option style mapping by value ───
+// bg/text = default (unselected), activeBg = selected/hover solid color
+const OPTION_STYLES = [
+  { bg: "#CFF9E5", text: "#008236", activeBg: "#339B5E" },
+  { bg: "#D4E7FF", text: "#155DFC", activeBg: "#447DFD" },
+  { bg: "#FFF5CC", text: "#FE9A00", activeBg: "#FEAE33" },
+  { bg: "#FEE4E6", text: "#D1293D", activeBg: "#DA5464" },
+]
 
-      {/* Divider */}
-      <div className="self-stretch h-0 outline outline-[0.50px] outline-offset-[-0.25px] outline-[#488BBE]"></div>
+// ─── Info circle icon (matches Figma) ───
+const InfoCircleIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 8V13" stroke="#9CA3AF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M11.9946 16H12.0036" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
-      {/* Question Container with Progress Indicator */}
-      <div className="self-stretch px-14 py-7 bg-white rounded-[10px] flex flex-col justify-center items-center gap-2.5 max-md:px-6 max-md:py-4 min-h-[320px] md:h-96 relative">
-        {/* Progress Indicator - now inside question container */}
-        <div className="absolute top-4 right-6 text-gray-600 text-xs font-normal">
-          {currentQuestion + 1}/21
-        </div>
+// ─── Chevron right icon for "Selanjutnya" ───
+const ChevronRightIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="pointer-events-none">
+    <path d="M8.91 19.92L15.43 13.4C16.2 12.63 16.2 11.37 15.43 10.6L8.91 4.08" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
-        <div className="w-full max-w-[1104px] flex flex-col justify-start items-end gap-9 max-md:gap-6">
-          {/* Question Text */}
-          <motion.div
-            className="self-stretch inline-flex justify-start items-center gap-2.5"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="justify-start text-[#488BBE] text-2xl font-bold leading-relaxed max-md:text-lg max-md:leading-tight">
-              {question?.indonesian || question?.text}
-            </div>
-          </motion.div>
-
-          {/* Answer Options */}
-          <motion.div
-            className="self-stretch flex flex-col justify-start items-start gap-2.5"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 + (question?.indonesian || question?.text).length * 0.005, duration: 0.5 }}
-          >
-            {responseOptions.map((option, index) => (
-              <motion.button
-                key={option.value}
-                onClick={() => onAnswerSelect(option.value)}
-                className={`self-stretch h-14 p-5 bg-white rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] ${
-                  selectedAnswer === option.value ? "outline-[#488BBE]" : "outline-gray-400"
-                } flex flex-col justify-between items-start hover:outline-[#488BBE] transition-all duration-200 max-md:h-12 max-md:p-3`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-              >
-                <div className="inline-flex justify-start items-center gap-4">
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 ${
-                        selectedAnswer === option.value
-                          ? "bg-[#488BBE] border-[#488BBE]"
-                          : "bg-gray-200 border-gray-400"
-                      }`}
-                    />
-                  </div>
-                  <div className="justify-start text-gray-700 text-base font-normal max-md:text-sm">
-                    {option.indonesian || option.label}
-                  </div>
-                </div>
-              </motion.button>
-            ))}
-          </motion.div>
-        </div>
-      </div>
+// ─── Loading Screen ───
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="text-center">
+      <div className="w-10 h-10 border-4 border-[#E8655B] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <h2 className="text-lg font-semibold text-gray-800 mb-1">Memuat Pertanyaan...</h2>
+      <p className="text-sm text-gray-500">Mohon tunggu sebentar</p>
     </div>
-  )
-}
+  </div>
+)
 
-// Navigation Buttons Component
-const NavigationButtons = ({
-  currentQuestion,
-  canGoBack,
-  canProceed,
-  isLastQuestion,
-  onPrevious,
-  onNext,
-  onSubmit,
-  isSubmitting,
-  selectedAnswer,
-}) => {
-  const showPrevious = currentQuestion > 0
-  const showNext = currentQuestion < 20
-  const showSelesai = currentQuestion === 20
-
-  // Check if answer is selected for current question
-  const hasAnswerSelected = selectedAnswer !== null && selectedAnswer !== undefined
-
-  return (
-    <div className="flex justify-center items-center gap-5 top-10">
-      {/* Tombol Previous */}
-      {showPrevious && (
-        <motion.button
-          onClick={onPrevious}
-          disabled={!canGoBack}
-          className="flex justify-center items-center gap-2 p-2 hover:bg-blue-50 rounded-lg transition-colors duration-200 disabled:opacity-50"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <div className="w-[26px] h-[26px] bg-[#488BBA] rounded-[3px] flex items-center justify-center">
-            <span className="material-icons text-white text-lg">arrow_back</span>
-          </div>
-        </motion.button>
-      )}
-
-      {showSelesai ? (
-        /* Tombol Selesai */
-        <motion.button
-          onClick={onSubmit}
-          disabled={isSubmitting || !hasAnswerSelected}
-          className={`flex justify-center items-center gap-2 px-6 py-3 rounded-lg transition-colors duration-300 disabled:cursor-not-allowed ${
-            isSubmitting || !hasAnswerSelected
-              ? "bg-[#8B8B8B] text-white opacity-50"
-              : "bg-[#488BBE] text-white hover:bg-[#3a7ba8]"
-          }`}
-          whileHover={!isSubmitting && hasAnswerSelected ? { scale: 1.05 } : {}}
-          whileTap={!isSubmitting && hasAnswerSelected ? { scale: 0.95 } : {}}
-        >
-          {isSubmitting ? (
-            <>
-              <span className="material-icons animate-spin text-lg">sync</span>
-              <span>Mengirim...</span>
-            </>
-          ) : (
-            <>
-              <span className="material-icons text-lg">check</span>
-              <span>Selesai</span>
-            </>
-          )}
-        </motion.button>
-      ) : (
-        /* Tombol Next */
-        showNext && (
-          <motion.button
-            onClick={onNext}
-            disabled={!canProceed || !hasAnswerSelected}
-            className="flex justify-center items-center gap-2 p-2 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            whileHover={canProceed && hasAnswerSelected ? { scale: 1.05 } : {}}
-            whileTap={canProceed && hasAnswerSelected ? { scale: 0.95 } : {}}
-          >
-            <div
-              className={`w-[26px] h-[26px] rounded-[3px] flex items-center justify-center transition-colors duration-300 ${
-                canProceed && hasAnswerSelected ? "bg-[#488BBA]" : "bg-[#8B8B8B]"
-              }`}
-            >
-              <span className="material-icons text-white text-lg">arrow_forward</span>
-            </div>
-          </motion.button>
-        )
-      )}
-    </div>
-  )
-}
-
-// Loading Screen Component
-const LoadingScreen = () => {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <motion.div
-        className="text-center"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
+// ─── Error Screen ───
+const ErrorScreen = ({ error, onRetry }) => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="text-center p-8 bg-white rounded-2xl shadow-lg max-w-md">
+      <div className="text-5xl mb-4 text-red-500">!</div>
+      <h2 className="text-lg font-semibold text-gray-800 mb-2">Terjadi Kesalahan</h2>
+      <p className="text-sm text-gray-500 mb-6">{error?.message || "Gagal memuat pertanyaan skrining"}</p>
+      <button
+        onClick={onRetry}
+        className="px-6 py-3 bg-[#E8655B] text-white rounded-lg hover:bg-[#d4564d] transition-colors"
       >
-        <motion.span
-          className="material-icons text-6xl text-[#488BBE] mb-4 block"
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Number.POSITIVE_INFINITY, duration: 2, ease: "linear" }}
-        >
-          sync
-        </motion.span>
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">Memuat Pertanyaan...</h2>
-        <p className="text-gray-600">Mohon tunggu sebentar</p>
-      </motion.div>
+        Coba Lagi
+      </button>
     </div>
-  )
-}
+  </div>
+)
 
-// Error Screen Component
-const ErrorScreen = ({ error, onRetry }) => {
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <motion.div
-        className="text-center p-8 bg-white rounded-2xl shadow-2xl max-w-md"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <span className="material-icons text-6xl text-red-500 mb-4 block">error_outline</span>
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">Terjadi Kesalahan</h2>
-        <p className="text-gray-600 mb-6">{error?.message || "Gagal memuat pertanyaan skrining"}</p>
-        <motion.button
-          onClick={onRetry}
-          className="px-6 py-3 bg-[#488BBE] text-white rounded-lg hover:bg-[#3a7ba8] transition-colors duration-300"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Coba Lagi
-        </motion.button>
-      </motion.div>
-    </div>
-  )
-}
-
-// Main Assessment Component
+// ─── Main Assessment Component ───
 const ScreeningAssessment = ({ onComplete, onExit }) => {
   const navigate = useNavigate()
   const {
@@ -241,38 +79,35 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     isAllQuestionsAnswered,
   } = useScreening()
 
-  // Get sidebar state from context
-  const { sidebarExpanded } = useOutletContext() || { sidebarExpanded: false }
+  const { userType = "student" } = useOutletContext() || {}
 
-  // Exit confirmation popup state
   const [showExitPopup, setShowExitPopup] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState(null)
   const [allowNavigation, setAllowNavigation] = useState(false)
   const [shouldBlockUnload, setShouldBlockUnload] = useState(true)
 
-  // Enhanced navigation protection with popup
+  const totalQuestions = 21
+  const progressPercent = ((currentQuestion + 1) / totalQuestions) * 100
+  const selectedAnswer = answers[currentQuestion]
+  const hasAnswerSelected = selectedAnswer !== null && selectedAnswer !== undefined
+
+  // ─── Navigation protection (unchanged logic) ───
   useEffect(() => {
-    // Intercept internal link navigations (e.g., sidebar Links) and prompt
     const handleAnchorClick = (e) => {
       const target = e.target
       if (!target) return
       const anchor = target.closest && target.closest('a, [data-nav-to]')
       if (!anchor) return
-      // Ignore new tab or hash links
-      // Ignore modifier/middle clicks (open in new tab/window)
       if (e.button === 1 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
       if (anchor.target === '_blank' || anchor.getAttribute('rel') === 'noopener' || anchor.getAttribute('download')) return
       let to = anchor.getAttribute('href') || anchor.getAttribute('data-nav-to')
       if (!to || to.startsWith('#')) return
-      // Only block internal navigation
       const origin = window.location.origin
       const isAbsolute = to.startsWith('http://') || to.startsWith('https://')
       if (isAbsolute && !to.startsWith(origin)) return
       if (isAbsolute) to = to.slice(origin.length) || '/'
       if (!to.startsWith('/')) return
       if (to === window.location.pathname) return
-
-      // Prevent and show popup
       e.preventDefault()
       setShowExitPopup(true)
       setPendingNavigation(() => () => navigate(to))
@@ -280,25 +115,17 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
 
     document.addEventListener('click', handleAnchorClick, true)
 
-    // Handle browser back/forward attempts — block and show popup
-    const handlePopState = (e) => {
-      if (allowNavigation) {
-        return
-      }
-      e.preventDefault()
+    const handlePopState = () => {
+      if (allowNavigation) return
       setShowExitPopup(true)
-      // When confirmed, allow one back navigation
       setPendingNavigation(() => () => {
         setAllowNavigation(true)
         window.history.back()
       })
-      // Re-push state to keep user on page until confirmed
       window.history.pushState(null, "", window.location.pathname)
     }
 
     window.addEventListener("popstate", handlePopState)
-    
-    // Push initial state for back button handling
     window.history.pushState(null, "", window.location.pathname)
 
     return () => {
@@ -307,20 +134,18 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     }
   }, [allowNavigation, navigate])
 
-  // Native beforeunload prompt ONLY for tab close/refresh/full unload
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       if (!shouldBlockUnload) return
       const hasProgress = !!localStorage.getItem('screening_answers') || !!localStorage.getItem('screening_current_question')
       if (!hasProgress) return
       e.preventDefault()
-      e.returnValue = '' // trigger browser native prompt
+      e.returnValue = ''
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [shouldBlockUnload])
 
-  // Listen for cross-component navigation attempts (e.g., Sidebar, TopRightControl)
   useEffect(() => {
     const handleAttemptNav = (e) => {
       const to = e?.detail?.to
@@ -332,45 +157,31 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     return () => window.removeEventListener('rd:attempt-navigation', handleAttemptNav)
   }, [navigate])
 
-  // Handle answer selection
+  // ─── Handlers (unchanged logic) ───
   const handleAnswerSelect = (value) => {
     updateAnswer(currentQuestion, value)
-
-    // Save to localStorage
     const savedAnswers = [...answers]
     savedAnswers[currentQuestion] = value
     localStorage.setItem("screening_answers", JSON.stringify(savedAnswers))
     localStorage.setItem("screening_current_question", currentQuestion.toString())
   }
 
-  // Handle next question with validation
   const handleNext = () => {
-    const currentAnswer = answers[currentQuestion]
-    const hasAnswer = currentAnswer !== null && currentAnswer !== undefined
-
-    if (!hasAnswer) {
+    if (!hasAnswerSelected) {
       toast.warning("Pilih jawaban terlebih dahulu", {
         description: "Kamu harus memilih salah satu jawaban untuk melanjutkan.",
       })
       return
     }
-
     nextQuestion()
   }
 
-  // Handle previous question
   const handlePrevious = () => {
-    if (canGoBack) {
-      previousQuestion()
-    }
+    if (canGoBack) previousQuestion()
   }
 
-  // Handle submission with validation
   const handleSubmit = async () => {
-    const currentAnswer = answers[currentQuestion]
-    const hasCurrentAnswer = currentAnswer !== null && currentAnswer !== undefined
-
-    if (!hasCurrentAnswer) {
+    if (!hasAnswerSelected) {
       toast.warning("Pilih jawaban terlebih dahulu", {
         description: "Kamu harus memilih jawaban untuk pertanyaan terakhir ini.",
       })
@@ -385,62 +196,55 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     }
 
     try {
-      console.log("Submitting screening with answers:", answers)
-      
-      // Submit screening and get result
       const submissionResult = await submitScreening()
-      
-      console.log("Submission successful, result:", submissionResult)
-
-      // Clear localStorage on successful submission
       localStorage.removeItem("screening_answers")
       localStorage.removeItem("screening_current_question")
+      toast.custom(() => (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: 16,
+          borderRadius: 8,
+          border: "1px solid #0EAD69",
+          backgroundColor: "#E7F7F0",
+          maxWidth: 434,
+          fontFamily: "Plus Jakarta Sans, sans-serif",
+        }}>
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none" style={{ flexShrink: 0 }}>
+            <path fill="#0EAD69" d="M8.333 0A8.336 8.336 0 0 0 0 8.333c0 4.6 3.733 8.334 8.333 8.334s8.334-3.734 8.334-8.334S12.933 0 8.333 0Zm0 15a6.676 6.676 0 0 1-6.666-6.667 6.676 6.676 0 0 1 6.666-6.666A6.676 6.676 0 0 1 15 8.333 6.676 6.676 0 0 1 8.333 15Zm3.825-10.35-5.491 5.492-2.159-2.15-1.175 1.175L6.667 12.5l6.666-6.667-1.175-1.183Z" />
+          </svg>
+          <span style={{ fontSize: 16, fontWeight: 500, lineHeight: "24px", color: "#434343" }}>
+            Asesmen berhasil diselesaikan
+          </span>
+        </div>
+      ), { position: "top-right", duration: 3000 })
 
-      // Show success toast briefly
-      toast.success("Screening berhasil diselesaikan!")
-
-      // Navigate to result immediately with the full result data
       if (submissionResult) {
-        console.log("Calling onComplete with result:", submissionResult)
         onComplete?.(submissionResult)
       } else {
-        console.error("No submission result received")
         toast.error("Gagal mendapatkan hasil screening")
       }
-    } catch (error) {
-      console.error("Submission failed:", error)
+    } catch {
       toast.error("Gagal menyelesaikan screening", {
         description: "Terjadi kesalahan. Silakan coba lagi.",
       })
     }
   }
 
-  // Handle retry on error
-  const handleRetry = () => {
-    window.location.reload()
-  }
+  const handleRetry = () => window.location.reload()
 
-  // Handle exit button click
-  const handleExitButtonClick = () => {
-    setShowExitPopup(true)
-  }
-
-  // Handle exit confirmation
   const handleExitConfirm = () => {
     setShowExitPopup(false)
-    
-    // Clear any temporary data
     localStorage.removeItem("screening_answers")
     localStorage.removeItem("screening_current_question")
-    
     toast.info("Screening dibatalkan", {
       description: "Progress screening tidak tersimpan.",
     })
-    
+
     if (pendingNavigation) {
       const go = pendingNavigation
       setPendingNavigation(null)
-      // If pending is history.back, allow popstate handler to pass
       setAllowNavigation(true)
       setShouldBlockUnload(false)
       go()
@@ -451,88 +255,262 @@ const ScreeningAssessment = ({ onComplete, onExit }) => {
     }
   }
 
-  // Handle exit cancel
   const handleExitCancel = () => {
     setShowExitPopup(false)
     setPendingNavigation(null)
   }
 
-  // Load saved progress on mount
   useEffect(() => {
     const savedAnswers = localStorage.getItem("screening_answers")
     const savedQuestion = localStorage.getItem("screening_current_question")
-
     if (savedAnswers && savedQuestion) {
       // Progress loaded in background
     }
   }, [])
 
-  // Show loading screen
-  if (isLoading) {
-    return <LoadingScreen />
-  }
+  if (isLoading) return <LoadingScreen />
+  if (error) return <ErrorScreen error={error} onRetry={handleRetry} />
 
-  // Show error screen
-  if (error) {
-    return <ErrorScreen error={error} onRetry={handleRetry} />
-  }
+  const isLast = currentQuestion === 20
 
   return (
-    <div className="w-full h-screen relative bg-white overflow-hidden">
-      {/* Background and content container */}
-      <div className="absolute left-[20px] right-[20px] top-[127px] h-[658px] rounded-[10px] overflow-hidden max-md:left-[20px] max-md:right-[20px] max-md:h-[calc(100vh-8rem)]">
-        {/* Background Layer with gradient */}
-        <div 
-          className="absolute inset-0 w-full h-full rounded-[10px] overflow-hidden"
-          style={{
-            background: 'radial-gradient(ellipse at 130% -38%, #D7EDFF 0%, #FFFFFF 100%)'
-          }}
-        >
-          {/* Content positioned inside background with padding */}
-          <div className="relative w-full h-full p-[54px] flex flex-col justify-start items-center gap-7 max-md:p-6">
-            
-            {/* Exit button */}
-            {/* <button
-              onClick={handleExitButtonClick}
-              className="absolute top-4 right-4 p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-            >
-              <span className="material-icons">close</span>
-            </button> */}
+    <div style={{ fontFamily: "Plus Jakarta Sans, sans-serif" }}>
+      {/* ═══ HEADER - same as other pages ═══ */}
+      <div
+        className="relative overflow-hidden bg-[#BBF2FF]/60"
+        style={{ marginTop: -64, paddingTop: 64 }}
+      >
+        {/* Wave SVG - Top Left */}
+        <svg className="pointer-events-none absolute top-0 left-0" width="532" height="300" viewBox="0 0 532 300" fill="none">
+          <path d="M185.574 124.31C39.8177 132.283 -99.119 94.0838 -237.91 68.2276C-285.602 59.3374 -336.204 51.7664 -385.828 56.4581C-465.182 63.9603 -524.661 101.196 -561.979 140.554C-599.296 179.912 -621.458 223.491 -663.993 261.197C-681.311 276.557 -703.701 291.217 -730 302V-185H512.22C541.117 -120.038 542.281 -50.7751 489.122 8.5083C432.159 72.0016 313.388 117.325 185.574 124.31Z" fill="url(#sa_wt)" fillOpacity="0.6" />
+          <defs><linearGradient id="sa_wt" x1="615" y1="-42" x2="-281.5" y2="-93" gradientUnits="userSpaceOnUse"><stop stopColor="white" /><stop offset="0.898" stopColor="#BBF2FF" /></linearGradient></defs>
+        </svg>
+        {/* Wave SVG - Bottom Right */}
+        <svg className="pointer-events-none absolute right-0 bottom-0" width="930" height="300" viewBox="0 0 930 300" fill="none">
+          <path d="M346.426 134.689C492.182 126.717 631.119 164.916 769.91 190.772C817.602 199.663 868.204 207.234 917.828 202.542C997.182 195.04 1056.66 157.804 1093.98 118.446C1131.3 79.0884 1153.46 35.5092 1195.99 -2.19681C1213.31 -17.5568 1235.7 -32.217 1262 -43V444H19.7804C-9.11719 379.038 -10.2814 309.775 42.8776 250.492C99.8411 186.998 218.612 141.675 346.426 134.689Z" fill="url(#sa_wb)" fillOpacity="0.6" />
+          <defs><linearGradient id="sa_wb" x1="44" y1="1" x2="813.5" y2="352" gradientUnits="userSpaceOnUse"><stop stopColor="white" /><stop offset="0.898" stopColor="#BBF2FF" /></linearGradient></defs>
+        </svg>
 
-            {/* Question Card */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentQuestion}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -50 }}
-                transition={{ duration: 0.3 }}
-                className="w-full flex flex-col justify-start items-center gap-7"
-              >
-                <QuestionCard
-                  question={currentQuestionData}
-                  selectedAnswer={answers[currentQuestion]}
-                  onAnswerSelect={handleAnswerSelect}
-                  responseOptions={responseOptions}
-                  currentQuestion={currentQuestion}
-                />
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation Buttons */}
-            <NavigationButtons
-              currentQuestion={currentQuestion}
-              canGoBack={canGoBack}
-              canProceed={canProceed}
-              isLastQuestion={isLastQuestion}
-              onPrevious={handlePrevious}
-              onNext={handleNext}
-              onSubmit={handleSubmit}
-              isSubmitting={isSubmitting}
-              selectedAnswer={answers[currentQuestion]}
-            />
-          </div>
+        {/* Header Content */}
+        <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
+          <nav className="flex items-center text-sm mb-6" style={{ gap: 8 }}>
+            <Link to={`/user/${userType}/dashboard`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Home</Link>
+            <span className="text-[#F59E0B] text-xs">&#9654;</span>
+            <span className="text-[#9CA3AF]">Asesmen Ruang Diri</span>
+            <span className="text-[#F59E0B] text-xs">&#9654;</span>
+            <span className="text-[#1F2937] font-semibold">Asesmen</span>
+          </nav>
+          <h1 className="font-bold text-[#434343] mb-3" style={{ fontSize: 28, lineHeight: "110%" }}>
+            Asesmen Kesehatan Mental
+          </h1>
+          <p className="text-base text-[#6B7280]">
+            Jawablah pertanyaan berikut yang paling sesuai dengan kondisi Anda dalam 2 minggu terakhir.
+          </p>
         </div>
+      </div>
+
+      {/* ═══ CONTENT AREA - white page background ═══ */}
+      <div className="bg-white px-6 lg:px-10 pt-6 pb-10">
+
+        {/* ─── Progress Section ─── */}
+        <div className="flex items-center justify-between mb-3">
+          <span style={{ fontSize: 16, fontWeight: 400, color: "#6B7280" }}>Progress</span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: "#E8655B" }}>
+            {currentQuestion + 1}/{totalQuestions}
+          </span>
+        </div>
+        <div className="w-full overflow-hidden" style={{ height: 6, backgroundColor: "#E5E7EB", borderRadius: 99, marginBottom: 24 }}>
+          <motion.div
+            style={{ height: "100%", backgroundColor: "#E8655B", borderRadius: 99 }}
+            initial={false}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          />
+        </div>
+
+        {/* ─── Question Card ─── */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestion}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div
+              style={{
+                border: "1px solid #E5E7EB",
+                borderRadius: 16,
+                overflow: "hidden",
+                marginBottom: 16,
+              }}
+            >
+              {/* Question area - gray background */}
+              <div style={{ backgroundColor: "#ECEEF0", padding: "24px 24px 20px" }}>
+                {/* Question label */}
+                <div className="flex items-center gap-2" style={{ marginBottom: 8 }}>
+                  <InfoCircleIcon />
+                  <span style={{ fontSize: 13, fontWeight: 500, color: "#1F2937" }}>
+                    Pertanyaan {currentQuestion + 1}
+                  </span>
+                </div>
+
+                {/* Question text */}
+                <p
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 500,
+                    lineHeight: "130%",
+                    color: "#434343",
+                    margin: 0,
+                  }}
+                >
+                  {currentQuestionData?.indonesian || currentQuestionData?.text}
+                </p>
+              </div>
+
+              {/* Answer options - white background */}
+              <div style={{ backgroundColor: "#FFFFFF", padding: "16px 24px 20px" }}>
+                <div className="flex flex-col" style={{ gap: 12 }}>
+                  {responseOptions.map((option, index) => {
+                    const optStyle = OPTION_STYLES[index] || OPTION_STYLES[0]
+                    const isSelected = selectedAnswer === option.value
+
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => handleAnswerSelect(option.value)}
+                        className="w-full flex items-center justify-between group"
+                        style={{
+                          backgroundColor: isSelected ? optStyle.activeBg : optStyle.bg,
+                          border: "1px solid transparent",
+                          borderRadius: 12,
+                          padding: "14px 20px",
+                          cursor: "pointer",
+                          transition: "background-color 0.2s ease, border 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.backgroundColor = optStyle.activeBg
+                          if (!isSelected) e.currentTarget.querySelector('[data-label]').style.color = '#FFFFFF'
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.backgroundColor = optStyle.bg
+                          if (!isSelected) e.currentTarget.querySelector('[data-label]').style.color = optStyle.text
+                        }}
+                      >
+                        <span
+                          data-label=""
+                          style={{
+                            color: isSelected ? "#FFFFFF" : optStyle.text,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            lineHeight: "140%",
+                            transition: "color 0.2s ease",
+                          }}
+                        >
+                          {option.indonesian || option.label}
+                        </span>
+
+                        {/* Checkbox circle */}
+                        <div
+                          className="flex-shrink-0 flex items-center justify-center"
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            backgroundColor: isSelected ? "#FFFFFF" : "transparent",
+                            border: isSelected ? "none" : "1.5px solid #B5BBC4",
+                            transition: "all 0.15s ease",
+                          }}
+                        >
+                          {isSelected && (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path d="M3.5 8L6.5 11L12.5 5" stroke="#008236" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+
+        {/* ─── Navigation ─── */}
+        <div className="flex items-center justify-between" style={{ marginTop: 8, paddingBottom: 8 }}>
+          {currentQuestion > 0 ? (
+            <button
+              type="button"
+              onClick={handlePrevious}
+              className="flex items-center select-none transition-colors"
+              style={{
+                fontSize: 16,
+                fontWeight: 400,
+                lineHeight: "120%",
+                color: "#CFD1D5",
+                gap: 4,
+                padding: "8px 4px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="pointer-events-none" style={{ transform: "rotate(180deg)" }}>
+                <path d="M8.91 19.92L15.43 13.4C16.2 12.63 16.2 11.37 15.43 10.6L8.91 4.08" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Sebelum
+            </button>
+          ) : (
+            <div />
+          )}
+
+          {isLast ? (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !hasAnswerSelected}
+              className="flex items-center select-none transition-colors disabled:cursor-not-allowed"
+              style={{
+                fontSize: 16,
+                fontWeight: 400,
+                lineHeight: "120%",
+                color: isSubmitting || !hasAnswerSelected ? "#CFD1D5" : "#E8655B",
+                gap: 4,
+                padding: "8px 4px",
+                background: "none",
+                border: "none",
+                cursor: isSubmitting || !hasAnswerSelected ? "not-allowed" : "pointer",
+              }}
+            >
+              {isSubmitting ? "Mengirim..." : "Selesai"}
+              <ChevronRightIcon />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!hasAnswerSelected}
+              className="flex items-center select-none transition-colors disabled:cursor-not-allowed"
+              style={{
+                fontSize: 16,
+                fontWeight: 400,
+                lineHeight: "120%",
+                color: hasAnswerSelected ? "#E8655B" : "#CFD1D5",
+                gap: 4,
+                padding: "8px 4px",
+                background: "none",
+                border: "none",
+                cursor: hasAnswerSelected ? "pointer" : "not-allowed",
+              }}
+            >
+              Selanjutnya
+              <ChevronRightIcon />
+            </button>
+          )}
+        </div>
+
       </div>
 
       {/* Exit Confirmation Popup */}
