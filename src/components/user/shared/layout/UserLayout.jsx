@@ -118,7 +118,7 @@ const UserLayout = ({
           maxWidth: `calc(100vw - ${getContentMargin()})`,
         }}
       >
-        <TopRightControl transparent={location.pathname.endsWith('/dashboard') || location.pathname.endsWith('/booking-session') || location.pathname.endsWith('/booking-chat')} />
+        <TopRightControl transparent={location.pathname.endsWith('/dashboard') || location.pathname.endsWith('/booking-session') || location.pathname.endsWith('/booking-chat') || location.pathname.endsWith('/screening')} />
         <Outlet context={{
           sidebarExpanded: expanded || sidebarHovered,
           userType,

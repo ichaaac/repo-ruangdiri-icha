@@ -483,13 +483,8 @@ const BookingChatPage = () => {
     <div style={{ fontFamily: FONT }}>
       {/* ═══ SECTION 1: HEADER ═══ */}
       <div
-        className="relative overflow-hidden"
-        style={{
-          backgroundColor: '#DFF9FF',
-          marginTop: -64,
-          paddingTop: 64,
-          minHeight: 'auto',
-        }}
+        className="relative overflow-hidden bg-[#BBF2FF]/60"
+        style={{ marginTop: -64, paddingTop: 64 }}
       >
         {/* Wave SVG - Top Left */}
         <svg className="pointer-events-none absolute top-0 left-0" width="532" height="300" viewBox="0 0 532 300" fill="none">
@@ -502,19 +497,22 @@ const BookingChatPage = () => {
           <defs><linearGradient id="wb" x1="44" y1="1" x2="813.5" y2="352" gradientUnits="userSpaceOnUse"><stop stopColor="white" /><stop offset="0.898" stopColor="#BBF2FF" /></linearGradient></defs>
         </svg>
 
-        {/* Header Content - ONLY breadcrumb + title + subtitle */}
-        <div className="relative z-10" style={{ padding: '32px 32px 24px' }}>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Link to={`/user/${userType}/dashboard`} className="hover:opacity-70 transition-opacity" style={{ fontSize: 14, color: '#6B7280', textDecoration: 'none' }}>Home</Link>
-            <span style={{ color: '#F59E0B', fontSize: 10 }}>&#9654;</span>
-            <Link to={`/user/${userType}/screening`} className="hover:opacity-70 transition-opacity" style={{ fontSize: 14, color: '#6B7280', textDecoration: 'none' }}>Asesmen Ruang Diri</Link>
-            <span style={{ color: '#F59E0B', fontSize: 10 }}>&#9654;</span>
-            <span style={{ fontSize: 14, fontWeight: 500, color: '#1F2937' }}>Booking Sesi Konseling</span>
+        {/* Header Content */}
+        <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
+          {/* Breadcrumb */}
+          <nav className="flex items-center text-sm mb-6" style={{ gap: 8 }}>
+            <Link to={`/user/${userType}/dashboard`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Home</Link>
+            <span className="text-[#F59E0B] text-xs">&#9654;</span>
+            <Link to={`/user/${userType}/screening`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Asesmen Ruang Diri</Link>
+            <span className="text-[#F59E0B] text-xs">&#9654;</span>
+            <span className="text-[#1F2937] font-semibold">Booking Sesi Konseling</span>
           </nav>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: '#1F2937', lineHeight: '36px', marginBottom: 8, marginTop: 0 }}>
+
+          {/* Title */}
+          <h1 className="font-bold text-[#434343] mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, lineHeight: '110%' }}>
             Booking Sesi Konseling Chat
           </h1>
-          <p style={{ fontSize: 14, color: '#6B7280', lineHeight: '22px', margin: 0 }}>
+          <p className="text-base text-[#6B7280]">
             Halaman ini digunakan untuk memilih jadwal booking sesi konseling chat
           </p>
         </div>
@@ -559,10 +557,20 @@ const BookingChatPage = () => {
 
             {/* Form Body */}
             <div style={{ padding: 32 }}>
-              {/* Jenis Konseling */}
+              {/* Jenis Konseling - static display (dropdown disabled) */}
               <div style={{ marginBottom: 24 }}>
                 <SectionLabel icon={<DocumentIcon color="#488BBA" size={16} />} label="Jenis Konseling" iconBg="#DAF7FF" />
-                <KonselingDropdown value="chat" />
+                <div
+                  style={{
+                    width: '100%', height: 48, borderRadius: 12,
+                    border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB',
+                    padding: '0 16px',
+                    display: 'flex', alignItems: 'center',
+                    fontFamily: FONT, fontSize: 14, color: '#374151',
+                  }}
+                >
+                  Chat
+                </div>
               </div>
 
               {/* Pilih Tanggal & Waktu */}
