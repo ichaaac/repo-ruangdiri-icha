@@ -249,7 +249,7 @@ const BookingMethodPage = () => {
       {/* Header with wave gradient background */}
       <div
         className="relative overflow-hidden bg-[#BBF2FF]/60"
-        style={{ marginTop: -64, paddingTop: 64, minHeight: 300 }}
+        style={{ marginTop: -64, paddingTop: 64 }}
       >
         {/* Top Left Decorative Wave */}
         <svg
