@@ -9,7 +9,7 @@ return (
     <SchedulePage 
       type="company"
       className="pb-6"
-      showTopRightControl={true}
+      showTopRightControl={false}
     />
   </div>
 );

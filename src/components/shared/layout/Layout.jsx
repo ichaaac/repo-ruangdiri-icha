@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import StudentSidebar from "../../user/student/layout/StudentSidebar";
 import { useDashboard } from "../../../hooks/useDashboardMetrics";
 import TopRightControl from "./TopRightControl";
 // import { useAuth } from "../../../hooks/useAuth";
@@ -66,11 +66,11 @@ const Layout = ({
       return "60px"; // Always collapsed on mobile
     }
     
-    // Desktop: Use different spacing based on sidebar state
+    // Desktop: Match StudentSidebar width
     if (expanded || sidebarHovered) {
-      return "257px"; // 237px sidebar + 20px gap
+      return "280px";
     }
-    return "80px"; // 60px sidebar + 20px gap
+    return "60px";
   };
 
   // Force window resize event when sidebar state changes
@@ -88,16 +88,12 @@ const Layout = ({
   return (
     <div className="flex min-h-screen bg-white overflow-x-hidden">
       {/* Sidebar */}
-      <Sidebar
+      <StudentSidebar
         expanded={expanded}
         setExpanded={setExpanded}
         onHoverChange={setSidebarHovered}
-        organizationType={organizationType}
-        menuItems={menuItems}
         isMobile={isMobile}
-        selectedDashboardTab={selectedDashboardTab}
-        onDashboardTabChange={handleDashboardTabChange}
-        dashboardMetrics={dashboardMetrics}
+        userType={organizationType}
       />
 
       {/* Main content area: TopBar + Page content */}

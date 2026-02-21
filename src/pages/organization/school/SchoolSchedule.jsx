@@ -9,7 +9,7 @@ const SchoolSchedule = () => {
       <SchedulePage 
         type="school"
         className="pb-6"
-        showTopRightControl={true}
+        showTopRightControl={false}
       />
     </div>
   );
