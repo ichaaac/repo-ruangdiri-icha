@@ -212,8 +212,7 @@ const UserSidebar = ({
   const handleLogout = async () => {
     try {
       await logout.mutateAsync()
-    } catch (error) {
-      console.error("Logout error:", error)
+    } catch {
     }
   }
 
