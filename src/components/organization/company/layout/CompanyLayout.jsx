@@ -1,7 +1,7 @@
-import Layout from "../../../shared/layout/Layout";
+import OrganizationLayout from "../../shared/layout/OrganizationLayout";
 
 const CompanyLayout = () => {
-  return <Layout organizationType="company" />;
+  return <OrganizationLayout organizationType="company" />;
 };
 
 export default CompanyLayout;

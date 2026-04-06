@@ -19,40 +19,18 @@ const MENU_ITEMS_BY_ROLE = {
     { label: "Dashboard", icon: "dashboard_customize", path: "/user/client/dashboard" },
     { label: "Pesan", icon: "chat_bubble_outline", path: "/user/client/chat", hasUnreadBadge: true },
   ],
-  school: [
-    { label: "Dashboard", icon: "bar_chart", path: "/organization/school/dashboard", hasDropdown: true, dropdownItems: [
-      { label: "Dashboard Home", path: "/organization/school/dashboard" },
-      { label: "Dashboard Tab Laporan", path: "/organization/school/detail-laporan" },
-    ]},
-    { label: "Daftar Siswa", icon: "table_chart", path: "/organization/school/student-list" },
-    { label: "Jadwal", icon: "calendar_month", path: "/organization/school/schedule" },
-    { label: "Pengaturan", icon: "brightness_5", path: "/organization/school/profile" },
-  ],
-  company: [
-    { label: "Dashboard", icon: "bar_chart", path: "/organization/company/dashboard", hasDropdown: true, dropdownItems: [
-      { label: "Dashboard Home", path: "/organization/company/dashboard" },
-      { label: "Dashboard Tab Laporan", path: "/organization/company/detail-laporan" },
-    ]},
-    { label: "Daftar Karyawan", icon: "table_chart", path: "/organization/company/employee-list" },
-    { label: "Jadwal", icon: "calendar_month", path: "/organization/company/schedule" },
-    { label: "Pengaturan", icon: "brightness_5", path: "/organization/company/profile" },
-  ],
 }
 
 const LOGO_BY_ROLE = {
   student: { src: "/logo/sekolahku.png", alt: "Sekolahku" },
   employee: { src: "/logo/ruang-diri-logo.svg", alt: "Ruang Diri" },
   client: { src: "/logo/ruang-diri-logo.svg", alt: "Ruang Diri" },
-  school: { src: "/logo/sekolahku.png", alt: "Sekolahku" },
-  company: { src: "/logo/sekolahku.png", alt: "Sekolahku" },
 }
 
 const SECTION_LABEL_BY_ROLE = {
   student: "Asesmen Ruang Diri",
   employee: "Asesmen Ruang Diri",
   client: "Asesmen Ruang Diri",
-  school: "Menu Sekolah",
-  company: "Menu Perusahaan",
 }
 
 const StudentSidebar = ({

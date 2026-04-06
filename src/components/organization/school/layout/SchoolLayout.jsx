@@ -1,7 +1,7 @@
-import Layout from "../../../shared/layout/Layout";
+import OrganizationLayout from "../../shared/layout/OrganizationLayout";
 
 const SchoolLayout = () => {
-  return <Layout organizationType="school" />;
+  return <OrganizationLayout organizationType="school" />;
 };
 
 export default SchoolLayout;
