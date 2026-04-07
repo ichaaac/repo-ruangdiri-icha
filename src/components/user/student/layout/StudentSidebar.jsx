@@ -190,7 +190,7 @@ const StudentSidebar = ({
             }}
           >
             <img
-              src="/logo/ruang-diri-icon.png"
+              src="/logo/ruang-diri-logo.png"
               alt="Ruang Diri"
               style={{
                 height: 36,

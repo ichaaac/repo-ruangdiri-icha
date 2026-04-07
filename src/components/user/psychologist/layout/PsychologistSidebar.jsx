@@ -161,7 +161,7 @@ const PsychologistSidebar = ({
         {/* Logo Container */}
         <div className={`relative h-[60px] flex-shrink-0 flex items-center ${expanded || hovered ? "justify-start px-6" : "justify-center"}`}>
           <div className="flex items-center gap-2.5">
-            <img src="/logo/ruang-diri-icon.png" alt="Ruang Diri"
+            <img src="/logo/ruang-diri-logo.png" alt="Ruang Diri"
               className="object-contain"
               style={{ height: 36, width: 36, flexShrink: 0 }}
             />

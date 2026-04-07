@@ -182,7 +182,7 @@ const Login = () => {
 
       <main className="relative z-10 w-full max-w-[554px] mx-4 bg-white rounded-[30px] px-10 sm:px-20 pt-[60px] pb-20 flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-2">
-          <img src="/logo/ruang-diri-icon.png" alt="Ruang Diri" className="w-[120px] h-[113px] object-contain" />
+          <img src="/logo/ruang-diri-logo.png" alt="Ruang Diri" className="w-[120px] h-[113px] object-contain" />
           <h1 className="text-4xl font-bold text-center leading-tight pt-2">
             <span className="text-[#434343]">Welcome to </span>
             <span className="text-[#155DFC]">Ruang Diri</span>
