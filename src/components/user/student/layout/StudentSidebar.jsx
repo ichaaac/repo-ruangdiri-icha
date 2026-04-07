@@ -21,12 +21,6 @@ const MENU_ITEMS_BY_ROLE = {
   ],
 }
 
-const LOGO_BY_ROLE = {
-  student: { src: "/logo/sekolahku.png", alt: "Sekolahku" },
-  employee: { src: "/logo/ruang-diri-logo.svg", alt: "Ruang Diri" },
-  client: { src: "/logo/ruang-diri-logo.svg", alt: "Ruang Diri" },
-}
-
 const SECTION_LABEL_BY_ROLE = {
   student: "Asesmen Ruang Diri",
   employee: "Asesmen Ruang Diri",
@@ -191,20 +185,34 @@ const StudentSidebar = ({
               justifyContent: isOpen ? "flex-start" : "center",
               paddingLeft: isOpen ? 20 : 0,
               flexShrink: 0,
-              minHeight: isOpen ? 80 : 60,
-              transition: "padding-left 250ms ease, min-height 250ms ease",
+              minHeight: 60,
+              gap: 10,
             }}
           >
             <img
-              src={LOGO_BY_ROLE[userType]?.src || LOGO_BY_ROLE.student.src}
-              alt={LOGO_BY_ROLE[userType]?.alt || LOGO_BY_ROLE.student.alt}
+              src="/logo/ruang-diri-logo-new.png"
+              alt="Ruang Diri"
               style={{
-                height: isOpen ? 52 : 36,
-                width: "auto",
+                height: 36,
+                width: 36,
                 objectFit: "contain",
-                transition: "height 250ms ease",
+                flexShrink: 0,
               }}
             />
+            {isOpen && (
+              <span
+                style={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: "#488BBE",
+                  whiteSpace: "nowrap",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  letterSpacing: "0.3px",
+                }}
+              >
+                Ruang Diri
+              </span>
+            )}
           </div>
 
           {/* ── Gap between logo and section ── */}

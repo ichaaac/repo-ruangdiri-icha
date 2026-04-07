@@ -21,11 +21,6 @@ const MENU_ITEMS = {
   ],
 }
 
-const LOGO_BY_TYPE = {
-  school: { src: "/logo/sekolahku.png", alt: "Sekolahku" },
-  company: { src: "/logo/ruang-diri-logo.svg", alt: "Ruang Diri" },
-}
-
 const OrganizationSidebar = ({
   expanded,
   setExpanded,
@@ -45,7 +40,6 @@ const OrganizationSidebar = ({
   const isOpen = expanded || hovered
   const sidebarWidth = isOpen ? EXPANDED_W : COLLAPSED_W
   const menuItems = useMemo(() => MENU_ITEMS[organizationType] || MENU_ITEMS.school, [organizationType])
-  const logo = LOGO_BY_TYPE[organizationType] || LOGO_BY_TYPE.school
 
   const isActive = (path) => {
     if (path.includes("/dashboard")) return location.pathname.includes("/dashboard")
@@ -168,26 +162,39 @@ const OrganizationSidebar = ({
           {/* Logo */}
           <div
             style={{
-              padding: 24,
-              paddingBottom: 0,
+              padding: "24px 24px 0",
               display: "flex",
               alignItems: "center",
               justifyContent: isOpen ? "flex-start" : "center",
               flexShrink: 0,
-              minHeight: isOpen ? 89 : 60,
-              transition: "min-height 250ms ease",
+              minHeight: 60,
+              gap: 10,
             }}
           >
             <img
-              src={logo.src}
-              alt={logo.alt}
+              src="/logo/ruang-diri-logo-new.png"
+              alt="Ruang Diri"
               style={{
-                height: isOpen ? 72 : 36,
-                width: "auto",
+                height: 36,
+                width: 36,
                 objectFit: "contain",
-                transition: "height 250ms ease",
+                flexShrink: 0,
               }}
             />
+            {isOpen && (
+              <span
+                style={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: "#488BBE",
+                  whiteSpace: "nowrap",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  letterSpacing: "0.3px",
+                }}
+              >
+                Ruang Diri
+              </span>
+            )}
           </div>
 
           {/* Gap */}

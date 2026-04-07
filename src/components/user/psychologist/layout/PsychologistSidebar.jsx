@@ -159,21 +159,18 @@ const PsychologistSidebar = ({
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         {/* Logo Container */}
-        <div className={`relative ${isMobile ? "h-[60px]" : "h-[80px]"} flex-shrink-0 flex items-center justify-center`}>
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center"
-            animate={{ paddingTop: expanded || hovered ? (isMobile ? "8px" : "12px") : isMobile ? "4px" : "6px" }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
-            <motion.img src="/logo/ruang-diri-logo.svg" alt="Ruang Diri Logo"
-              animate={{
-                width: expanded || hovered ? (isMobile ? "60px" : "80px") : isMobile ? "24px" : "32px",
-                height: expanded || hovered ? (isMobile ? "53px" : "71px") : isMobile ? "24px" : "32px",
-              }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+        <div className={`relative h-[60px] flex-shrink-0 flex items-center ${expanded || hovered ? "justify-start px-6" : "justify-center"}`}>
+          <div className="flex items-center gap-2.5">
+            <img src="/logo/ruang-diri-logo-new.png" alt="Ruang Diri"
               className="object-contain"
+              style={{ height: 36, width: 36, flexShrink: 0 }}
             />
-          </motion.div>
+            {(expanded || hovered) && (
+              <span style={{ fontSize: 20, fontWeight: 600, color: "#488BBE", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.3px" }}>
+                Ruang Diri
+              </span>
+            )}
+          </div>
 
           <motion.div className="absolute right-0 top-1/2 transform -translate-y-1/2" onMouseEnter={() => setToggleHovered(true)} onMouseLeave={() => setToggleHovered(false)}>
             <button onClick={toggleSidebar}
