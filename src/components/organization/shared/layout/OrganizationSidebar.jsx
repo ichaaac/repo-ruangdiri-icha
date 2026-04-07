@@ -172,7 +172,7 @@ const OrganizationSidebar = ({
             }}
           >
             <img
-              src="/logo/ruang-diri-logo-new.png"
+              src="/logo/ruang-diri-icon.png"
               alt="Ruang Diri"
               style={{
                 height: 36,
