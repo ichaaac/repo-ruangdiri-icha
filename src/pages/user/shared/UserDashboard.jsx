@@ -1,69 +1,6 @@
-import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
-import { useAuth } from '../../../hooks/useAuth';
-
-// --- Mock Data ---
-
-const chartData = [
-  { month: 'Jan', value: 1.0 },
-  { month: 'Feb', value: 2.0 },
-  { month: 'Mar', value: 3.0 },
-  { month: 'Apr', value: 2.0 },
-  { month: 'May', value: 3.0 },
-  { month: 'Jun', value: 3.0 }
-];
-
-const upcomingSession = {
-  date: '29',
-  day: 'Kamis',
-  fullDate: 'Kamis, 29 Januari 2026',
-  time: '12.00 - 13.00 WIB',
-  title: 'Sesi Konseling Baru (Daring)',
-  platform: 'Zoom Meeting'
-};
-
-const counselingHistory = [
-  {
-    id: 1,
-    title: 'Riwayat Konseling',
-    counselor: 'Siti Dwita Anjani M.Psi, Psikolog',
-    platform: 'Zoom',
-    date: 'Senin, 14 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'cancelled',
-    statusText: 'Dibatalkan'
-  },
-  {
-    id: 2,
-    title: 'Riwayat Konseling',
-    counselor: 'Nasrul M.Psi.Msc., Psikolog',
-    platform: 'Zoom',
-    date: 'Jumat, 11 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'cancelled',
-    statusText: 'Dibatalkan'
-  },
-  {
-    id: 3,
-    title: 'Riwayat Konseling',
-    counselor: 'Bramantyo M.Psi, Psikolog',
-    platform: 'Jiwaku Sehat',
-    date: 'Senin, 14 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'completed',
-    statusText: 'Selesai'
-  },
-  {
-    id: 4,
-    title: 'Riwayat Konseling',
-    counselor: 'Nasrul M.Psi.Psikolog',
-    platform: 'Jiwaku Sehat',
-    date: 'Senin, 14 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'rescheduled',
-    statusText: 'Diubah'
-  }
-];
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
 
 // --- Chart Helpers ---
 
@@ -152,10 +89,10 @@ const HistoryIcon = ({ color = '#E8655B', size = 24 }) => (
   </svg>
 );
 
-const SectionHeader = ({ icon, title, subtitle, iconBg = '#ECF9FC', iconColor = '#E8655B', iconElement, className = 'mb-4' }) => (
+const SectionHeader = ({ title, subtitle, iconBg = '#ECF9FC', iconElement, className = 'mb-4' }) => (
   <div className={`flex items-center ${className}`} style={{ gap: 12 }}>
     <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 56, height: 56, borderRadius: 10, padding: 16, backgroundColor: iconBg }}>
-      {iconElement || <span className="material-icons" style={{ fontSize: 24, color: iconColor }}>{icon}</span>}
+      {iconElement}
     </div>
     <div>
       <h2 className="text-[#1F2937] font-semibold text-base leading-tight">{title}</h2>
@@ -215,11 +152,23 @@ const ProgressChartCard = ({ data }) => {
   );
 };
 
+const InfoRow = ({ icon, alt, title, subtitle }) => (
+  <div className="flex items-center" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: 12, gap: 12 }}>
+    <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 6, padding: 8, backgroundColor: '#DAF7FF' }}>
+      <img src={icon} alt={alt} width={20} height={20} />
+    </div>
+    <div>
+      <p className="text-sm text-[#1F2937] font-bold">{title}</p>
+      <p className="text-xs text-[#9CA3AF]">{subtitle}</p>
+    </div>
+  </div>
+);
+
 const CounselingSessionCard = ({ session }) => {
   if (!session) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
-        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" icon="calendar_month" iconColor="#E8655B" />
+        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
         <SectionEmptyState
           title="Belum ada sesi konseling"
           subtitle="Saat ini Anda belum ada jadwal sesi konseling"
@@ -231,7 +180,7 @@ const CounselingSessionCard = ({ session }) => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
-      <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" icon="calendar_month" iconColor="#E8655B" />
+      <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
 
       <img
         src="/dashboardruangdiri-1.png"
@@ -242,26 +191,9 @@ const CounselingSessionCard = ({ session }) => {
 
       <h3 className="text-[#1F2937] font-bold text-base mb-3">{session.title}</h3>
 
-      {/* Platform info row */}
-      <div className="flex items-center mb-2" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: 12, gap: 12 }}>
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 6, padding: 8, backgroundColor: '#DAF7FF' }}>
-          <img src="/icon/zoom.svg" alt="Zoom" width={20} height={20} />
-        </div>
-        <div>
-          <p className="text-sm text-[#1F2937] font-bold">{session.platform}</p>
-          <p className="text-xs text-[#9CA3AF]">Link akan dikirim via notifikasi</p>
-        </div>
-      </div>
-
-      {/* Date info row */}
-      <div className="flex items-center mb-5" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: 12, gap: 12 }}>
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 6, padding: 8, backgroundColor: '#DAF7FF' }}>
-          <img src="/icon/clock.svg" alt="Clock" width={20} height={20} />
-        </div>
-        <div>
-          <p className="text-sm text-[#1F2937] font-bold">{session.fullDate}</p>
-          <p className="text-xs text-[#9CA3AF]">{session.time}</p>
-        </div>
+      <div className="flex flex-col gap-2 mb-5">
+        <InfoRow icon="/icon/zoom.svg" alt="Platform" title={session.platform} subtitle="Link akan dikirim via notifikasi" />
+        <InfoRow icon="/icon/clock.svg" alt="Jadwal" title={session.fullDate} subtitle={session.time} />
       </div>
 
       <div className="flex gap-3">
@@ -356,15 +288,18 @@ const HistoryCard = ({ session }) => {
 // --- Main Component ---
 
 const UserDashboard = () => {
-  const { user } = useAuth?.() || { user: {} };
   const { userType = 'student' } = useOutletContext() || {};
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  const demoMode = searchParams.get('demo') || 'filled';
-  const progressData = demoMode === 'empty' ? [] : chartData;
-  const sessionData = demoMode === 'empty' ? null : upcomingSession;
-  const historyData = demoMode === 'empty' ? [] : counselingHistory;
+  const { chartData, upcomingSession, counselingHistory, isLoading } = useStudentDashboard(userType);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-white">
+        <span className="material-icons animate-spin text-blue-500 text-3xl">sync</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -473,8 +408,8 @@ const UserDashboard = () => {
 
         {/* Two-Column: Chart + Session */}
         <div className="flex flex-col xl:flex-row xl:items-stretch gap-6 mb-6">
-          <ProgressChartCard data={progressData} />
-          <CounselingSessionCard session={sessionData} />
+          <ProgressChartCard data={chartData} />
+          <CounselingSessionCard session={upcomingSession} />
         </div>
 
         {/* Riwayat Konseling */}
@@ -490,7 +425,7 @@ const UserDashboard = () => {
             </button>
           </div>
 
-          {historyData.length === 0 ? (
+          {counselingHistory.length === 0 ? (
             <SectionEmptyState
               title="Belum ada riwayat konseling"
               subtitle="Saat ini Anda belum melakukan sesi konseling"
@@ -498,7 +433,7 @@ const UserDashboard = () => {
             />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {historyData.map((session) => (
+              {counselingHistory.map((session) => (
                 <HistoryCard key={session.id} session={session} />
               ))}
             </div>
