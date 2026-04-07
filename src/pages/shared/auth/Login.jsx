@@ -3,8 +3,8 @@ import { useAuth } from "../../../hooks/useAuth";
 import { loginSchema } from "../../../schemas/validationSchema";
 
 const WaveTop = () => (
-  <svg className="absolute -left-[90px] -top-[29px] w-[1172px] h-[458px] pointer-events-none" viewBox="0 0 1172 458" fill="none">
-    <path d="M825.574 280.31C679.818 288.283 540.881 250.084 402.09 224.228C354.398 215.337 303.796 207.766 254.172 212.458C174.818 219.96 115.339 257.196 78.0215 296.554C40.7042 335.912 18.5425 379.491-23.993 417.197C-41.3108 432.557-63.7012 447.217-90 458V-29H1152.22C1181.12 35.9616 1182.28 105.225 1129.12 164.508C1072.16 228.002 953.388 273.325 825.574 280.31Z" fill="url(#waveTopGrad)" fillOpacity="0.3" />
+  <svg className="absolute top-0 left-0 pointer-events-none" width="1172" height="458" viewBox="0 0 1172 458" fill="none">
+    <path d="M825.574 280.31C679.818 288.283 540.881 250.084 402.09 224.228C354.398 215.337 303.796 207.766 254.172 212.458C174.818 219.96 115.339 257.196 78.0215 296.554C40.7042 335.912 18.5425 379.491 -23.993 417.197C-41.3108 432.557 -63.7012 447.217 -90 458V-29H1152.22C1181.12 35.9616 1182.28 105.225 1129.12 164.508C1072.16 228.002 953.388 273.325 825.574 280.31Z" fill="url(#waveTopGrad)" fillOpacity="0.3" />
     <defs>
       <linearGradient id="waveTopGrad" x1="1255" y1="114" x2="358.5" y2="63" gradientUnits="userSpaceOnUse">
         <stop stopColor="white" /><stop offset="0.898" stopColor="#74D2E8" />
@@ -14,8 +14,8 @@ const WaveTop = () => (
 );
 
 const WaveBottom = () => (
-  <svg className="absolute -right-[200px] -bottom-[50px] w-[1184px] h-[458px] pointer-events-none" viewBox="0 0 1184 458" fill="none">
-    <path d="M346.426 177.689C492.182 169.717 631.119 207.916 769.91 233.772C817.602 242.663 868.204 250.234 917.828 245.542C997.182 238.04 1056.66 200.804 1093.98 161.446C1131.3 122.088 1153.46 78.5092 1195.99 40.8032C1213.31 25.4432 1235.7 10.783 1262 0V487H19.7804C-9.11719 422.038-10.2814 352.775 42.8776 293.492C99.8411 229.998 218.612 184.675 346.426 177.689Z" fill="url(#waveBotGrad)" fillOpacity="0.3" />
+  <svg className="absolute bottom-0 right-0 pointer-events-none" width="1184" height="458" viewBox="0 0 1184 458" fill="none">
+    <path d="M346.426 177.689C492.182 169.717 631.119 207.916 769.91 233.772C817.602 242.663 868.204 250.234 917.828 245.542C997.182 238.04 1056.66 200.804 1093.98 161.446C1131.3 122.088 1153.46 78.5092 1195.99 40.8032C1213.31 25.4432 1235.7 10.783 1262 0V487H19.7804C-9.11719 422.038 -10.2814 352.775 42.8776 293.492C99.8411 229.998 218.612 184.675 346.426 177.689Z" fill="url(#waveBotGrad)" fillOpacity="0.3" />
     <defs>
       <linearGradient id="waveBotGrad" x1="44" y1="44" x2="813.5" y2="395" gradientUnits="userSpaceOnUse">
         <stop stopColor="white" /><stop offset="0.898" stopColor="#74D2E8" />
