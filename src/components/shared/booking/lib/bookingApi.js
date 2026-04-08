@@ -793,26 +793,71 @@ export const createBookingApi = (userType = "student") => {
     // Get user's booking history
     getBookingHistory: async (params = {}) => {
       try {
-        const response = await apiClient.get("/counselings/my-bookings", { params })
+        // Use the organization schedules endpoint (my-bookings doesn't exist)
+        const response = await apiClient.get("/counselings/schedules/organization", { params })
 
         if (response.data && response.data.status === "success") {
+          const rawData = Array.isArray(response.data.data) ? response.data.data : []
+
+          // Get current user ID from JWT token
+          const token = localStorage.getItem("token")
+          let currentUserId = null
+          try {
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]))
+              currentUserId = payload.sub
+            }
+          } catch {}
+
+          // Filter sessions that include the current user (as student/employee)
+          const userSessions = currentUserId
+            ? rawData.filter(session =>
+                session.users?.some(u => u.id === currentUserId && u.role !== "psychologist")
+              )
+            : rawData
+
+          // Transform to the format expected by dashboard
+          const transformed = userSessions.map(session => {
+            const startDt = new Date(session.startDateTime)
+            const dateStr = startDt.toISOString().split("T")[0]
+            const hours = String(startDt.getHours()).padStart(2, "0")
+            const minutes = String(startDt.getMinutes()).padStart(2, "0")
+            const startTime = `${hours}:${minutes}`
+            // Assume 1 hour sessions
+            const endDt = new Date(startDt.getTime() + 60 * 60 * 1000)
+            const endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`
+
+            // Find psychologist in users
+            const psychologist = session.users?.find(u => u.role === "psychologist")
+
+            // Determine method from location
+            const locationToMethod = { online: "online", offline: "offline", chat: "chat" }
+            const method = locationToMethod[session.location] || session.location || "online"
+
+            // Determine status based on date
+            const now = new Date()
+            const status = startDt > now ? "scheduled" : "completed"
+
+            return {
+              id: session.id,
+              date: dateStr,
+              startTime,
+              endTime,
+              method,
+              methodDisplay: getCounselingMethodDisplay(method),
+              psychologistName: psychologist?.fullName || "-",
+              psychologist: psychologist || null,
+              status,
+              statusDisplay: status === "scheduled" ? "Terjadwal" : "Selesai",
+              dateTimeFormatted: formatBookingDateTime(dateStr, startTime, endTime),
+            }
+          })
+
           return {
             ...response,
             data: {
               ...response.data,
-              data: response.data.data.map((booking) => ({
-                ...booking,
-                methodDisplay: getCounselingMethodDisplay(booking.method),
-                dateTimeFormatted: formatBookingDateTime(booking.date, booking.startTime, booking.endTime),
-                statusDisplay:
-                  booking.status === "confirmed"
-                    ? "Terkonfirmasi"
-                    : booking.status === "pending"
-                      ? "Menunggu"
-                      : booking.status === "cancelled"
-                        ? "Dibatalkan"
-                        : booking.status,
-              })),
+              data: transformed,
             },
           }
         }
