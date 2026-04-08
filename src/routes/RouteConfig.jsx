@@ -265,6 +265,14 @@ const routes = [
         path: "notifications",
         element: <NotificationPage />,
       },
+      {
+        path: "booking-session",
+        element: <BookingMethodPage />,
+      },
+      {
+        path: "booking-chat",
+        element: <BookingChatPage />,
+      },
     ],
   },
 
@@ -376,6 +384,14 @@ const routes = [
       {
         path: "notifications",
         element: <NotificationPage />,
+      },
+      {
+        path: "booking-session",
+        element: <BookingMethodPage />,
+      },
+      {
+        path: "booking-chat",
+        element: <BookingChatPage />,
       },
     ],
   },
