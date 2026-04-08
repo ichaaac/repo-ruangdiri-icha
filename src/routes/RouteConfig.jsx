@@ -113,7 +113,7 @@ const RoleBasedNotificationsRedirect = () => {
 
   if (role === "student") return <Navigate to="/user/student/notifications" replace />
   if (role === "employee") return <Navigate to="/user/employee/notifications" replace />
-  if (role === "psychologist") return <Navigate to="/user/psychologist/dashboard" replace />
+  if (role === "psychologist") return <Navigate to="/user/psychologist/schedule" replace />
   if (role === "client") return <Navigate to="/user/client/notifications" replace />
   if (org === "school") return <Navigate to="/organization/school/notifications" replace />
   if (org === "company") return <Navigate to="/organization/company/notifications" replace />
@@ -289,7 +289,7 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="dashboard" replace />,
+        element: <Navigate to="schedule" replace />,
       },
       {
         path: "dashboard",
@@ -313,7 +313,7 @@ const routes = [
           <SchedulePage
             type="psychologist"
             className="pb-6"
-            showTopRightControl={true}
+            showTopRightControl={false}
           />
         ),
       },
