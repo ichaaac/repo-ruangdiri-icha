@@ -49,6 +49,11 @@ const StudentSidebar = ({
   const isOpen = expanded || hovered
   const sidebarWidth = isOpen ? EXPANDED_W : COLLAPSED_W
 
+  // Auto-open section dropdown when sidebar opens
+  useEffect(() => {
+    if (isOpen) setSectionOpen(true)
+  }, [isOpen])
+
   const menuItems = useMemo(() => MENU_ITEMS_BY_ROLE[userType] || MENU_ITEMS_BY_ROLE.student, [userType])
 
   const displayUnreadCount = useMemo(() => {
