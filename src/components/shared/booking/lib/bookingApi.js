@@ -790,7 +790,9 @@ export const createBookingApi = (userType = "student") => {
     getBookingHistory: async (params = {}) => {
       try {
         // Use the organization schedules endpoint (my-bookings doesn't exist)
-        const response = await apiClient.get("/counselings/schedules/organization", { params })
+        const response = await apiClient.get("/counselings/schedules/organization", {
+          params: { limit: 100, ...params },
+        })
 
         if (response.data && response.data.status === "success") {
           const rawData = Array.isArray(response.data.data) ? response.data.data : []
