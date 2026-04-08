@@ -179,6 +179,8 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
   const [year, setYear] = useState(selectedDate ? parseInt(selectedDate.split('-')[0]) : now.getFullYear());
   const [temp, setTemp] = useState(selectedDate || '');
   const [hovered, setHovered] = useState('');
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
 
   const days = getDaysInMonth(year, month);
   const start = getStartDay(year, month);
@@ -192,6 +194,9 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
   for (let i = 1; i <= days; i++) cells.push({ d: i, cur: true });
   const rem = 7 - (cells.length % 7);
   if (rem < 7) for (let i = 1; i <= rem; i++) cells.push({ d: i, cur: false });
+
+  const yearOptions = [];
+  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 2; y++) yearOptions.push(y);
 
   return (
     <div style={{
@@ -207,23 +212,81 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
         borderRadius: '16px 16px 0 0',
         padding: '20px 24px 12px',
       }}>
-        {/* Month & Year - centered, dropdown disabled */}
+        {/* Month & Year - centered, clickable dropdowns */}
         <div style={{
           display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12,
-          marginBottom: 16,
+          marginBottom: 16, position: 'relative',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
-              {MONTHS_EN[month]}
-            </span>
-            <DropdownArrow color="#E8655B" size={10} />
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => { setShowMonthPicker(p => !p); setShowYearPicker(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
+                {MONTHS_EN[month]}
+              </span>
+              <DropdownArrow color="#E8655B" size={10} />
+            </div>
+            {showMonthPicker && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                marginTop: 4, zIndex: 60, backgroundColor: '#FFFFFF', borderRadius: 12,
+                boxShadow: '0px 8px 24px rgba(16, 24, 40, 0.15)', padding: 8,
+                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, width: 220,
+              }}>
+                {MONTHS_EN.map((m, i) => (
+                  <div
+                    key={m}
+                    onClick={() => { setMonth(i); setShowMonthPicker(false); }}
+                    style={{
+                      padding: '8px 4px', borderRadius: 8, textAlign: 'center',
+                      fontSize: 13, fontWeight: i === month ? 600 : 400, cursor: 'pointer',
+                      backgroundColor: i === month ? '#42C1E3' : 'transparent',
+                      color: i === month ? '#FFFFFF' : '#1D2939',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={e => { if (i !== month) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
+                    onMouseLeave={e => { if (i !== month) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >{m.slice(0, 3)}</div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
-              {year}
-            </span>
-            <DropdownArrow color="#E8655B" size={10} />
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => { setShowYearPicker(p => !p); setShowMonthPicker(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
+                {year}
+              </span>
+              <DropdownArrow color="#E8655B" size={10} />
+            </div>
+            {showYearPicker && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                marginTop: 4, zIndex: 60, backgroundColor: '#FFFFFF', borderRadius: 12,
+                boxShadow: '0px 8px 24px rgba(16, 24, 40, 0.15)', padding: 8,
+                display: 'flex', flexDirection: 'column', gap: 2, width: 100,
+              }}>
+                {yearOptions.map(y => (
+                  <div
+                    key={y}
+                    onClick={() => { setYear(y); setShowYearPicker(false); }}
+                    style={{
+                      padding: '8px 12px', borderRadius: 8, textAlign: 'center',
+                      fontSize: 14, fontWeight: y === year ? 600 : 400, cursor: 'pointer',
+                      backgroundColor: y === year ? '#42C1E3' : 'transparent',
+                      color: y === year ? '#FFFFFF' : '#1D2939',
+                      transition: 'background-color 0.15s',
+                    }}
+                    onMouseEnter={e => { if (y !== year) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
+                    onMouseLeave={e => { if (y !== year) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >{y}</div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
