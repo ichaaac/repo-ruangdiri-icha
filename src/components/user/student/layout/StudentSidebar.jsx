@@ -280,7 +280,7 @@ const StudentSidebar = ({
 
           {/* ── Menu items ── */}
           <AnimatePresence initial={false}>
-            {(sectionOpen || !isOpen) && (
+            {sectionOpen && (
               <motion.div
                 key="menu-list"
                 initial={{ height: 0, opacity: 0 }}
