@@ -9,7 +9,7 @@ import ChatWidget from "../../../shared/chat-widget/ChatWidget";
 import TopRightControl from "../../../shared/layout/TopRightControl";
 import DevAuthGate from "../../../shared/dev-auth/DevAuthGate";
 
-const STUDENT_SIDEBAR_ROLES = ["student", "employee", "client"];
+const STUDENT_SIDEBAR_ROLES = ["student", "employee", "client", "psychologist"];
 
 const UserLayout = ({ 
   userType = "student", // "student" atau "employee"

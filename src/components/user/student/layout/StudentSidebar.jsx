@@ -19,12 +19,18 @@ const MENU_ITEMS_BY_ROLE = {
     { label: "Dashboard", icon: "dashboard_customize", path: "/user/client/dashboard" },
     { label: "Pesan", icon: "chat_bubble_outline", path: "/user/client/chat", hasUnreadBadge: true },
   ],
+  psychologist: [
+    { label: "Dashboard", icon: "dashboard_customize", path: "/user/psychologist/dashboard" },
+    { label: "Schedule", icon: "event_available", path: "/user/psychologist/schedule" },
+    { label: "Pesan", icon: "chat_bubble_outline", path: "/user/psychologist/chat", hasUnreadBadge: true },
+  ],
 }
 
 const SECTION_LABEL_BY_ROLE = {
   student: "Asesmen Ruang Diri",
   employee: "Asesmen Ruang Diri",
   client: "Asesmen Ruang Diri",
+  psychologist: "Konseling",
 }
 
 const StudentSidebar = ({
