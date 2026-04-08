@@ -65,7 +65,7 @@ const COUNSELING_METHODS = [
     hoverColor: '#155DFC',
     chipIconType: 'clock',
     titleIconType: 'location',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'daring',
@@ -78,7 +78,7 @@ const COUNSELING_METHODS = [
     hoverColor: '#F43F5E',
     chipIconType: 'video',
     titleIconType: 'video',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'chat',

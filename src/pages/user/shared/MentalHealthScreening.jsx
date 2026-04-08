@@ -1,23 +1,28 @@
 import React, { useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import ScreeningWelcomePage from '@/components/shared/screening/ScreeningWelcomePage';
 import ScreeningAssessment from '@/components/shared/screening/ScreeningAssesment';
 
 function MentalHealthScreeningContainer() {
-  // State untuk mengontrol tampilan antara welcome page dan assessment
   const [isStarted, setIsStarted] = useState(false);
+  const navigate = useNavigate();
+  const { userType } = useOutletContext?.() || {};
 
-  // Fungsi untuk memulai assessment, akan dipicu dari welcome page
   const handleStartAssessment = () => {
     setIsStarted(true);
+  };
+
+  const handleComplete = (result, action) => {
+    if (action === "booking") {
+      navigate(`/user/${userType || 'employee'}/booking-session`);
+    }
   };
 
   return (
     <>
       {!isStarted ? (
-        // Tampilkan halaman welcome jika assessment belum dimulai
-        <ScreeningWelcomePage onStart={handleStartAssessment} />
+        <ScreeningWelcomePage onStart={handleStartAssessment} onComplete={handleComplete} />
       ) : (
-        // Tampilkan halaman assessment jika sudah dimulai
         <ScreeningAssessment />
       )}
     </>
