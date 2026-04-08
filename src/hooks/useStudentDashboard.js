@@ -41,8 +41,22 @@ const formatTime = (timeStr) => {
 };
 
 const transformScreeningsToChart = (screenings) => {
-  if (!screenings?.length) return [];
+  // Generate last 6 months (including current)
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${d.getFullYear()}-${pad(d.getMonth())}`,
+      month: MONTH_NAMES[d.getMonth()],
+    });
+  }
 
+  if (!screenings?.length) {
+    return months.map(m => ({ month: m.month, value: null }));
+  }
+
+  // Group screenings by month, keep latest per month
   const grouped = {};
   for (const s of screenings) {
     const d = new Date(s.date || s.createdAt);
@@ -52,16 +66,15 @@ const transformScreeningsToChart = (screenings) => {
     }
   }
 
-  return Object.entries(grouped)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-6)
-    .map(([key, s]) => {
-      const risk = s.screeningStatus || s.overallRisk || s.assessment?.overallRisk || s.riskLevel || s.assessment?.riskLevel;
-      return {
-        month: MONTH_NAMES[parseInt(key.split("-")[1], 10)],
-        value: RISK_VALUE_MAP[risk] ?? STATUS_VALUE_MAP[risk] ?? 2,
-      };
-    });
+  return months.map(m => {
+    const s = grouped[m.key];
+    if (!s) return { month: m.month, value: null };
+    const risk = s.screeningStatus || s.overallRisk || s.assessment?.overallRisk || s.riskLevel || s.assessment?.riskLevel;
+    return {
+      month: m.month,
+      value: RISK_VALUE_MAP[risk] ?? STATUS_VALUE_MAP[risk] ?? 2,
+    };
+  });
 };
 
 const transformToUpcomingSession = (bookings) => {

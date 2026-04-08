@@ -5,7 +5,8 @@ import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
 // --- Chart Helpers ---
 
 const CustomDot = (props) => {
-  const { cx, cy } = props;
+  const { cx, cy, payload } = props;
+  if (payload?.value === null || payload?.value === undefined) return null;
   return <circle cx={cx} cy={cy} r={4} fill="#4B9BFF" stroke="#FFFFFF" strokeWidth={2} />;
 };
 
@@ -102,14 +103,14 @@ const SectionHeader = ({ title, subtitle, iconBg = '#ECF9FC', iconElement, class
 );
 
 const ProgressChartCard = ({ data }) => {
-  const isEmpty = !data || data.length === 0;
+  const hasData = data?.some(d => d.value !== null && d.value !== undefined);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1 min-w-0 flex flex-col">
       <SectionHeader title="Grafik Progress" subtitle="Perkembangan kesehatan mental Anda" iconBg="#ECF9FC" iconElement={<ChartIcon color="#E8655B" size={24} />} />
       <div className="flex-1 min-h-[200px] relative">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={isEmpty ? emptyChartData : data} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
+          <ComposedChart data={data?.length ? data : emptyChartData} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -130,11 +131,11 @@ const ProgressChartCard = ({ data }) => {
               width={80}
               tick={<CustomYAxisTick />}
             />
-            {!isEmpty && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" />}
-            {!isEmpty && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} />}
+            {hasData && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" connectNulls />}
+            {hasData && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} connectNulls />}
           </ComposedChart>
         </ResponsiveContainer>
-        {isEmpty && (
+        {!hasData && (
           <div className="absolute inset-0 flex items-center justify-center" style={{ left: 80, right: 20 }}>
             <div className="flex flex-col items-center" style={{ backgroundColor: '#FDFEFF', border: '1px solid #ECEEF0', borderRadius: 12, padding: 20, gap: 16 }}>
               <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 60, backgroundColor: '#F6F6F6', padding: 12 }}>
