@@ -285,25 +285,26 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
       }}>
         {cells.map((c, i) => {
           const ds = c.cur ? `${year}-${String(month + 1).padStart(2, '0')}-${String(c.d).padStart(2, '0')}` : '';
+          const isPast = c.cur && new Date(year, month, c.d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
           const sel = c.cur && ds === temp;
-          const isHovered = c.cur && ds === hovered && !sel;
+          const isHovered = c.cur && !isPast && ds === hovered && !sel;
 
           return (
             <div
               key={i}
-              onClick={() => c.cur && setTemp(ds)}
-              onMouseEnter={() => c.cur && setHovered(ds)}
+              onClick={() => c.cur && !isPast && setTemp(ds)}
+              onMouseEnter={() => c.cur && !isPast && setHovered(ds)}
               onMouseLeave={() => setHovered('')}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: 36, cursor: c.cur ? 'pointer' : 'default',
+                height: 36, cursor: c.cur && !isPast ? 'pointer' : 'default',
               }}
             >
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 backgroundColor: sel ? '#42C1E3' : isHovered ? '#E0F7FD' : 'transparent',
-                color: sel ? '#FFFFFF' : !c.cur ? '#D0D5DD' : '#1D2939',
+                color: sel ? '#FFFFFF' : (!c.cur || isPast) ? '#D0D5DD' : '#1D2939',
                 fontSize: 14, fontWeight: 400,
                 transition: 'background-color 0.15s, color 0.15s',
               }}>
