@@ -135,9 +135,9 @@ const UserSidebar = ({
           disabled: false
         },
         {
-          label: "Profil",
-          icon: "person",
-          path: `/user/psychologist/profile`,
+          label: "Schedule",
+          icon: "event_available",
+          path: `/user/psychologist/schedule`,
           disabled: false
         },
         {
@@ -146,12 +146,6 @@ const UserSidebar = ({
           path: `/user/psychologist/chat`,
           disabled: false,
           hasUnreadBadge: true
-        },
-        {
-          label: "Schedule",
-          icon: "schedule",
-          path: `/user/psychologist/schedule`,
-          disabled: false
         }
       ]
     };
@@ -449,35 +443,6 @@ const UserSidebar = ({
               </motion.div>
             ))}
           </div>
-
-          {/* Coming Soon Notice for Psychologist */}
-          {userType === "psychologist" && (
-            <motion.div
-              className={`${isMobile ? "px-3 mt-6" : "px-5 mt-8"} overflow-hidden`}
-              animate={{ 
-                opacity: expanded || hovered ? 1 : 0,
-                height: expanded || hovered ? "auto" : 0
-              }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <div className="flex items-start gap-2">
-                  <span className="material-icons text-blue-600 text-sm mt-0.5">info</span>
-                  <div>
-                    <h4 className={`font-semibold text-blue-800 ${isMobile ? "text-xs" : "text-sm"} mb-1`}>
-                      Fitur Mendatang
-                    </h4>
-                    <p className={`text-blue-700 ${isMobile ? "text-xs" : "text-sm"} mb-2`}>
-                      Dashboard dan tools manajemen klien akan segera tersedia.
-                    </p>
-                    <div className="text-xs text-blue-600">
-                      Coming Q2 2025
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
         </div>
 
         <div className="flex-1 overflow-hidden"></div>
