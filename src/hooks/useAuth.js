@@ -395,8 +395,8 @@ const getDashboardPath = (userData) => {
       return '/user/employee/screening';
 
     case 'psychologist':
-      console.log('✅ Psychologist → /user/psychologist/chat');
-      return '/user/psychologist/chat';
+      console.log('✅ Psychologist → /user/psychologist/schedule');
+      return '/user/psychologist/schedule';
 
     case 'client':
       console.log('✅ Client → /user/client/dashboard');
