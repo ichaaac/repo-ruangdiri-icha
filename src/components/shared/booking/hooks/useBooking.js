@@ -656,18 +656,12 @@ export const useBooking = (userType = "student") => {
       console.warn("⚠️ Unknown psychologist ID format:", bookingData.psychologistId)
     }
 
-    // ✅ VALIDATION: Check if psychologistId exists
+    // If psychologistId is missing, try fallback from availablePsychologistIds
     if (!bookingData.psychologistId) {
-      console.error("❌ psychologistId is missing!")
-      console.error("Selected time slot:", selectedTimeSlot)
-
-      // Try to get from availablePsychologistIds array
       if (selectedTimeSlot.availablePsychologistIds && selectedTimeSlot.availablePsychologistIds.length > 0) {
         bookingData.psychologistId = selectedTimeSlot.availablePsychologistIds[0]
-        console.warn("⚠️ Using psychologistId from availablePsychologistIds:", bookingData.psychologistId)
-      } else {
-        throw new Error("Psychologist ID is missing. Please select a different time slot.")
       }
+      // If still missing, backend will auto-assign
     }
 
     console.log("Final booking data (after validation):", bookingData)

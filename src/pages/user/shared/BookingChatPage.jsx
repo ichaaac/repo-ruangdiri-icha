@@ -510,13 +510,6 @@ const BookingChatPage = () => {
   const handleSubmit = async () => {
     if (!isFormValid) return;
 
-    // Validate psychologistId before submit
-    if (!selectedTimeSlot?.psychologistId &&
-        (!selectedTimeSlot?.availablePsychologistIds || selectedTimeSlot.availablePsychologistIds.length === 0)) {
-      console.error('Psychologist ID is missing from selected time slot');
-      return;
-    }
-
     try {
       const result = await booking.handleBookingSubmit();
 

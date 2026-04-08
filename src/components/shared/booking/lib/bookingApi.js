@@ -680,14 +680,6 @@ export const createBookingApi = (userType = "student") => {
           validationErrors.push("End time is required")
         }
 
-        if (!bookingData.psychologistName) {
-          validationErrors.push("Psychologist name is required")
-        }
-
-        if (!bookingData.psychologistId) {
-          validationErrors.push("Psychologist ID is required")
-        }
-
         if (validationErrors.length > 0) {
           throw new Error(`Validation failed: ${validationErrors.join(", ")}`)
         }
@@ -706,10 +698,14 @@ export const createBookingApi = (userType = "student") => {
           method: bookingData.method, // 'online', 'offline', 'chat'
           notes: bookingData.notes || "",
           date: bookingData.date,
-          startTime: formatTimeWithSeconds(bookingData.startTime), // ✅ FIXED: Add :00 if missing
-          endTime: formatTimeWithSeconds(bookingData.endTime), // ✅ FIXED: Add :00 if missing
-          psychologistId: bookingData.psychologistId, // ✅ FIXED: Send psychologistId to backend
+          startTime: formatTimeWithSeconds(bookingData.startTime),
+          endTime: formatTimeWithSeconds(bookingData.endTime),
           timezone: bookingData.timezone || "Asia/Jakarta",
+        }
+
+        // Only include psychologistId if available (backend can auto-assign)
+        if (bookingData.psychologistId) {
+          transformedData.psychologistId = bookingData.psychologistId
         }
 
         // Add location for offline bookings
