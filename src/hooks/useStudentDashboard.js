@@ -5,6 +5,13 @@ import { createBookingApi } from "@/components/shared/booking/lib/bookingApi";
 
 const STATUS_VALUE_MAP = { stable: 3, monitored: 2, at_risk: 1 };
 
+// Map Indonesian risk labels from API to chart values
+const RISK_VALUE_MAP = {
+  "Stabil": 3, "Ringan": 3, "stable": 3, "low": 3,
+  "Sedang": 2, "monitored": 2, "medium": 2,
+  "Mengkhawatirkan": 1, "Sangat Mengkhawatirkan": 1, "Berisiko": 1, "at_risk": 1, "high": 1, "critical": 1,
+};
+
 const STATUS_TEXT_MAP = {
   cancelled: "Dibatalkan",
   completed: "Selesai",
@@ -48,10 +55,13 @@ const transformScreeningsToChart = (screenings) => {
   return Object.entries(grouped)
     .sort(([a], [b]) => a.localeCompare(b))
     .slice(-6)
-    .map(([key, s]) => ({
-      month: MONTH_NAMES[parseInt(key.split("-")[1], 10)],
-      value: STATUS_VALUE_MAP[s.screeningStatus] ?? 2,
-    }));
+    .map(([key, s]) => {
+      const risk = s.screeningStatus || s.overallRisk || s.assessment?.overallRisk || s.riskLevel || s.assessment?.riskLevel;
+      return {
+        month: MONTH_NAMES[parseInt(key.split("-")[1], 10)],
+        value: RISK_VALUE_MAP[risk] ?? STATUS_VALUE_MAP[risk] ?? 2,
+      };
+    });
 };
 
 const transformToUpcomingSession = (bookings) => {
@@ -128,7 +138,23 @@ export const useStudentDashboard = (userType = "student") => {
     retry: 1,
   });
 
-  const chartData = useMemo(() => transformScreeningsToChart(screeningsQuery.data?.data || []), [screeningsQuery.data]);
+  const chartData = useMemo(() => {
+    const raw = screeningsQuery.data;
+    // Handle various API response structures
+    let screenings = [];
+    if (Array.isArray(raw)) {
+      screenings = raw;
+    } else if (raw?.data) {
+      if (Array.isArray(raw.data)) {
+        screenings = raw.data;
+      } else if (Array.isArray(raw.data?.data)) {
+        screenings = raw.data.data;
+      } else if (Array.isArray(raw.data?.screenings)) {
+        screenings = raw.data.screenings;
+      }
+    }
+    return transformScreeningsToChart(screenings);
+  }, [screeningsQuery.data]);
   const upcomingSession = useMemo(() => transformToUpcomingSession(bookingsQuery.data?.data?.data || []), [bookingsQuery.data]);
   const counselingHistory = useMemo(() => transformToHistory(bookingsQuery.data?.data?.data || []), [bookingsQuery.data]);
 
