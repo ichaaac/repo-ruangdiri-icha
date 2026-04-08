@@ -10,7 +10,6 @@ import SchoolLayout from "../components/organization/school/layout/SchoolLayout"
 import UserLayout from "../components/user/shared/layout/UserLayout"
 
 // === PUBLIC PAGES ===
-import Homepage from "../pages/shared/HomePage"
 import Login from "../pages/shared/auth/Login"
 import ForgotPassword from "../pages/shared/auth/ForgotPassword"
 import ResetPassword from "../pages/shared/auth/ResetPassword"
@@ -129,7 +128,7 @@ const routes = [
   // ==========================================
   {
     path: "/",
-    element: <Homepage />,
+    element: <Navigate to="/login" replace />,
   },
   {
     path: "/login",
