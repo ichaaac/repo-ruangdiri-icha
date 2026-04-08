@@ -115,16 +115,16 @@ export const useStudentDashboard = (userType = "student") => {
   const screeningsQuery = useQuery({
     queryKey: ["studentDashboard", "screenings"],
     queryFn: () => screeningApi.getMyScreenings({ limit: 100 }),
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: "always",
     retry: 1,
   });
 
   const bookingsQuery = useQuery({
     queryKey: ["studentDashboard", "bookings"],
     queryFn: () => bookingApi.getBookingHistory(),
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnMount: "always",
     retry: 1,
   });
 

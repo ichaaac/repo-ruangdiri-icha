@@ -53,6 +53,7 @@ export const useScreening = () => {
     mutationFn: ({ answers, notes }) => screeningApi.submitScreening(answers, notes),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["myScreenings"] })
+      queryClient.invalidateQueries({ queryKey: ["studentDashboard", "screenings"] })
       return data
     },
     onError: (error) => {
