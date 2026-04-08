@@ -107,6 +107,9 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
   }
 
   const prevMonth = () => {
+    const now = new Date()
+    const isCurrentMonth = currentMonth.getFullYear() === now.getFullYear() && currentMonth.getMonth() === now.getMonth()
+    if (isCurrentMonth) return
     const newMonth = new Date(currentMonth)
     newMonth.setMonth(currentMonth.getMonth() - 1)
     setCurrentMonth(newMonth)
@@ -156,26 +159,34 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
             </button>
             {showMonthPicker && (
               <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 z-[60] bg-white rounded-xl shadow-lg border border-gray-100 p-2 grid grid-cols-3 gap-1 w-[220px]">
-                {monthNames.map((m, i) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const d = new Date(currentMonth)
-                      d.setMonth(i)
-                      setCurrentMonth(d)
-                      setShowMonthPicker(false)
-                    }}
-                    className={`px-2 py-1.5 rounded-lg text-xs text-center transition-colors ${
-                      i === currentMonth.getMonth()
-                        ? 'bg-[#42C1E3] text-white font-semibold'
-                        : 'text-gray-700 hover:bg-[#E0F7FD]'
-                    }`}
-                  >
-                    {m.slice(0, 3)}
-                  </button>
-                ))}
+                {monthNames.map((m, i) => {
+                  const now = new Date()
+                  const isPastMonth = currentMonth.getFullYear() === now.getFullYear() && i < now.getMonth()
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={isPastMonth}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (isPastMonth) return
+                        const d = new Date(currentMonth)
+                        d.setMonth(i)
+                        setCurrentMonth(d)
+                        setShowMonthPicker(false)
+                      }}
+                      className={`px-2 py-1.5 rounded-lg text-xs text-center transition-colors ${
+                        isPastMonth
+                          ? 'text-gray-300 cursor-not-allowed'
+                          : i === currentMonth.getMonth()
+                            ? 'bg-[#42C1E3] text-white font-semibold'
+                            : 'text-gray-700 hover:bg-[#E0F7FD]'
+                      }`}
+                    >
+                      {m.slice(0, 3)}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

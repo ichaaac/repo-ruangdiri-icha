@@ -185,7 +185,11 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
   const start = getStartDay(year, month);
   const prevDays = getDaysInMonth(year, month === 0 ? 11 : month - 1);
 
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const prevMonth = () => {
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+    if (isCurrentMonth) return;
+    if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
+  };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
   const cells = [];
@@ -233,21 +237,25 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
                 boxShadow: '0px 8px 24px rgba(16, 24, 40, 0.15)', padding: 8,
                 display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, width: 220,
               }}>
-                {MONTHS_EN.map((m, i) => (
-                  <div
-                    key={m}
-                    onClick={() => { setMonth(i); setShowMonthPicker(false); }}
-                    style={{
-                      padding: '8px 4px', borderRadius: 8, textAlign: 'center',
-                      fontSize: 13, fontWeight: i === month ? 600 : 400, cursor: 'pointer',
-                      backgroundColor: i === month ? '#42C1E3' : 'transparent',
-                      color: i === month ? '#FFFFFF' : '#1D2939',
-                      transition: 'background-color 0.15s',
-                    }}
-                    onMouseEnter={e => { if (i !== month) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
-                    onMouseLeave={e => { if (i !== month) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >{m.slice(0, 3)}</div>
-                ))}
+                {MONTHS_EN.map((m, i) => {
+                  const isPastMonth = year === now.getFullYear() && i < now.getMonth();
+                  return (
+                    <div
+                      key={m}
+                      onClick={() => { if (!isPastMonth) { setMonth(i); setShowMonthPicker(false); } }}
+                      style={{
+                        padding: '8px 4px', borderRadius: 8, textAlign: 'center',
+                        fontSize: 13, fontWeight: i === month ? 600 : 400,
+                        cursor: isPastMonth ? 'not-allowed' : 'pointer',
+                        backgroundColor: i === month ? '#42C1E3' : 'transparent',
+                        color: isPastMonth ? '#D0D5DD' : i === month ? '#FFFFFF' : '#1D2939',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={e => { if (i !== month && !isPastMonth) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
+                      onMouseLeave={e => { if (i !== month) e.currentTarget.style.backgroundColor = i === month ? '#42C1E3' : 'transparent'; }}
+                    >{m.slice(0, 3)}</div>
+                  );
+                })}
               </div>
             )}
           </div>
