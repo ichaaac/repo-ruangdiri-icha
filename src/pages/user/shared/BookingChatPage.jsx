@@ -180,7 +180,6 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
   const [temp, setTemp] = useState(selectedDate || '');
   const [hovered, setHovered] = useState('');
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [showYearPicker, setShowYearPicker] = useState(false);
 
   const days = getDaysInMonth(year, month);
   const start = getStartDay(year, month);
@@ -219,7 +218,7 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
         }}>
           <div style={{ position: 'relative' }}>
             <div
-              onClick={() => { setShowMonthPicker(p => !p); setShowYearPicker(false); }}
+              onClick={() => { setShowMonthPicker(p => !p); }}
               style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
             >
               <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
@@ -253,41 +252,9 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
             )}
           </div>
 
-          <div style={{ position: 'relative' }}>
-            <div
-              onClick={() => { setShowYearPicker(p => !p); setShowMonthPicker(false); }}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
-            >
-              <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
-                {year}
-              </span>
-              <DropdownArrow color="#E8655B" size={10} />
-            </div>
-            {showYearPicker && (
-              <div style={{
-                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
-                marginTop: 4, zIndex: 60, backgroundColor: '#FFFFFF', borderRadius: 12,
-                boxShadow: '0px 8px 24px rgba(16, 24, 40, 0.15)', padding: 8,
-                display: 'flex', flexDirection: 'column', gap: 2, width: 100,
-              }}>
-                {yearOptions.map(y => (
-                  <div
-                    key={y}
-                    onClick={() => { setYear(y); setShowYearPicker(false); }}
-                    style={{
-                      padding: '8px 12px', borderRadius: 8, textAlign: 'center',
-                      fontSize: 14, fontWeight: y === year ? 600 : 400, cursor: 'pointer',
-                      backgroundColor: y === year ? '#42C1E3' : 'transparent',
-                      color: y === year ? '#FFFFFF' : '#1D2939',
-                      transition: 'background-color 0.15s',
-                    }}
-                    onMouseEnter={e => { if (y !== year) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
-                    onMouseLeave={e => { if (y !== year) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                  >{y}</div>
-                ))}
-              </div>
-            )}
-          </div>
+          <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
+            {year}
+          </span>
         </div>
 
         {/* Day names - inside blue header */}

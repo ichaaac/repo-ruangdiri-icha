@@ -21,7 +21,6 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [position, setPosition] = useState({ top: true, left: 0 })
   const [showMonthPicker, setShowMonthPicker] = useState(false)
-  const [showYearPicker, setShowYearPicker] = useState(false)
   const calendarRef = useRef(null)
 
   const monthNames = [
@@ -149,7 +148,7 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
           <div className="relative">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setShowMonthPicker(p => !p); setShowYearPicker(false); }}
+              onClick={(e) => { e.stopPropagation(); setShowMonthPicker(p => !p); }}
               className="text-sm font-semibold text-gray-800 hover:text-[#42C1E3] transition-colors flex items-center gap-1"
             >
               {monthNames[currentMonth.getMonth()]}
@@ -181,40 +180,9 @@ const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onC
             )}
           </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setShowYearPicker(p => !p); setShowMonthPicker(false); }}
-              className="text-sm font-semibold text-gray-800 hover:text-[#42C1E3] transition-colors flex items-center gap-1"
-            >
-              {currentMonth.getFullYear()}
-              <span className="material-icons text-xs">expand_more</span>
-            </button>
-            {showYearPicker && (
-              <div className="absolute top-full mt-1 left-1/2 -translate-x-1/2 z-[60] bg-white rounded-xl shadow-lg border border-gray-100 p-2 flex flex-col gap-1 w-[90px]">
-                {[currentMonth.getFullYear() - 1, currentMonth.getFullYear(), currentMonth.getFullYear() + 1, currentMonth.getFullYear() + 2].map(y => (
-                  <button
-                    key={y}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      const d = new Date(currentMonth)
-                      d.setFullYear(y)
-                      setCurrentMonth(d)
-                      setShowYearPicker(false)
-                    }}
-                    className={`px-2 py-1.5 rounded-lg text-sm text-center transition-colors ${
-                      y === currentMonth.getFullYear()
-                        ? 'bg-[#42C1E3] text-white font-semibold'
-                        : 'text-gray-700 hover:bg-[#E0F7FD]'
-                    }`}
-                  >
-                    {y}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <span className="text-sm font-semibold text-gray-800">
+            {currentMonth.getFullYear()}
+          </span>
         </div>
 
         <button
