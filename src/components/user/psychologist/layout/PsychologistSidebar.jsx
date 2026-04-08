@@ -94,8 +94,13 @@ const PsychologistSidebar = ({
   }, [expanded, hovered, location.pathname]);
 
   const toggleSidebar = () => {
-    setExpanded(!expanded)
-    onHoverChange?.(!expanded)
+    const next = !expanded
+    setExpanded(next)
+    onHoverChange?.(next)
+    if (!next) {
+      setProfileDropdownOpen(false)
+      setHovered(false)
+    }
   }
 
   // DENGAN KODE BARU INI

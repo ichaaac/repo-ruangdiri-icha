@@ -91,8 +91,13 @@ const StudentSidebar = ({
   }
 
   const toggleSidebar = () => {
-    setExpanded(!expanded)
-    onHoverChange?.(!expanded)
+    const next = !expanded
+    setExpanded(next)
+    onHoverChange?.(next)
+    if (!next) {
+      setActiveDropdown(null)
+      setHovered(false)
+    }
   }
 
   useEffect(() => {
