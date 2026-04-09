@@ -1,6 +1,8 @@
+import { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
 import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
+import { createBookingApi } from '../../../components/shared/booking/lib/bookingApi';
 
 // --- Chart Helpers ---
 
@@ -165,7 +167,26 @@ const InfoRow = ({ icon, alt, title, subtitle }) => (
   </div>
 );
 
-const CounselingSessionCard = ({ session }) => {
+const CounselingSessionCard = ({ session, userType, onCancelled }) => {
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const navigate = useNavigate();
+  const bookingApi = useMemo(() => createBookingApi(userType), [userType]);
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      await bookingApi.cancelCounseling(session.id);
+      setShowCancelConfirm(false);
+      onCancelled?.();
+    } catch (err) {
+      console.error('Cancel failed:', err);
+      alert('Gagal membatalkan sesi. Silakan coba lagi.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (!session) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
@@ -198,13 +219,49 @@ const CounselingSessionCard = ({ session }) => {
       </div>
 
       <div className="flex gap-3">
-        <button className="flex-1 font-semibold text-sm hover:bg-[#FFF0F3] transition-colors" style={{ border: '1.5px solid #E8655B', color: '#E8655B', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: 'pointer' }}>
+        <button
+          onClick={() => setShowCancelConfirm(true)}
+          className="flex-1 font-semibold text-sm hover:bg-[#FFF0F3] transition-colors"
+          style={{ border: '1.5px solid #E8655B', color: '#E8655B', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: 'pointer' }}
+        >
           Batal
         </button>
-        <button className="flex-1 text-white font-semibold text-sm hover:opacity-90 transition-opacity" style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: 'pointer' }}>
+        <button
+          onClick={() => navigate(`/user/${userType}/booking-session`)}
+          className="flex-1 text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: 'pointer' }}
+        >
           Ubah Jadwal
         </button>
       </div>
+
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCancelConfirm(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-[#1F2937] mb-2">Batalkan Sesi Konseling?</h3>
+            <p className="text-sm text-[#6B7280] mb-5">
+              Sesi konseling pada {session.fullDate} ({session.time}) akan dibatalkan. Tindakan ini tidak dapat diurungkan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 font-semibold text-sm"
+                style={{ border: '1.5px solid #D1D5DB', color: '#6B7280', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: 'pointer' }}
+              >
+                Kembali
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="flex-1 text-white font-semibold text-sm"
+                style={{ backgroundColor: '#EF4444', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: cancelling ? 'not-allowed' : 'pointer', opacity: cancelling ? 0.6 : 1 }}
+              >
+                {cancelling ? 'Membatalkan...' : 'Ya, Batalkan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -292,7 +349,7 @@ const UserDashboard = () => {
   const { userType = 'student' } = useOutletContext() || {};
   const navigate = useNavigate();
 
-  const { chartData, upcomingSession, counselingHistory, isLoading } = useStudentDashboard(userType);
+  const { chartData, upcomingSession, counselingHistory, isLoading, refetch } = useStudentDashboard(userType);
 
   if (isLoading) {
     return (
@@ -410,7 +467,7 @@ const UserDashboard = () => {
         {/* Two-Column: Chart + Session */}
         <div className="flex flex-col xl:flex-row xl:items-stretch gap-6 mb-6">
           <ProgressChartCard data={chartData} />
-          <CounselingSessionCard session={upcomingSession} />
+          <CounselingSessionCard session={upcomingSession} userType={userType} onCancelled={refetch} />
         </div>
 
         {/* Riwayat Konseling */}

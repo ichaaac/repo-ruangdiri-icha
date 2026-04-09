@@ -867,6 +867,22 @@ export const createBookingApi = (userType = "student") => {
       }
     },
 
+    cancelCounseling: async (scheduleId, reason = "") => {
+      const response = await apiClient.post(`/counselings/schedules/${scheduleId}/cancel`, { reason })
+      return response.data
+    },
+
+    rescheduleCounseling: async (counselingId, { date, startTime, endTime, timezone = "Asia/Jakarta", notes = "" }) => {
+      const response = await apiClient.put(`/counselings/${counselingId}/reschedule`, {
+        date,
+        startTime,
+        endTime,
+        timezone,
+        notes,
+      })
+      return response.data
+    },
+
     // Helper methods
     getCounselingMethodDisplay: getCounselingMethodDisplay,
     getCounselingMethodDescription: getCounselingMethodDescription,
