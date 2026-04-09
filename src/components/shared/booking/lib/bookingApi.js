@@ -832,9 +832,9 @@ export const createBookingApi = (userType = "student") => {
             const locationToMethod = { online: "online", offline: "offline", chat: "chat" }
             const method = locationToMethod[session.location] || session.location || "online"
 
-            // Determine status based on date
+            // Use counselingStatus from API if available, otherwise derive from date
             const now = new Date()
-            const status = startDt > now ? "scheduled" : "completed"
+            const status = session.counselingStatus || (startDt > now ? "scheduled" : "completed")
 
             return {
               id: session.id,
