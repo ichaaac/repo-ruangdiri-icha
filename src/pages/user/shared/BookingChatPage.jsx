@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useOutletContext, Link } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import Breadcrumb from '@/components/shared/Breadcrumb';
 import { CHAT_TERMS } from '@/data/dummyBookingChat';
 import { useBooking } from '@/components/shared/booking/hooks/useBooking';
@@ -102,83 +102,14 @@ const SectionLabel = ({ icon, label, required, iconBg = '#DAF7FF' }) => (
   </div>
 );
 
-// ─── Konseling Dropdown ───
-const KONSELING_OPTIONS = [
-  { value: 'luring', label: 'Luring', enabled: false },
-  { value: 'daring', label: 'Daring', enabled: false },
-  { value: 'chat', label: 'Chat', enabled: true },
-];
-
-const KonselingDropdown = ({ value }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const selected = KONSELING_OPTIONS.find(o => o.value === value);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        style={{
-          width: '100%', height: 48, borderRadius: 12,
-          border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB',
-          padding: '0 16px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: '#374151',
-        }}
-      >
-        <span>{selected?.label || 'Pilih'}</span>
-        {open ? <ChevronUpIcon color="#9CA3AF" size={18} /> : <ChevronDownIcon color="#9CA3AF" size={18} />}
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0,
-          width: 247, borderRadius: 12,
-          border: '1px solid #E5E7EB', backgroundColor: '#FFFFFF',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)', zIndex: 20,
-          padding: '16px 8px',
-        }}>
-          {KONSELING_OPTIONS.map(opt => (
-            <div
-              key={opt.value}
-              onClick={() => { if (opt.enabled) setOpen(false); }}
-              style={{
-                padding: '8px 8px', fontSize: 14, color: '#374151', fontFamily: FONT,
-                cursor: opt.enabled ? 'pointer' : 'not-allowed',
-                opacity: opt.enabled ? 1 : 0.5,
-                borderRadius: 6,
-              }}
-              onMouseEnter={(e) => { if (opt.enabled) e.currentTarget.style.backgroundColor = '#F9FAFB'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-            >
-              {opt.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ─── Calendar Popup ───
-const DropdownArrow = ({ color = '#E8655B', size = 16 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <path d="M19.92 8.95L13.4 15.47C12.63 16.24 11.37 16.24 10.6 15.47L4.08 8.95" stroke={color} strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
 const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] }) => {
   const now = new Date();
   const [month, setMonth] = useState(selectedDate ? parseInt(selectedDate.split('-')[1]) - 1 : now.getMonth());
   const [year, setYear] = useState(selectedDate ? parseInt(selectedDate.split('-')[0]) : now.getFullYear());
-  const [temp, setTemp] = useState(selectedDate || '');
+  const [pendingDate, setPendingDate] = useState(selectedDate || '');
   const [hovered, setHovered] = useState('');
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -192,7 +123,8 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] 
     if (isCurrentMonth) return;
     if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
   };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); }
+  const handleConfirm = () => { if (pendingDate) onSelect(pendingDate); onClose(); };
 
   const cells = [];
   for (let i = 0; i < start; i++) cells.push({ d: prevDays - start + 1 + i, cur: false });
@@ -200,8 +132,6 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] 
   const rem = 7 - (cells.length % 7);
   if (rem < 7) for (let i = 1; i <= rem; i++) cells.push({ d: i, cur: false });
 
-  const yearOptions = [];
-  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 2; y++) yearOptions.push(y);
 
   return (
     <div style={{
@@ -230,7 +160,7 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] 
               <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
                 {MONTHS_EN[month]}
               </span>
-              <DropdownArrow color="#E8655B" size={10} />
+              <ChevronDownIcon color="#E8655B" size={10} />
             </div>
             {showMonthPicker && (
               <div style={{
@@ -270,7 +200,7 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] 
               <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
                 {year}
               </span>
-              <DropdownArrow color="#E8655B" size={10} />
+              <ChevronDownIcon color="#E8655B" size={10} />
             </div>
             {showYearPicker && (
               <div style={{
@@ -324,13 +254,13 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] 
           const ds = c.cur ? `${year}-${String(month + 1).padStart(2, '0')}-${String(c.d).padStart(2, '0')}` : '';
           const isPast = c.cur && new Date(year, month, c.d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
           const isFullyBooked = c.cur && !isPast && fullyBookedDates.includes(ds);
-          const sel = c.cur && ds === temp;
+          const sel = c.cur && ds === pendingDate;
           const isHovered = c.cur && !isPast && !isFullyBooked && ds === hovered && !sel;
 
           return (
             <div
               key={i}
-              onClick={() => c.cur && !isPast && !isFullyBooked && setTemp(ds)}
+              onClick={() => c.cur && !isPast && !isFullyBooked && setPendingDate(ds)}
               onMouseEnter={() => c.cur && !isPast && !isFullyBooked && setHovered(ds)}
               onMouseLeave={() => setHovered('')}
               style={{
@@ -370,7 +300,7 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] 
           fontSize: 14, fontWeight: 500, color: '#F04438', fontFamily: FONT,
           height: 48, padding: '0 20px',
         }}>Cancel</button>
-        <button onClick={() => { if (temp) onSelect(temp); onClose(); }} style={{
+        <button onClick={handleConfirm} style={{
           padding: '0 28px', height: 48, borderRadius: 12,
           backgroundColor: '#E8655B', color: '#FFFFFF',
           fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: FONT,
@@ -506,6 +436,7 @@ const BookingChatPage = () => {
 
   // Backend integration for time slots
   const booking = useBooking(userType);
+  const { handleMethodSelection, handleTimeSlotSelection, handleDateSelection, handleBookingSubmit, setNotes } = booking;
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
@@ -522,22 +453,22 @@ const BookingChatPage = () => {
 
   useEffect(() => { setSelectedTimeSlot(null); }, [selectedDate]);
 
-  // Sync method to "chat" on mount (required by booking.handleBookingSubmit)
+  // Set counseling method to chat on mount
   useEffect(() => {
-    booking.handleMethodSelection({ id: 'chat', name: 'Chat' });
-  }, [booking.handleMethodSelection]);
+    handleMethodSelection({ id: 'chat', name: 'Chat' });
+  }, [handleMethodSelection]);
 
-  // Sync local selectedTimeSlot → booking hook (required by booking.handleBookingSubmit)
+  // Keep booking hook in sync with local time slot selection
   useEffect(() => {
     if (selectedTimeSlot) {
-      booking.handleTimeSlotSelection(selectedTimeSlot);
+      handleTimeSlotSelection(selectedTimeSlot);
     }
-  }, [selectedTimeSlot, booking.handleTimeSlotSelection]);
+  }, [selectedTimeSlot, handleTimeSlotSelection]);
 
-  // Sync local problemDescription → booking hook notes (required by booking.handleBookingSubmit)
+  // Keep booking hook notes in sync with problem description
   useEffect(() => {
-    booking.setNotes(problemDescription);
-  }, [problemDescription, booking.setNotes]);
+    setNotes(problemDescription);
+  }, [problemDescription, setNotes]);
 
   // Click outside handlers
   useEffect(() => {
@@ -550,11 +481,14 @@ const BookingChatPage = () => {
   }, [showCalendar, showTimePicker]);
 
   const handleCancel = () => navigate(`/user/${userType}/booking-session`);
+  const handleToggleCalendar = () => { setShowCalendar((v) => !v); setShowTimePicker(false); };
+  const handleToggleTimePicker = () => { if (selectedDate) { setShowTimePicker((v) => !v); setShowCalendar(false); } };
+  const handleDateSelect = (date) => { setSelectedDate(date); handleDateSelection(date); };
   const handleSubmit = async () => {
     if (!isFormValid) return;
 
     try {
-      const result = await booking.handleBookingSubmit();
+      const result = await handleBookingSubmit();
 
       // Chat booking with session created → redirect to chat
       if (result?.method === 'chat' && (result?.sessionId || result?.chatSessionId)) {
@@ -581,8 +515,7 @@ const BookingChatPage = () => {
         state: { bookingResult: result },
         replace: true,
       });
-    } catch (error) {
-      console.error('Booking submission failed:', error);
+    } catch (error) {
     }
   };
 
@@ -690,7 +623,7 @@ const BookingChatPage = () => {
                   <div ref={dateRef} style={{ position: 'relative' }}>
                     <button
                       type="button"
-                      onClick={() => { setShowCalendar(!showCalendar); setShowTimePicker(false); }}
+                      onClick={handleToggleCalendar}
                       style={{
                         width: '100%', height: 48, borderRadius: 12,
                         border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB',
@@ -707,7 +640,7 @@ const BookingChatPage = () => {
                     {showCalendar && (
                       <CalendarPopup
                         selectedDate={selectedDate}
-                        onSelect={(date) => { setSelectedDate(date); booking.handleDateSelection(date); }}
+                        onSelect={handleDateSelect}
                         onClose={() => setShowCalendar(false)}
                         fullyBookedDates={booking.fullyBookedDates || []}
                       />
@@ -718,7 +651,7 @@ const BookingChatPage = () => {
                   <div ref={timeRef} style={{ position: 'relative' }}>
                     <button
                       type="button"
-                      onClick={() => { if (selectedDate) { setShowTimePicker(!showTimePicker); setShowCalendar(false); } }}
+                      onClick={handleToggleTimePicker}
                       style={{
                         width: '100%', height: 48, borderRadius: 12,
                         border: '1px solid #E5E7EB',
@@ -737,7 +670,7 @@ const BookingChatPage = () => {
                       <TimePickerPopup
                         timeSlots={availableTimeSlots}
                         selectedSlot={selectedTimeSlot}
-                        onSelect={(slot) => setSelectedTimeSlot(slot)}
+                        onSelect={setSelectedTimeSlot}
                         onClose={() => setShowTimePicker(false)}
                         loading={isTimeSlotsLoading}
                       />
