@@ -228,7 +228,7 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
           Batal
         </button>
         <button
-          onClick={() => navigate(`/user/${userType}/booking-session`)}
+          onClick={() => navigate(`/user/${userType}/booking-chat`)}
           className="flex-1 text-white font-semibold text-sm hover:opacity-90 transition-opacity"
           style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: 'pointer' }}
         >
