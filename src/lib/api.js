@@ -25,14 +25,15 @@ apiClient.interceptors.request.use(
 );
 
 // === RESPONSE INTERCEPTOR ===
-// Handle 401 - but skip for login requests (login 401 = wrong password, not expired token)
+// Handle 401 - only redirect if user was authenticated (had token) and it's not a login request
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isLoginRequest = error.config?.url?.includes('/auth/login');
-    if (error.response?.status === 401 && !isLoginRequest) {
+    const isAuthRequest = error.config?.url?.includes('/auth/');
+    const hadToken = !!error.config?.headers?.Authorization;
+    if (error.response?.status === 401 && hadToken && !isAuthRequest) {
       localStorage.clear();
-      window.location.href = '/';
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
