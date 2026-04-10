@@ -189,6 +189,34 @@ export const useBooking = (userType = "student") => {
     return dates
   }, [psychologistAvailability])
 
+  // Compute fully booked dates (all slots unavailable) for calendar indicators
+  const fullyBookedDates = useCallback(() => {
+    if (!psychologistAvailability || psychologistAvailability.length === 0) return []
+
+    const dated = psychologistAvailability.filter((slot) => !!slot.date)
+    if (dated.length === 0) return []
+
+    const byDate = dated.reduce((acc, s) => {
+      (acc[s.date] ||= []).push(s)
+      return acc
+    }, {})
+
+    return Object.entries(byDate)
+      .filter(([, slots]) => {
+        // Date is fully booked if NO slot has availability
+        return slots.every((s) => {
+          if (typeof s.availablePsychologists === 'number') {
+            return s.availablePsychologists < availabilityThreshold
+          }
+          if (typeof s.isBooked === 'boolean') {
+            return s.isBooked === true
+          }
+          return false
+        })
+      })
+      .map(([dateStr]) => dateStr)
+  }, [psychologistAvailability, availabilityThreshold])
+
   // UPDATED: Fetch booked slots when date is selected
   const {
     data: bookedSlotsData,
@@ -776,6 +804,7 @@ export const useBooking = (userType = "student") => {
     timeSlots: timeSlots(), // Call function to get computed time slots
     availableDates: availableDates(), // Call function to get computed available dates
     availableQuota: availableQuota(), // UPDATED: Dynamic quota from availability
+    fullyBookedDates: fullyBookedDates(),
     config,
 
     // State

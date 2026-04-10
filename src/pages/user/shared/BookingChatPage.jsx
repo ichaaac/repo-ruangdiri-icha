@@ -174,7 +174,7 @@ const DropdownArrow = ({ color = '#E8655B', size = 16 }) => (
   </svg>
 );
 
-const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
+const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] }) => {
   const now = new Date();
   const [month, setMonth] = useState(selectedDate ? parseInt(selectedDate.split('-')[1]) - 1 : now.getMonth());
   const [year, setYear] = useState(selectedDate ? parseInt(selectedDate.split('-')[0]) : now.getFullYear());
@@ -323,30 +323,38 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
         {cells.map((c, i) => {
           const ds = c.cur ? `${year}-${String(month + 1).padStart(2, '0')}-${String(c.d).padStart(2, '0')}` : '';
           const isPast = c.cur && new Date(year, month, c.d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const isFullyBooked = c.cur && !isPast && fullyBookedDates.includes(ds);
           const sel = c.cur && ds === temp;
-          const isHovered = c.cur && !isPast && ds === hovered && !sel;
+          const isHovered = c.cur && !isPast && !isFullyBooked && ds === hovered && !sel;
 
           return (
             <div
               key={i}
-              onClick={() => c.cur && !isPast && setTemp(ds)}
-              onMouseEnter={() => c.cur && !isPast && setHovered(ds)}
+              onClick={() => c.cur && !isPast && !isFullyBooked && setTemp(ds)}
+              onMouseEnter={() => c.cur && !isPast && !isFullyBooked && setHovered(ds)}
               onMouseLeave={() => setHovered('')}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: 36, cursor: c.cur && !isPast ? 'pointer' : 'default',
+                height: 36, cursor: c.cur && !isPast && !isFullyBooked ? 'pointer' : 'default',
+                position: 'relative',
               }}
             >
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: sel ? '#42C1E3' : isHovered ? '#E0F7FD' : 'transparent',
-                color: sel ? '#FFFFFF' : (!c.cur || isPast) ? '#D0D5DD' : '#1D2939',
-                fontSize: 14, fontWeight: 400,
+                backgroundColor: sel ? '#42C1E3' : isFullyBooked ? '#FEE2E2' : isHovered ? '#E0F7FD' : 'transparent',
+                color: sel ? '#FFFFFF' : isFullyBooked ? '#DC2626' : (!c.cur || isPast) ? '#D0D5DD' : '#1D2939',
+                fontSize: 14, fontWeight: isFullyBooked ? 600 : 400,
                 transition: 'background-color 0.15s, color 0.15s',
               }}>
                 {c.d}
               </div>
+              {isFullyBooked && (
+                <div style={{
+                  position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                  width: 4, height: 4, borderRadius: '50%', backgroundColor: '#DC2626',
+                }} />
+              )}
             </div>
           );
         })}
@@ -701,6 +709,7 @@ const BookingChatPage = () => {
                         selectedDate={selectedDate}
                         onSelect={(date) => { setSelectedDate(date); booking.handleDateSelection(date); }}
                         onClose={() => setShowCalendar(false)}
+                        fullyBookedDates={booking.fullyBookedDates || []}
                       />
                     )}
                   </div>
