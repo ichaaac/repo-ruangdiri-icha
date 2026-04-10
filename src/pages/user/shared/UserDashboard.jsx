@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
 import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
+import Breadcrumb from '../../../components/shared/Breadcrumb';
 import { createBookingApi } from '../../../components/shared/booking/lib/bookingApi';
 
 // --- Chart Helpers ---
@@ -424,13 +425,11 @@ const UserDashboard = () => {
         {/* Header Content */}
         <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center text-sm mb-6" style={{ gap: 8 }}>
-            <span className="text-[#9CA3AF]">Home</span>
-            <span className="text-[#F59E0B] text-xs">&#9654;</span>
-            <span className="text-[#9CA3AF]">Asesmen Ruang Diri</span>
-            <span className="text-[#F59E0B] text-xs">&#9654;</span>
-            <span className="text-[#1F2937] font-semibold">Dashboard</span>
-          </nav>
+          <Breadcrumb items={[
+            { label: "Home", to: `/user/${userType}/dashboard` },
+            { label: "Asesmen Ruang Diri", to: `/user/${userType}/screening` },
+            { label: "Dashboard" },
+          ]} />
 
           {/* Title */}
           <h1 className="font-bold text-[#434343] mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, lineHeight: '110%' }}>Dashboard</h1>

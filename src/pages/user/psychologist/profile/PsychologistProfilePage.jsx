@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import PsychologistProfile from "@/components/user/psychologist/profile/PsychologistProfile";
 import { usePsychologistProfile } from "@/components/user/psychologist/profile/hooks/usePsychologistProfile";
+import Breadcrumb from "@/components/shared/Breadcrumb";
 
 const PsychologistProfilePage = () => {
   const { meQuery, initialValues, submit, isSubmitting, errorMessage } = usePsychologistProfile();
@@ -37,15 +38,23 @@ const PsychologistProfilePage = () => {
   if (meQuery.error) return <div className="p-6 text-red-600">Gagal memuat profil.</div>;
 
   return (
-    <PsychologistProfile
-      values={values}
-      onChange={setValues}
-      isEditing={isEditing}
-      onEdit={handleEdit}
-      onCancel={handleCancel}
-      onSave={handleSave}
-      isSaving={isSubmitting}
-    />
+    <>
+      <div className="px-6 pt-4">
+        <Breadcrumb items={[
+          { label: "Home", to: "/user/psychologist/dashboard" },
+          { label: "Profil" },
+        ]} />
+      </div>
+      <PsychologistProfile
+        values={values}
+        onChange={setValues}
+        isEditing={isEditing}
+        onEdit={handleEdit}
+        onCancel={handleCancel}
+        onSave={handleSave}
+        isSaving={isSubmitting}
+      />
+    </>
   );
 };
 

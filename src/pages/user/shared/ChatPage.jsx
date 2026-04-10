@@ -7,6 +7,7 @@ import { useChats } from '@/components/shared/chats/hooks/useChats';
 import { chatsApi } from '@/components/shared/chats/lib/chatsApi';
 import ChatSidebar from '@/components/shared/chats/ChatSidebar';
 import ChatMain from '@/components/shared/chats/ChatMain';
+import Breadcrumb from '@/components/shared/Breadcrumb';
 
 const ChatPage = () => {
   const { user } = useAuth();
@@ -319,6 +320,12 @@ const ChatPage = () => {
 
   return (
     <>
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white px-6 pt-4" style={{ marginLeft: 'inherit' }}>
+        <Breadcrumb items={[
+          { label: "Home", to: `/user/${userType}/dashboard` },
+          { label: "Chat Konseling" },
+        ]} />
+      </div>
       {/* Main Chat Container - Full height dengan independent scroll areas */}
       <div className="w-full h-full pt-[90px] bg-white flex relative">
         {/* Chat Sidebar - Independent scroll container */}

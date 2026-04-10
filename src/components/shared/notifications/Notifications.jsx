@@ -5,7 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState, useCallback } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, useLocation } from "react-router-dom"
+import Breadcrumb from "../Breadcrumb"
 import {
   LuSettings,
   LuCircleCheck,
@@ -290,6 +291,8 @@ const EmptyState = () => (
 // ═════════════════════════════════════════════════════════════════════════════════
 const Notifications = () => {
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  const basePath = location.pathname.replace(/\/notifications$/, "")
   const initialTab = (() => {
     const tab = (searchParams.get("tab") || "").toLowerCase()
     return tab === "counseling" ? "counseling" : "all"
@@ -375,15 +378,10 @@ const Notifications = () => {
     >
       <div style={{ padding: "32px 40px 40px 40px" }}>
         {/* ── Breadcrumb ───────────────────────────────────────────────── */}
-        <nav style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 15, fontWeight: 400, color: "#6F7480" }}>
-            Dashboard
-          </span>
-          <span style={{ fontSize: 15, color: "#6F7480" }}>/</span>
-          <span style={{ fontSize: 15, fontWeight: 500, color: "#E8655B" }}>
-            Notifikasi
-          </span>
-        </nav>
+        <Breadcrumb items={[
+          { label: "Dashboard", to: `${basePath}/dashboard` },
+          { label: "Notifikasi" },
+        ]} />
 
         {/* ── Heading ──────────────────────────────────────────────────── */}
         <h1 style={{ fontSize: 24, fontWeight: 500, color: "#0B0F1A", margin: "0 0 6px 0" }}>

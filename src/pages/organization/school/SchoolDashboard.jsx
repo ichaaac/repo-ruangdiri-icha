@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom"
 import SharedDashboard from "@/components/shared/dashboard/SharedDashboard"
 import { useAuth } from "@/hooks/useAuth"
 import SuccessModal from "@/components/organization/school/SuccessModal"
+import Breadcrumb from "@/components/shared/Breadcrumb"
 
 const SchoolDashboard = () => {
   const context = useOutletContext() || {}
@@ -16,6 +17,12 @@ const SchoolDashboard = () => {
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
+      <div className="px-6 pt-4">
+        <Breadcrumb items={[
+          { label: "Home", to: "/organization/school/dashboard" },
+          { label: "Dashboard" },
+        ]} />
+      </div>
       <SharedDashboard
         type="student"
         config={{

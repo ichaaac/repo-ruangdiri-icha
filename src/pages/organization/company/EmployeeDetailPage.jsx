@@ -13,6 +13,7 @@ import {
   SuccessModal,
 } from "@/components/shared/detail/DetailComponents"
 import EditModal from "@/components/shared/detail/EditModal"
+import Breadcrumb from "@/components/shared/Breadcrumb"
 
 const EmployeeDetailPage = () => {
   const { employeeId } = useParams()
@@ -81,6 +82,13 @@ const EmployeeDetailPage = () => {
 
   return (
     <DetailPageLayout sidebarExpanded={sidebarExpanded}>
+      <div className="px-6 pt-4">
+        <Breadcrumb items={[
+          { label: "Home", to: "/organization/company/dashboard" },
+          { label: "Daftar Karyawan", to: "/organization/company/employee-list" },
+          { label: "Detail Karyawan" },
+        ]} />
+      </div>
       <SharedProfile
         data={employee}
         type="employee"

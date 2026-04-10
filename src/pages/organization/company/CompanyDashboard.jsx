@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom"
 import SharedDashboard from "@/components/shared/dashboard/SharedDashboard"
 import { useAuth } from "@/hooks/useAuth"
 import SuccessModal from "@/components/organization/company/SuccessModal"
+import Breadcrumb from "@/components/shared/Breadcrumb"
 
 const CompanyDashboard = () => {
   // Get context from Layout with proper fallbacks
@@ -17,6 +18,12 @@ const CompanyDashboard = () => {
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
+      <div className="px-6 pt-4">
+        <Breadcrumb items={[
+          { label: "Home", to: "/organization/company/dashboard" },
+          { label: "Dashboard" },
+        ]} />
+      </div>
       <SharedDashboard
         type="employee"
         config={{

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
+import Breadcrumb from '../../../components/shared/Breadcrumb';
 
 const UserProfile = () => {
   const { userType } = useOutletContext();
@@ -108,6 +109,10 @@ const UserProfile = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
+        <Breadcrumb items={[
+          { label: "Home", to: `/user/${userType}/dashboard` },
+          { label: "Profil" },
+        ]} />
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">

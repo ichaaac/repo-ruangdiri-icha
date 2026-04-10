@@ -5,6 +5,7 @@ import { apiClient } from "../../../lib/api"
 import { getCurrentDateInfo } from "../../../lib/date"
 import { useDashboard, usePdfReport } from "../../../hooks/useDashboardMetrics"
 import SummaryCard from "./SummaryCard"
+import Breadcrumb from "../Breadcrumb"
 
 const REPORT_TYPES = {
   "belum-skrining": {
@@ -292,26 +293,10 @@ const DetailLaporanPage = () => {
     <div className="w-full min-h-screen overflow-x-hidden bg-white">
       <div style={{ padding: "0 40px", paddingTop: 32 }}>
         {/* Breadcrumb */}
-        <nav className="flex items-center" style={{ gap: 8, marginBottom: 24 }}>
-          <button
-            onClick={handleCloseLaporan}
-            style={{
-              fontSize: 16,
-              fontWeight: 400,
-              color: "#6F7480",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            Dashboard
-          </button>
-          <span style={{ fontSize: 16, color: "#6F7480" }}>/</span>
-          <span style={{ fontSize: 16, fontWeight: 500, color: "#E8655B" }}>
-            Detail Laporan
-          </span>
-        </nav>
+        <Breadcrumb items={[
+          { label: "Dashboard", to: `${basePath}/dashboard` },
+          { label: "Detail Laporan" },
+        ]} />
 
         {/* Summary Cards */}
         <div
