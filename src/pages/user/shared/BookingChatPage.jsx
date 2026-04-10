@@ -384,6 +384,7 @@ const TimePickerPopup = ({ timeSlots, selectedSlot, onSelect, onClose, loading }
 
   const getStatusLabel = (slot) => {
     if (slot.available) return 'Tersedia';
+    if (slot.reason?.includes('sudah lewat')) return 'Jam Sudah Lewat';
     if (slot.isBooked || slot.reason?.includes('dibooking') || slot.reason?.includes('psikolog tersedia')) return 'Sudah Terbooking';
     return 'Tidak Tersedia';
   };

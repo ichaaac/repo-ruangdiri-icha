@@ -307,6 +307,14 @@ export const useBooking = (userType = "student") => {
       { start: '16:00:00', end: '17:00:00' },
     ]
 
+    // ✅ Check if selected date is today — disable past time slots
+    const now = new Date()
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+    const isToday = selectedDate === todayStr
+    const currentHHMM = isToday
+      ? now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
+      : null
+
     // Use booked slots data if available and has data
     if (bookedSlotsData && (bookedSlotsData.bookedSlots?.length > 0 || bookedSlotsData.availableSlots?.length > 0)) {
       const { bookedSlots = [], availableSlots = [] } = bookedSlotsData
@@ -333,22 +341,24 @@ export const useBooking = (userType = "student") => {
         })
 
         if (matchingSlot) {
+          const isPast = isToday && fixedSlot.start.substring(0, 5) <= currentHHMM
           const slotData = {
             startTime: fixedSlot.start.substring(0, 5),
             endTime: fixedSlot.end.substring(0, 5),
             psychologistId: matchingSlot.psychologistId,
             psychologistName: matchingSlot.psychologistName || "Psikolog Tersedia",
-            available: !matchingSlot.isBooked,
+            available: isPast ? false : !matchingSlot.isBooked,
             isBooked: matchingSlot.isBooked,
             displayTime: `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`,
             uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
-            reason: matchingSlot.isBooked ? matchingSlot.bookingInfo || "Sudah dibooking" : undefined,
+            reason: isPast ? "Jam sudah lewat" : (matchingSlot.isBooked ? matchingSlot.bookingInfo || "Sudah dibooking" : undefined),
           }
           console.log(`✅ Slot ${slotData.startTime}-${slotData.endTime}: isBooked=${slotData.isBooked}, available=${slotData.available}, psychologistId=${slotData.psychologistId}`)
           return slotData
         }
 
         // No matching slot - mark as unavailable
+        const isPast = isToday && fixedSlot.start.substring(0, 5) <= currentHHMM
         const unavailableSlot = {
           startTime: fixedSlot.start.substring(0, 5),
           endTime: fixedSlot.end.substring(0, 5),
@@ -356,7 +366,7 @@ export const useBooking = (userType = "student") => {
           isBooked: false,
           displayTime: `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`,
           uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
-          reason: "Tidak ada psikolog tersedia",
+          reason: isPast ? "Jam sudah lewat" : "Tidak ada psikolog tersedia",
         }
         console.log(`Slot ${unavailableSlot.startTime}-${unavailableSlot.endTime}: NO DATA (unavailable)`)
         return unavailableSlot
@@ -411,8 +421,14 @@ export const useBooking = (userType = "student") => {
       let reason = "Tidak ada psikolog tersedia"
 
       if (matchingAvailability) {
+        // ✅ Check if slot time has already passed today
+        const isPast = isToday && fixedSlot.start.substring(0, 5) <= currentHHMM
+
         // Check availability using backend data
-        if (typeof matchingAvailability.availablePsychologists === 'number') {
+        if (isPast) {
+          isAvailable = false
+          reason = "Jam sudah lewat"
+        } else if (typeof matchingAvailability.availablePsychologists === 'number') {
           isAvailable = matchingAvailability.availablePsychologists >= availabilityThreshold
           reason = isAvailable
             ? undefined
