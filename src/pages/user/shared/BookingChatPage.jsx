@@ -382,19 +382,46 @@ const TimePickerPopup = ({ timeSlots, selectedSlot, onSelect, onClose, loading }
     return `${start} - ${end} WIB`;
   };
 
+  const getStatusLabel = (slot) => {
+    if (slot.available) return 'Tersedia';
+    if (slot.isBooked || slot.reason?.includes('dibooking') || slot.reason?.includes('psikolog tersedia')) return 'Sudah Terbooking';
+    return 'Tidak Tersedia';
+  };
+
   const filtered = timeSlots.filter(s =>
     formatTime(s).toLowerCase().includes(search.toLowerCase())
   );
 
+  const availableCount = timeSlots.filter(s => s.available).length;
+  const bookedCount = timeSlots.filter(s => !s.available).length;
+
   return (
     <div style={{
       position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 50,
-      width: 247, maxHeight: 300, borderRadius: 12,
+      width: 280, maxHeight: 360, borderRadius: 12,
       border: '1px solid #B5BBC4', backgroundColor: '#FDFEFF',
       boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: FONT,
       padding: '16px 12px',
-      display: 'flex', flexDirection: 'column', gap: 16,
+      display: 'flex', flexDirection: 'column', gap: 12,
     }}>
+      {/* Availability summary */}
+      {!loading && timeSlots.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '8px 10px', borderRadius: 8,
+          backgroundColor: '#F9FAFB', fontSize: 11, fontFamily: FONT,
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#008236', display: 'inline-block' }} />
+            <span style={{ color: '#374151' }}>{availableCount} Tersedia</span>
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#D1293D', display: 'inline-block' }} />
+            <span style={{ color: '#374151' }}>{bookedCount} Terbooking</span>
+          </span>
+        </div>
+      )}
+
       {/* Search bar */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
@@ -426,32 +453,38 @@ const TimePickerPopup = ({ timeSlots, selectedSlot, onSelect, onClose, loading }
           <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: '#9CA3AF', fontFamily: FONT }}>
             Tidak ada slot waktu
           </div>
-        ) : filtered.map(slot => (
-          <div
-            key={slot.uniqueId}
-            onClick={() => { if (slot.available) { onSelect(slot); onClose(); } }}
-            style={{
-              padding: '8px 0',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: slot.available ? 'pointer' : 'not-allowed',
-              borderRadius: 6,
-              transition: 'background-color 0.15s',
-            }}
-            onMouseEnter={(e) => { if (slot.available) e.currentTarget.style.backgroundColor = '#F5FAFF'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-          >
-            <span style={{
-              fontSize: 12, fontWeight: slot.available ? 600 : 400,
-              color: slot.available ? '#1F2937' : '#9CA3AF',
-              lineHeight: '140%', fontFamily: FONT,
-            }}>{formatTime(slot)}</span>
-            <span style={{
-              fontSize: 12, fontWeight: 400,
-              color: slot.available ? '#008236' : '#D1293D',
-              lineHeight: '140%', fontFamily: FONT,
-            }}>{slot.available ? 'Tersedia' : 'Tidak Tersedia'}</span>
-          </div>
-        ))}
+        ) : filtered.map(slot => {
+          const statusLabel = getStatusLabel(slot);
+          return (
+            <div
+              key={slot.uniqueId}
+              onClick={() => { if (slot.available) { onSelect(slot); onClose(); } }}
+              style={{
+                padding: '8px 6px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: slot.available ? 'pointer' : 'not-allowed',
+                borderRadius: 6,
+                transition: 'background-color 0.15s',
+                opacity: slot.available ? 1 : 0.6,
+              }}
+              onMouseEnter={(e) => { if (slot.available) e.currentTarget.style.backgroundColor = '#F5FAFF'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <span style={{
+                fontSize: 12, fontWeight: slot.available ? 600 : 400,
+                color: slot.available ? '#1F2937' : '#9CA3AF',
+                lineHeight: '140%', fontFamily: FONT,
+              }}>{formatTime(slot)}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 500,
+                color: slot.available ? '#008236' : '#D1293D',
+                lineHeight: '140%', fontFamily: FONT,
+                padding: '2px 8px', borderRadius: 999,
+                backgroundColor: slot.available ? '#ECFDF5' : '#FEF2F2',
+              }}>{statusLabel}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
