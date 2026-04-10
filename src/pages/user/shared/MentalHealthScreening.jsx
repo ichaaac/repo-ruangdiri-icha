@@ -21,12 +21,6 @@ function MentalHealthScreeningContainer() {
 
   return (
     <>
-      <div className="px-6 pt-4">
-        <Breadcrumb items={[
-          { label: "Home", to: `/user/${userType || 'employee'}/dashboard` },
-          { label: "Asesmen Ruang Diri" },
-        ]} />
-      </div>
       {!isStarted ? (
         <ScreeningWelcomePage onStart={handleStartAssessment} onComplete={handleComplete} />
       ) : (
