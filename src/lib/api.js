@@ -25,33 +25,12 @@ apiClient.interceptors.request.use(
 );
 
 // === RESPONSE INTERCEPTOR ===
-// Add request interceptor to check token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token added to request:', config.url);
-    } else {
-      console.warn('⚠️ No token found for request:', config.url);
-    }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor to handle 401
+// Handle 401 - but skip for login requests (login 401 = wrong password, not expired token)
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.error('❌ 401 Unauthorized - clearing token');
+    const isLoginRequest = error.config?.url?.includes('/auth/login');
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.clear();
       window.location.href = '/';
     }
