@@ -351,53 +351,66 @@ export const useBooking = (userType = "student") => {
       const combinedSlots = [...bookedSlots, ...availableSlots]
         .sort((a, b) => a.startTime.localeCompare(b.startTime))
 
+      // ✅ Also get general availability data for cross-reference (more accurate)
+      const dated = (psychologistAvailability || []).filter(a => a.date === selectedDate)
+
       console.log("=== USING BOOKED SLOTS DATA FROM API ===")
       console.log("Booked slots:", bookedSlots)
       console.log("Available slots:", availableSlots)
-      console.log("Combined slots:", combinedSlots)
-      console.log("🎯 Processing slots for date:", selectedDate)
+      console.log("General availability for date:", dated)
 
       // Map to fixed slots format
       const result = FIXED_SLOTS.map((fixedSlot, index) => {
-        // Find matching slot from backend
+        const fixedStart = fixedSlot.start.substring(0, 5)
+        const fixedEnd = fixedSlot.end.substring(0, 5)
+
+        // Find matching slot from booked-slots API
         const matchingSlot = combinedSlots.find(slot => {
-          const backendStart = slot.startTime.substring(0, 5)
-          const backendEnd = slot.endTime.substring(0, 5)
-          const fixedStart = fixedSlot.start.substring(0, 5)
-          const fixedEnd = fixedSlot.end.substring(0, 5)
-          return backendStart === fixedStart && backendEnd === fixedEnd
+          return slot.startTime.substring(0, 5) === fixedStart && slot.endTime.substring(0, 5) === fixedEnd
         })
 
-        if (matchingSlot) {
-          const isPast = isToday && fixedSlot.start.substring(0, 5) <= currentHHMM
-          const slotData = {
-            startTime: fixedSlot.start.substring(0, 5),
-            endTime: fixedSlot.end.substring(0, 5),
-            psychologistId: matchingSlot.psychologistId,
-            psychologistName: matchingSlot.psychologistName || "Psikolog Tersedia",
-            available: isPast ? false : !matchingSlot.isBooked,
-            isBooked: matchingSlot.isBooked,
-            displayTime: `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`,
-            uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
-            reason: isPast ? "Jam sudah lewat" : (matchingSlot.isBooked ? matchingSlot.bookingInfo || "Sudah dibooking" : undefined),
+        // ✅ Cross-reference with general availability API (more reliable)
+        const generalSlot = dated.find(a => {
+          return a.startTime.substring(0, 5) === fixedStart && a.endTime?.substring(0, 5) === fixedEnd
+        })
+
+        const isPast = isToday && fixedStart <= currentHHMM
+
+        // Determine availability: trust general API over booked-slots API
+        let isAvailable = false
+        let isBooked = false
+        let reason = "Tidak ada psikolog tersedia"
+        let psychologistId = matchingSlot?.psychologistId
+        let psychologistName = matchingSlot?.psychologistName || "Psikolog Tersedia"
+
+        if (isPast) {
+          isAvailable = false
+          reason = "Jam sudah lewat"
+        } else if (generalSlot && typeof generalSlot.availablePsychologists === 'number') {
+          // ✅ Trust general availability API — it has accurate booking counts
+          isAvailable = generalSlot.availablePsychologists >= availabilityThreshold
+          isBooked = generalSlot.bookedPsychologists > 0
+          reason = isAvailable ? undefined : "Sudah Terbooking"
+          if (isAvailable && generalSlot.availablePsychologistIds?.length > 0) {
+            psychologistId = psychologistId || generalSlot.availablePsychologistIds[0]
           }
-          console.log(`✅ Slot ${slotData.startTime}-${slotData.endTime}: isBooked=${slotData.isBooked}, available=${slotData.available}, psychologistId=${slotData.psychologistId}`)
-          return slotData
+        } else if (matchingSlot) {
+          isAvailable = !matchingSlot.isBooked
+          isBooked = matchingSlot.isBooked
+          reason = isBooked ? matchingSlot.bookingInfo || "Sudah dibooking" : undefined
         }
 
-        // No matching slot - mark as unavailable
-        const isPast = isToday && fixedSlot.start.substring(0, 5) <= currentHHMM
-        const unavailableSlot = {
-          startTime: fixedSlot.start.substring(0, 5),
-          endTime: fixedSlot.end.substring(0, 5),
-          available: false,
-          isBooked: false,
-          displayTime: `${fixedSlot.start.substring(0, 5)} - ${fixedSlot.end.substring(0, 5)} WIB`,
+        return {
+          startTime: fixedStart,
+          endTime: fixedEnd,
+          psychologistId,
+          psychologistName,
+          available: isAvailable,
+          isBooked,
+          displayTime: `${fixedStart} - ${fixedEnd} WIB`,
           uniqueId: `${selectedDate}-${fixedSlot.start}-${fixedSlot.end}-${index}`,
-          reason: isPast ? "Jam sudah lewat" : "Tidak ada psikolog tersedia",
+          reason,
         }
-        console.log(`Slot ${unavailableSlot.startTime}-${unavailableSlot.endTime}: NO DATA (unavailable)`)
-        return unavailableSlot
       })
 
       console.log("=== FINAL SLOTS FROM API ===", result)
