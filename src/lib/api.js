@@ -53,7 +53,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       console.error('❌ 401 Unauthorized - clearing token');
       localStorage.clear();
-      window.location.href = '/login';
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }
