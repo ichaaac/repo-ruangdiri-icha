@@ -228,7 +228,8 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
       onCancelled?.();
     } catch (err) {
       console.error('Cancel failed:', err);
-      alert('Gagal membatalkan sesi. Silakan coba lagi.');
+      const msg = err?.response?.data?.message || 'Gagal membatalkan sesi. Silakan coba lagi.';
+      alert(msg);
     } finally {
       setCancelling(false);
     }
