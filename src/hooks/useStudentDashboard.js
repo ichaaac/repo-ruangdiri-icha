@@ -154,7 +154,6 @@ export const useStudentDashboard = (userType = "student") => {
     queryKey: ["studentDashboard", "bookings"],
     queryFn: async () => {
       const result = await bookingApi.getBookingHistory();
-      console.log('[Dashboard] bookingHistory raw:', JSON.stringify(result?.data, null, 2));
       return result;
     },
     staleTime: 0,

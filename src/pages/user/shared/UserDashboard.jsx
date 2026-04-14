@@ -378,7 +378,7 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
           </div>
           <div style={{ minWidth: 0 }}>
             <p className="text-sm font-bold text-[#1F2937]">{session.platform || 'Zoom Meeting'}</p>
-            <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Link akan dikirim via notifikasi'}</p>
+            <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Tautan Zoom belum tersedia. Akan segera dikirimkan oleh admin.'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>

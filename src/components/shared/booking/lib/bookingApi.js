@@ -795,6 +795,15 @@ export const createBookingApi = (userType = "student") => {
             const now = new Date()
             const status = session.counselingStatus || (startDt > now ? "scheduled" : "completed")
 
+            const statusDisplayMap = {
+              scheduled: "Terjadwal",
+              confirmed: "Terkonfirmasi",
+              pending: "Menunggu",
+              completed: "Selesai",
+              cancelled: "Dibatalkan",
+              rescheduled: "Diubah",
+            }
+
             return {
               id: session.id,
               date: dateStr,
@@ -805,7 +814,7 @@ export const createBookingApi = (userType = "student") => {
               psychologistName: psychologist?.fullName || "-",
               psychologist: psychologist || null,
               status,
-              statusDisplay: status === "scheduled" ? "Terjadwal" : "Selesai",
+              statusDisplay: statusDisplayMap[status] || status,
               dateTimeFormatted: formatBookingDateTime(dateStr, startTime, endTime),
             }
           })
