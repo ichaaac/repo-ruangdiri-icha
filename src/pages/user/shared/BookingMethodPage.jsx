@@ -232,6 +232,10 @@ const BookingMethodPage = () => {
       navigate(`/user/${userType}/booking-chat`);
       return;
     }
+    if (method.id === 'daring') {
+      navigate(`/user/${userType}/booking-daring`);
+      return;
+    }
     navigate(`/booking-session/${userType}`, {
       state: {
         selectedMethod: {

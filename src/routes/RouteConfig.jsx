@@ -46,8 +46,12 @@ import UserDashboard from "../pages/user/shared/UserDashboard"
 import BookingContainer from "@/components/shared/booking/BookingContainer"
 import BookingMethodPage from "@/pages/user/shared/BookingMethodPage"
 import BookingChatPage from "@/pages/user/shared/BookingChatPage"
+import BookingDaringPage from "@/pages/user/shared/BookingDaringPage"
 import PsychologistProfilePage from "@/pages/user/psychologist/profile/PsychologistProfilePage"
 import SchedulePage from "@/components/shared/schedule/SchedulePage"
+
+// === SETTINGS PAGES ===
+import BranchSettingsPage from "@/pages/organization/company/BranchSettingsPage"
 
 // === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
@@ -155,14 +159,6 @@ const routes = [
       </ProtectedRoute>
     ),
   },
-  {
-    path: "/user/:userType/booking-complete",
-    element: (
-      <ProtectedRoute>
-        <BookingSessionComplete />
-      </ProtectedRoute>
-    ),
-  },
 
   // ==========================================
   // UNIFIED ONBOARDING SYSTEM
@@ -228,6 +224,14 @@ const routes = [
         path: "booking-chat",
         element: <BookingChatPage />,
       },
+      {
+        path: "booking-daring",
+        element: <BookingDaringPage />,
+      },
+      {
+        path: "booking-complete",
+        element: <BookingSessionComplete />,
+      },
     ],
   },
 
@@ -273,6 +277,14 @@ const routes = [
       {
         path: "booking-chat",
         element: <BookingChatPage />,
+      },
+      {
+        path: "booking-daring",
+        element: <BookingDaringPage />,
+      },
+      {
+        path: "booking-complete",
+        element: <BookingSessionComplete />,
       },
     ],
   },
@@ -394,6 +406,14 @@ const routes = [
         path: "booking-chat",
         element: <BookingChatPage />,
       },
+      {
+        path: "booking-daring",
+        element: <BookingDaringPage />,
+      },
+      {
+        path: "booking-complete",
+        element: <BookingSessionComplete />,
+      },
     ],
   },
 
@@ -453,6 +473,10 @@ const routes = [
       {
         path: "settings",
         element: <Navigate to="profile" replace />,
+      },
+      {
+        path: "settings/branches",
+        element: <BranchSettingsPage />,
       },
     ],
   },
@@ -533,6 +557,10 @@ const routes = [
       {
         path: "settings",
         element: <Navigate to="profile" replace />,
+      },
+      {
+        path: "settings/branches",
+        element: <BranchSettingsPage />,
       },
     ],
   },
