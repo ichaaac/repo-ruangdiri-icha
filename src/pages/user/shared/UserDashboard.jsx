@@ -341,39 +341,21 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
 
   if (!session) {
     return (
-      <div className="rounded-2xl w-full xl:w-[400px] xl:flex-shrink-0" style={{ backgroundColor: '#1E293B', padding: 20 }}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(232,101,91,0.15)' }}>
-            <CalendarEmptyIcon color="#E8655B" size={22} />
-          </div>
-          <div>
-            <h2 className="font-semibold text-sm" style={{ color: '#FFFFFF' }}>Sesi Konseling</h2>
-            <p className="text-xs" style={{ color: '#94A3B8' }}>Sesi mendatang</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-center justify-center py-10">
-          <div className="flex items-center justify-center mb-3" style={{ width: 48, height: 48, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.08)' }}>
-            <CalendarEmptyIcon color="#64748B" size={22} />
-          </div>
-          <p className="text-center text-sm font-medium" style={{ color: '#CBD5E1' }}>Belum ada sesi konseling</p>
-          <p className="text-center text-xs" style={{ color: '#64748B' }}>Saat ini Anda belum ada jadwal sesi konseling</p>
-        </div>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
+        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
+        <SectionEmptyState
+          title="Belum ada sesi konseling"
+          subtitle="Saat ini Anda belum ada jadwal sesi konseling"
+          iconElement={<CalendarEmptyIcon color="#9CA3AF" size={24} />}
+        />
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl w-full xl:w-[400px] xl:flex-shrink-0" style={{ backgroundColor: '#1E293B', padding: 20 }}>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(232,101,91,0.15)' }}>
-          <CalendarEmptyIcon color="#E8655B" size={22} />
-        </div>
-        <div>
-          <h2 className="font-semibold text-sm" style={{ color: '#FFFFFF' }}>Sesi Konseling</h2>
-          <p className="text-xs" style={{ color: '#94A3B8' }}>Sesi mendatang</p>
-        </div>
-      </div>
+      <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
 
       {/* Image */}
       <img
@@ -384,14 +366,14 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
       />
 
       {/* Title */}
-      <h3 className="font-bold text-base mb-3" style={{ color: '#60A5FA' }}>
+      <h3 className="font-bold text-base mb-3" style={{ color: '#488BBA' }}>
         Sesi Konseling Baru ({getMethodLabel()})
       </h3>
 
       {/* Info rows */}
       <div className="flex flex-col gap-2 mb-5">
-        <div className="flex items-center gap-3" style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: '10px 12px' }}>
-          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#EFF6FF' }}>
+        <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
             <VideoIcon color="#488BBE" size={18} />
           </div>
           <div style={{ minWidth: 0 }}>
@@ -399,8 +381,8 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
             <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Link akan dikirim via notifikasi'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3" style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: '10px 12px' }}>
-          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#EFF6FF' }}>
+        <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
             <ClockIcon color="#488BBE" size={18} />
           </div>
           <div>
