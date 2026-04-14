@@ -69,6 +69,20 @@ export const useBooking = (userType = 'student') => {
   const [notes, setNotes] = useState('')
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  // Check if user already has an active booking (1 person = 1 active booking)
+  const { data: existingBookings } = useQuery({
+    queryKey: ['booking-history', 'active-check'],
+    queryFn: () => bookingApi.getBookingHistory(),
+    staleTime: 30 * 1000,
+    select: (res) => {
+      const sessions = res?.data?.data || []
+      return sessions.filter(s => ['scheduled', 'confirmed', 'pending'].includes(s.status))
+    },
+  })
+
+  const hasActiveBooking = existingBookings?.length > 0
+  const activeBookingInfo = existingBookings?.[0] || null
+
   const {
     data: counselingMethods,
     isLoading: methodsLoading,
@@ -415,6 +429,11 @@ export const useBooking = (userType = 'student') => {
       throw new Error('Booking already in progress')
     }
 
+    // Prevent double booking: 1 person = 1 active booking
+    if (hasActiveBooking) {
+      throw new Error('Anda sudah memiliki sesi konseling aktif. Batalkan atau selesaikan sesi sebelumnya terlebih dahulu.')
+    }
+
     if (!selectedMethod || !selectedDate || !selectedTimeSlot) {
       throw new Error('Please fill in all required fields')
     }
@@ -455,6 +474,7 @@ export const useBooking = (userType = 'student') => {
     notes,
     config.defaultTimezone,
     createBookingMutation,
+    hasActiveBooking,
   ])
 
   const isFormValid = useCallback(() => {
@@ -554,6 +574,9 @@ export const useBooking = (userType = 'student') => {
 
     loading,
     errors,
+
+    hasActiveBooking,
+    activeBookingInfo,
 
     bookingCreated: createBookingMutation.isSuccess,
     createdBookingData: createBookingMutation.data,
