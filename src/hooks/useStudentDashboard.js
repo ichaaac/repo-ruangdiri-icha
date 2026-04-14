@@ -83,7 +83,7 @@ const transformToUpcomingSession = (bookings) => {
   const now = new Date();
   const today = new Date(now.toDateString());
   const upcoming = bookings
-    .filter((b) => ["scheduled", "confirmed", "pending"].includes(b.status) && new Date(b.date) >= today)
+    .filter((b) => ["scheduled", "confirmed", "pending", "rescheduled"].includes(b.status) && new Date(b.date) >= today)
     .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
 
   if (!upcoming) return null;
@@ -117,7 +117,13 @@ const transformToHistory = (bookings) => {
   if (!bookings?.length) return [];
 
   return bookings
-    .filter((b) => ["completed", "cancelled", "rescheduled"].includes(b.status))
+    .filter((b) => {
+      // Cancelled and completed always go to history
+      if (["completed", "cancelled"].includes(b.status)) return true
+      // Rescheduled only goes to history if the date is in the past
+      if (b.status === "rescheduled") return new Date(b.date) < new Date(new Date().toDateString())
+      return false
+    })
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .map((b) => {
       const d = new Date(b.date);
