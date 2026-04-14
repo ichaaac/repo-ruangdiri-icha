@@ -2,10 +2,33 @@ import { useLocation, useNavigate, useOutletContext } from "react-router-dom"
 import { useAuth } from "../../../hooks/useAuth"
 import { useEffect, useState } from "react"
 
-const FONT = 'Plus Jakarta Sans, sans-serif';
+const FONT = 'Plus Jakarta Sans, sans-serif'
+const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+const DAYS_ID = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']
 
-const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-const DAYS_ID = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const SnowflakeSVG = ({ style }) => (
+  <svg style={{ position: 'absolute', opacity: 0.08, ...style }} width="60" height="60" viewBox="0 0 24 24" fill="none">
+    <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07M12 2l3 3-3 3M12 22l-3-3 3-3M2 12l3-3 3 3M22 12l-3 3-3-3M4.93 4.93l3 1.07-1.07 3M19.07 4.93l-3 1.07 1.07 3M4.93 19.07l3-1.07-1.07-3M19.07 19.07l-3-1.07 1.07-3" stroke="#488BBA" strokeWidth="0.8" strokeLinecap="round"/>
+  </svg>
+)
+
+const DecoIllustration = () => (
+  <svg width="200" height="160" viewBox="0 0 200 160" fill="none" style={{ margin: '0 auto', display: 'block' }}>
+    <ellipse cx="100" cy="140" rx="70" ry="12" fill="#E8F4FD" />
+    <rect x="60" y="40" width="80" height="90" rx="8" fill="#D3D6FF" />
+    <rect x="65" y="45" width="70" height="50" rx="4" fill="#FFFFFF" />
+    <rect x="72" y="52" width="30" height="3" rx="1.5" fill="#C5C8FF" />
+    <rect x="72" y="60" width="50" height="3" rx="1.5" fill="#E0E2FF" />
+    <rect x="72" y="68" width="40" height="3" rx="1.5" fill="#E0E2FF" />
+    <rect x="72" y="76" width="45" height="3" rx="1.5" fill="#E0E2FF" />
+    <circle cx="130" cy="105" r="18" fill="#FFD4CC" />
+    <path d="M122 100c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#E8655B" strokeWidth="1.5" fill="none" />
+    <circle cx="130" cy="112" r="6" fill="#FFE8E4" />
+    <path d="M126 118c0 0 2 4 4 4s4-4 4-4" stroke="#E8655B" strokeWidth="1" fill="none" />
+    <rect x="75" y="100" width="35" height="20" rx="4" fill="#9BCA61" opacity="0.3" />
+    <path d="M85 110l4 4 8-8" stroke="#9BCA61" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
 const BookingSessionComplete = () => {
   const location = useLocation()
@@ -41,7 +64,7 @@ const BookingSessionComplete = () => {
       if (bookingData?.dateTimeFormatted?.date && !bookingData.dateTimeFormatted.date.includes('undefined')) {
         return bookingData.dateTimeFormatted.date
       }
-      let dateStr = bookingData?.date
+      const dateStr = bookingData?.date
       if (!dateStr) return '-'
       const d = new Date(dateStr)
       if (isNaN(d.getTime())) return dateStr
@@ -109,8 +132,7 @@ const BookingSessionComplete = () => {
           <defs><linearGradient id="wb_bc" x1="44" y1="1" x2="813.5" y2="352" gradientUnits="userSpaceOnUse"><stop stopColor="white" /><stop offset="0.898" stopColor="#BBF2FF" /></linearGradient></defs>
         </svg>
         <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
-          {/* Breadcrumb */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, fontSize: 14 }}>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
             <span onClick={() => navigate(`/user/${userType}/dashboard`)}
               style={{ color: '#6B7280', cursor: 'pointer' }}>Dashboard</span>
             <span style={{ color: '#9CA3AF' }}>/</span>
@@ -122,9 +144,27 @@ const BookingSessionComplete = () => {
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ backgroundColor: '#F0F9FC', padding: '32px 24px 48px', minHeight: 'calc(100vh - 200px)' }}>
-        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+      {/* Content area with snowflake pattern background */}
+      <div style={{ backgroundColor: '#EBF7FB', padding: '32px 24px 48px', minHeight: 'calc(100vh - 200px)', position: 'relative', overflow: 'hidden' }}>
+        {/* Snowflake decorations */}
+        <SnowflakeSVG style={{ top: 20, left: '5%' }} />
+        <SnowflakeSVG style={{ top: 60, left: '15%', width: 40, height: 40 }} />
+        <SnowflakeSVG style={{ top: 120, left: '3%', width: 50, height: 50 }} />
+        <SnowflakeSVG style={{ top: 200, left: '10%', width: 35, height: 35 }} />
+        <SnowflakeSVG style={{ top: 300, left: '7%' }} />
+        <SnowflakeSVG style={{ top: 380, left: '18%', width: 45, height: 45 }} />
+        <SnowflakeSVG style={{ top: 30, right: '5%', left: 'auto' }} />
+        <SnowflakeSVG style={{ top: 90, right: '12%', left: 'auto', width: 45, height: 45 }} />
+        <SnowflakeSVG style={{ top: 170, right: '3%', left: 'auto', width: 50, height: 50 }} />
+        <SnowflakeSVG style={{ top: 260, right: '15%', left: 'auto', width: 35, height: 35 }} />
+        <SnowflakeSVG style={{ top: 340, right: '8%', left: 'auto' }} />
+        <SnowflakeSVG style={{ top: 420, right: '20%', left: 'auto', width: 40, height: 40 }} />
+        <SnowflakeSVG style={{ top: 150, left: '22%', width: 30, height: 30 }} />
+        <SnowflakeSVG style={{ top: 250, right: '25%', left: 'auto', width: 30, height: 30 }} />
+        <SnowflakeSVG style={{ top: 450, left: '12%', width: 55, height: 55 }} />
+        <SnowflakeSVG style={{ top: 500, right: '10%', left: 'auto', width: 48, height: 48 }} />
+
+        <div style={{ maxWidth: 560, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           {/* Card */}
           <div style={{
             backgroundColor: '#FFFFFF', borderRadius: 16,
@@ -217,6 +257,11 @@ const BookingSessionComplete = () => {
             >
               Kembali ke Dashboard
             </button>
+          </div>
+
+          {/* Decorative illustration below card */}
+          <div style={{ marginTop: 24 }}>
+            <DecoIllustration />
           </div>
         </div>
       </div>
