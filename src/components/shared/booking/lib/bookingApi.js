@@ -767,11 +767,14 @@ export const createBookingApi = (userType = "student") => {
           } catch {}
 
           // Filter sessions that include the current user (as student/employee)
-          // Include sessions without users array (e.g. cancelled sessions where BE strips users)
+          // Check users array first, fallback to studentId/employeeId fields
           const userSessions = currentUserId
             ? rawData.filter(session => {
-                if (!session.users || session.users.length === 0) return true
-                return session.users.some(u => u.id === currentUserId && u.role !== "psychologist")
+                // Primary check: user exists in users array
+                if (session.users?.some(u => u.id === currentUserId && u.role !== "psychologist")) return true
+                // Fallback: check direct user ID fields (some BE responses use these)
+                if (session.studentId === currentUserId || session.employeeId === currentUserId || session.userId === currentUserId) return true
+                return false
               })
             : rawData
 
