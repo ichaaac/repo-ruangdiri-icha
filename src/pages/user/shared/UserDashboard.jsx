@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
 import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
 import Breadcrumb from '../../../components/shared/Breadcrumb';
 import { createBookingApi } from '../../../components/shared/booking/lib/bookingApi';
+import Calendar from '../../../components/shared/booking/Calendar';
 
 // --- Chart Helpers ---
 
@@ -171,8 +172,46 @@ const InfoRow = ({ icon, alt, title, subtitle }) => (
 const CounselingSessionCard = ({ session, userType, onCancelled }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const navigate = useNavigate();
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [allSlots, setAllSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [fullyBookedDates, setFullyBookedDates] = useState([]);
+  const datePickerRef = useRef(null);
   const bookingApi = useMemo(() => createBookingApi(userType), [userType]);
+
+  // Fetch available dates when reschedule modal opens
+  useEffect(() => {
+    if (!showReschedule) return;
+    const fetchDates = async () => {
+      try {
+        const response = await bookingApi.getAvailableDates({});
+        if (response?.status === 'success' && Array.isArray(response.data)) {
+          setAvailableDates(response.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchDates();
+  }, [showReschedule, bookingApi]);
+
+  // Close calendar on outside click
+  useEffect(() => {
+    if (!showCalendar) return;
+    const handleClick = (e) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setShowCalendar(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showCalendar]);
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -188,47 +227,200 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
     }
   };
 
+  const openReschedule = () => {
+    setRescheduleDate('');
+    setSelectedSlot(null);
+    setAllSlots([]);
+    setRescheduleError('');
+    setShowReschedule(true);
+  };
+
+  const fetchSlots = async (date) => {
+    if (!date) {
+      setAllSlots([]);
+      return;
+    }
+    setLoadingSlots(true);
+    setSelectedSlot(null);
+    setRescheduleError('');
+    try {
+      // Use the same general availability API as booking-chat
+      const response = await bookingApi.getAvailableTimeSlots({ date });
+      const availabilityData = Array.isArray(response?.data) ? response.data : [];
+
+      // Filter slots matching the selected date
+      const dateSlots = availabilityData.filter(slot => slot.date === date);
+
+      let combined = dateSlots.map(slot => {
+        const isBooked = (slot.bookedPsychologists || 0) > 0;
+        return {
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isBooked,
+          reason: isBooked ? 'Sudah Terbooking' : undefined,
+        };
+      }).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+      // Mark past slots for today
+      const now = new Date();
+      const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+      if (date === todayStr) {
+        const currentHHMM = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+        combined = combined.map(s => {
+          if (s.startTime?.slice(0, 5) <= currentHHMM) {
+            return { ...s, isBooked: true, reason: 'Jam sudah lewat' };
+          }
+          return s;
+        });
+      }
+
+      // Mark the current session's own slot on the same date
+      if (session.startTime && session.endTime && date === session.rawDate) {
+        combined = combined.map(s => {
+          if (s.startTime?.slice(0, 5) === session.startTime.slice(0, 5) && s.endTime?.slice(0, 5) === session.endTime.slice(0, 5)) {
+            return { ...s, isBooked: true, reason: 'Jadwal sesi saat ini' };
+          }
+          return s;
+        });
+      }
+
+      setAllSlots(combined);
+      const availableCount = combined.filter(s => !s.isBooked).length;
+      if (!combined.length) {
+        setRescheduleError('Psikolog tidak memiliki jadwal pada tanggal ini.');
+      } else if (availableCount === 0) {
+        setRescheduleError('Tidak ada slot tersedia pada tanggal ini.');
+      }
+    } catch {
+      setAllSlots([]);
+      setRescheduleError('Gagal memuat jadwal. Silakan coba lagi.');
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const handleDateChange = (dateStr) => {
+    setRescheduleDate(dateStr);
+    fetchSlots(dateStr);
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleDate) {
+      setRescheduleError('Tanggal wajib dipilih.');
+      return;
+    }
+    if (!selectedSlot) {
+      setRescheduleError('Pilih slot waktu yang tersedia.');
+      return;
+    }
+    setRescheduling(true);
+    setRescheduleError('');
+    try {
+      await bookingApi.rescheduleCounselingBySchedule(session.id, {
+        date: rescheduleDate,
+        startTime: selectedSlot.startTime.slice(0, 5),
+        endTime: selectedSlot.endTime.slice(0, 5),
+      });
+      setShowReschedule(false);
+      onCancelled?.();
+    } catch (err) {
+      console.error('Reschedule failed:', err);
+      setRescheduleError(err?.response?.data?.message || 'Gagal mengubah jadwal. Silakan coba lagi.');
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
+  const getMethodLabel = () => {
+    const m = String(session.method || '').toLowerCase();
+    if (m === 'online') return 'Daring';
+    if (m === 'offline') return 'Luring';
+    if (m === 'chat') return 'Chat';
+    return m || 'Konseling';
+  };
+
   if (!session) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
-        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
-        <SectionEmptyState
-          title="Belum ada sesi konseling"
-          subtitle="Saat ini Anda belum ada jadwal sesi konseling"
-          iconElement={<CalendarEmptyIcon color="#9CA3AF" size={24} />}
-        />
+      <div className="rounded-2xl w-full xl:w-[400px] xl:flex-shrink-0" style={{ backgroundColor: '#1E293B', padding: 20 }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(232,101,91,0.15)' }}>
+            <CalendarEmptyIcon color="#E8655B" size={22} />
+          </div>
+          <div>
+            <h2 className="font-semibold text-sm" style={{ color: '#FFFFFF' }}>Sesi Konseling</h2>
+            <p className="text-xs" style={{ color: '#94A3B8' }}>Sesi mendatang</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-10">
+          <div className="flex items-center justify-center mb-3" style={{ width: 48, height: 48, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.08)' }}>
+            <CalendarEmptyIcon color="#64748B" size={22} />
+          </div>
+          <p className="text-center text-sm font-medium" style={{ color: '#CBD5E1' }}>Belum ada sesi konseling</p>
+          <p className="text-center text-xs" style={{ color: '#64748B' }}>Saat ini Anda belum ada jadwal sesi konseling</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
-      <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
+    <div className="rounded-2xl w-full xl:w-[400px] xl:flex-shrink-0" style={{ backgroundColor: '#1E293B', padding: 20 }}>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center justify-center" style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(232,101,91,0.15)' }}>
+          <CalendarEmptyIcon color="#E8655B" size={22} />
+        </div>
+        <div>
+          <h2 className="font-semibold text-sm" style={{ color: '#FFFFFF' }}>Sesi Konseling</h2>
+          <p className="text-xs" style={{ color: '#94A3B8' }}>Sesi mendatang</p>
+        </div>
+      </div>
 
+      {/* Image */}
       <img
         src="/dashboardruangdiri-1.png"
         alt="Sesi Konseling"
         className="w-full object-cover mb-4"
-        style={{ height: 127, borderRadius: 12 }}
+        style={{ height: 140, borderRadius: 12 }}
       />
 
-      <h3 className="text-[#1F2937] font-bold text-base mb-3">{session.title}</h3>
+      {/* Title */}
+      <h3 className="font-bold text-base mb-3" style={{ color: '#60A5FA' }}>
+        Sesi Konseling Baru ({getMethodLabel()})
+      </h3>
 
+      {/* Info rows */}
       <div className="flex flex-col gap-2 mb-5">
-        <InfoRow icon="/icon/zoom.svg" alt="Platform" title={session.platform} subtitle="Link akan dikirim via notifikasi" />
-        <InfoRow icon="/icon/clock.svg" alt="Jadwal" title={session.fullDate} subtitle={session.time} />
+        <div className="flex items-center gap-3" style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: '10px 12px' }}>
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#EFF6FF' }}>
+            <VideoIcon color="#488BBE" size={18} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p className="text-sm font-bold text-[#1F2937]">{session.platform || 'Zoom Meeting'}</p>
+            <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Link akan dikirim via notifikasi'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3" style={{ backgroundColor: '#F8FAFC', borderRadius: 12, padding: '10px 12px' }}>
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#EFF6FF' }}>
+            <ClockIcon color="#488BBE" size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#1F2937]">{session.fullDate}</p>
+            <p className="text-xs text-[#6B7280]">{session.time}</p>
+          </div>
+        </div>
       </div>
 
+      {/* Buttons */}
       <div className="flex gap-3">
         <button
           onClick={() => setShowCancelConfirm(true)}
-          className="flex-1 font-semibold text-sm hover:bg-[#FFF0F3] transition-colors"
-          style={{ border: '1.5px solid #E8655B', color: '#E8655B', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: 'pointer' }}
+          className="flex-1 font-semibold text-sm transition-colors"
+          style={{ border: '1.5px solid #E8655B', color: '#E8655B', borderRadius: 12, padding: '10px 16px', background: '#FFFFFF', cursor: 'pointer' }}
         >
           Batal
         </button>
         <button
-          onClick={() => navigate(`/user/${userType}/booking-chat`)}
+          onClick={openReschedule}
           className="flex-1 text-white font-semibold text-sm hover:opacity-90 transition-opacity"
           style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: 'pointer' }}
         >
@@ -258,6 +450,105 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
                 style={{ backgroundColor: '#EF4444', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: cancelling ? 'not-allowed' : 'pointer', opacity: cancelling ? 0.6 : 1 }}
               >
                 {cancelling ? 'Membatalkan...' : 'Ya, Batalkan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReschedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !rescheduling && setShowReschedule(false)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-[#1F2937] mb-4">Ubah Jadwal Konseling</h3>
+
+            <label className="block text-sm text-[#374151] font-medium mb-1">Tanggal</label>
+            <div className="relative mb-3" ref={datePickerRef}>
+              <button
+                type="button"
+                onClick={() => !rescheduling && setShowCalendar(prev => !prev)}
+                disabled={rescheduling}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left focus:outline-none focus:ring-2 focus:ring-[#E8655B] bg-white"
+              >
+                {rescheduleDate
+                  ? new Date(rescheduleDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : 'Pilih Tanggal'}
+                <span className="material-icons text-gray-400 text-base absolute right-3 top-1/2 -translate-y-1/2">calendar_today</span>
+              </button>
+              <Calendar
+                selectedDate={rescheduleDate}
+                onDateSelect={(dateStr) => {
+                  handleDateChange(dateStr);
+                  setShowCalendar(false);
+                }}
+                availableDates={availableDates}
+                fullyBookedDates={fullyBookedDates}
+                isOpen={showCalendar}
+                onClose={() => setShowCalendar(false)}
+                triggerRef={datePickerRef}
+              />
+            </div>
+
+            {rescheduleDate && (
+              <div className="mb-3">
+                <label className="block text-sm text-[#374151] font-medium mb-2">Pilih Waktu</label>
+                {loadingSlots ? (
+                  <div className="text-center py-4 text-sm text-gray-400">Memuat slot tersedia...</div>
+                ) : allSlots.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                    {allSlots.map((slot, idx) => {
+                      const start = slot.startTime?.slice(0, 5);
+                      const end = slot.endTime?.slice(0, 5);
+                      const isSelected = !slot.isBooked && selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => !slot.isBooked && setSelectedSlot(slot)}
+                          disabled={rescheduling || slot.isBooked}
+                          className="text-sm rounded-lg py-2 px-3 border transition-colors relative"
+                          style={{
+                            backgroundColor: slot.isBooked ? '#F3F4F6' : isSelected ? '#E8655B' : '#FFFFFF',
+                            color: slot.isBooked ? '#9CA3AF' : isSelected ? '#FFFFFF' : '#374151',
+                            borderColor: slot.isBooked ? '#E5E7EB' : isSelected ? '#E8655B' : '#D1D5DB',
+                            cursor: slot.isBooked ? 'not-allowed' : rescheduling ? 'not-allowed' : 'pointer',
+                            opacity: slot.isBooked ? 0.7 : 1,
+                          }}
+                          title={slot.isBooked ? (slot.reason || 'Sudah terbooking') : ''}
+                        >
+                          <span>{start} - {end}</span>
+                          {slot.isBooked && (
+                            <span className="block text-[10px] text-gray-400 mt-0.5">{slot.reason || 'Terbooking'}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : !rescheduleError ? (
+                  <div className="text-center py-4 text-sm text-gray-400">Tidak ada slot tersedia</div>
+                ) : null}
+              </div>
+            )}
+
+            {rescheduleError && (
+              <p className="text-xs text-[#EF4444] mb-3">{rescheduleError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReschedule(false)}
+                disabled={rescheduling}
+                className="flex-1 font-semibold text-sm"
+                style={{ border: '1.5px solid #D1D5DB', color: '#6B7280', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: rescheduling ? 'not-allowed' : 'pointer' }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleReschedule}
+                disabled={rescheduling}
+                className="flex-1 text-white font-semibold text-sm"
+                style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: rescheduling ? 'not-allowed' : 'pointer', opacity: rescheduling ? 0.6 : 1 }}
+              >
+                {rescheduling ? 'Menyimpan...' : 'Simpan'}
               </button>
             </div>
           </div>

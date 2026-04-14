@@ -97,12 +97,19 @@ const transformToUpcomingSession = (bookings) => {
 
   return {
     id: upcoming.id,
+    rawDate: upcoming.date,
     date: String(d.getDate()),
     day: dayName,
     fullDate: `${dayName}, ${d.getDate()} ${monthName} ${d.getFullYear()}`,
     time: startTime && endTime ? `${startTime} - ${endTime} WIB` : "",
+    startTime: upcoming.startTime,
+    endTime: upcoming.endTime,
     title: `Sesi Konseling Baru (${method})`,
     platform: upcoming.methodDisplay || upcoming.platform || method,
+    method: upcoming.method,
+    psychologistId: upcoming.psychologist?.id || null,
+    psychologistName: upcoming.psychologistName || upcoming.psychologist?.fullName || "-",
+    zoomLink: upcoming.zoomLink || upcoming.meetingLink || null,
   };
 };
 
