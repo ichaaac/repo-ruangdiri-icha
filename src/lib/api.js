@@ -112,6 +112,23 @@ const api = {
         handleApiError(error, "user.getMe");
       }
     },
+
+    updateProfile: async (data) => {
+      try {
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formData.append(key, value instanceof File ? value : String(value));
+          }
+        });
+        const response = await apiClient.patch("/users/profile", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response;
+      } catch (error) {
+        handleApiError(error, "user.updateProfile");
+      }
+    },
   },
 
   // ==========================================
