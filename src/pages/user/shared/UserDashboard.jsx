@@ -136,8 +136,8 @@ const ProgressChartCard = ({ data }) => {
               width={80}
               tick={<CustomYAxisTick />}
             />
-            {hasData && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" connectNulls />}
-            {hasData && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} connectNulls />}
+            {hasData && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" connectNulls isAnimationActive={false} />}
+            {hasData && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} connectNulls isAnimationActive={false} />}
           </ComposedChart>
         </ResponsiveContainer>
         {!hasData && (
