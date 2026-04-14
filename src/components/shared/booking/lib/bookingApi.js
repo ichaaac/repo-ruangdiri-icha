@@ -767,10 +767,12 @@ export const createBookingApi = (userType = "student") => {
           } catch {}
 
           // Filter sessions that include the current user (as student/employee)
+          // Include sessions without users array (e.g. cancelled sessions where BE strips users)
           const userSessions = currentUserId
-            ? rawData.filter(session =>
-                session.users?.some(u => u.id === currentUserId && u.role !== "psychologist")
-              )
+            ? rawData.filter(session => {
+                if (!session.users || session.users.length === 0) return true
+                return session.users.some(u => u.id === currentUserId && u.role !== "psychologist")
+              })
             : rawData
 
           // Transform to the format expected by dashboard
