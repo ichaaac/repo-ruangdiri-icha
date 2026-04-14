@@ -376,6 +376,8 @@ export const useBooking = (userType = 'student') => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booking-history'] })
       queryClient.invalidateQueries({ queryKey: ['psychologist-availability'] })
+      queryClient.invalidateQueries({ queryKey: ['booked-slots'] })
+      queryClient.invalidateQueries({ queryKey: ['studentDashboard'] })
     },
   })
 
@@ -408,6 +410,11 @@ export const useBooking = (userType = 'student') => {
   }, [])
 
   const handleBookingSubmit = useCallback(async () => {
+    // Prevent double submission
+    if (createBookingMutation.isPending) {
+      throw new Error('Booking already in progress')
+    }
+
     if (!selectedMethod || !selectedDate || !selectedTimeSlot) {
       throw new Error('Please fill in all required fields')
     }
@@ -473,7 +480,6 @@ export const useBooking = (userType = 'student') => {
 
   const resetBookingForm = useCallback(() => {
     setSelectedMethod(null)
-    setSelectedPsychologist(null)
     setSelectedDate('')
     setSelectedTimeSlot(null)
     setSelectedLocation(null)

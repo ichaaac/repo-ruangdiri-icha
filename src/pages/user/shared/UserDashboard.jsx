@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
 import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
 import Breadcrumb from '../../../components/shared/Breadcrumb';
@@ -170,6 +171,7 @@ const InfoRow = ({ icon, alt, title, subtitle }) => (
 );
 
 const CounselingSessionCard = ({ session, userType, onCancelled }) => {
+  const queryClient = useQueryClient();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
@@ -218,6 +220,11 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
     try {
       await bookingApi.cancelCounseling(session.id);
       setShowCancelConfirm(false);
+      // Invalidate all related queries so dashboard updates immediately
+      queryClient.invalidateQueries({ queryKey: ['studentDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['booking-history'] });
+      queryClient.invalidateQueries({ queryKey: ['booked-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['psychologist-availability'] });
       onCancelled?.();
     } catch (err) {
       console.error('Cancel failed:', err);
@@ -322,6 +329,11 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
         endTime: selectedSlot.endTime.slice(0, 5),
       });
       setShowReschedule(false);
+      // Invalidate all related queries so both dashboard and schedule update
+      queryClient.invalidateQueries({ queryKey: ['studentDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['booking-history'] });
+      queryClient.invalidateQueries({ queryKey: ['booked-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['psychologist-availability'] });
       onCancelled?.();
     } catch (err) {
       console.error('Reschedule failed:', err);

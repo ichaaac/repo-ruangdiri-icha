@@ -756,17 +756,6 @@ export const createBookingApi = (userType = "student") => {
         if (response.data && response.data.status === "success") {
           const rawData = Array.isArray(response.data.data) ? response.data.data : []
 
-          // DEBUG: Log raw BE response to diagnose filtering issues
-          console.log("[BookingHistory] Raw BE data:", rawData.map(s => ({
-            id: s.id?.slice(0, 8),
-            location: s.location,
-            counselingStatus: s.counselingStatus,
-            users: s.users?.map(u => ({ id: u.id?.slice(0, 8), role: u.role })),
-            studentId: s.studentId,
-            employeeId: s.employeeId,
-            userId: s.userId,
-          })))
-
           // Get current user ID from JWT token
           const token = localStorage.getItem("token")
           let currentUserId = null
@@ -776,8 +765,6 @@ export const createBookingApi = (userType = "student") => {
               currentUserId = payload.sub
             }
           } catch {}
-
-          console.log("[BookingHistory] Current user ID:", currentUserId)
 
           // Filter sessions that include the current user (as student/employee)
           // Check users array first, fallback to studentId/employeeId fields
@@ -790,8 +777,6 @@ export const createBookingApi = (userType = "student") => {
                 return false
               })
             : rawData
-
-          console.log("[BookingHistory] After filter:", userSessions.length, "of", rawData.length, "sessions")
 
           // Transform to the format expected by dashboard
           const transformed = userSessions.map(session => {
