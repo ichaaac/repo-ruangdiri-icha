@@ -34,9 +34,6 @@ const BookingPage = ({ userType = "student", onMethodSelect }) => {
   }
 
   const handleCardClick = (method) => {
-    console.log("Method selected:", method)
-    console.log("User type:", userType)
-
     // If we have a callback (used in container), call it
     if (onMethodSelect) {
       onMethodSelect(method)

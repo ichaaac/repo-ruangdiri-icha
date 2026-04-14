@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "../../../../hooks/useAuth"
 import DashboardIcon from "../icons/DashboardIcon"
 import PeopleIcon from "../icons/PeopleIcon"
 import CalendarIcon from "../icons/CalendarIcon"
+import SettingsIcon from "../icons/SettingsIcon"
 
 const EXPANDED_W = 280
 const COLLAPSED_W = 60
@@ -30,6 +32,10 @@ const OrganizationSidebar = ({
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { getAdminLevel, getAdminScopeName, getUserTypeLabel } = useAuth()
+
+  const adminLevel = getAdminLevel()
+  const scopeName = getAdminScopeName()
 
   const [hovered, setHovered] = useState(false)
   const expandTimeoutRef = useRef(null)
@@ -39,7 +45,13 @@ const OrganizationSidebar = ({
 
   const isOpen = expanded || hovered
   const sidebarWidth = isOpen ? EXPANDED_W : COLLAPSED_W
-  const menuItems = useMemo(() => MENU_ITEMS[organizationType] || MENU_ITEMS.school, [organizationType])
+  const menuItems = useMemo(() => {
+    const base = MENU_ITEMS[organizationType] || MENU_ITEMS.school
+    if (adminLevel === "pusat") {
+      return [...base, { label: "Pengaturan", icon: SettingsIcon, path: `/organization/${organizationType}/settings/branches` }]
+    }
+    return base
+  }, [organizationType, adminLevel])
 
   const isActive = (path) => {
     if (path.includes("/dashboard")) return location.pathname.includes("/dashboard")
@@ -196,6 +208,37 @@ const OrganizationSidebar = ({
               </span>
             )}
           </div>
+
+          {/* Admin scope badge */}
+          {isOpen && scopeName && (() => {
+            const isWilayah = adminLevel === "wilayah"
+            return (
+              <div style={{ padding: "8px 24px 0", flexShrink: 0 }}>
+                <div
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    backgroundColor: isWilayah ? "#EEF2FF" : "#FFF7ED",
+                    border: `1px solid ${isWilayah ? "#C7D2FE" : "#FED7AA"}`,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: isWilayah ? "#4338CA" : "#C2410C",
+                    lineHeight: "16px",
+                    textAlign: "center",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={`${getUserTypeLabel()} - ${scopeName}`}
+                >
+                  {getUserTypeLabel()}
+                  <div style={{ fontWeight: 400, fontSize: 10, marginTop: 2, color: isWilayah ? "#6366F1" : "#EA580C" }}>
+                    {scopeName}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Gap */}
           <div style={{ height: 32, flexShrink: 0 }} />

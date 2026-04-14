@@ -54,6 +54,22 @@ export const useAuth = () => {
           localStorage.setItem("userRole", userRole);
         }
 
+        // Store admin scope for branch/region admins
+        const adminLevel = userData?.adminLevel
+        if (adminLevel === "cabang" && userData?.branch?.id) {
+          localStorage.setItem("adminScope", JSON.stringify({
+            branchId: userData.branch.id,
+            label: userData.branch.name
+          }))
+        } else if (adminLevel === "wilayah" && userData?.region?.id) {
+          localStorage.setItem("adminScope", JSON.stringify({
+            regionId: userData.region.id,
+            label: userData.region.name
+          }))
+        } else {
+          localStorage.removeItem("adminScope")
+        }
+
         console.log("✅ User data fetched:", {
           id: userData.id,
           email: userData.email,
@@ -494,6 +510,7 @@ const getDashboardPath = (userData) => {
       // 🔐 E2E: Clear all E2E data on logout
       localStorage.removeItem("e2e_account_keys")
       localStorage.removeItem("e2e_private_key")
+      localStorage.removeItem("adminScope")
       queryClient.clear()
       navigate("/login")
       console.log('🔐 All E2E data cleared on logout')
@@ -708,16 +725,55 @@ const getDashboardPath = (userData) => {
     return userRole && ["student", "employee", "psychologist", "client"].includes(userRole)
   }
 
+  // ===================================================
+  // ADMIN HIERARCHY (Pusat > Wilayah > Cabang)
+  // ===================================================
+
+  const getAdminLevel = () => {
+    return user?.adminLevel || "pusat"
+  }
+
+  const getAdminBranch = () => {
+    return user?.branch || null
+  }
+
+  const getAdminRegion = () => {
+    return user?.region || null
+  }
+
+  const getAdminScopeParams = () => {
+    const level = getAdminLevel()
+    if (level === "cabang" && user?.branch?.id) return { branchId: user.branch.id }
+    if (level === "wilayah" && user?.region?.id) return { regionId: user.region.id }
+    return {}
+  }
+
+  const getAdminScopeName = () => {
+    const level = getAdminLevel()
+    if (level === "cabang") return getAdminBranch()?.name || null
+    if (level === "wilayah") return getAdminRegion()?.name || null
+    return null
+  }
+
   const getUserTypeLabel = () => {
     const userRole = getUserRole()
     const orgType = getOrganizationType()
+    const adminLevel = getAdminLevel()
 
     if (userRole === "student") return "Siswa"
     if (userRole === "employee") return "Pegawai"
     if (userRole === "psychologist") return "Psikolog"
     if (userRole === "client") return "Klien"
-    if (orgType === "school") return "Admin Sekolah"
-    if (orgType === "company") return "Admin Perusahaan"
+    if (orgType === "school") {
+      if (adminLevel === "cabang") return "Admin Cabang Sekolah"
+      if (adminLevel === "wilayah") return "Admin Wilayah Sekolah"
+      return "Admin Sekolah"
+    }
+    if (orgType === "company") {
+      if (adminLevel === "cabang") return "Admin Cabang"
+      if (adminLevel === "wilayah") return "Admin Wilayah"
+      return "Admin Pusat"
+    }
     return "User"
   }
 
@@ -745,6 +801,11 @@ const getDashboardPath = (userData) => {
     isOrganizationAdmin,
     isRegularUser,
     getUserTypeLabel,
+    getAdminLevel,
+    getAdminBranch,
+    getAdminRegion,
+    getAdminScopeParams,
+    getAdminScopeName,
     getDefaultRoute: () => {
       if (!user) return '/';
       return getDashboardPath(user);

@@ -116,15 +116,8 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
   const handleSubmit = async () => {
     try {
-      // ✅ DEBUG: Log selected data before submission
-      console.log("=== BOOKING SUBMISSION DEBUG ===")
-      console.log("Selected time slot:", selectedTimeSlot)
-      console.log("Psychologist ID from slot:", selectedTimeSlot?.psychologistId)
-      console.log("Available psychologist IDs:", selectedTimeSlot?.availablePsychologistIds)
-
-      // ✅ VALIDATION: Check if psychologist ID exists
+      // Validate psychologist ID exists
       if (!selectedTimeSlot?.psychologistId && (!selectedTimeSlot?.availablePsychologistIds || selectedTimeSlot.availablePsychologistIds.length === 0)) {
-        console.error("❌ Psychologist ID is missing from selected time slot!")
         toast.error("Psychologist ID missing. Please select time slot again.")
         return
       }
@@ -160,13 +153,10 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
       } else {
         // Redirect to tickets page with booking ID
         if (result?.id) {
-          console.log("✅ Booking successful, redirecting to ticket:", result.id)
           navigate(`/user/${userType}/tickets/${result.id}`, {
             replace: true,
           })
         } else {
-          // Fallback to booking-complete if no booking ID
-          console.warn("⚠️ No booking ID received, redirecting to booking-complete")
           navigate(`/user/${userType}/booking-complete`, {
             state: { bookingResult: result, methodOverride: currentSelectedMethod?.id },
             replace: true,
@@ -213,12 +203,6 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
   // UPDATED: Get dynamic quota from availability (time-slot based)
   const remainingQuota = availableQuota ?? 0
-
-  // Debug: Log quota values
-  console.log("🔍 [BookingSession] availableQuota:", availableQuota)
-  console.log("🔍 [BookingSession] remainingQuota:", remainingQuota)
-  console.log("🔍 [BookingSession] loading.quota:", loading.quota)
-  console.log("🔍 [BookingSession] errors.quota:", errors.quota)
 
   // Show loading state while methods are loading
   if (loading.methods) {

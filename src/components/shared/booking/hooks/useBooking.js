@@ -43,15 +43,18 @@ const formatDateLabel = (dateStr) => {
   })
 }
 
-const isSlotAvailableByData = (slot, threshold) => {
+const isSlotAvailableByData = (slot) => {
+  if (typeof slot.bookedPsychologists === 'number') {
+    return slot.bookedPsychologists === 0
+  }
   if (typeof slot.availablePsychologists === 'number') {
-    return slot.availablePsychologists >= threshold
+    return slot.availablePsychologists === slot.totalPsychologists
   }
   if (typeof slot.isBooked === 'boolean') {
     return slot.isBooked === false
   }
   const scheduledCount = slot.scheduledSessions?.length || 0
-  return !slot.hasScheduledSessions || scheduledCount < 2
+  return !slot.hasScheduledSessions || scheduledCount < 1
 }
 export const useBooking = (userType = 'student') => {
   const queryClient = useQueryClient()
@@ -113,7 +116,7 @@ export const useBooking = (userType = 'student') => {
 
       return Object.entries(byDate)
         .filter(([, slots]) =>
-          slots.some((s) => isSlotAvailableByData(s, availabilityThreshold))
+          slots.some((s) => isSlotAvailableByData(s))
         )
         .map(([dateStr]) => ({
           value: dateStr,
@@ -138,7 +141,7 @@ export const useBooking = (userType = 'student') => {
       }
     }
     return dates
-  }, [psychologistAvailability, availabilityThreshold])
+  }, [psychologistAvailability])
 
   const fullyBookedDates = useMemo(() => {
     if (!psychologistAvailability || psychologistAvailability.length === 0) return []
@@ -153,10 +156,10 @@ export const useBooking = (userType = 'student') => {
 
     return Object.entries(byDate)
       .filter(([, slots]) =>
-        slots.every((s) => !isSlotAvailableByData(s, availabilityThreshold))
+        slots.every((s) => !isSlotAvailableByData(s))
       )
       .map(([dateStr]) => dateStr)
-  }, [psychologistAvailability, availabilityThreshold])
+  }, [psychologistAvailability])
   const {
     data: bookedSlotsData,
     isLoading: bookedSlotsLoading,
@@ -251,7 +254,7 @@ export const useBooking = (userType = 'student') => {
         if (isPast) {
           reason = 'Jam sudah lewat'
         } else if (generalSlot && typeof generalSlot.availablePsychologists === 'number') {
-          isAvailable = generalSlot.availablePsychologists >= availabilityThreshold
+          isAvailable = generalSlot.bookedPsychologists === 0
           isBooked = generalSlot.bookedPsychologists > 0
           reason = isAvailable ? undefined : 'Sudah Terbooking'
           if (isAvailable && generalSlot.availablePsychologistIds?.length > 0) {
@@ -309,10 +312,10 @@ export const useBooking = (userType = 'student') => {
         if (isPast) {
           reason = 'Jam sudah lewat'
         } else if (typeof matchingAvailability.availablePsychologists === 'number') {
-          isAvailable = matchingAvailability.availablePsychologists >= availabilityThreshold
+          isAvailable = matchingAvailability.bookedPsychologists === 0
           reason = isAvailable
             ? undefined
-            : 'Tidak cukup psikolog tersedia (sisa: ' + matchingAvailability.availablePsychologists + ')'
+            : 'Sudah Terbooking'
         } else if (typeof matchingAvailability.isBooked === 'boolean') {
           isAvailable = matchingAvailability.isBooked === false
           reason = isAvailable ? undefined : 'Sudah dibooking'
@@ -364,9 +367,9 @@ export const useBooking = (userType = 'student') => {
   const availableQuota = useMemo(() => {
     if (!psychologistAvailability?.length) return 0
     return psychologistAvailability.filter((slot) =>
-      isSlotAvailableByData(slot, availabilityThreshold)
+      isSlotAvailableByData(slot)
     ).length
-  }, [psychologistAvailability, availabilityThreshold])
+  }, [psychologistAvailability])
 
   const createBookingMutation = useMutation({
     mutationFn: (bookingData) => bookingApi.createBooking(bookingData),

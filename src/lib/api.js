@@ -556,7 +556,59 @@ const api = {
         handleApiError(error, `dashboard.getTabData(${type}, ${tabType})`);
       }
     },
-  }
+  },
+
+  // ==========================================
+  // REGIONS & BRANCHES ENDPOINTS
+  // ==========================================
+  regions: {
+    getAll: async () => {
+      try {
+        const response = await apiClient.get("/regions");
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "regions.getAll");
+      }
+    },
+  },
+
+  branches: {
+    getAll: async (params = {}) => {
+      try {
+        const response = await apiClient.get("/branches", { params });
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.getAll");
+      }
+    },
+    create: async (data) => {
+      try {
+        const response = await apiClient.post("/branches", data);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.create");
+        throw error;
+      }
+    },
+    update: async (id, data) => {
+      try {
+        const response = await apiClient.put(`/branches/${id}`, data);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.update");
+        throw error;
+      }
+    },
+    delete: async (id) => {
+      try {
+        const response = await apiClient.delete(`/branches/${id}`);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.delete");
+        throw error;
+      }
+    },
+  },
 };
 
 // === STANDALONE FUNCTIONS ===

@@ -29,8 +29,6 @@ const BookingContainer = ({
 
   // Handle method selection from BookingPage
   const handleMethodSelect = (method) => {
-    console.log("Method selected in container:", method)
-    console.log("Method details:", JSON.stringify(method, null, 2))
     setSelectedMethod(method)
     setCurrentStep("form")
   }
@@ -43,8 +41,6 @@ const BookingContainer = ({
 
   // Handle successful booking
   const handleBookingSuccess = (result) => {
-    console.log("Booking success in container:", result)
-    console.log("User type for navigation:", userType)
     setBookingResult(result)
     // Navigate to completion page with booking result
     navigate(`/user/${userType}/booking-complete`, {
@@ -120,18 +116,12 @@ const BookingContainer = ({
   )
 
   const renderCurrentStep = () => {
-    console.log("=== RENDERING STEP ===")
-    console.log("Current step:", currentStep)
-    console.log("Selected method:", selectedMethod)
-    console.log("User type:", userType)
-    
     switch (currentStep) {
       case "method":
         return <BookingPage userType={userType} onMethodSelect={handleMethodSelect} />
 
       case "form":
         if (!selectedMethod) {
-          console.warn("No selected method, redirecting to method selection")
           setCurrentStep("method")
           return <BookingPage userType={userType} onMethodSelect={handleMethodSelect} />
         }

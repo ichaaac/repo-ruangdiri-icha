@@ -1,5 +1,6 @@
 // src/components/list/services/listApiService.js
 import api from "@/lib/api"
+import { getAdminScopeParams } from "@/lib/adminScope"
 
 /**
  * Base service for list operations
@@ -17,7 +18,8 @@ class BaseListService {
   buildQueryParams(params = {}) {
     const formatted = {
       page: params.page || 1,
-      limit: params.limit || this.config.defaultLimit || 30
+      limit: params.limit || this.config.defaultLimit || 30,
+      ...getAdminScopeParams()
     }
 
     if (params.search) {

@@ -17,7 +17,10 @@ const OrganizationTopBar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  const { user: userData, logout } = useAuth?.() || { user: {}, logout: { mutateAsync: () => {} } }
+  const { user: userData, logout, getAdminLevel, getAdminScopeName, getUserTypeLabel } = useAuth?.() || { user: {}, logout: { mutateAsync: () => {} } }
+
+  const adminLevel = getAdminLevel?.() || "pusat"
+  const scopeName = getAdminScopeName?.()
 
   const { data: unreadData, isLoading } = useQuery({
     queryKey: ["notifications-unread-count"],
@@ -193,14 +196,32 @@ const OrganizationTopBar = () => {
           <div
             onClick={() => setOpenAvatarDropdown((prev) => !prev)}
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: "50%",
-              overflow: "hidden",
-              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
               cursor: "pointer",
             }}
           >
+            {/* Admin scope label */}
+            {scopeName && (
+              <div style={{ textAlign: "right", lineHeight: 1.3 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#0F172B" }}>
+                  {getUserTypeLabel() || "Admin"}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 400, color: "#64748B" }}>
+                  {scopeName}
+                </div>
+              </div>
+            )}
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
             {userData?.profilePicture && !fallbackAvatar ? (
               <img
                 src={userData.profilePicture}
@@ -225,6 +246,7 @@ const OrganizationTopBar = () => {
                 {getInitial()}
               </div>
             )}
+          </div>
           </div>
 
           {openAvatarDropdown && (

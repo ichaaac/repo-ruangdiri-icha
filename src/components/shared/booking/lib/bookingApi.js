@@ -218,11 +218,6 @@ export const createBookingApi = (userType = "student") => {
   // Create counseling chat session (helper function)
   const createCounselingChatSession = async (counselingId, psychologistName, scheduledAt) => {
     try {
-      console.log("Creating counseling chat session...")
-      console.log("Counseling ID:", counselingId)
-      console.log("Psychologist Name:", psychologistName)
-      console.log("Scheduled At:", scheduledAt)
-
       const payload = {
         counselingId,
         scheduledAt: scheduledAt.toISOString(),
@@ -231,7 +226,6 @@ export const createBookingApi = (userType = "student") => {
       const response = await apiClient.post("/chat/sessions/counseling", payload)
 
       if (response.data && response.data.status === "success") {
-        console.log("Chat session created successfully:", response.data)
         return response.data.data
       }
 
@@ -395,11 +389,7 @@ export const createBookingApi = (userType = "student") => {
           const payload = response.data.data
           const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
-          console.log("=== BACKEND AVAILABILITY RESPONSE ===")
-          console.log("Full response:", response.data)
-          console.log("Flattened availability data:", availabilityData)
-
-          // ✅ DEBUG: Extract and log all psychologist IDs
+          // Extract all psychologist IDs
           const allPsychologistIds = new Set()
           availabilityData.forEach(slot => {
             if (slot.psychologist?.id) allPsychologistIds.add(slot.psychologist.id)
@@ -408,12 +398,9 @@ export const createBookingApi = (userType = "student") => {
               slot.availablePsychologistIds.forEach(id => allPsychologistIds.add(id))
             }
           })
-          console.log("All psychologist IDs found:", Array.from(allPsychologistIds))
-          console.log("=".repeat(50))
 
           // If no specific filtering needed, return all availability data
           if (!date && !psychologistId) {
-            console.log("Returning all availability data")
             return {
               status: "success",
               data: availabilityData,
@@ -439,8 +426,6 @@ export const createBookingApi = (userType = "student") => {
                 )
               : filteredSlots
 
-            console.log("Filtered slots for date and psychologist:", finalSlots)
-
             return {
               status: "success",
               data: finalSlots,
@@ -454,8 +439,6 @@ export const createBookingApi = (userType = "student") => {
                 slot.psychologist?.fullName?.includes(psychologistId) ||
                 slot.psychologist?.id === psychologistId
             )
-
-            console.log("Filtered slots for psychologist:", filteredSlots)
 
             return {
               status: "success",
@@ -530,8 +513,6 @@ export const createBookingApi = (userType = "student") => {
           const payload = response.data.data
           const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
-          console.log("Processing availability for dates:", availabilityData)
-
           // Filter by psychologist if specified
           const filteredAvailability = psychologistId
             ? availabilityData.filter(
@@ -543,8 +524,6 @@ export const createBookingApi = (userType = "student") => {
 
           // Get unique days of week that have availability
           const availableDaysOfWeek = [...new Set(filteredAvailability.map((slot) => slot.dayOfWeek))]
-
-          console.log("Available days of week:", availableDaysOfWeek)
 
           // Generate available dates for next 60 days
           const availableDates = []
@@ -568,8 +547,6 @@ export const createBookingApi = (userType = "student") => {
               })
             }
           }
-
-          console.log("Generated available dates:", availableDates)
 
           return {
             status: "success",
@@ -610,12 +587,7 @@ export const createBookingApi = (userType = "student") => {
     // Get user's subscription info
     getSubscriptionInfo: async () => {
       try {
-        console.log("🔍 [bookingApi] Fetching subscription info from /users/subscription")
         const response = await apiClient.get("/users/subscription")
-
-        console.log("🔍 [bookingApi] Full response:", response)
-        console.log("🔍 [bookingApi] response.data:", response.data)
-        console.log("🔍 [bookingApi] response.data.data:", response.data.data)
 
         if (response.data && response.data.status === "success") {
           // Extract subscription data
@@ -623,9 +595,6 @@ export const createBookingApi = (userType = "student") => {
 
           // Handle remainingQuota - use nullish coalescing to preserve 0 value
           const remainingQuota = subscriptionData.remainingQuota ?? subscriptionData.quota ?? 0
-
-          console.log("🔍 [bookingApi] Extracted remainingQuota:", remainingQuota)
-          console.log("🔍 [bookingApi] subscriptionData:", subscriptionData)
 
           return {
             ...response,
@@ -659,9 +628,6 @@ export const createBookingApi = (userType = "student") => {
     // Create booking appointment - MAIN ENDPOINT WITH CHAT INTEGRATION
     createBooking: async (bookingData) => {
       try {
-        console.log("=== createBooking API call ===")
-        console.log("Booking data received:", bookingData)
-
         const validationErrors = []
 
         if (!bookingData.method || !["online", "offline", "chat"].includes(bookingData.method)) {
@@ -713,11 +679,7 @@ export const createBookingApi = (userType = "student") => {
           transformedData.locationId = bookingData.locationId
         }
 
-        console.log("Final payload sent to backend:", transformedData)
-
         const response = await apiClient.post("/counselings/book", transformedData)
-
-        console.log("Backend response:", response.data)
 
         if (response.data && response.data.status === "success") {
           const bookingResult = {
@@ -738,15 +700,12 @@ export const createBookingApi = (userType = "student") => {
           // Create chat session for chat bookings
           if (bookingData.method === "chat") {
             try {
-              console.log("Creating chat session for chat booking...")
-
               const chatSession = await createCounselingChatSession(
                 response.data.data.id,
                 bookingData.psychologistName,
                 new Date(bookingData.date + "T" + bookingData.startTime),
               )
 
-              console.log("Chat session created successfully:", chatSession)
               bookingResult.chatSessionCreated = true
               bookingResult.chatSessionId = chatSession.sessionId
             } catch (chatError) {
@@ -874,6 +833,17 @@ export const createBookingApi = (userType = "student") => {
 
     rescheduleCounseling: async (counselingId, { date, startTime, endTime, timezone = "Asia/Jakarta", notes = "" }) => {
       const response = await apiClient.put(`/counselings/${counselingId}/reschedule`, {
+        date,
+        startTime,
+        endTime,
+        timezone,
+        notes,
+      })
+      return response.data
+    },
+
+    rescheduleCounselingBySchedule: async (scheduleId, { date, startTime, endTime, timezone = "Asia/Jakarta", notes = "" }) => {
+      const response = await apiClient.put(`/counselings/schedules/${scheduleId}/reschedule`, {
         date,
         startTime,
         endTime,

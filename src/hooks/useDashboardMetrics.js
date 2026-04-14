@@ -4,6 +4,7 @@ import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { apiClient } from "../lib/api"
 import { getCurrentDateInfo } from "@/lib/date"
+import { getAdminScopeParams, getAdminScopeKey, appendScopeParams } from "@/lib/adminScope"
 
 // Helper function untuk handle empty data response
 const handleEmptyDataResponse = (type) => {
@@ -47,13 +48,16 @@ const handleEmptyDataResponse = (type) => {
  */
 export const useDashboardMetrics = (type = "student") => {
   const currentDate = getCurrentDateInfo()
+  const scopeKey = getAdminScopeKey()
 
   return useQuery({
-    queryKey: ["dashboardMainMetrics", type, currentDate.year, currentDate.month],
+    queryKey: ["dashboardMainMetrics", type, currentDate.year, currentDate.month, scopeKey],
     queryFn: async () => {
       const endpoint = type === "student" ? "/students/metrics/monthly-stats" : "/employees/metrics/monthly-stats"
       try {
-        const res = await apiClient.get(endpoint)
+        const params = new URLSearchParams(getAdminScopeParams())
+        const url = params.toString() ? `${endpoint}?${params}` : endpoint
+        const res = await apiClient.get(url)
         if (res.data?.status === "fail" || !res.data?.data) {
           return handleEmptyDataResponse("monthly");
         }
@@ -78,14 +82,14 @@ export const useDashboardMetrics = (type = "student") => {
  */
 export const useYearlyStats = (type = "student", filters = {}) => {
   const currentDate = getCurrentDateInfo()
-  
-  // UPDATED: Create stable filter values with "All" handling
+  const scopeKey = getAdminScopeKey()
+
   const stableFilters = useMemo(() => {
     const baseFilters = {
       year: currentDate.year,
       ...filters
     }
-    
+
     if (type === "student") {
       return {
         ...baseFilters,
@@ -101,13 +105,12 @@ export const useYearlyStats = (type = "student", filters = {}) => {
   }, [type, filters.year, filters.classroom, filters.grade, filters.department, currentDate.year])
 
   return useQuery({
-    queryKey: ["yearlyStats", type, stableFilters],
+    queryKey: ["yearlyStats", type, stableFilters, scopeKey],
     queryFn: async () => {
       const params = new URLSearchParams()
       params.append("year", stableFilters.year)
       const endpointPath = type === "student" ? "/students/metrics/yearly-stats" : "/employees/metrics/yearly-stats"
 
-      // UPDATED: Only add classroom/department params if they're not "All"
       if (type === "student") {
         if (stableFilters.classroom) {
           params.append("classroom", stableFilters.classroom)
@@ -120,6 +123,9 @@ export const useYearlyStats = (type = "student", filters = {}) => {
           params.append("department", stableFilters.department)
         }
       }
+
+      // Inject admin scope
+      appendScopeParams(params)
 
       try {
         const res = await apiClient.get(`${endpointPath}?${params}`)
@@ -149,9 +155,10 @@ export const useYearlyStats = (type = "student", filters = {}) => {
 export const useDashboardTabData = (type = "student", tabType = "at_risk", params = {}) => {
   const currentDate = getCurrentDateInfo()
   const { enabled = true, limit = 10 } = params
+  const scopeKey = getAdminScopeKey()
 
   return useInfiniteQuery({
-    queryKey: ["dashboardTabData", type, tabType, currentDate.year, currentDate.month, limit],
+    queryKey: ["dashboardTabData", type, tabType, currentDate.year, currentDate.month, limit, scopeKey],
     queryFn: async ({ pageParam = 1 }) => {
       const queryParams = new URLSearchParams()
       queryParams.append("year", currentDate.year)
@@ -164,9 +171,10 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
       } else if (tabType === "not_screened") {
         queryParams.append("screeningStatus", "not_screened")
       } else if (tabType === "not_counseled") {
-        // Not counseled - semua karyawan yang belum konseling
         queryParams.append("counselingStatus", "0")
       }
+
+      appendScopeParams(queryParams)
 
       const endpoint = type === "student" ? "/organizations/students/period" : "/organizations/employees/period"
 
@@ -319,6 +327,8 @@ export const usePdfReport = () => {
           queryParams.append("department", params.department)
         }
       }
+
+      appendScopeParams(queryParams)
 
       const response = await apiClient.get(`${baseEndpoint}?${queryParams}`, {
         responseType: 'blob'
