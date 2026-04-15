@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
 ];
 
 const Navbar = ({ activeSection, onSectionClick }) => {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [visible, setVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -56,7 +57,20 @@ const Navbar = ({ activeSection, onSectionClick }) => {
   const handleNavClick = (item) => {
     setVisible(true);
     setProgrammaticScroll(true);
-    onSectionClick?.(item.id);
+    if (item.id === "kontak") {
+      navigate("/kontak");
+    } else if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        const el = document.getElementById(item.id);
+        if (el) {
+          const y = el.getBoundingClientRect().top + window.pageYOffset - 100;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      }, 300);
+    } else {
+      onSectionClick?.(item.id);
+    }
     if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
     programmaticScrollTimer.current = setTimeout(() => setProgrammaticScroll(false), 1000);
     if (mobileMenuOpen) setMobileMenuOpen(false);

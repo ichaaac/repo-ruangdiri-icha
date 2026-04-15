@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const FONT = { fontFamily: "'Plus Jakarta Sans', sans-serif" };
 const COLORS = { label: "#0F172B", desc: "#3F4555" };
@@ -53,7 +53,23 @@ const socialIcons = [
 ];
 
 const Footer = () => {
+  const navigate = useNavigate();
   const scrollTo = (id) => {
+    if (id === "kontak") {
+      navigate("/kontak");
+      return;
+    }
+    if (window.location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          const y = el.getBoundingClientRect().top + window.pageYOffset - 100;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      }, 300);
+      return;
+    }
     const el = document.getElementById(id);
     if (el) {
       const y = el.getBoundingClientRect().top + window.pageYOffset - 100;

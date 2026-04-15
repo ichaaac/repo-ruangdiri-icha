@@ -1,6 +1,8 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
   return (
     <section id="hero" className="w-full" style={{ padding: "0 48px" }}>
       <div
@@ -56,13 +58,7 @@ const HeroSection = () => {
 
           {/* CTA Button: row, center, gap 8px, padding 16px 24px, radius 100px */}
           <button
-            onClick={() => {
-              const el = document.getElementById("kontak");
-              if (el) {
-                const y = el.getBoundingClientRect().top + window.pageYOffset - 100;
-                window.scrollTo({ top: y, behavior: "smooth" });
-              }
-            }}
+            onClick={() => navigate("/kontak")}
             className="flex items-center justify-center hover:opacity-90 transition-opacity cursor-pointer"
             style={{
               gap: 8,

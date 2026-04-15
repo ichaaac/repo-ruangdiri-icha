@@ -284,9 +284,7 @@ function Homepage() {
               Kami di sini untuk mendengarkan dan membantu Anda memahami semuanya.
             </p>
             <a
-              href="https://wa.me/6281542322127"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/kontak"
               className="inline-flex items-center gap-2 px-6 py-4 mt-4 bg-[#227BCC] rounded-xl no-underline hover:opacity-90 transition-opacity"
             >
               <span className="font-semibold text-xl text-white">Konsultasi Sekarang</span>
