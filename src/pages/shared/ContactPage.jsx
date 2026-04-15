@@ -34,8 +34,8 @@ function ContactPage() {
               {/* Left side */}
               <div style={{ flex: "1 1 50%", position: "relative" }}>
                 {/* Badge */}
-                <div style={{ display: "inline-block", padding: "6px 20px", borderRadius: 100, backgroundColor: "#227BCC", marginBottom: 20 }}>
-                  <span style={{ ...FONT, fontWeight: 500, fontSize: 14, color: "#FFFFFF" }}>Dukungan Pelanggan</span>
+                <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 24, backgroundColor: "#E8F5FF", marginBottom: 20 }}>
+                  <span style={{ ...FONT, fontWeight: 600, fontSize: 14, color: "#227BCC" }}>Dukungan Pelanggan</span>
                 </div>
 
                 <h1 style={{ ...FONT, fontWeight: 700, fontSize: 48, lineHeight: "1.2em", color: "#0F172B", marginBottom: 16 }}>
@@ -46,7 +46,7 @@ function ContactPage() {
                   Punya pertanyaan  tentang fitur Ruang Diri atau ingin menjadwalkan demo? Tim kami siap membantu organisasi Anda bertransformasi ke era digital.
                 </p>
 
-                {/* Contact cards - full width */}
+                {/* Contact cards */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {/* Email */}
                   <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "24px 28px", borderRadius: 16, backgroundColor: "#FFFFFF", border: "1px solid #E8ECF1" }}>
@@ -70,20 +70,6 @@ function ContactPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Decorative diamond + circles at bottom */}
-                <div style={{ position: "relative", marginTop: 40, height: 120, pointerEvents: "none" }}>
-                  {/* Diamond */}
-                  <div style={{ position: "absolute", left: 180, top: 10, width: 24, height: 24, backgroundColor: "#D7E4FF", transform: "rotate(45deg)", borderRadius: 4 }} />
-                  {/* Dashed circles */}
-                  <svg style={{ position: "absolute", left: 120, top: 20 }} width="160" height="100" viewBox="0 0 160 100" fill="none">
-                    <circle cx="80" cy="80" r="78" stroke="#D7E4FF" strokeWidth="1.2" strokeDasharray="6 4" />
-                    <circle cx="80" cy="80" r="58" stroke="#D7E4FF" strokeWidth="1.2" strokeDasharray="6 4" />
-                  </svg>
-                </div>
-
-                {/* Small dot decoration near text */}
-                <div style={{ position: "absolute", top: 200, right: -10, width: 14, height: 14, borderRadius: "50%", backgroundColor: "#D7E4FF", pointerEvents: "none" }} />
               </div>
 
               {/* Right side - Form */}
