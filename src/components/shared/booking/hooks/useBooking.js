@@ -44,11 +44,11 @@ const formatDateLabel = (dateStr) => {
 }
 
 const isSlotAvailableByData = (slot) => {
-  if (typeof slot.bookedPsychologists === 'number') {
-    return slot.bookedPsychologists === 0
-  }
   if (typeof slot.availablePsychologists === 'number') {
-    return slot.availablePsychologists === slot.totalPsychologists
+    return slot.availablePsychologists > 0
+  }
+  if (typeof slot.bookedPsychologists === 'number' && typeof slot.totalPsychologists === 'number') {
+    return slot.bookedPsychologists < slot.totalPsychologists
   }
   if (typeof slot.isBooked === 'boolean') {
     return slot.isBooked === false
@@ -326,10 +326,10 @@ export const useBooking = (userType = 'student') => {
         if (isPast) {
           reason = 'Jam sudah lewat'
         } else if (typeof matchingAvailability.availablePsychologists === 'number') {
-          isAvailable = matchingAvailability.bookedPsychologists === 0
+          isAvailable = matchingAvailability.availablePsychologists > 0
           reason = isAvailable
             ? undefined
-            : 'Sudah Terbooking'
+            : 'Semua psikolog sudah terbooking'
         } else if (typeof matchingAvailability.isBooked === 'boolean') {
           isAvailable = matchingAvailability.isBooked === false
           reason = isAvailable ? undefined : 'Sudah dibooking'
