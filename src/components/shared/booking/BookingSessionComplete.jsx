@@ -6,28 +6,14 @@ const FONT = 'Plus Jakarta Sans, sans-serif'
 const MONTHS_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
 const DAYS_ID = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu']
 
-const SnowflakeSVG = ({ style }) => (
-  <svg style={{ position: 'absolute', opacity: 0.08, ...style }} width="60" height="60" viewBox="0 0 24 24" fill="none">
-    <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07M12 2l3 3-3 3M12 22l-3-3 3-3M2 12l3-3 3 3M22 12l-3 3-3-3M4.93 4.93l3 1.07-1.07 3M19.07 4.93l-3 1.07 1.07 3M4.93 19.07l3-1.07-1.07-3M19.07 19.07l-3-1.07 1.07-3" stroke="#488BBA" strokeWidth="0.8" strokeLinecap="round"/>
-  </svg>
-)
-
-const DecoIllustration = () => (
-  <svg width="200" height="160" viewBox="0 0 200 160" fill="none" style={{ margin: '0 auto', display: 'block' }}>
-    <ellipse cx="100" cy="140" rx="70" ry="12" fill="#E8F4FD" />
-    <rect x="60" y="40" width="80" height="90" rx="8" fill="#D3D6FF" />
-    <rect x="65" y="45" width="70" height="50" rx="4" fill="#FFFFFF" />
-    <rect x="72" y="52" width="30" height="3" rx="1.5" fill="#C5C8FF" />
-    <rect x="72" y="60" width="50" height="3" rx="1.5" fill="#E0E2FF" />
-    <rect x="72" y="68" width="40" height="3" rx="1.5" fill="#E0E2FF" />
-    <rect x="72" y="76" width="45" height="3" rx="1.5" fill="#E0E2FF" />
-    <circle cx="130" cy="105" r="18" fill="#FFD4CC" />
-    <path d="M122 100c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="#E8655B" strokeWidth="1.5" fill="none" />
-    <circle cx="130" cy="112" r="6" fill="#FFE8E4" />
-    <path d="M126 118c0 0 2 4 4 4s4-4 4-4" stroke="#E8655B" strokeWidth="1" fill="none" />
-    <rect x="75" y="100" width="35" height="20" rx="4" fill="#9BCA61" opacity="0.3" />
-    <path d="M85 110l4 4 8-8" stroke="#9BCA61" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
+const Snowflake = ({ size = 116, style }) => (
+  <img
+    src="/snowflake.svg"
+    alt=""
+    width={size}
+    height={size}
+    style={{ position: 'absolute', pointerEvents: 'none', ...style }}
+  />
 )
 
 const BookingSessionComplete = () => {
@@ -54,9 +40,14 @@ const BookingSessionComplete = () => {
   }, [location.state, navigate])
 
   const getBookingNumber = () => {
-    if (bookingData?.id) return `RD-${String(bookingData.id).padStart(3, '0')}`
-    if (bookingData?.bookingId) return `RD-${String(bookingData.bookingId).padStart(3, '0')}`
-    return `RD-${Math.random().toString(36).substr(2, 3).toUpperCase()}`
+    const raw = bookingData?.id || bookingData?.bookingId
+    if (!raw) return `RD-${Math.random().toString(36).substr(2, 3).toUpperCase()}`
+    const str = String(raw)
+    // If UUID, shorten it
+    if (str.includes('-') && str.length > 10) {
+      return `RD-${str.split('-')[0].toUpperCase().slice(0, 6)}`
+    }
+    return `RD-${str.padStart(3, '0')}`
   }
 
   const formatDateDisplay = () => {
@@ -121,147 +112,164 @@ const BookingSessionComplete = () => {
 
   return (
     <div style={{ fontFamily: FONT }}>
-      {/* Header with breadcrumb */}
-      <div className="relative overflow-hidden bg-[#BBF2FF]/60" style={{ marginTop: -64, paddingTop: 64 }}>
-        <svg className="pointer-events-none absolute top-0 left-0" width="532" height="300" viewBox="0 0 532 300" fill="none">
-          <path d="M185.574 124.31C39.8177 132.283 -99.119 94.0838 -237.91 68.2276C-285.602 59.3374 -336.204 51.7664 -385.828 56.4581C-465.182 63.9603 -524.661 101.196 -561.979 140.554C-599.296 179.912 -621.458 223.491 -663.993 261.197C-681.311 276.557 -703.701 291.217 -730 302V-185H512.22C541.117 -120.038 542.281 -50.7751 489.122 8.5083C432.159 72.0016 313.388 117.325 185.574 124.31Z" fill="url(#wt_bc)" fillOpacity="0.6" />
-          <defs><linearGradient id="wt_bc" x1="615" y1="-42" x2="-281.5" y2="-93" gradientUnits="userSpaceOnUse"><stop stopColor="white" /><stop offset="0.898" stopColor="#BBF2FF" /></linearGradient></defs>
-        </svg>
-        <svg className="pointer-events-none absolute right-0 bottom-0" width="930" height="300" viewBox="0 0 930 300" fill="none">
-          <path d="M346.426 134.689C492.182 126.717 631.119 164.916 769.91 190.772C817.602 199.663 868.204 207.234 917.828 202.542C997.182 195.04 1056.66 157.804 1093.98 118.446C1131.3 79.0884 1153.46 35.5092 1195.99 -2.19681C1213.31 -17.5568 1235.7 -32.217 1262 -43V444H19.7804C-9.11719 379.038 -10.2814 309.775 42.8776 250.492C99.8411 186.998 218.612 141.675 346.426 134.689Z" fill="url(#wb_bc)" fillOpacity="0.6" />
-          <defs><linearGradient id="wb_bc" x1="44" y1="1" x2="813.5" y2="352" gradientUnits="userSpaceOnUse"><stop stopColor="white" /><stop offset="0.898" stopColor="#BBF2FF" /></linearGradient></defs>
-        </svg>
-        <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
-            <span onClick={() => navigate(`/user/${userType}/dashboard`)}
-              style={{ color: '#6B7280', cursor: 'pointer' }}>Dashboard</span>
-            <span style={{ color: '#9CA3AF' }}>/</span>
-            <span onClick={() => navigate(`/user/${userType}/booking-session`)}
-              style={{ color: '#6B7280', cursor: 'pointer' }}>Booking Sesi</span>
-            <span style={{ color: '#9CA3AF' }}>/</span>
-            <span style={{ color: '#E8655B', fontWeight: 600 }}>Ringkasan Pesanan</span>
-          </nav>
-        </div>
+      {/* Breadcrumb */}
+      <div style={{ padding: '24px 40px' }}>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, lineHeight: '1.4' }}>
+          <span onClick={() => navigate(`/user/${userType}/dashboard`)}
+            style={{ color: '#6F7480', cursor: 'pointer', fontWeight: 400 }}>Dashboard</span>
+          <span style={{ color: '#6D6F76' }}>/</span>
+          <span onClick={() => navigate(`/user/${userType}/booking-session`)}
+            style={{ color: '#6F7480', cursor: 'pointer', fontWeight: 400 }}>Booking Sesi</span>
+          <span style={{ color: '#6D6F76' }}>/</span>
+          <span style={{ color: '#E8655B', fontWeight: 600 }}>Ringkasan Pesanan</span>
+        </nav>
       </div>
 
-      {/* Content area with snowflake pattern background */}
-      <div style={{ backgroundColor: '#EBF7FB', padding: '32px 24px 48px', minHeight: 'calc(100vh - 200px)', position: 'relative', overflow: 'hidden' }}>
-        {/* Snowflake decorations */}
-        <SnowflakeSVG style={{ top: 20, left: '5%' }} />
-        <SnowflakeSVG style={{ top: 60, left: '15%', width: 40, height: 40 }} />
-        <SnowflakeSVG style={{ top: 120, left: '3%', width: 50, height: 50 }} />
-        <SnowflakeSVG style={{ top: 200, left: '10%', width: 35, height: 35 }} />
-        <SnowflakeSVG style={{ top: 300, left: '7%' }} />
-        <SnowflakeSVG style={{ top: 380, left: '18%', width: 45, height: 45 }} />
-        <SnowflakeSVG style={{ top: 30, right: '5%', left: 'auto' }} />
-        <SnowflakeSVG style={{ top: 90, right: '12%', left: 'auto', width: 45, height: 45 }} />
-        <SnowflakeSVG style={{ top: 170, right: '3%', left: 'auto', width: 50, height: 50 }} />
-        <SnowflakeSVG style={{ top: 260, right: '15%', left: 'auto', width: 35, height: 35 }} />
-        <SnowflakeSVG style={{ top: 340, right: '8%', left: 'auto' }} />
-        <SnowflakeSVG style={{ top: 420, right: '20%', left: 'auto', width: 40, height: 40 }} />
-        <SnowflakeSVG style={{ top: 150, left: '22%', width: 30, height: 30 }} />
-        <SnowflakeSVG style={{ top: 250, right: '25%', left: 'auto', width: 30, height: 30 }} />
-        <SnowflakeSVG style={{ top: 450, left: '12%', width: 55, height: 55 }} />
-        <SnowflakeSVG style={{ top: 500, right: '10%', left: 'auto', width: 48, height: 48 }} />
+      {/* Content area */}
+      <div style={{ padding: '0 40px 40px' }}>
+        <div style={{
+          backgroundColor: '#ECF9FC',
+          borderRadius: 24,
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '24px 0',
+          minHeight: 600,
+        }}>
+          {/* Snowflake decorations matching Figma positions */}
+          <Snowflake size={116} style={{ top: 100, left: 40, opacity: 0.35 }} />
+          <Snowflake size={89} style={{ bottom: 60, left: 12, opacity: 0.35 }} />
+          <Snowflake size={105} style={{ top: 38, left: '31%', opacity: 0.35 }} />
+          <Snowflake size={117} style={{ top: '48%', left: '32%', opacity: 0.35 }} />
+          <Snowflake size={86} style={{ bottom: 100, left: '20%', opacity: 0.35 }} />
+          <Snowflake size={111} style={{ top: 38, right: 0, opacity: 0.35 }} />
+          <Snowflake size={160} style={{ top: '48%', right: -10, opacity: 0.35 }} />
+          <Snowflake size={84} style={{ top: '55%', right: '22%', opacity: 0.35 }} />
+          <Snowflake size={79} style={{ bottom: 80, right: '18%', opacity: 0.35 }} />
+          <Snowflake size={174} style={{ top: 52, right: '38%', opacity: 0.35 }} />
 
-        <div style={{ maxWidth: 560, margin: '0 auto', position: 'relative', zIndex: 1 }}>
           {/* Card */}
           <div style={{
-            backgroundColor: '#FFFFFF', borderRadius: 16,
-            boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-            padding: '40px 32px 32px', textAlign: 'center',
+            backgroundColor: '#FFFFFF',
+            borderRadius: 24,
+            border: '1px solid #ECEEF0',
+            padding: 32,
+            width: '100%',
+            maxWidth: 500,
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 24,
           }}>
-            {/* Green check */}
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%',
-              backgroundColor: '#ECFDF5', margin: '0 auto 20px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-                <path d="M9 12L11 14L15 10" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="#22C55E" strokeWidth="2" />
-              </svg>
+            {/* Icon & Text */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 80, height: 80, borderRadius: '50%',
+                backgroundColor: '#DCFCE7',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="24" height="17" viewBox="0 0 24 17" fill="none">
+                  <path d="M2 8.5L8.5 15L22 2" stroke="#00A63E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                <h1 style={{
+                  fontSize: 24, fontWeight: 500, color: '#0F172B',
+                  margin: 0, fontFamily: FONT, textAlign: 'center', lineHeight: '1.2',
+                }}>
+                  Terima Kasih
+                </h1>
+                <p style={{
+                  fontSize: 14, color: '#6F7480', lineHeight: '1.6',
+                  margin: 0, fontFamily: FONT, textAlign: 'center',
+                }}>
+                  Selamat, sesi konseling berhasil dibuat! Kami sudah mengirim detail antrean konseling Ruang Diri.
+                </p>
+              </div>
             </div>
 
-            {/* Title */}
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1F2937', margin: '0 0 8px', fontFamily: FONT }}>
-              Terima Kasih
-            </h1>
-            <p style={{ fontSize: 14, color: '#6B7280', lineHeight: '160%', margin: '0 0 28px', fontFamily: FONT }}>
-              Selamat, sesi konseling berhasil dibuat! Kami sudah mengirim<br />
-              detail antrean konseling Ruang Diri.
-            </p>
-
-            {/* Separator */}
-            <div style={{ width: '100%', height: 1, backgroundColor: '#E5E7EB', margin: '0 0 24px' }} />
-
             {/* Rincian Pemesanan */}
-            <div style={{ textAlign: 'left' }}>
-              <p style={{ fontSize: 13, color: '#9CA3AF', fontWeight: 400, margin: '0 0 16px', fontFamily: FONT }}>
+            <div style={{
+              borderTop: '1px solid #ECEEF0',
+              paddingTop: 24,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 20,
+            }}>
+              <p style={{
+                fontSize: 12, fontWeight: 500, color: '#9FA2AA',
+                margin: 0, fontFamily: FONT, lineHeight: '1.4',
+              }}>
                 Rincian Pemesanan
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#6B7280', fontFamily: FONT }}>Nomor Pemesanan</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937', fontFamily: FONT }}>{getBookingNumber()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#6B7280', fontFamily: FONT }}>Tanggal</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937', fontFamily: FONT }}>{formatDateDisplay()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#6B7280', fontFamily: FONT }}>Waktu</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937', fontFamily: FONT }}>{formatTimeDisplay()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#6B7280', fontFamily: FONT }}>Jenis Konseling</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937', fontFamily: FONT }}>{getMethodDisplay()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 14, color: '#6B7280', fontFamily: FONT }}>Nama</span>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937', fontFamily: FONT }}>{getPsychologistName()}</span>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {[
+                  ['Nomor Pemesanan', getBookingNumber()],
+                  ['Tanggal', formatDateDisplay()],
+                  ['Waktu', formatTimeDisplay()],
+                  ['Jenis Konseling', getMethodDisplay()],
+                  ['Nama', getPsychologistName()],
+                ].map(([label, value]) => (
+                  <div key={label} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                    padding: '8px 0',
+                  }}>
+                    <span style={{ fontSize: 14, fontWeight: 400, color: '#6F7480', fontFamily: FONT, lineHeight: '1.4', flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: '#0F172B', fontFamily: FONT, lineHeight: '1.4', textAlign: 'right' }}>{value}</span>
+                  </div>
+                ))}
               </div>
+
+              {/* Zoom info - only for online */}
+              {isOnline && (
+                <div style={{
+                  display: 'flex', gap: 12,
+                  backgroundColor: '#ECF9FC', borderRadius: 12,
+                  padding: 12,
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 6, flexShrink: 0,
+                    backgroundColor: '#DAF7FF',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 14.667A6.667 6.667 0 1 0 8 1.333a6.667 6.667 0 0 0 0 13.334Z" stroke="#447DFD" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M8 5.333V8.667" stroke="#447DFD" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M7.997 10.667h.006" stroke="#447DFD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <span style={{
+                    fontSize: 14, fontWeight: 400, color: '#6F7480',
+                    lineHeight: '1.4', fontFamily: FONT,
+                    display: 'flex', alignItems: 'center',
+                  }}>
+                    Tautan Zoom akan dikirimkan oleh admin sebelum sesi dimulai.
+                  </span>
+                </div>
+              )}
+
+              {/* Button */}
+              <button onClick={handleBackToDashboard}
+                style={{
+                  width: '100%', height: 44, borderRadius: 12, border: 'none',
+                  backgroundColor: '#E8655B', color: '#FDFEFF',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: FONT, lineHeight: '1.4',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 4, padding: '8px 16px',
+                  transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                Kembali ke Dashboard
+              </button>
             </div>
-
-            {/* Zoom info box - only for online */}
-            {isOnline && (
-              <div style={{
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-                backgroundColor: '#F0F9FC', borderRadius: 10,
-                padding: '14px 16px', marginTop: 24, textAlign: 'left',
-              }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-                  <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" stroke="#488BBA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M12 8V13" stroke="#488BBA" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M11.9946 16H12.0036" stroke="#488BBA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span style={{ fontSize: 13, color: '#6B7280', lineHeight: '160%', fontFamily: FONT }}>
-                  Tautan Zoom akan dikirimkan oleh admin sebelum sesi dimulai.
-                </span>
-              </div>
-            )}
-
-            {/* Button */}
-            <button onClick={handleBackToDashboard}
-              style={{
-                width: '100%', height: 48, borderRadius: 12, border: 'none',
-                backgroundColor: '#EB5757', color: '#FFFFFF',
-                fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                fontFamily: FONT, marginTop: 24,
-                transition: 'opacity 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              Kembali ke Dashboard
-            </button>
-          </div>
-
-          {/* Decorative illustration below card */}
-          <div style={{ marginTop: 24 }}>
-            <DecoIllustration />
           </div>
         </div>
       </div>
