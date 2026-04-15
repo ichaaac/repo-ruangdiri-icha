@@ -23,9 +23,6 @@ function ContactPage() {
 
       <main style={{ paddingTop: 76 }}>
         <div style={{ background: "linear-gradient(180deg, #FAFBFE 0%, #FFFFFF 100%)", position: "relative", overflow: "hidden" }}>
-          {/* Top gradient line */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #227BCC 0%, #60B5F6 100%)" }} />
-
           <div style={{ maxWidth: 1440, margin: "0 auto", padding: "60px 80px 80px" }}>
             {/* Back link */}
             <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none", color: "#227BCC", ...FONT, fontWeight: 500, fontSize: 16, marginBottom: 40 }}>
@@ -35,14 +32,14 @@ function ContactPage() {
 
             <div style={{ display: "flex", gap: 48, alignItems: "flex-start" }}>
               {/* Left side */}
-              <div style={{ flex: "0 0 460", maxWidth: 460, position: "relative" }}>
+              <div style={{ flex: "1 1 50%", position: "relative" }}>
                 {/* Badge */}
                 <div style={{ display: "inline-block", padding: "6px 20px", borderRadius: 100, backgroundColor: "#227BCC", marginBottom: 20 }}>
                   <span style={{ ...FONT, fontWeight: 500, fontSize: 14, color: "#FFFFFF" }}>Dukungan Pelanggan</span>
                 </div>
 
                 <h1 style={{ ...FONT, fontWeight: 700, fontSize: 48, lineHeight: "1.2em", color: "#0F172B", marginBottom: 16 }}>
-                  Kontak <span style={{ color: "#227BCC", fontStyle: "italic" }}>Kami</span>
+                  Kontak <span style={{ color: "#227BCC" }}>Kami</span>
                 </h1>
 
                 <p style={{ ...FONT, fontWeight: 400, fontSize: 16, lineHeight: "1.6em", color: "#6F7480", marginBottom: 40 }}>
@@ -90,7 +87,7 @@ function ContactPage() {
               </div>
 
               {/* Right side - Form */}
-              <div style={{ flex: 1, backgroundColor: "#FFFFFF", borderRadius: 24, padding: "44px 40px", boxShadow: "0 4px 32px rgba(0,0,0,0.06)", border: "1px solid #F0F2F5", minWidth: 500 }}>
+              <div style={{ flex: "1 1 50%", backgroundColor: "#FFFFFF", borderRadius: 24, padding: "44px 40px", boxShadow: "0 4px 32px rgba(0,0,0,0.06)", border: "1px solid #F0F2F5" }}>
                 <h2 style={{ ...FONT, fontWeight: 700, fontSize: 24, color: "#0F172B", marginBottom: 8 }}>Kirim Pesan</h2>
                 <p style={{ ...FONT, fontWeight: 400, fontSize: 14, color: "#6F7480", marginBottom: 32 }}>
                   Isi formulir di bawah ini dan kami akan segera menghubungi Anda
