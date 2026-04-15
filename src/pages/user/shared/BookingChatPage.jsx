@@ -544,11 +544,13 @@ const BookingChatPage = () => {
         {/* Header Content */}
         <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
           {/* Breadcrumb */}
-          <Breadcrumb items={[
-            { label: "Home", to: `/user/${userType}/dashboard` },
-            { label: "Asesmen Ruang Diri", to: `/user/${userType}/screening` },
-            { label: "Booking Chat Konseling" },
-          ]} />
+          <nav className="flex items-center text-sm mb-6" style={{ gap: 8 }}>
+            <Link to={`/user/${userType}/dashboard`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Home</Link>
+            <span className="text-[#F59E0B] text-xs">&#9654;</span>
+            <Link to={`/user/${userType}/screening`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Asesmen Ruang Diri</Link>
+            <span className="text-[#F59E0B] text-xs">&#9654;</span>
+            <span className="text-[#1F2937] font-semibold">Booking Sesi Konseling</span>
+          </nav>
 
           {/* Title */}
           <h1 className="font-bold text-[#434343] mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, lineHeight: '110%' }}>
