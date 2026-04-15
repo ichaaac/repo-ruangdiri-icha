@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { notificationsAPI } from "@/components/shared/notifications/lib/api";
 import notificationSocket from "@/components/shared/notifications/lib/socket";
 import NotificationDropdown from "@/components/shared/notifications/NotificationDropdown";
+import PushNotificationBanner from "@/components/shared/notifications/PushNotificationBanner";
 import { LuBell, LuHeadphones } from "react-icons/lu";
 import { useAuth } from "../../../hooks/useAuth";
 
@@ -196,6 +197,8 @@ const TopRightControl = ({ transparent = false }) => {
   };
 
   return (
+    <>
+    <PushNotificationBanner userId={userData?.id} />
     <div
       style={{
         width: "100%",
@@ -411,6 +414,7 @@ const TopRightControl = ({ transparent = false }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
