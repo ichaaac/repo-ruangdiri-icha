@@ -209,6 +209,7 @@ const CounselingQueue = ({
                     item.status || item.keterangan || "Pertama";
                   const displayNama = item.name;
                   const categoryColor = getCategoryColor(item.screeningStatus);
+                  const statusColor = item.rawStatus === 'cancelled' ? '#EE4266' : item.rawStatus === 'completed' ? '#0EAD69' : '#535353';
 
                   return (
                     <div key={item.id || index}>
@@ -247,7 +248,8 @@ const CounselingQueue = ({
                             {truncateLocalText(displayLocation, 15)}
                           </div>
                           <div
-                            className="text-sm font-normal text-[#535353] whitespace-nowrap overflow-hidden text-ellipsis"
+                            className="text-sm font-normal whitespace-nowrap overflow-hidden text-ellipsis"
+                            style={{ color: statusColor }}
                             onMouseEnter={(e) => {
                               if (displayKeterangan.length > 15) {
                                 const rect =

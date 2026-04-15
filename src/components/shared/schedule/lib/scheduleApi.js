@@ -243,6 +243,16 @@ export const createScheduleApi = (organizationType = "school") => {
 
       const dateTimeFormatted = formatCounselingDateTime(counseling.startDateTime);
 
+      const statusMap = {
+        scheduled: "Terjadwal",
+        confirmed: "Terkonfirmasi",
+        pending: "Menunggu",
+        completed: "Selesai",
+        cancelled: "Dibatalkan",
+        rescheduled: "Dijadwalkan Ulang",
+      }
+      const rawStatus = counseling.counselingStatus || "scheduled"
+
       const baseTransform = {
         id: counseling.id,
         name: patient?.fullName || "Unknown",
@@ -250,7 +260,8 @@ export const createScheduleApi = (organizationType = "school") => {
         screeningStatus: screening?.screeningStatus || 'stable',
         date: dateTimeFormatted.date,
         time: dateTimeFormatted.time,
-        status: "Scheduled",
+        status: statusMap[rawStatus] || rawStatus,
+        rawStatus,
         location: counseling.location || "TBD",
         counselorName: psychologist?.fullName || "Belum ditentukan",
       }
