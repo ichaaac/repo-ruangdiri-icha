@@ -2,8 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
+import Pushy from 'pushy-sdk-web'
 import api, { getMe } from "../lib/api"
 import { chatsApi } from '../components/shared/chats/lib/chatsApi'
+
+const teardownPushy = async (userId) => {
+  try {
+    await Pushy.unsubscribe(`user-${userId}`)
+  } catch {
+    // silence — non-critical
+  }
+}
 
 export const useAuth = () => {
   const queryClient = useQueryClient()
@@ -288,12 +297,6 @@ export const useAuth = () => {
 
           console.log("User data with E2E support:", userData)
 
-          // Show E2E setup status
-          if (data.e2eSetup) {
-            console.log('🔐 E2E encryption is ready for secure chat')
-          } else {
-            console.warn('⚠️ E2E encryption setup incomplete')
-          }
 
           // Redirect logic with loop prevention
           redirectAfterLogin(userData, location.pathname)
@@ -511,9 +514,11 @@ const getDashboardPath = (userData) => {
       localStorage.removeItem("e2e_account_keys")
       localStorage.removeItem("e2e_private_key")
       localStorage.removeItem("adminScope")
+      const userId = queryClient.getQueryData(["currentUser"])?.id
+      if (userId) teardownPushy(userId)
+
       queryClient.clear()
       navigate("/login")
-      console.log('🔐 All E2E data cleared on logout')
     },
   })
 
