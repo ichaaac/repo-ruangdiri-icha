@@ -25,33 +25,13 @@ apiClient.interceptors.request.use(
 );
 
 // === RESPONSE INTERCEPTOR ===
-// Add request interceptor to check token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Token added to request:', config.url);
-    } else {
-      console.warn('⚠️ No token found for request:', config.url);
-    }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor to handle 401
+// Handle 401 - only redirect if user was authenticated (had token) and it's not a login request
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.error('❌ 401 Unauthorized - clearing token');
+    const isAuthRequest = error.config?.url?.includes('/auth/');
+    const hadToken = !!error.config?.headers?.Authorization;
+    if (error.response?.status === 401 && hadToken && !isAuthRequest) {
       localStorage.clear();
       window.location.href = '/login';
     }
@@ -130,6 +110,23 @@ const api = {
         return response;
       } catch (error) {
         handleApiError(error, "user.getMe");
+      }
+    },
+
+    updateProfile: async (data) => {
+      try {
+        const formData = new FormData();
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            formData.append(key, value instanceof File ? value : String(value));
+          }
+        });
+        const response = await apiClient.patch("/users/profile", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response;
+      } catch (error) {
+        handleApiError(error, "user.updateProfile");
       }
     },
   },
@@ -576,7 +573,59 @@ const api = {
         handleApiError(error, `dashboard.getTabData(${type}, ${tabType})`);
       }
     },
-  }
+  },
+
+  // ==========================================
+  // REGIONS & BRANCHES ENDPOINTS
+  // ==========================================
+  regions: {
+    getAll: async () => {
+      try {
+        const response = await apiClient.get("/regions");
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "regions.getAll");
+      }
+    },
+  },
+
+  branches: {
+    getAll: async (params = {}) => {
+      try {
+        const response = await apiClient.get("/branches", { params });
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.getAll");
+      }
+    },
+    create: async (data) => {
+      try {
+        const response = await apiClient.post("/branches", data);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.create");
+        throw error;
+      }
+    },
+    update: async (id, data) => {
+      try {
+        const response = await apiClient.put(`/branches/${id}`, data);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.update");
+        throw error;
+      }
+    },
+    delete: async (id) => {
+      try {
+        const response = await apiClient.delete(`/branches/${id}`);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, "branches.delete");
+        throw error;
+      }
+    },
+  },
 };
 
 // === STANDALONE FUNCTIONS ===

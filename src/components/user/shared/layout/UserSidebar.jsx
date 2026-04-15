@@ -135,9 +135,9 @@ const UserSidebar = ({
           disabled: false
         },
         {
-          label: "Profil",
-          icon: "person",
-          path: `/user/psychologist/profile`,
+          label: "Schedule",
+          icon: "event_available",
+          path: `/user/psychologist/schedule`,
           disabled: false
         },
         {
@@ -146,12 +146,6 @@ const UserSidebar = ({
           path: `/user/psychologist/chat`,
           disabled: false,
           hasUnreadBadge: true
-        },
-        {
-          label: "Schedule",
-          icon: "schedule",
-          path: `/user/psychologist/schedule`,
-          disabled: false
         }
       ]
     };
@@ -205,15 +199,19 @@ const UserSidebar = ({
   }, [expanded, hovered, location.pathname]);
 
   const toggleSidebar = () => {
-    setExpanded(!expanded)
-    onHoverChange?.(!expanded)
+    const next = !expanded
+    setExpanded(next)
+    onHoverChange?.(next)
+    if (!next) {
+      setProfileDropdownOpen(false)
+      setHovered(false)
+    }
   }
 
   const handleLogout = async () => {
     try {
       await logout.mutateAsync()
-    } catch (error) {
-      console.error("Logout error:", error)
+    } catch {
     }
   }
 
@@ -298,21 +296,18 @@ const UserSidebar = ({
         onMouseLeave={() => (document.body.style.overflow = "")}
       >
         {/* Logo Container */}
-        <div className={`relative ${isMobile ? "h-[60px]" : "h-[80px]"} flex-shrink-0 flex items-center justify-center`}>
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center"
-            animate={{ paddingTop: expanded || hovered ? (isMobile ? "8px" : "12px") : isMobile ? "4px" : "6px" }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-          >
-            <motion.img src="/logo/ruang-diri-logo.svg" alt="Ruang Diri Logo"
-              animate={{
-                width: expanded || hovered ? (isMobile ? "60px" : "80px") : isMobile ? "24px" : "32px",
-                height: expanded || hovered ? (isMobile ? "53px" : "71px") : isMobile ? "24px" : "32px",
-              }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+        <div className={`relative h-[60px] flex-shrink-0 flex items-center ${expanded || hovered ? "justify-start px-6" : "justify-center"}`}>
+          <div className="flex items-center gap-2.5">
+            <img src="/logo/ruang-diri-logo.png" alt="Ruang Diri"
               className="object-contain"
+              style={{ height: 36, width: 36, flexShrink: 0 }}
             />
-          </motion.div>
+            {(expanded || hovered) && (
+              <span style={{ fontSize: 20, fontWeight: 600, color: "#488BBE", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.3px" }}>
+                Ruang Diri
+              </span>
+            )}
+          </div>
 
           <motion.div className="absolute right-0 top-1/2 transform -translate-y-1/2" onMouseEnter={() => setToggleHovered(true)} onMouseLeave={() => setToggleHovered(false)}>
             <button onClick={toggleSidebar}
@@ -448,35 +443,6 @@ const UserSidebar = ({
               </motion.div>
             ))}
           </div>
-
-          {/* Coming Soon Notice for Psychologist */}
-          {userType === "psychologist" && (
-            <motion.div
-              className={`${isMobile ? "px-3 mt-6" : "px-5 mt-8"} overflow-hidden`}
-              animate={{ 
-                opacity: expanded || hovered ? 1 : 0,
-                height: expanded || hovered ? "auto" : 0
-              }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <div className="flex items-start gap-2">
-                  <span className="material-icons text-blue-600 text-sm mt-0.5">info</span>
-                  <div>
-                    <h4 className={`font-semibold text-blue-800 ${isMobile ? "text-xs" : "text-sm"} mb-1`}>
-                      Fitur Mendatang
-                    </h4>
-                    <p className={`text-blue-700 ${isMobile ? "text-xs" : "text-sm"} mb-2`}>
-                      Dashboard dan tools manajemen klien akan segera tersedia.
-                    </p>
-                    <div className="text-xs text-blue-600">
-                      Coming Q2 2025
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
         </div>
 
         <div className="flex-1 overflow-hidden"></div>

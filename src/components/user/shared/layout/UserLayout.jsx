@@ -1,6 +1,6 @@
 // src/components/user/shared/layout/UserLayout.jsx - Shared Layout untuk Student/Employee
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import UserSidebar from "./UserSidebar";
 import StudentSidebar from "../../student/layout/StudentSidebar";
@@ -9,9 +9,8 @@ import ChatWidget from "../../../shared/chat-widget/ChatWidget";
 import TopRightControl from "../../../shared/layout/TopRightControl";
 import DevAuthGate from "../../../shared/dev-auth/DevAuthGate";
 
-/**
- * Responsive Layout Component untuk Student dan Employee
- */
+const STUDENT_SIDEBAR_ROLES = ["student", "employee", "client", "psychologist"];
+
 const UserLayout = ({ 
   userType = "student", // "student" atau "employee"
   startExpanded = false,
@@ -49,7 +48,7 @@ const UserLayout = ({
     
     // Desktop: Match exact sidebar width (no gap - pages handle their own padding)
     if (expanded || sidebarHovered) {
-      return userType === "student" ? "280px" : "237px";
+      return STUDENT_SIDEBAR_ROLES.includes(userType) ? "280px" : "237px";
     }
     return "60px"; // exact sidebar width
   };
@@ -91,13 +90,14 @@ const UserLayout = ({
     <div className="flex min-h-screen bg-white overflow-x-hidden">
       <DevAuthGate />
 
-      {/* Sidebar - Student gets custom sidebar */}
-      {userType === "student" ? (
+      {/* Sidebar - Student/Employee/Client use StudentSidebar, others use UserSidebar */}
+      {STUDENT_SIDEBAR_ROLES.includes(userType) ? (
         <StudentSidebar
           expanded={expanded}
           setExpanded={setExpanded}
           onHoverChange={setSidebarHovered}
           isMobile={isMobile}
+          userType={userType}
         />
       ) : (
         <UserSidebar

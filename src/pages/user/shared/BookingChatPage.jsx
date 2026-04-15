@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useOutletContext, Link } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import Breadcrumb from '@/components/shared/Breadcrumb';
 import { CHAT_TERMS } from '@/data/dummyBookingChat';
 import { useBooking } from '@/components/shared/booking/hooks/useBooking';
 
@@ -101,97 +102,36 @@ const SectionLabel = ({ icon, label, required, iconBg = '#DAF7FF' }) => (
   </div>
 );
 
-// ─── Konseling Dropdown ───
-const KONSELING_OPTIONS = [
-  { value: 'luring', label: 'Luring', enabled: false },
-  { value: 'daring', label: 'Daring', enabled: false },
-  { value: 'chat', label: 'Chat', enabled: true },
-];
-
-const KonselingDropdown = ({ value }) => {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const selected = KONSELING_OPTIONS.find(o => o.value === value);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        style={{
-          width: '100%', height: 48, borderRadius: 12,
-          border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB',
-          padding: '0 16px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          cursor: 'pointer', fontFamily: FONT, fontSize: 14, color: '#374151',
-        }}
-      >
-        <span>{selected?.label || 'Pilih'}</span>
-        {open ? <ChevronUpIcon color="#9CA3AF" size={18} /> : <ChevronDownIcon color="#9CA3AF" size={18} />}
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0,
-          width: 247, borderRadius: 12,
-          border: '1px solid #E5E7EB', backgroundColor: '#FFFFFF',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)', zIndex: 20,
-          padding: '16px 8px',
-        }}>
-          {KONSELING_OPTIONS.map(opt => (
-            <div
-              key={opt.value}
-              onClick={() => { if (opt.enabled) setOpen(false); }}
-              style={{
-                padding: '8px 8px', fontSize: 14, color: '#374151', fontFamily: FONT,
-                cursor: opt.enabled ? 'pointer' : 'not-allowed',
-                opacity: opt.enabled ? 1 : 0.5,
-                borderRadius: 6,
-              }}
-              onMouseEnter={(e) => { if (opt.enabled) e.currentTarget.style.backgroundColor = '#F9FAFB'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-            >
-              {opt.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ─── Calendar Popup ───
-const DropdownArrow = ({ color = '#E8655B', size = 16 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <path d="M19.92 8.95L13.4 15.47C12.63 16.24 11.37 16.24 10.6 15.47L4.08 8.95" stroke={color} strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
 
-const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
+const CalendarPopup = ({ selectedDate, onSelect, onClose, fullyBookedDates = [] }) => {
   const now = new Date();
   const [month, setMonth] = useState(selectedDate ? parseInt(selectedDate.split('-')[1]) - 1 : now.getMonth());
   const [year, setYear] = useState(selectedDate ? parseInt(selectedDate.split('-')[0]) : now.getFullYear());
-  const [temp, setTemp] = useState(selectedDate || '');
+  const [pendingDate, setPendingDate] = useState(selectedDate || '');
   const [hovered, setHovered] = useState('');
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
 
   const days = getDaysInMonth(year, month);
   const start = getStartDay(year, month);
   const prevDays = getDaysInMonth(year, month === 0 ? 11 : month - 1);
 
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+  const prevMonth = () => {
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+    if (isCurrentMonth) return;
+    if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
+  };
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); }
+  const handleConfirm = () => { if (pendingDate) onSelect(pendingDate); onClose(); };
 
   const cells = [];
   for (let i = 0; i < start; i++) cells.push({ d: prevDays - start + 1 + i, cur: false });
   for (let i = 1; i <= days; i++) cells.push({ d: i, cur: true });
   const rem = 7 - (cells.length % 7);
   if (rem < 7) for (let i = 1; i <= rem; i++) cells.push({ d: i, cur: false });
+
 
   return (
     <div style={{
@@ -207,23 +147,88 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
         borderRadius: '16px 16px 0 0',
         padding: '20px 24px 12px',
       }}>
-        {/* Month & Year - centered, dropdown disabled */}
+        {/* Month & Year - centered, clickable dropdowns */}
         <div style={{
           display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12,
-          marginBottom: 16,
+          marginBottom: 16, position: 'relative',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
-              {MONTHS_EN[month]}
-            </span>
-            <DropdownArrow color="#E8655B" size={10} />
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => { setShowMonthPicker(p => !p); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
+                {MONTHS_EN[month]}
+              </span>
+              <ChevronDownIcon color="#E8655B" size={10} />
+            </div>
+            {showMonthPicker && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                marginTop: 4, zIndex: 60, backgroundColor: '#FFFFFF', borderRadius: 12,
+                boxShadow: '0px 8px 24px rgba(16, 24, 40, 0.15)', padding: 8,
+                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, width: 220,
+              }}>
+                {MONTHS_EN.map((m, i) => {
+                  const isPastMonth = year === now.getFullYear() && i < now.getMonth();
+                  return (
+                    <div
+                      key={m}
+                      onClick={() => { if (!isPastMonth) { setMonth(i); setShowMonthPicker(false); } }}
+                      style={{
+                        padding: '8px 4px', borderRadius: 8, textAlign: 'center',
+                        fontSize: 13, fontWeight: i === month ? 600 : 400,
+                        cursor: isPastMonth ? 'not-allowed' : 'pointer',
+                        backgroundColor: i === month ? '#42C1E3' : 'transparent',
+                        color: isPastMonth ? '#D0D5DD' : i === month ? '#FFFFFF' : '#1D2939',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={e => { if (i !== month && !isPastMonth) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
+                      onMouseLeave={e => { if (i !== month) e.currentTarget.style.backgroundColor = i === month ? '#42C1E3' : 'transparent'; }}
+                    >{m.slice(0, 3)}</div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
-              {year}
-            </span>
-            <DropdownArrow color="#E8655B" size={10} />
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => { setShowYearPicker(p => !p); setShowMonthPicker(false); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 20, fontWeight: 600, color: '#1D2939', lineHeight: '28px' }}>
+                {year}
+              </span>
+              <ChevronDownIcon color="#E8655B" size={10} />
+            </div>
+            {showYearPicker && (
+              <div style={{
+                position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)',
+                marginTop: 4, zIndex: 60, backgroundColor: '#FFFFFF', borderRadius: 12,
+                boxShadow: '0px 8px 24px rgba(16, 24, 40, 0.15)', padding: 8,
+                display: 'flex', flexDirection: 'column', gap: 2, width: 100,
+              }}>
+                {[0, 1, 2].map(offset => {
+                  const y = now.getFullYear() + offset;
+                  return (
+                    <div
+                      key={y}
+                      onClick={() => { setYear(y); setShowYearPicker(false); }}
+                      style={{
+                        padding: '8px 12px', borderRadius: 8, textAlign: 'center',
+                        fontSize: 14, fontWeight: y === year ? 600 : 400, cursor: 'pointer',
+                        backgroundColor: y === year ? '#42C1E3' : 'transparent',
+                        color: y === year ? '#FFFFFF' : '#1D2939',
+                        transition: 'background-color 0.15s',
+                      }}
+                      onMouseEnter={e => { if (y !== year) e.currentTarget.style.backgroundColor = '#E0F7FD'; }}
+                      onMouseLeave={e => { if (y !== year) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >{y}</div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -247,30 +252,39 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
       }}>
         {cells.map((c, i) => {
           const ds = c.cur ? `${year}-${String(month + 1).padStart(2, '0')}-${String(c.d).padStart(2, '0')}` : '';
-          const sel = c.cur && ds === temp;
-          const isHovered = c.cur && ds === hovered && !sel;
+          const isPast = c.cur && new Date(year, month, c.d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const isFullyBooked = c.cur && !isPast && fullyBookedDates.includes(ds);
+          const sel = c.cur && ds === pendingDate;
+          const isHovered = c.cur && !isPast && !isFullyBooked && ds === hovered && !sel;
 
           return (
             <div
               key={i}
-              onClick={() => c.cur && setTemp(ds)}
-              onMouseEnter={() => c.cur && setHovered(ds)}
+              onClick={() => c.cur && !isPast && !isFullyBooked && setPendingDate(ds)}
+              onMouseEnter={() => c.cur && !isPast && !isFullyBooked && setHovered(ds)}
               onMouseLeave={() => setHovered('')}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: 36, cursor: c.cur ? 'pointer' : 'default',
+                height: 36, cursor: c.cur && !isPast && !isFullyBooked ? 'pointer' : 'default',
+                position: 'relative',
               }}
             >
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: sel ? '#42C1E3' : isHovered ? '#E0F7FD' : 'transparent',
-                color: sel ? '#FFFFFF' : !c.cur ? '#D0D5DD' : '#1D2939',
-                fontSize: 14, fontWeight: 400,
+                backgroundColor: sel ? '#42C1E3' : isFullyBooked ? '#FEE2E2' : isHovered ? '#E0F7FD' : 'transparent',
+                color: sel ? '#FFFFFF' : isFullyBooked ? '#DC2626' : (!c.cur || isPast) ? '#D0D5DD' : '#1D2939',
+                fontSize: 14, fontWeight: isFullyBooked ? 600 : 400,
                 transition: 'background-color 0.15s, color 0.15s',
               }}>
                 {c.d}
               </div>
+              {isFullyBooked && (
+                <div style={{
+                  position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                  width: 4, height: 4, borderRadius: '50%', backgroundColor: '#DC2626',
+                }} />
+              )}
             </div>
           );
         })}
@@ -286,7 +300,7 @@ const CalendarPopup = ({ selectedDate, onSelect, onClose }) => {
           fontSize: 14, fontWeight: 500, color: '#F04438', fontFamily: FONT,
           height: 48, padding: '0 20px',
         }}>Cancel</button>
-        <button onClick={() => { if (temp) onSelect(temp); onClose(); }} style={{
+        <button onClick={handleConfirm} style={{
           padding: '0 28px', height: 48, borderRadius: 12,
           backgroundColor: '#E8655B', color: '#FFFFFF',
           fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: FONT,
@@ -306,19 +320,47 @@ const TimePickerPopup = ({ timeSlots, selectedSlot, onSelect, onClose, loading }
     return `${start} - ${end} WIB`;
   };
 
+  const getStatusLabel = (slot) => {
+    if (slot.available) return 'Tersedia';
+    if (slot.reason?.includes('sudah lewat')) return 'Jam Sudah Lewat';
+    if (slot.isBooked || slot.reason?.includes('dibooking') || slot.reason?.includes('psikolog tersedia')) return 'Sudah Terbooking';
+    return 'Tidak Tersedia';
+  };
+
   const filtered = timeSlots.filter(s =>
     formatTime(s).toLowerCase().includes(search.toLowerCase())
   );
 
+  const availableCount = timeSlots.filter(s => s.available).length;
+  const bookedCount = timeSlots.filter(s => !s.available).length;
+
   return (
     <div style={{
       position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 50,
-      width: 247, maxHeight: 300, borderRadius: 12,
+      width: 280, maxHeight: 360, borderRadius: 12,
       border: '1px solid #B5BBC4', backgroundColor: '#FDFEFF',
       boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontFamily: FONT,
       padding: '16px 12px',
-      display: 'flex', flexDirection: 'column', gap: 16,
+      display: 'flex', flexDirection: 'column', gap: 12,
     }}>
+      {/* Availability summary */}
+      {!loading && timeSlots.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '8px 10px', borderRadius: 8,
+          backgroundColor: '#F9FAFB', fontSize: 11, fontFamily: FONT,
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#008236', display: 'inline-block' }} />
+            <span style={{ color: '#374151' }}>{availableCount} Tersedia</span>
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#D1293D', display: 'inline-block' }} />
+            <span style={{ color: '#374151' }}>{bookedCount} Terbooking</span>
+          </span>
+        </div>
+      )}
+
       {/* Search bar */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
@@ -350,32 +392,38 @@ const TimePickerPopup = ({ timeSlots, selectedSlot, onSelect, onClose, loading }
           <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: '#9CA3AF', fontFamily: FONT }}>
             Tidak ada slot waktu
           </div>
-        ) : filtered.map(slot => (
-          <div
-            key={slot.uniqueId}
-            onClick={() => { if (slot.available) { onSelect(slot); onClose(); } }}
-            style={{
-              padding: '8px 0',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              cursor: slot.available ? 'pointer' : 'not-allowed',
-              borderRadius: 6,
-              transition: 'background-color 0.15s',
-            }}
-            onMouseEnter={(e) => { if (slot.available) e.currentTarget.style.backgroundColor = '#F5FAFF'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-          >
-            <span style={{
-              fontSize: 12, fontWeight: slot.available ? 600 : 400,
-              color: slot.available ? '#1F2937' : '#9CA3AF',
-              lineHeight: '140%', fontFamily: FONT,
-            }}>{formatTime(slot)}</span>
-            <span style={{
-              fontSize: 12, fontWeight: 400,
-              color: slot.available ? '#008236' : '#D1293D',
-              lineHeight: '140%', fontFamily: FONT,
-            }}>{slot.available ? 'Tersedia' : 'Tidak Tersedia'}</span>
-          </div>
-        ))}
+        ) : filtered.map(slot => {
+          const statusLabel = getStatusLabel(slot);
+          return (
+            <div
+              key={slot.uniqueId}
+              onClick={() => { if (slot.available) { onSelect(slot); onClose(); } }}
+              style={{
+                padding: '8px 6px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: slot.available ? 'pointer' : 'not-allowed',
+                borderRadius: 6,
+                transition: 'background-color 0.15s',
+                opacity: slot.available ? 1 : 0.6,
+              }}
+              onMouseEnter={(e) => { if (slot.available) e.currentTarget.style.backgroundColor = '#F5FAFF'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >
+              <span style={{
+                fontSize: 12, fontWeight: slot.available ? 600 : 400,
+                color: slot.available ? '#1F2937' : '#9CA3AF',
+                lineHeight: '140%', fontFamily: FONT,
+              }}>{formatTime(slot)}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 500,
+                color: slot.available ? '#008236' : '#D1293D',
+                lineHeight: '140%', fontFamily: FONT,
+                padding: '2px 8px', borderRadius: 999,
+                backgroundColor: slot.available ? '#ECFDF5' : '#FEF2F2',
+              }}>{statusLabel}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -388,6 +436,7 @@ const BookingChatPage = () => {
 
   // Backend integration for time slots
   const booking = useBooking(userType);
+  const { handleMethodSelection, handleTimeSlotSelection, handleDateSelection, handleBookingSubmit, setNotes, hasActiveBooking } = booking;
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
@@ -400,26 +449,26 @@ const BookingChatPage = () => {
 
   const availableTimeSlots = booking.timeSlots || [];
   const isTimeSlotsLoading = booking.loading.timeSlots;
-  const isFormValid = selectedDate && selectedTimeSlot;
+  const isFormValid = selectedDate && selectedTimeSlot && !hasActiveBooking;
 
   useEffect(() => { setSelectedTimeSlot(null); }, [selectedDate]);
 
-  // Sync method to "chat" on mount (required by booking.handleBookingSubmit)
+  // Set counseling method to chat on mount
   useEffect(() => {
-    booking.handleMethodSelection({ id: 'chat', name: 'Chat' });
-  }, [booking.handleMethodSelection]);
+    handleMethodSelection({ id: 'chat', name: 'Chat' });
+  }, [handleMethodSelection]);
 
-  // Sync local selectedTimeSlot → booking hook (required by booking.handleBookingSubmit)
+  // Keep booking hook in sync with local time slot selection
   useEffect(() => {
     if (selectedTimeSlot) {
-      booking.handleTimeSlotSelection(selectedTimeSlot);
+      handleTimeSlotSelection(selectedTimeSlot);
     }
-  }, [selectedTimeSlot, booking.handleTimeSlotSelection]);
+  }, [selectedTimeSlot, handleTimeSlotSelection]);
 
-  // Sync local problemDescription → booking hook notes (required by booking.handleBookingSubmit)
+  // Keep booking hook notes in sync with problem description
   useEffect(() => {
-    booking.setNotes(problemDescription);
-  }, [problemDescription, booking.setNotes]);
+    setNotes(problemDescription);
+  }, [problemDescription, setNotes]);
 
   // Click outside handlers
   useEffect(() => {
@@ -432,18 +481,14 @@ const BookingChatPage = () => {
   }, [showCalendar, showTimePicker]);
 
   const handleCancel = () => navigate(`/user/${userType}/booking-session`);
+  const handleToggleCalendar = () => { setShowCalendar((v) => !v); setShowTimePicker(false); };
+  const handleToggleTimePicker = () => { if (selectedDate) { setShowTimePicker((v) => !v); setShowCalendar(false); } };
+  const handleDateSelect = (date) => { setSelectedDate(date); handleDateSelection(date); };
   const handleSubmit = async () => {
     if (!isFormValid) return;
 
-    // Validate psychologistId before submit
-    if (!selectedTimeSlot?.psychologistId &&
-        (!selectedTimeSlot?.availablePsychologistIds || selectedTimeSlot.availablePsychologistIds.length === 0)) {
-      console.error('Psychologist ID is missing from selected time slot');
-      return;
-    }
-
     try {
-      const result = await booking.handleBookingSubmit();
+      const result = await handleBookingSubmit();
 
       // Chat booking with session created → redirect to chat
       if (result?.method === 'chat' && (result?.sessionId || result?.chatSessionId)) {
@@ -471,7 +516,6 @@ const BookingChatPage = () => {
         replace: true,
       });
     } catch (error) {
-      console.error('Booking submission failed:', error);
     }
   };
 
@@ -581,7 +625,7 @@ const BookingChatPage = () => {
                   <div ref={dateRef} style={{ position: 'relative' }}>
                     <button
                       type="button"
-                      onClick={() => { setShowCalendar(!showCalendar); setShowTimePicker(false); }}
+                      onClick={handleToggleCalendar}
                       style={{
                         width: '100%', height: 48, borderRadius: 12,
                         border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB',
@@ -598,8 +642,9 @@ const BookingChatPage = () => {
                     {showCalendar && (
                       <CalendarPopup
                         selectedDate={selectedDate}
-                        onSelect={(date) => { setSelectedDate(date); booking.handleDateSelection(date); }}
+                        onSelect={handleDateSelect}
                         onClose={() => setShowCalendar(false)}
+                        fullyBookedDates={booking.fullyBookedDates || []}
                       />
                     )}
                   </div>
@@ -608,7 +653,7 @@ const BookingChatPage = () => {
                   <div ref={timeRef} style={{ position: 'relative' }}>
                     <button
                       type="button"
-                      onClick={() => { if (selectedDate) { setShowTimePicker(!showTimePicker); setShowCalendar(false); } }}
+                      onClick={handleToggleTimePicker}
                       style={{
                         width: '100%', height: 48, borderRadius: 12,
                         border: '1px solid #E5E7EB',
@@ -627,7 +672,7 @@ const BookingChatPage = () => {
                       <TimePickerPopup
                         timeSlots={availableTimeSlots}
                         selectedSlot={selectedTimeSlot}
-                        onSelect={(slot) => setSelectedTimeSlot(slot)}
+                        onSelect={setSelectedTimeSlot}
                         onClose={() => setShowTimePicker(false)}
                         loading={isTimeSlotsLoading}
                       />
@@ -682,6 +727,14 @@ const BookingChatPage = () => {
               ))}
             </div>
           </div>
+
+          {/* Active Booking Warning */}
+          {hasActiveBooking && (
+            <div style={{ margin: '0 0 16px', padding: 16, borderRadius: 12, backgroundColor: '#FFF3CD', border: '1px solid #FFEEBA' }}>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#856404', fontFamily: FONT, margin: 0 }}>Anda sudah memiliki sesi konseling aktif.</p>
+              <p style={{ fontSize: 12, color: '#856404', fontFamily: FONT, margin: '4px 0 0' }}>Batalkan atau selesaikan sesi sebelumnya untuk membuat janji baru.</p>
+            </div>
+          )}
 
           {/* Buttons */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>

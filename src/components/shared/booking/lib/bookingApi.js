@@ -218,11 +218,6 @@ export const createBookingApi = (userType = "student") => {
   // Create counseling chat session (helper function)
   const createCounselingChatSession = async (counselingId, psychologistName, scheduledAt) => {
     try {
-      console.log("Creating counseling chat session...")
-      console.log("Counseling ID:", counselingId)
-      console.log("Psychologist Name:", psychologistName)
-      console.log("Scheduled At:", scheduledAt)
-
       const payload = {
         counselingId,
         scheduledAt: scheduledAt.toISOString(),
@@ -231,7 +226,6 @@ export const createBookingApi = (userType = "student") => {
       const response = await apiClient.post("/chat/sessions/counseling", payload)
 
       if (response.data && response.data.status === "success") {
-        console.log("Chat session created successfully:", response.data)
         return response.data.data
       }
 
@@ -395,11 +389,7 @@ export const createBookingApi = (userType = "student") => {
           const payload = response.data.data
           const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
-          console.log("=== BACKEND AVAILABILITY RESPONSE ===")
-          console.log("Full response:", response.data)
-          console.log("Flattened availability data:", availabilityData)
-
-          // ✅ DEBUG: Extract and log all psychologist IDs
+          // Extract all psychologist IDs
           const allPsychologistIds = new Set()
           availabilityData.forEach(slot => {
             if (slot.psychologist?.id) allPsychologistIds.add(slot.psychologist.id)
@@ -408,12 +398,9 @@ export const createBookingApi = (userType = "student") => {
               slot.availablePsychologistIds.forEach(id => allPsychologistIds.add(id))
             }
           })
-          console.log("All psychologist IDs found:", Array.from(allPsychologistIds))
-          console.log("=".repeat(50))
 
           // If no specific filtering needed, return all availability data
           if (!date && !psychologistId) {
-            console.log("Returning all availability data")
             return {
               status: "success",
               data: availabilityData,
@@ -439,8 +426,6 @@ export const createBookingApi = (userType = "student") => {
                 )
               : filteredSlots
 
-            console.log("Filtered slots for date and psychologist:", finalSlots)
-
             return {
               status: "success",
               data: finalSlots,
@@ -454,8 +439,6 @@ export const createBookingApi = (userType = "student") => {
                 slot.psychologist?.fullName?.includes(psychologistId) ||
                 slot.psychologist?.id === psychologistId
             )
-
-            console.log("Filtered slots for psychologist:", filteredSlots)
 
             return {
               status: "success",
@@ -530,8 +513,6 @@ export const createBookingApi = (userType = "student") => {
           const payload = response.data.data
           const availabilityData = flattenAvailabilityFromNewBackend(payload)
 
-          console.log("Processing availability for dates:", availabilityData)
-
           // Filter by psychologist if specified
           const filteredAvailability = psychologistId
             ? availabilityData.filter(
@@ -543,8 +524,6 @@ export const createBookingApi = (userType = "student") => {
 
           // Get unique days of week that have availability
           const availableDaysOfWeek = [...new Set(filteredAvailability.map((slot) => slot.dayOfWeek))]
-
-          console.log("Available days of week:", availableDaysOfWeek)
 
           // Generate available dates for next 60 days
           const availableDates = []
@@ -568,8 +547,6 @@ export const createBookingApi = (userType = "student") => {
               })
             }
           }
-
-          console.log("Generated available dates:", availableDates)
 
           return {
             status: "success",
@@ -610,12 +587,7 @@ export const createBookingApi = (userType = "student") => {
     // Get user's subscription info
     getSubscriptionInfo: async () => {
       try {
-        console.log("🔍 [bookingApi] Fetching subscription info from /users/subscription")
         const response = await apiClient.get("/users/subscription")
-
-        console.log("🔍 [bookingApi] Full response:", response)
-        console.log("🔍 [bookingApi] response.data:", response.data)
-        console.log("🔍 [bookingApi] response.data.data:", response.data.data)
 
         if (response.data && response.data.status === "success") {
           // Extract subscription data
@@ -623,9 +595,6 @@ export const createBookingApi = (userType = "student") => {
 
           // Handle remainingQuota - use nullish coalescing to preserve 0 value
           const remainingQuota = subscriptionData.remainingQuota ?? subscriptionData.quota ?? 0
-
-          console.log("🔍 [bookingApi] Extracted remainingQuota:", remainingQuota)
-          console.log("🔍 [bookingApi] subscriptionData:", subscriptionData)
 
           return {
             ...response,
@@ -659,9 +628,6 @@ export const createBookingApi = (userType = "student") => {
     // Create booking appointment - MAIN ENDPOINT WITH CHAT INTEGRATION
     createBooking: async (bookingData) => {
       try {
-        console.log("=== createBooking API call ===")
-        console.log("Booking data received:", bookingData)
-
         const validationErrors = []
 
         if (!bookingData.method || !["online", "offline", "chat"].includes(bookingData.method)) {
@@ -678,14 +644,6 @@ export const createBookingApi = (userType = "student") => {
 
         if (!bookingData.endTime) {
           validationErrors.push("End time is required")
-        }
-
-        if (!bookingData.psychologistName) {
-          validationErrors.push("Psychologist name is required")
-        }
-
-        if (!bookingData.psychologistId) {
-          validationErrors.push("Psychologist ID is required")
         }
 
         if (validationErrors.length > 0) {
@@ -706,10 +664,14 @@ export const createBookingApi = (userType = "student") => {
           method: bookingData.method, // 'online', 'offline', 'chat'
           notes: bookingData.notes || "",
           date: bookingData.date,
-          startTime: formatTimeWithSeconds(bookingData.startTime), // ✅ FIXED: Add :00 if missing
-          endTime: formatTimeWithSeconds(bookingData.endTime), // ✅ FIXED: Add :00 if missing
-          psychologistId: bookingData.psychologistId, // ✅ FIXED: Send psychologistId to backend
+          startTime: formatTimeWithSeconds(bookingData.startTime),
+          endTime: formatTimeWithSeconds(bookingData.endTime),
           timezone: bookingData.timezone || "Asia/Jakarta",
+        }
+
+        // Only include psychologistId if available (backend can auto-assign)
+        if (bookingData.psychologistId) {
+          transformedData.psychologistId = bookingData.psychologistId
         }
 
         // Add location for offline bookings
@@ -717,11 +679,7 @@ export const createBookingApi = (userType = "student") => {
           transformedData.locationId = bookingData.locationId
         }
 
-        console.log("Final payload sent to backend:", transformedData)
-
         const response = await apiClient.post("/counselings/book", transformedData)
-
-        console.log("Backend response:", response.data)
 
         if (response.data && response.data.status === "success") {
           const bookingResult = {
@@ -742,15 +700,12 @@ export const createBookingApi = (userType = "student") => {
           // Create chat session for chat bookings
           if (bookingData.method === "chat") {
             try {
-              console.log("Creating chat session for chat booking...")
-
               const chatSession = await createCounselingChatSession(
                 response.data.data.id,
                 bookingData.psychologistName,
                 new Date(bookingData.date + "T" + bookingData.startTime),
               )
 
-              console.log("Chat session created successfully:", chatSession)
               bookingResult.chatSessionCreated = true
               bookingResult.chatSessionId = chatSession.sessionId
             } catch (chatError) {
@@ -793,26 +748,87 @@ export const createBookingApi = (userType = "student") => {
     // Get user's booking history
     getBookingHistory: async (params = {}) => {
       try {
-        const response = await apiClient.get("/counselings/my-bookings", { params })
+        // Use the organization schedules endpoint (my-bookings doesn't exist)
+        const response = await apiClient.get("/counselings/schedules/organization", {
+          params: { limit: 100, ...params },
+        })
 
         if (response.data && response.data.status === "success") {
+          const rawData = Array.isArray(response.data.data) ? response.data.data : []
+
+          // Get current user ID from JWT token
+          const token = localStorage.getItem("token")
+          let currentUserId = null
+          try {
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]))
+              currentUserId = payload.sub
+            }
+          } catch {}
+
+          // Filter sessions that include the current user (as student/employee)
+          // Check users array first, fallback to studentId/employeeId fields
+          const userSessions = currentUserId
+            ? rawData.filter(session => {
+                // Primary check: user exists in users array
+                if (session.users?.some(u => u.id === currentUserId && u.role !== "psychologist")) return true
+                // Fallback: check direct user ID fields (some BE responses use these)
+                if (session.studentId === currentUserId || session.employeeId === currentUserId || session.userId === currentUserId) return true
+                return false
+              })
+            : rawData
+
+          // Transform to the format expected by dashboard
+          const transformed = userSessions.map(session => {
+            const startDt = new Date(session.startDateTime)
+            const dateStr = startDt.toISOString().split("T")[0]
+            const hours = String(startDt.getHours()).padStart(2, "0")
+            const minutes = String(startDt.getMinutes()).padStart(2, "0")
+            const startTime = `${hours}:${minutes}`
+            // Assume 1 hour sessions
+            const endDt = new Date(startDt.getTime() + 60 * 60 * 1000)
+            const endTime = `${String(endDt.getHours()).padStart(2, "0")}:${String(endDt.getMinutes()).padStart(2, "0")}`
+
+            // Find psychologist in users
+            const psychologist = session.users?.find(u => u.role === "psychologist")
+
+            // Determine method from location
+            const locationToMethod = { online: "online", offline: "offline", chat: "chat" }
+            const method = locationToMethod[session.location] || session.location || "online"
+
+            // Use counselingStatus from API if available, otherwise derive from date
+            const now = new Date()
+            const status = session.counselingStatus || (startDt > now ? "scheduled" : "completed")
+
+            const statusDisplayMap = {
+              scheduled: "Terjadwal",
+              confirmed: "Terkonfirmasi",
+              pending: "Menunggu",
+              completed: "Selesai",
+              cancelled: "Dibatalkan",
+              rescheduled: "Diubah",
+            }
+
+            return {
+              id: session.id,
+              date: dateStr,
+              startTime,
+              endTime,
+              method,
+              methodDisplay: getCounselingMethodDisplay(method),
+              psychologistName: psychologist?.fullName || "-",
+              psychologist: psychologist || null,
+              status,
+              statusDisplay: statusDisplayMap[status] || status,
+              dateTimeFormatted: formatBookingDateTime(dateStr, startTime, endTime),
+            }
+          })
+
           return {
             ...response,
             data: {
               ...response.data,
-              data: response.data.data.map((booking) => ({
-                ...booking,
-                methodDisplay: getCounselingMethodDisplay(booking.method),
-                dateTimeFormatted: formatBookingDateTime(booking.date, booking.startTime, booking.endTime),
-                statusDisplay:
-                  booking.status === "confirmed"
-                    ? "Terkonfirmasi"
-                    : booking.status === "pending"
-                      ? "Menunggu"
-                      : booking.status === "cancelled"
-                        ? "Dibatalkan"
-                        : booking.status,
-              })),
+              data: transformed,
             },
           }
         }
@@ -822,6 +838,33 @@ export const createBookingApi = (userType = "student") => {
         console.error("Error fetching booking history:", error)
         throw error
       }
+    },
+
+    cancelCounseling: async (scheduleId, reason = "") => {
+      const response = await apiClient.post(`/counselings/schedules/${scheduleId}/cancel`, { reason })
+      return response.data
+    },
+
+    rescheduleCounseling: async (counselingId, { date, startTime, endTime, timezone = "Asia/Jakarta", notes = "" }) => {
+      const response = await apiClient.put(`/counselings/${counselingId}/reschedule`, {
+        date,
+        startTime,
+        endTime,
+        timezone,
+        notes,
+      })
+      return response.data
+    },
+
+    rescheduleCounselingBySchedule: async (scheduleId, { date, startTime, endTime, timezone = "Asia/Jakarta", notes = "" }) => {
+      const response = await apiClient.put(`/counselings/schedules/${scheduleId}/reschedule`, {
+        date,
+        startTime,
+        endTime,
+        timezone,
+        notes,
+      })
+      return response.data
     },
 
     // Helper methods

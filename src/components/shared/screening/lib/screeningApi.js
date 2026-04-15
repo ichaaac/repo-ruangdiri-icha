@@ -39,13 +39,8 @@ export const screeningApi = {
    * Get user's screening history
    */
   getMyScreenings: async (params = {}) => {
-    try {
-      const response = await apiClient.get("/screenings/me", { params })
-      return response.data
-    } catch (error) {
-      console.error("Error fetching user screenings:", error)
-      throw error
-    }
+    const response = await apiClient.get("/screenings/me", { params })
+    return response.data
   },
 
   /**

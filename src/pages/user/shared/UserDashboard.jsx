@@ -1,74 +1,17 @@
-import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ComposedChart, Area, Line, YAxis, XAxis, ResponsiveContainer, ReferenceLine, Text } from 'recharts';
-import { useAuth } from '../../../hooks/useAuth';
-
-// --- Mock Data ---
-
-const chartData = [
-  { month: 'Jan', value: 1.0 },
-  { month: 'Feb', value: 2.0 },
-  { month: 'Mar', value: 3.0 },
-  { month: 'Apr', value: 2.0 },
-  { month: 'May', value: 3.0 },
-  { month: 'Jun', value: 3.0 }
-];
-
-const upcomingSession = {
-  date: '29',
-  day: 'Kamis',
-  fullDate: 'Kamis, 29 Januari 2026',
-  time: '12.00 - 13.00 WIB',
-  title: 'Sesi Konseling Baru (Daring)',
-  platform: 'Zoom Meeting'
-};
-
-const counselingHistory = [
-  {
-    id: 1,
-    title: 'Riwayat Konseling',
-    counselor: 'Siti Dwita Anjani M.Psi, Psikolog',
-    platform: 'Zoom',
-    date: 'Senin, 14 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'cancelled',
-    statusText: 'Dibatalkan'
-  },
-  {
-    id: 2,
-    title: 'Riwayat Konseling',
-    counselor: 'Nasrul M.Psi.Msc., Psikolog',
-    platform: 'Zoom',
-    date: 'Jumat, 11 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'cancelled',
-    statusText: 'Dibatalkan'
-  },
-  {
-    id: 3,
-    title: 'Riwayat Konseling',
-    counselor: 'Bramantyo M.Psi, Psikolog',
-    platform: 'Jiwaku Sehat',
-    date: 'Senin, 14 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'completed',
-    statusText: 'Selesai'
-  },
-  {
-    id: 4,
-    title: 'Riwayat Konseling',
-    counselor: 'Nasrul M.Psi.Psikolog',
-    platform: 'Jiwaku Sehat',
-    date: 'Senin, 14 Juli 2025',
-    time: '12.00 - 13.00 WIB',
-    status: 'rescheduled',
-    statusText: 'Diubah'
-  }
-];
+import { useStudentDashboard } from '../../../hooks/useStudentDashboard';
+import Breadcrumb from '../../../components/shared/Breadcrumb';
+import { createBookingApi } from '../../../components/shared/booking/lib/bookingApi';
+import Calendar from '../../../components/shared/booking/Calendar';
 
 // --- Chart Helpers ---
 
 const CustomDot = (props) => {
-  const { cx, cy } = props;
+  const { cx, cy, payload } = props;
+  if (payload?.value === null || payload?.value === undefined) return null;
   return <circle cx={cx} cy={cy} r={4} fill="#4B9BFF" stroke="#FFFFFF" strokeWidth={2} />;
 };
 
@@ -152,10 +95,10 @@ const HistoryIcon = ({ color = '#E8655B', size = 24 }) => (
   </svg>
 );
 
-const SectionHeader = ({ icon, title, subtitle, iconBg = '#ECF9FC', iconColor = '#E8655B', iconElement, className = 'mb-4' }) => (
+const SectionHeader = ({ title, subtitle, iconBg = '#ECF9FC', iconElement, className = 'mb-4' }) => (
   <div className={`flex items-center ${className}`} style={{ gap: 12 }}>
     <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 56, height: 56, borderRadius: 10, padding: 16, backgroundColor: iconBg }}>
-      {iconElement || <span className="material-icons" style={{ fontSize: 24, color: iconColor }}>{icon}</span>}
+      {iconElement}
     </div>
     <div>
       <h2 className="text-[#1F2937] font-semibold text-base leading-tight">{title}</h2>
@@ -165,14 +108,14 @@ const SectionHeader = ({ icon, title, subtitle, iconBg = '#ECF9FC', iconColor = 
 );
 
 const ProgressChartCard = ({ data }) => {
-  const isEmpty = !data || data.length === 0;
+  const hasData = data?.some(d => d.value !== null && d.value !== undefined);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1 min-w-0 flex flex-col">
       <SectionHeader title="Grafik Progress" subtitle="Perkembangan kesehatan mental Anda" iconBg="#ECF9FC" iconElement={<ChartIcon color="#E8655B" size={24} />} />
       <div className="flex-1 min-h-[200px] relative">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={isEmpty ? emptyChartData : data} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
+          <ComposedChart data={data?.length ? data : emptyChartData} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -193,11 +136,11 @@ const ProgressChartCard = ({ data }) => {
               width={80}
               tick={<CustomYAxisTick />}
             />
-            {!isEmpty && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" />}
-            {!isEmpty && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} />}
+            {hasData && <Area type="monotone" dataKey="value" stroke="none" fill="url(#areaGradient)" connectNulls isAnimationActive={false} />}
+            {hasData && <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} dot={<CustomDot />} activeDot={false} connectNulls isAnimationActive={false} />}
           </ComposedChart>
         </ResponsiveContainer>
-        {isEmpty && (
+        {!hasData && (
           <div className="absolute inset-0 flex items-center justify-center" style={{ left: 80, right: 20 }}>
             <div className="flex flex-col items-center" style={{ backgroundColor: '#FDFEFF', border: '1px solid #ECEEF0', borderRadius: 12, padding: 20, gap: 16 }}>
               <div className="flex items-center justify-center" style={{ width: 48, height: 48, borderRadius: 60, backgroundColor: '#F6F6F6', padding: 12 }}>
@@ -215,11 +158,204 @@ const ProgressChartCard = ({ data }) => {
   );
 };
 
-const CounselingSessionCard = ({ session }) => {
+const InfoRow = ({ icon, alt, title, subtitle }) => (
+  <div className="flex items-center" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: 12, gap: 12 }}>
+    <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 6, padding: 8, backgroundColor: '#DAF7FF' }}>
+      <img src={icon} alt={alt} width={20} height={20} />
+    </div>
+    <div>
+      <p className="text-sm text-[#1F2937] font-bold">{title}</p>
+      <p className="text-xs text-[#9CA3AF]">{subtitle}</p>
+    </div>
+  </div>
+);
+
+const CounselingSessionCard = ({ session, userType, onCancelled }) => {
+  const queryClient = useQueryClient();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [allSlots, setAllSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [fullyBookedDates, setFullyBookedDates] = useState([]);
+  const datePickerRef = useRef(null);
+  const bookingApi = useMemo(() => createBookingApi(userType), [userType]);
+
+  // Fetch available dates when reschedule modal opens
+  useEffect(() => {
+    if (!showReschedule) return;
+    const fetchDates = async () => {
+      try {
+        const response = await bookingApi.getAvailableDates({});
+        if (response?.status === 'success' && Array.isArray(response.data)) {
+          setAvailableDates(response.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchDates();
+  }, [showReschedule, bookingApi]);
+
+  // Close calendar on outside click
+  useEffect(() => {
+    if (!showCalendar) return;
+    const handleClick = (e) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(e.target)) {
+        setShowCalendar(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showCalendar]);
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      await bookingApi.cancelCounseling(session.id);
+      setShowCancelConfirm(false);
+      // Invalidate all related queries so dashboard updates immediately
+      queryClient.invalidateQueries({ queryKey: ['studentDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['booking-history'] });
+      queryClient.invalidateQueries({ queryKey: ['booked-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['psychologist-availability'] });
+      onCancelled?.();
+    } catch (err) {
+      console.error('Cancel failed:', err);
+      const msg = err?.response?.data?.message || 'Gagal membatalkan sesi. Silakan coba lagi.';
+      alert(msg);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const openReschedule = () => {
+    setRescheduleDate('');
+    setSelectedSlot(null);
+    setAllSlots([]);
+    setRescheduleError('');
+    setShowReschedule(true);
+  };
+
+  const fetchSlots = async (date) => {
+    if (!date) {
+      setAllSlots([]);
+      return;
+    }
+    setLoadingSlots(true);
+    setSelectedSlot(null);
+    setRescheduleError('');
+    try {
+      // Use the same general availability API as booking-chat
+      const response = await bookingApi.getAvailableTimeSlots({ date });
+      const availabilityData = Array.isArray(response?.data) ? response.data : [];
+
+      // Filter slots matching the selected date
+      const dateSlots = availabilityData.filter(slot => slot.date === date);
+
+      let combined = dateSlots.map(slot => {
+        const isBooked = (slot.bookedPsychologists || 0) > 0;
+        return {
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isBooked,
+          reason: isBooked ? 'Sudah Terbooking' : undefined,
+        };
+      }).sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+      // Mark past slots for today
+      const now = new Date();
+      const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+      if (date === todayStr) {
+        const currentHHMM = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+        combined = combined.map(s => {
+          if (s.startTime?.slice(0, 5) <= currentHHMM) {
+            return { ...s, isBooked: true, reason: 'Jam sudah lewat' };
+          }
+          return s;
+        });
+      }
+
+      // Mark the current session's own slot on the same date
+      if (session.startTime && session.endTime && date === session.rawDate) {
+        combined = combined.map(s => {
+          if (s.startTime?.slice(0, 5) === session.startTime.slice(0, 5) && s.endTime?.slice(0, 5) === session.endTime.slice(0, 5)) {
+            return { ...s, isBooked: true, reason: 'Jadwal sesi saat ini' };
+          }
+          return s;
+        });
+      }
+
+      setAllSlots(combined);
+      const availableCount = combined.filter(s => !s.isBooked).length;
+      if (!combined.length) {
+        setRescheduleError('Psikolog tidak memiliki jadwal pada tanggal ini.');
+      } else if (availableCount === 0) {
+        setRescheduleError('Tidak ada slot tersedia pada tanggal ini.');
+      }
+    } catch {
+      setAllSlots([]);
+      setRescheduleError('Gagal memuat jadwal. Silakan coba lagi.');
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const handleDateChange = (dateStr) => {
+    setRescheduleDate(dateStr);
+    fetchSlots(dateStr);
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleDate) {
+      setRescheduleError('Tanggal wajib dipilih.');
+      return;
+    }
+    if (!selectedSlot) {
+      setRescheduleError('Pilih slot waktu yang tersedia.');
+      return;
+    }
+    setRescheduling(true);
+    setRescheduleError('');
+    try {
+      await bookingApi.rescheduleCounselingBySchedule(session.id, {
+        date: rescheduleDate,
+        startTime: selectedSlot.startTime.slice(0, 5),
+        endTime: selectedSlot.endTime.slice(0, 5),
+      });
+      setShowReschedule(false);
+      // Invalidate all related queries so both dashboard and schedule update
+      queryClient.invalidateQueries({ queryKey: ['studentDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['booking-history'] });
+      queryClient.invalidateQueries({ queryKey: ['booked-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['psychologist-availability'] });
+      onCancelled?.();
+    } catch (err) {
+      console.error('Reschedule failed:', err);
+      setRescheduleError(err?.response?.data?.message || 'Gagal mengubah jadwal. Silakan coba lagi.');
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
+  const getMethodLabel = () => {
+    const m = String(session.method || '').toLowerCase();
+    if (m === 'online') return 'Daring';
+    if (m === 'offline') return 'Luring';
+    if (m === 'chat') return 'Chat';
+    return m || 'Konseling';
+  };
+
   if (!session) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
-        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" icon="calendar_month" iconColor="#E8655B" />
+        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
         <SectionEmptyState
           title="Belum ada sesi konseling"
           subtitle="Saat ini Anda belum ada jadwal sesi konseling"
@@ -231,47 +367,188 @@ const CounselingSessionCard = ({ session }) => {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
-      <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" icon="calendar_month" iconColor="#E8655B" />
+      {/* Header */}
+      <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
 
+      {/* Image */}
       <img
         src="/dashboardruangdiri-1.png"
         alt="Sesi Konseling"
         className="w-full object-cover mb-4"
-        style={{ height: 127, borderRadius: 12 }}
+        style={{ height: 140, borderRadius: 12 }}
       />
 
-      <h3 className="text-[#1F2937] font-bold text-base mb-3">{session.title}</h3>
+      {/* Title */}
+      <h3 className="font-bold text-base mb-3" style={{ color: '#488BBA' }}>
+        Sesi Konseling Baru ({getMethodLabel()})
+      </h3>
 
-      {/* Platform info row */}
-      <div className="flex items-center mb-2" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: 12, gap: 12 }}>
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 6, padding: 8, backgroundColor: '#DAF7FF' }}>
-          <img src="/icon/zoom.svg" alt="Zoom" width={20} height={20} />
+      {/* Info rows */}
+      <div className="flex flex-col gap-2 mb-5">
+        <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
+            <VideoIcon color="#488BBE" size={18} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p className="text-sm font-bold text-[#1F2937]">{session.platform || 'Zoom Meeting'}</p>
+            <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Tautan Zoom belum tersedia. Akan segera dikirimkan oleh admin.'}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm text-[#1F2937] font-bold">{session.platform}</p>
-          <p className="text-xs text-[#9CA3AF]">Link akan dikirim via notifikasi</p>
+        <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
+            <ClockIcon color="#488BBE" size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-[#1F2937]">{session.fullDate}</p>
+            <p className="text-xs text-[#6B7280]">{session.time}</p>
+          </div>
         </div>
       </div>
 
-      {/* Date info row */}
-      <div className="flex items-center mb-5" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: 12, gap: 12 }}>
-        <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 6, padding: 8, backgroundColor: '#DAF7FF' }}>
-          <img src="/icon/clock.svg" alt="Clock" width={20} height={20} />
-        </div>
-        <div>
-          <p className="text-sm text-[#1F2937] font-bold">{session.fullDate}</p>
-          <p className="text-xs text-[#9CA3AF]">{session.time}</p>
-        </div>
-      </div>
-
+      {/* Buttons */}
       <div className="flex gap-3">
-        <button className="flex-1 font-semibold text-sm hover:bg-[#FFF0F3] transition-colors" style={{ border: '1.5px solid #E8655B', color: '#E8655B', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: 'pointer' }}>
+        <button
+          onClick={() => setShowCancelConfirm(true)}
+          className="flex-1 font-semibold text-sm transition-colors"
+          style={{ border: '1.5px solid #E8655B', color: '#E8655B', borderRadius: 12, padding: '10px 16px', background: '#FFFFFF', cursor: 'pointer' }}
+        >
           Batal
         </button>
-        <button className="flex-1 text-white font-semibold text-sm hover:opacity-90 transition-opacity" style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: 'pointer' }}>
+        <button
+          onClick={openReschedule}
+          className="flex-1 text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: 'pointer' }}
+        >
           Ubah Jadwal
         </button>
       </div>
+
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCancelConfirm(false)}>
+          <div className="bg-white rounded-xl p-6 max-w-sm mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-[#1F2937] mb-2">Batalkan Sesi Konseling?</h3>
+            <p className="text-sm text-[#6B7280] mb-5">
+              Sesi konseling pada {session.fullDate} ({session.time}) akan dibatalkan. Tindakan ini tidak dapat diurungkan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 font-semibold text-sm"
+                style={{ border: '1.5px solid #D1D5DB', color: '#6B7280', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: 'pointer' }}
+              >
+                Kembali
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={cancelling}
+                className="flex-1 text-white font-semibold text-sm"
+                style={{ backgroundColor: '#EF4444', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: cancelling ? 'not-allowed' : 'pointer', opacity: cancelling ? 0.6 : 1 }}
+              >
+                {cancelling ? 'Membatalkan...' : 'Ya, Batalkan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReschedule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !rescheduling && setShowReschedule(false)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg text-[#1F2937] mb-4">Ubah Jadwal Konseling</h3>
+
+            <label className="block text-sm text-[#374151] font-medium mb-1">Tanggal</label>
+            <div className="relative mb-3" ref={datePickerRef}>
+              <button
+                type="button"
+                onClick={() => !rescheduling && setShowCalendar(prev => !prev)}
+                disabled={rescheduling}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-left focus:outline-none focus:ring-2 focus:ring-[#E8655B] bg-white"
+              >
+                {rescheduleDate
+                  ? new Date(rescheduleDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : 'Pilih Tanggal'}
+                <span className="material-icons text-gray-400 text-base absolute right-3 top-1/2 -translate-y-1/2">calendar_today</span>
+              </button>
+              <Calendar
+                selectedDate={rescheduleDate}
+                onDateSelect={(dateStr) => {
+                  handleDateChange(dateStr);
+                  setShowCalendar(false);
+                }}
+                availableDates={availableDates}
+                fullyBookedDates={fullyBookedDates}
+                isOpen={showCalendar}
+                onClose={() => setShowCalendar(false)}
+                triggerRef={datePickerRef}
+              />
+            </div>
+
+            {rescheduleDate && (
+              <div className="mb-3">
+                <label className="block text-sm text-[#374151] font-medium mb-2">Pilih Waktu</label>
+                {loadingSlots ? (
+                  <div className="text-center py-4 text-sm text-gray-400">Memuat slot tersedia...</div>
+                ) : allSlots.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
+                    {allSlots.map((slot, idx) => {
+                      const start = slot.startTime?.slice(0, 5);
+                      const end = slot.endTime?.slice(0, 5);
+                      const isSelected = !slot.isBooked && selectedSlot?.startTime === slot.startTime && selectedSlot?.endTime === slot.endTime;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => !slot.isBooked && setSelectedSlot(slot)}
+                          disabled={rescheduling || slot.isBooked}
+                          className="text-sm rounded-lg py-2 px-3 border transition-colors relative"
+                          style={{
+                            backgroundColor: slot.isBooked ? '#F3F4F6' : isSelected ? '#E8655B' : '#FFFFFF',
+                            color: slot.isBooked ? '#9CA3AF' : isSelected ? '#FFFFFF' : '#374151',
+                            borderColor: slot.isBooked ? '#E5E7EB' : isSelected ? '#E8655B' : '#D1D5DB',
+                            cursor: slot.isBooked ? 'not-allowed' : rescheduling ? 'not-allowed' : 'pointer',
+                            opacity: slot.isBooked ? 0.7 : 1,
+                          }}
+                          title={slot.isBooked ? (slot.reason || 'Sudah terbooking') : ''}
+                        >
+                          <span>{start} - {end}</span>
+                          {slot.isBooked && (
+                            <span className="block text-[10px] text-gray-400 mt-0.5">{slot.reason || 'Terbooking'}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : !rescheduleError ? (
+                  <div className="text-center py-4 text-sm text-gray-400">Tidak ada slot tersedia</div>
+                ) : null}
+              </div>
+            )}
+
+            {rescheduleError && (
+              <p className="text-xs text-[#EF4444] mb-3">{rescheduleError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReschedule(false)}
+                disabled={rescheduling}
+                className="flex-1 font-semibold text-sm"
+                style={{ border: '1.5px solid #D1D5DB', color: '#6B7280', borderRadius: 12, padding: '10px 16px', background: 'none', cursor: rescheduling ? 'not-allowed' : 'pointer' }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleReschedule}
+                disabled={rescheduling}
+                className="flex-1 text-white font-semibold text-sm"
+                style={{ backgroundColor: '#E8655B', borderRadius: 12, padding: '10px 16px', border: 'none', cursor: rescheduling ? 'not-allowed' : 'pointer', opacity: rescheduling ? 0.6 : 1 }}
+              >
+                {rescheduling ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -356,15 +633,18 @@ const HistoryCard = ({ session }) => {
 // --- Main Component ---
 
 const UserDashboard = () => {
-  const { user } = useAuth?.() || { user: {} };
   const { userType = 'student' } = useOutletContext() || {};
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
 
-  const demoMode = searchParams.get('demo') || 'filled';
-  const progressData = demoMode === 'empty' ? [] : chartData;
-  const sessionData = demoMode === 'empty' ? null : upcomingSession;
-  const historyData = demoMode === 'empty' ? [] : counselingHistory;
+  const { chartData, upcomingSession, counselingHistory, isLoading, refetch } = useStudentDashboard(userType);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-white">
+        <span className="material-icons animate-spin text-blue-500 text-3xl">sync</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -431,13 +711,11 @@ const UserDashboard = () => {
         {/* Header Content */}
         <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center text-sm mb-6" style={{ gap: 8 }}>
-            <span className="text-[#9CA3AF]">Home</span>
-            <span className="text-[#F59E0B] text-xs">&#9654;</span>
-            <span className="text-[#9CA3AF]">Asesmen Ruang Diri</span>
-            <span className="text-[#F59E0B] text-xs">&#9654;</span>
-            <span className="text-[#1F2937] font-semibold">Dashboard</span>
-          </nav>
+          <Breadcrumb items={[
+            { label: "Home", to: `/user/${userType}/dashboard` },
+            { label: "Asesmen Ruang Diri", to: `/user/${userType}/screening` },
+            { label: "Dashboard" },
+          ]} />
 
           {/* Title */}
           <h1 className="font-bold text-[#434343] mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, lineHeight: '110%' }}>Dashboard</h1>
@@ -473,8 +751,8 @@ const UserDashboard = () => {
 
         {/* Two-Column: Chart + Session */}
         <div className="flex flex-col xl:flex-row xl:items-stretch gap-6 mb-6">
-          <ProgressChartCard data={progressData} />
-          <CounselingSessionCard session={sessionData} />
+          <ProgressChartCard data={chartData} />
+          <CounselingSessionCard session={upcomingSession} userType={userType} onCancelled={refetch} />
         </div>
 
         {/* Riwayat Konseling */}
@@ -490,7 +768,7 @@ const UserDashboard = () => {
             </button>
           </div>
 
-          {historyData.length === 0 ? (
+          {counselingHistory.length === 0 ? (
             <SectionEmptyState
               title="Belum ada riwayat konseling"
               subtitle="Saat ini Anda belum melakukan sesi konseling"
@@ -498,7 +776,7 @@ const UserDashboard = () => {
             />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {historyData.map((session) => (
+              {counselingHistory.map((session) => (
                 <HistoryCard key={session.id} session={session} />
               ))}
             </div>

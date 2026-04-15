@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext, Link } from 'react-router-dom';
+import Breadcrumb from '@/components/shared/Breadcrumb';
 
 // --- SVG Icon Components ---
 
@@ -65,7 +66,7 @@ const COUNSELING_METHODS = [
     hoverColor: '#155DFC',
     chipIconType: 'clock',
     titleIconType: 'location',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'daring',
@@ -78,7 +79,7 @@ const COUNSELING_METHODS = [
     hoverColor: '#F43F5E',
     chipIconType: 'video',
     titleIconType: 'video',
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'chat',
@@ -231,6 +232,10 @@ const BookingMethodPage = () => {
       navigate(`/user/${userType}/booking-chat`);
       return;
     }
+    if (method.id === 'daring') {
+      navigate(`/user/${userType}/booking-daring`);
+      return;
+    }
     navigate(`/booking-session/${userType}`, {
       state: {
         selectedMethod: {
@@ -312,13 +317,11 @@ const BookingMethodPage = () => {
         {/* Header Content */}
         <div className="relative z-10 px-6 lg:px-10 pt-8 pb-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center text-sm mb-6" style={{ gap: 8 }}>
-            <Link to={`/user/${userType}/dashboard`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Home</Link>
-            <span className="text-[#F59E0B] text-xs">&#9654;</span>
-            <Link to={`/user/${userType}/screening`} className="text-[#9CA3AF] hover:text-[#6B7280] transition-colors cursor-pointer">Asesmen Ruang Diri</Link>
-            <span className="text-[#F59E0B] text-xs">&#9654;</span>
-            <span className="text-[#1F2937] font-semibold">Booking Sesi Konseling</span>
-          </nav>
+          <Breadcrumb items={[
+            { label: "Home", to: `/user/${userType}/dashboard` },
+            { label: "Asesmen Ruang Diri", to: `/user/${userType}/screening` },
+            { label: "Booking Sesi Konseling" },
+          ]} />
 
           {/* Title */}
           <h1

@@ -12,7 +12,7 @@ import ViewScheduleModal from "./ViewScheduleModal"
 import { useSchedule } from "./hooks/useSchedule"
 import TopRightControl from "../layout/TopRightControl"
 
-const SchedulePage = ({ type = "school" }) => {
+const SchedulePage = ({ type = "school", showTopRightControl = true }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
@@ -329,7 +329,7 @@ const SchedulePage = ({ type = "school" }) => {
 
   return (
     <div className="relative bg-white min-h-screen w-full">
-      <TopRightControl isAbsolute />
+      {showTopRightControl && <TopRightControl isAbsolute />}
       <div
         className="transition-all duration-300"
         style={{

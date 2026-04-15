@@ -10,7 +10,7 @@ import SchoolLayout from "../components/organization/school/layout/SchoolLayout"
 import UserLayout from "../components/user/shared/layout/UserLayout"
 
 // === PUBLIC PAGES ===
-import Homepage from "../pages/shared/HomePage"
+import HomePage from "../pages/shared/HomePage"
 import Login from "../pages/shared/auth/Login"
 import ForgotPassword from "../pages/shared/auth/ForgotPassword"
 import ResetPassword from "../pages/shared/auth/ResetPassword"
@@ -46,8 +46,12 @@ import UserDashboard from "../pages/user/shared/UserDashboard"
 import BookingContainer from "@/components/shared/booking/BookingContainer"
 import BookingMethodPage from "@/pages/user/shared/BookingMethodPage"
 import BookingChatPage from "@/pages/user/shared/BookingChatPage"
+import BookingDaringPage from "@/pages/user/shared/BookingDaringPage"
 import PsychologistProfilePage from "@/pages/user/psychologist/profile/PsychologistProfilePage"
 import SchedulePage from "@/components/shared/schedule/SchedulePage"
+
+// === SETTINGS PAGES ===
+import BranchSettingsPage from "@/pages/organization/company/BranchSettingsPage"
 
 // === UNDER DEVELOPMENT COMPONENT ===
 const UnderDevelopmentPage = ({ title, description, icon = "construction" }) => (
@@ -114,7 +118,7 @@ const RoleBasedNotificationsRedirect = () => {
 
   if (role === "student") return <Navigate to="/user/student/notifications" replace />
   if (role === "employee") return <Navigate to="/user/employee/notifications" replace />
-  if (role === "psychologist") return <Navigate to="/user/psychologist/notifications" replace />
+  if (role === "psychologist") return <Navigate to="/user/psychologist/schedule" replace />
   if (role === "client") return <Navigate to="/user/client/notifications" replace />
   if (org === "school") return <Navigate to="/organization/school/notifications" replace />
   if (org === "company") return <Navigate to="/organization/company/notifications" replace />
@@ -129,7 +133,7 @@ const routes = [
   // ==========================================
   {
     path: "/",
-    element: <Homepage />,
+    element: <HomePage />,
   },
   {
     path: "/login",
@@ -152,14 +156,6 @@ const routes = [
     element: (
       <ProtectedRoute>
         <BookingContainer showTopRightControl={false} />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/user/:userType/booking-complete",
-    element: (
-      <ProtectedRoute>
-        <BookingSessionComplete />
       </ProtectedRoute>
     ),
   },
@@ -228,6 +224,14 @@ const routes = [
         path: "booking-chat",
         element: <BookingChatPage />,
       },
+      {
+        path: "booking-daring",
+        element: <BookingDaringPage />,
+      },
+      {
+        path: "booking-complete",
+        element: <BookingSessionComplete />,
+      },
     ],
   },
 
@@ -266,6 +270,22 @@ const routes = [
         path: "notifications",
         element: <NotificationPage />,
       },
+      {
+        path: "booking-session",
+        element: <BookingMethodPage />,
+      },
+      {
+        path: "booking-chat",
+        element: <BookingChatPage />,
+      },
+      {
+        path: "booking-daring",
+        element: <BookingDaringPage />,
+      },
+      {
+        path: "booking-complete",
+        element: <BookingSessionComplete />,
+      },
     ],
   },
 
@@ -282,7 +302,7 @@ const routes = [
     children: [
       {
         index: true,
-        element: <Navigate to="chat" replace />,
+        element: <Navigate to="schedule" replace />,
       },
       {
         path: "dashboard",
@@ -306,7 +326,7 @@ const routes = [
           <SchedulePage
             type="psychologist"
             className="pb-6"
-            showTopRightControl={true}
+            showTopRightControl={false}
           />
         ),
       },
@@ -378,6 +398,22 @@ const routes = [
         path: "notifications",
         element: <NotificationPage />,
       },
+      {
+        path: "booking-session",
+        element: <BookingMethodPage />,
+      },
+      {
+        path: "booking-chat",
+        element: <BookingChatPage />,
+      },
+      {
+        path: "booking-daring",
+        element: <BookingDaringPage />,
+      },
+      {
+        path: "booking-complete",
+        element: <BookingSessionComplete />,
+      },
     ],
   },
 
@@ -437,6 +473,10 @@ const routes = [
       {
         path: "settings",
         element: <Navigate to="profile" replace />,
+      },
+      {
+        path: "settings/branches",
+        element: <BranchSettingsPage />,
       },
     ],
   },
@@ -517,6 +557,10 @@ const routes = [
       {
         path: "settings",
         element: <Navigate to="profile" replace />,
+      },
+      {
+        path: "settings/branches",
+        element: <BranchSettingsPage />,
       },
     ],
   },

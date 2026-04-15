@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { useBooking } from "./hooks/useBooking"
 import { useAuth } from "@/hooks/useAuth"
+import Calendar from "./Calendar"
 
 // Back Arrow Component
 const BackArrow = ({ onClick }) => (
@@ -15,217 +16,6 @@ const BackArrow = ({ onClick }) => (
     <span className="material-icons text-white text-base">arrow_back</span>
   </button>
 )
-
-// Calendar Component
-const Calendar = ({ selectedDate, onDateSelect, availableDates = [], isOpen, onClose, triggerRef }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [position, setPosition] = useState({ top: true, left: 0 })
-  const calendarRef = useRef(null)
-
-  const monthNames = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-  ]
-
-  const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
-
-  // Calculate position when opening
-  useEffect(() => {
-    if (isOpen && triggerRef?.current) {
-      const triggerRect = triggerRef.current.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const viewportWidth = window.innerWidth
-      const calendarHeight = 400
-      const calendarWidth = 320
-
-      // Check if calendar fits below
-      const spaceBelow = viewportHeight - triggerRect.bottom
-      const spaceAbove = triggerRect.top
-      const showAbove = spaceBelow < calendarHeight && spaceAbove > calendarHeight
-
-      // Check horizontal position
-      let leftOffset = 0
-      if (triggerRect.left + calendarWidth > viewportWidth) {
-        leftOffset = viewportWidth - triggerRect.left - calendarWidth - 20
-      }
-
-      setPosition({
-        top: !showAbove,
-        left: leftOffset,
-      })
-    }
-  }, [isOpen, triggerRef])
-
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const daysInMonth = lastDay.getDate()
-    const startingDayOfWeek = firstDay.getDay()
-
-    const days = []
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null)
-    }
-
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-      const currentDate = new Date(dateStr)
-      const isAvailable = availableDates.some((d) => d.value === dateStr)
-      const isSelected = selectedDate === dateStr
-      const isPast = currentDate < new Date().setHours(0, 0, 0, 0)
-      const isToday = currentDate.toDateString() === new Date().toDateString()
-      
-      // Disable dates beyond 4 weeks (28 days) from today
-      // const today = new Date()
-      // const fourWeeksFromNow = new Date(today.getTime() + (28 * 24 * 60 * 60 * 1000))
-      // const isBeyondFourWeeks = currentDate > fourWeeksFromNow
-
-      days.push({
-        day,
-        dateStr,
-        isAvailable: isAvailable && !isPast,
-        isSelected,
-        isPast,
-        isToday,
-
-      })
-    }
-
-    return days
-  }
-
-  const nextMonth = () => {
-    const newMonth = new Date(currentMonth)
-    newMonth.setMonth(currentMonth.getMonth() + 1)
-    setCurrentMonth(newMonth)
-  }
-
-  const prevMonth = () => {
-    const newMonth = new Date(currentMonth)
-    newMonth.setMonth(currentMonth.getMonth() - 1)
-    setCurrentMonth(newMonth)
-  }
-
-  const days = getDaysInMonth(currentMonth)
-
-  if (!isOpen) return null
-
-  const positionClasses = position.top ? "top-full mt-1" : "bottom-full mb-1"
-
-  return (
-    <div
-      ref={calendarRef}
-      className={`fixed bg-white border border-gray-200 rounded-lg shadow-xl z-[9999] p-4 w-80 overflow-hidden ${positionClasses}`}
-      style={{
-        left: triggerRef?.current ? triggerRef.current.getBoundingClientRect().left + position.left : 0,
-        [position.top ? "top" : "bottom"]: triggerRef?.current
-          ? position.top
-            ? triggerRef.current.getBoundingClientRect().bottom + 4
-            : window.innerHeight - triggerRef.current.getBoundingClientRect().top + 4
-          : 0,
-      }}
-    >
-      {/* Calendar Header */}
-      <div className="flex justify-between items-center mb-4">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            prevMonth()
-          }}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          <span className="material-icons text-gray-600 text-lg">chevron_left</span>
-        </button>
-
-        <h3 className="text-sm font-semibold text-gray-800">
-          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-        </h3>
-
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            nextMonth()
-          }}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          <span className="material-icons text-gray-600 text-lg">chevron_right</span>
-        </button>
-      </div>
-
-      {/* Day Names */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {dayNames.map((day) => (
-          <div key={day} className="text-xs text-gray-500 text-center py-2 font-medium">
-            {day}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1 h-48">
-        {days.map((dayObj, index) => {
-          if (!dayObj) {
-            return <div key={`empty-${index}`} className="h-8"></div>
-          }
-
-          const { day, dateStr, isAvailable, isSelected, isPast, isToday } = dayObj
-
-          let dayClasses = "h-8 text-sm rounded-full flex items-center justify-center transition-all duration-200 "
-
-          if (isSelected) {
-            dayClasses += "bg-[#488BBA] text-white font-semibold shadow-md"
-          } else if (isToday) {
-            dayClasses += "bg-blue-50 text-[#488BBA] font-semibold border border-[#488BBA]"
-          } else if (isAvailable) {
-            dayClasses += "hover:bg-blue-50 text-gray-800 cursor-pointer hover:text-[#488BBA]"
-          } else if (isPast) {
-            dayClasses += "text-gray-300 cursor-not-allowed"
-          } else {
-            dayClasses += "text-gray-300 cursor-not-allowed"
-          }
-
-          return (
-            <button
-              key={`day-${day}-${dateStr}`}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                if (isAvailable) {
-                  onDateSelect(dateStr)
-                  onClose()
-                }
-              }}
-              disabled={!isAvailable}
-              className={dayClasses}
-            >
-              {day}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Footer */}
-      <div className="mt-3 pt-3 border-t border-gray-100">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onClose()
-          }}
-          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          Tutup
-        </button>
-      </div>
-    </div>
-  )
-}
 
 // Main BookingSession Component
 const BookingSession = ({ userType = "student", selectedMethod, onBack, onSuccess, standalone = false }) => {
@@ -254,6 +44,8 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
     showConfirmModal,
     setShowConfirmModal,
     selectedMethod: currentSelectedMethod,
+    hasActiveBooking,
+    activeBookingInfo,
   } = useBooking(userType)
 
   const [showCalendar, setShowCalendar] = useState(false)
@@ -326,15 +118,8 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
   const handleSubmit = async () => {
     try {
-      // ✅ DEBUG: Log selected data before submission
-      console.log("=== BOOKING SUBMISSION DEBUG ===")
-      console.log("Selected time slot:", selectedTimeSlot)
-      console.log("Psychologist ID from slot:", selectedTimeSlot?.psychologistId)
-      console.log("Available psychologist IDs:", selectedTimeSlot?.availablePsychologistIds)
-
-      // ✅ VALIDATION: Check if psychologist ID exists
+      // Validate psychologist ID exists
       if (!selectedTimeSlot?.psychologistId && (!selectedTimeSlot?.availablePsychologistIds || selectedTimeSlot.availablePsychologistIds.length === 0)) {
-        console.error("❌ Psychologist ID is missing from selected time slot!")
         toast.error("Psychologist ID missing. Please select time slot again.")
         return
       }
@@ -370,13 +155,10 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
       } else {
         // Redirect to tickets page with booking ID
         if (result?.id) {
-          console.log("✅ Booking successful, redirecting to ticket:", result.id)
           navigate(`/user/${userType}/tickets/${result.id}`, {
             replace: true,
           })
         } else {
-          // Fallback to booking-complete if no booking ID
-          console.warn("⚠️ No booking ID received, redirecting to booking-complete")
           navigate(`/user/${userType}/booking-complete`, {
             state: { bookingResult: result, methodOverride: currentSelectedMethod?.id },
             replace: true,
@@ -400,7 +182,7 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
     const termsMap = {
       online:
-        "• Pengguna diharapkan hadir tepat waktu sesuai jadwal yang telah ditentukan. Link Zoom akan dikirimkan ke email dan WA kamu 1 jam sebelum sesi dan toleransi keterlambatan pada hari H adalah 15 menit.\n• Pengguna diharapkan berada dalam ruangan yang kondusif (di tempat yang tenang dan tidak dalam perjalanan).\n• Perubahan dan pembatalan jadwal dapat dilakukan maksimal H-1 dari jadwal yang telah ditentukan (dengan maksimal 1x perubahan).\n• Tautan untuk mengakses Zoom akan dikirim 1 jam sebelum sesi konseling.",
+        "• Pengguna diharapkan hadir tepat waktu sesuai jadwal yang telah ditentukan. Link Zoom akan dikirimkan ke Notifikasi kamu 1 jam sebelum sesi dan toleransi keterlambatan pada hari H adalah 15 menit.\n• Pengguna diharapkan berada dalam ruangan yang kondusif (di tempat yang tenang dan tidak dalam perjalanan).\n• Perubahan dan pembatalan jadwal dapat dilakukan maksimal H-1 dari jadwal yang telah ditentukan (dengan maksimal 1x perubahan).\n• Tautan untuk mengakses Zoom akan dikirim 1 jam sebelum sesi konseling.",
       offline:
         "• Pengguna diharapkan hadir tepat waktu sesuai jadwal yang telah ditentukan dengan toleransi keterlambatan 15 menit.\n• Pengguna diharapkan datang ke lokasi yang telah ditentukan sesuai dengan alamat yang diberikan.\n• Perubahan dan pembatalan jadwal dapat dilakukan maksimal H-1 dari jadwal yang telah ditentukan (dengan maksimal 1x perubahan).\n• Konfirmasi lokasi dan detail sesi akan dikirim 1 hari sebelum jadwal konseling.",
       chat: "• Sesi chat berlangsung selama 15 menit sesuai jadwal yang telah ditentukan.\n• Pengguna dapat mengakses ruang chat 5 menit sebelum jadwal dimulai.\n• Perubahan jadwal dapat dilakukan maksimal 2 jam sebelum sesi dimulai.\n• Link akses chat akan dikirimkan 15 menit sebelum sesi dimulai.",
@@ -423,12 +205,6 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
   // UPDATED: Get dynamic quota from availability (time-slot based)
   const remainingQuota = availableQuota ?? 0
-
-  // Debug: Log quota values
-  console.log("🔍 [BookingSession] availableQuota:", availableQuota)
-  console.log("🔍 [BookingSession] remainingQuota:", remainingQuota)
-  console.log("🔍 [BookingSession] loading.quota:", loading.quota)
-  console.log("🔍 [BookingSession] errors.quota:", errors.quota)
 
   // Show loading state while methods are loading
   if (loading.methods) {
@@ -755,6 +531,14 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         </div>
       </div>
 
+      {/* Active Booking Warning */}
+      {hasActiveBooking && (
+        <div className="mx-[59px] mb-4 p-4 rounded-lg bg-[#FFF3CD] border border-[#FFEEBA] max-md:mx-[30px]">
+          <p className="text-sm text-[#856404] font-semibold">Anda sudah memiliki sesi konseling aktif.</p>
+          <p className="text-xs text-[#856404] mt-1">Batalkan atau selesaikan sesi sebelumnya untuk membuat janji baru.</p>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="absolute right-[59px] bottom-[30px] flex justify-end items-center gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:bottom-[20px] max-md:justify-center">
         <button
@@ -765,11 +549,11 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         </button>
         <button
           onClick={handleSubmit}
-          disabled={!isFormValid() || loading.creating}
+          disabled={!isFormValid() || loading.creating || hasActiveBooking}
           className="h-8 px-5 py-2.5 bg-[#488BBA] rounded-[5px] flex justify-center items-center gap-2.5 hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed max-md:flex-1"
         >
           <div className="text-white text-base font-semibold font-['Public_Sans'] max-md:text-sm">
-            {loading.creating ? "Memproses..." : "Buat Janji"}
+            {loading.creating ? "Memproses..." : hasActiveBooking ? "Sudah Ada Sesi Aktif" : "Buat Janji"}
           </div>
         </button>
       </div>

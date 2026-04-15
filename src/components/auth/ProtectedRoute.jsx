@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { ADMIN_LEVEL_RANK } from '../../lib/adminScope';
 
 /**
  * ProtectedRoute component that handles authentication and authorization
@@ -137,26 +138,26 @@ export const withOrgTypeAccess = (allowedOrgTypes) => (Component) => {
  * Hook for checking if user has specific permissions
  */
 export const usePermissions = () => {
-  const { getUserRole, getOrganizationType } = useAuth();
-  
+  const { getUserRole, getOrganizationType, getAdminLevel } = useAuth();
+
   const hasRole = (requiredRole) => {
     return getUserRole() === requiredRole;
   };
-  
+
   const hasOrgType = (requiredOrgType) => {
     return getOrganizationType() === requiredOrgType;
   };
-  
+
   const hasAnyRole = (roles) => {
     const userRole = getUserRole();
     return roles.includes(userRole);
   };
-  
+
   const hasAnyOrgType = (orgTypes) => {
     const orgType = getOrganizationType();
     return orgTypes.includes(orgType);
   };
-  
+
   const isStudent = () => hasRole('student');
   const isEmployee = () => hasRole('employee');
   const isPsychologist = () => hasRole('psychologist');
@@ -164,7 +165,16 @@ export const usePermissions = () => {
   const isCompanyAdmin = () => hasOrgType('company');
   const isUser = () => hasAnyRole(['student', 'employee', 'psychologist']);
   const isOrgAdmin = () => hasAnyOrgType(['school', 'company']);
-  
+
+  // Admin hierarchy: cabang(1) < wilayah(2) < pusat(3)
+  const isAdminPusat = () => isOrgAdmin() && getAdminLevel() === 'pusat';
+  const isAdminWilayah = () => isOrgAdmin() && getAdminLevel() === 'wilayah';
+  const isAdminCabang = () => isOrgAdmin() && getAdminLevel() === 'cabang';
+  const hasMinAdminLevel = (minLevel) => {
+    if (!isOrgAdmin()) return false;
+    return (ADMIN_LEVEL_RANK[getAdminLevel()] || 0) >= (ADMIN_LEVEL_RANK[minLevel] || 0);
+  };
+
   return {
     hasRole,
     hasOrgType,
@@ -176,7 +186,11 @@ export const usePermissions = () => {
     isSchoolAdmin,
     isCompanyAdmin,
     isUser,
-    isOrgAdmin
+    isOrgAdmin,
+    isAdminPusat,
+    isAdminWilayah,
+    isAdminCabang,
+    hasMinAdminLevel
   };
 };
 

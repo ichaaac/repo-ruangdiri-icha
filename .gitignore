@@ -56,3 +56,4 @@ TEST*.xml
 *.flv
 *.mov
 *.wmv
+.vercel

@@ -77,3 +77,8 @@ export const resetPasswordSchema = z.object({
   message: "Password tidak sama",
   path: ["confirmPassword"]
 });
+
+export const branchFormSchema = z.object({
+  name: z.string().min(1, "Nama cabang tidak boleh kosong"),
+  regionId: z.string().min(1, "Wilayah harus dipilih"),
+});
