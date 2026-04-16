@@ -8,7 +8,6 @@ import ScreeningAssessment from "./ScreeningAssesment"
 import ScreeningResult from "./ScreeningResult"
 import ExitConfirmationPopup from "./ExitConfirmationPopUp"
 import { Link, useOutletContext, useNavigate, useSearchParams } from "react-router-dom"
-import Breadcrumb from "../Breadcrumb"
 
 // Stage 1 Content Component - "Selamat Datang"
 const Stage1Content = ({ onScrollDown }) => {
@@ -365,17 +364,58 @@ const WelcomeView = ({ onStart }) => {
         <div
           className="relative z-10 px-6 lg:px-10 pt-8 pb-10"
         >
-          <Breadcrumb items={[
-            { label: "Home", to: `/user/${userType}/dashboard` },
-            { label: "Asesmen Ruang Diri", to: `/user/${userType}/screening` },
-            { label: "Asesmen" },
-          ]} />
+          <nav
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 16,
+            }}
+          >
+            <Link
+              to={`/user/${userType}/dashboard`}
+              className="hover:opacity-70 transition-opacity"
+              style={{
+                fontSize: 14,
+                color: "#6B7280",
+                textDecoration: "none",
+              }}
+            >
+              Home
+            </Link>
+            <span style={{ color: "#F59E0B", fontSize: 10 }}>&#9654;</span>
+            <span style={{ fontSize: 14, color: "#6B7280" }}>
+              Asesmen Ruang Diri
+            </span>
+            <span style={{ color: "#F59E0B", fontSize: 10 }}>&#9654;</span>
+            <span
+              style={{ fontSize: 14, fontWeight: 500, color: "#1F2937" }}
+            >
+              Asesmen
+            </span>
+          </nav>
 
-          <h1 className="font-bold text-[#434343] mb-3" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontSize: 28, lineHeight: '110%' }}>
+          <h1
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              color: "#1F2937",
+              lineHeight: "36px",
+              marginBottom: 8,
+              marginTop: 0,
+            }}
+          >
             {getAssessmentTitle(userType)}
           </h1>
 
-          <p className="text-base text-[#6B7280]">
+          <p
+            style={{
+              fontSize: 14,
+              color: "#6B7280",
+              lineHeight: "22px",
+              margin: 0,
+            }}
+          >
             Halaman ini digunakan untuk memulai asesmen kesehatan mental dan
             mendapatkan dukungan konseling.
           </p>

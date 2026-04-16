@@ -11,6 +11,7 @@ import UserLayout from "../components/user/shared/layout/UserLayout"
 
 // === PUBLIC PAGES ===
 import HomePage from "../pages/shared/HomePage"
+import ContactPage from "../pages/shared/ContactPage"
 import Login from "../pages/shared/auth/Login"
 import ForgotPassword from "../pages/shared/auth/ForgotPassword"
 import ResetPassword from "../pages/shared/auth/ResetPassword"
@@ -134,6 +135,10 @@ const routes = [
   {
     path: "/",
     element: <HomePage />,
+  },
+  {
+    path: "/kontak",
+    element: <Navigate to="/" replace />,
   },
   {
     path: "/login",

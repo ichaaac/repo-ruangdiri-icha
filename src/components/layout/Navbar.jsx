@@ -1,266 +1,212 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import clsx from "clsx";
 
+const navItems = [
+  { id: "hero", name: "Beranda" },
+  { id: "layanan", name: "Layanan" },
+  { id: "keunggulan", name: "Keunggulan" },
+  { id: "kontak", name: "Kontak Kami" },
+  { id: "faq", name: "FAQ" },
+];
+
 const Navbar = ({ activeSection, onSectionClick }) => {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [visible, setVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [programmaticScroll, setProgrammaticScroll] = useState(false);
-  
   const location = useLocation();
-  const navItemRefs = useRef({});
   const programmaticScrollTimer = useRef(null);
-  
-  // Ensure page starts from top on refresh
+
   useEffect(() => {
     window.history.scrollRestoration = "manual";
     window.scrollTo(0, 0);
   }, []);
-  
-  // Modified scroll behavior in the Navbar component
+
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      
-      // Apply shadow when scrolled down
-      if (currentScrollY > 20) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-      
-      // Don't hide navbar during programmatic scroll
+      const y = window.scrollY;
+      setScrolled(y > 20);
       if (!programmaticScroll) {
-        // Hide navbar quickly after a small scroll down (50px)
-        if (currentScrollY > lastScrollY && currentScrollY > 50) {
-          setVisible(false);
-        }
-        
-        // Show navbar immediately when scrolling up, except at the hero section
-        if (currentScrollY < lastScrollY) {
-          // Only show if we've scrolled down some amount (not at hero)
-          if (currentScrollY > 100) {
-            setVisible(true);
-          }
-        }
+        if (y > lastScrollY && y > 50) setVisible(false);
+        if (y < lastScrollY && y > 100) setVisible(true);
       }
-      
-      // Always visible at the very top
-      if (currentScrollY <= 50) {
-        setVisible(true);
-      }
-      
-      setLastScrollY(currentScrollY);
+      if (y <= 50) setVisible(true);
+      setLastScrollY(y);
     };
-    
-    // Throttle scroll event for better performance
     let ticking = false;
     const onScroll = () => {
       if (!ticking) {
-        window.requestAnimationFrame(() => {
-          handleScroll();
-          ticking = false;
-        });
+        window.requestAnimationFrame(() => { handleScroll(); ticking = false; });
         ticking = true;
       }
     };
-    
     window.addEventListener("scroll", onScroll, { passive: true });
-    
-    // Initial check
     handleScroll();
-    
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.history.scrollRestoration = "auto";
     };
   }, [lastScrollY, programmaticScroll]);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location]);
+  useEffect(() => { setMobileMenuOpen(false); }, [location]);
+  useEffect(() => () => { if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current); }, []);
 
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (programmaticScrollTimer.current) {
-        clearTimeout(programmaticScrollTimer.current);
-      }
-    };
-  }, []);
-
-  const navItems = [
-    { id: "hero", name: "Beranda", path: "/" },
-    { id: "services", name: "Layanan Kami" },
-    { id: "about", name: "Tentang Kami", path: "/tentang" },
-    { id: "assessment", name: "Assesmen Diri", path: "/assesmen" },
-    { id: "articles", name: "Artikel", path: "/artikel" }
-  ];
-
-  const handleNavItemClick = (item) => {
-    if (item.id === "hero" || item.id === "services") {
-      // Set navbar to visible
-      setVisible(true);
-      
-      // Set programmatic scroll flag to prevent navbar hiding
-      setProgrammaticScroll(true);
-      
-      // Call the section click handler
-      onSectionClick(item.id);
-      
-      // Reset the programmatic scroll flag after animation completes
-      if (programmaticScrollTimer.current) {
-        clearTimeout(programmaticScrollTimer.current);
-      }
-      
-      programmaticScrollTimer.current = setTimeout(() => {
-        setProgrammaticScroll(false);
-      }, 1000); // Adjust timing to match your scroll animation duration
-    } else if (item.path) {
-      window.location.href = item.path;
+  const handleNavClick = (item) => {
+    setVisible(true);
+    setProgrammaticScroll(true);
+    if (item.id === "kontak") {
+      navigate("/kontak");
+    } else if (location.pathname !== "/") {
+      navigate("/");
+      setTimeout(() => {
+        const el = document.getElementById(item.id);
+        if (el) {
+          const y = el.getBoundingClientRect().top + window.pageYOffset - 100;
+          window.scrollTo({ top: y, behavior: "smooth" });
+        }
+      }, 300);
+    } else {
+      onSectionClick?.(item.id);
     }
-    
-    if (mobileMenuOpen) {
-      setMobileMenuOpen(false);
-    }
+    if (programmaticScrollTimer.current) clearTimeout(programmaticScrollTimer.current);
+    programmaticScrollTimer.current = setTimeout(() => setProgrammaticScroll(false), 1000);
+    if (mobileMenuOpen) setMobileMenuOpen(false);
   };
 
   return (
-    <header 
+    <header
       className={clsx(
-        "w-full bg-white fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-        scrolled ? "shadow-md" : "shadow-xl",
+        "w-full fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        scrolled ? "shadow-md" : "",
         visible ? "translate-y-0" : "-translate-y-full"
       )}
+      style={{ backgroundColor: "#FDFEFF", borderBottom: scrolled ? "1px solid #E5E7EB" : "none" }}
     >
-      {/* Rest of your Navbar JSX remains unchanged */}
-      <div className="max-w-[1440px] mx-auto">
-        <nav className="flex justify-between items-center h-[123px] md:h-[100px] sm:h-[80px]">
-          <div className="flex items-center">
-            <div className="pl-2 md:pl-4">
-              <Link to="/">
-                <div className="w-[100px] h-[89px] md:w-[80px] md:h-[70px] sm:w-[70px] sm:h-[60px] flex items-center justify-center">
-                  <img
-                    src="/logo/ruang-diri-logo.webp"
-                    alt="Ruang Diri Logo"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-              </Link>
-            </div>
+      {/* Desktop navbar */}
+      <div
+        className="mx-auto hidden lg:flex items-center justify-between"
+        style={{
+          maxWidth: 1440,
+          padding: "0 72px",
+          width: "100%",
+          height: 68,
+          boxSizing: "border-box",
+          margin: "0 auto",
+        }}
+      >
+        {/* Left: Logo */}
+        <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
+          <img
+            src="/logo/ruang-diri-full.png"
+            alt="Ruang Diri"
+            style={{ height: 36, objectFit: "contain" }}
+          />
+        </Link>
 
-            <ul className="hidden md:flex ml-16 lg:ml-24 relative">
-              {navItems.map((item) => (
-                <li key={item.id || item.name} className="relative mx-5 lg:mx-7">
-                  <div 
-                    ref={el => navItemRefs.current[item.id] = el}
-                    onClick={() => handleNavItemClick(item)}
-                    className={clsx(
-                      "text-[20px] text-[#488BBE] transition-all duration-200 hover:font-bold cursor-pointer whitespace-nowrap",
-                      activeSection === item.id ? "font-extrabold" : "font-normal hover:text-[#488BBE]"
-                    )}
-                  >
-                    {item.name}
-                  </div>
-                  
-                  {(activeSection === item.id && (item.id === "hero" || item.id === "services")) && (
-                    <div className="flex absolute left-0 gap-1 bottom-[-7px]">
-                      <div 
-                        className="bg-[#F59E0B] h-[5px] rounded-sm shadow-[0_0_5px_rgba(249,115,22,0.5)]"
-                        style={{ width: item.id === "services" ? "100px" : "58px" }}
-                      />
-                      <div 
-                        className="bg-[#F59E0B] h-[5px] rounded-sm shadow-[0_0_5px_rgba(249,115,22,0.5)]"
-                        style={{ width: item.id === "services" ? "33px" : "19px" }}
-                      />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Right side elements with adjusted spacing */}
-          <div className="hidden md:flex items-center pr-8 md:pr-16 lg:pr-24">
-            {/* Increased space after articles and decreased space before login buttons */}
-            <div className="text-sm text-zinc-500 ml-12 mr-8">
-              <span className="font-bold text-[#488BBE]">ID</span>
-              <span className="mx-2">/</span>
-              <span>EN</span>
-            </div>
-            <div className="flex items-center">
-              <Link 
-                to="/login" 
-                className="px-7 py-2.5 h-11 text-sm font-bold text-[#488BBE] bg-white border border-[#488BBE] rounded-[44px] hover:bg-[#E2F9FF] transition-colors flex items-center justify-center mr-5"
-              >
-                Masuk
-              </Link>
-              <Link 
-                to="/register" 
-                className="px-7 py-2.5 h-11 text-sm font-bold text-white bg-[#488BBE] rounded-[44px] hover:bg-[#3399E9] transition-colors flex items-center justify-center"
-              >
-                Daftar
-              </Link>
-            </div>
-          </div>
-
-          <button 
-            className="block md:hidden mr-6"
-            aria-label="Toggle menu"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            <span className="material-icons text-[#488BBE] text-3xl">
-              {mobileMenuOpen ? "close" : "menu"}
-            </span>
-          </button>
+        {/* Center: Nav links */}
+        <nav className="flex items-center" style={{ gap: 32 }}>
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleNavClick(item)}
+              className="cursor-pointer whitespace-nowrap hover:opacity-80"
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 15,
+                lineHeight: "1.4em",
+                fontWeight: activeSection === item.id ? 600 : 400,
+                color: "#0F172B",
+                background: "none",
+                border: "none",
+                padding: 0,
+                transition: "opacity 0.2s",
+              }}
+            >
+              {item.name}
+            </button>
+          ))}
         </nav>
+
+        {/* Right: Login button */}
+        <Link
+          to="/login"
+          className="flex items-center justify-center hover:opacity-90 transition-opacity"
+          style={{
+            gap: 8,
+            padding: "10px 24px",
+            borderRadius: 56,
+            backgroundColor: "#227BCC",
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          <img src="/landing/login-icon.svg" alt="" style={{ width: 16, height: 16 }} />
+          <span style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontWeight: 600,
+            fontSize: 15,
+            lineHeight: "1.2em",
+            color: "#FDFEFF",
+          }}>Masuk</span>
+        </Link>
       </div>
 
-      <div 
+      {/* Mobile header */}
+      <div
+        className="mx-auto flex lg:hidden items-center justify-between"
+        style={{ padding: "16px 24px" }}
+      >
+        <Link to="/" className="flex-shrink-0" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+          <img src="/logo/ruang-diri-full.png" alt="Ruang Diri" style={{ height: 32, objectFit: "contain" }} />
+        </Link>
+        <button
+          aria-label="Toggle menu"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          style={{ background: "none", border: "none" }}
+        >
+          <span className="material-icons text-[#227BCC] text-3xl">
+            {mobileMenuOpen ? "close" : "menu"}
+          </span>
+        </button>
+      </div>
+
+      {/* Mobile menu */}
+      <div
         className={clsx(
-          "fixed inset-0 bg-white z-40 pt-[80px] px-6 transition-opacity duration-300",
+          "fixed inset-0 bg-white z-40 pt-[110px] px-6 transition-opacity duration-300 lg:hidden",
           mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
-        <ul className="flex flex-col gap-6 items-center">
+        <ul className="flex flex-col gap-2 items-center">
           {navItems.map((item) => (
-            <li key={item.id || item.name} className="w-full">
-              <div 
-                onClick={() => handleNavItemClick(item)}
-                className={clsx(
-                  "block text-xl py-4 text-center transition-all duration-200 border-b border-gray-100 cursor-pointer",
-                  activeSection === item.id 
-                    ? "font-extrabold text-[#488BBE]" 
-                    : "text-[#488BBE] hover:text-[#3399E9]"
-                )}
+            <li key={item.id} className="w-full">
+              <button
+                onClick={() => handleNavClick(item)}
+                className="block w-full text-lg py-4 text-center border-b border-gray-100 cursor-pointer"
+                style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: activeSection === item.id ? 600 : 400,
+                  color: "#0F172B",
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px solid #f3f4f6",
+                }}
               >
                 {item.name}
-              </div>
+              </button>
             </li>
           ))}
-          
           <li className="w-full pt-4 flex justify-center">
-            <div className="text-base text-zinc-500">
-              <span className="font-bold text-[#488BBE]">ID</span>
-              <span className="mx-3">/</span>
-              <span>EN</span>
-            </div>
-          </li>
-          
-          <li className="w-full py-4 flex flex-col gap-4 items-center">
-            <Link 
-              to="/login" 
-              className="w-full max-w-[250px] py-3 text-center text-[#488BBE] bg-white border border-[#488BBE] rounded-[44px] hover:bg-[#E2F9FF] transition-colors"
+            <Link
+              to="/login"
+              className="flex items-center justify-center gap-3 w-full max-w-[250px] py-4 rounded-full font-semibold hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: "#227BCC", color: "#FDFEFF", fontSize: 18 }}
             >
+              <img src="/landing/login-icon.svg" alt="" className="w-5 h-5" />
               Masuk
-            </Link>
-            <Link 
-              to="/register" 
-              className="w-full max-w-[250px] py-3 text-center text-white bg-[#488BBE] rounded-[44px] hover:bg-[#3399E9] transition-colors"
-            >
-              Daftar
             </Link>
           </li>
         </ul>
