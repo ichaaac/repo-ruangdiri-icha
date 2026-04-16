@@ -138,7 +138,7 @@ const routes = [
   },
   {
     path: "/kontak",
-    element: <Navigate to="/" replace />,
+    element: <ContactPage />,
   },
   {
     path: "/login",
