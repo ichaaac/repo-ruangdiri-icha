@@ -121,6 +121,9 @@ const api = {
     getMe: async () => {
       try {
         const response = await apiClient.get("/users/me");
+        const d = response.data?.data;
+        if (d?.profilePictureUrl) d.profilePictureUrl = normalizeUploadUrl(d.profilePictureUrl);
+        if (d?.profilePicture?.includes?.("/uploads/")) d.profilePicture = normalizeUploadUrl(d.profilePicture);
         return response;
       } catch (error) {
         handleApiError(error, "user.getMe");
@@ -700,7 +703,14 @@ export const getMeFresh = async () => {
         Pragma: "no-cache",
       },
     });
-    return response.data;
+    const data = response.data;
+    if (data?.data?.profilePictureUrl) {
+      data.data.profilePictureUrl = normalizeUploadUrl(data.data.profilePictureUrl);
+    }
+    if (data?.data?.profilePicture?.includes?.("/uploads/")) {
+      data.data.profilePicture = normalizeUploadUrl(data.data.profilePicture);
+    }
+    return data;
   } catch (error) {
     handleApiError(error, "getMeFresh");
   }
