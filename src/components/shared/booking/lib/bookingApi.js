@@ -796,9 +796,15 @@ export const createBookingApi = (userType = "student") => {
             const locationToMethod = { online: "online", offline: "offline", chat: "chat" }
             const method = locationToMethod[session.location] || session.location || "online"
 
-            // Use counselingStatus from API if available, otherwise derive from date
+            // Use per-user counselingStatus from users array (more accurate for group schedules)
+            // Fall back to top-level counselingStatus, then derive from date
             const now = new Date()
-            const status = session.counselingStatus || (startDt > now ? "scheduled" : "completed")
+            const currentUserInSession = currentUserId
+              ? session.users?.find(u => u.id === currentUserId)
+              : null
+            const status = currentUserInSession?.counselingStatus
+              || session.counselingStatus
+              || (startDt > now ? "scheduled" : "completed")
 
             const statusDisplayMap = {
               scheduled: "Terjadwal",

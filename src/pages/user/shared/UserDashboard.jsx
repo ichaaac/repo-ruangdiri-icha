@@ -385,6 +385,17 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
 
       {/* Info rows */}
       <div className="flex flex-col gap-2 mb-5">
+        {session.psychologistName && session.psychologistName !== '-' && (
+          <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+            <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#488BBE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#1F2937]">Psikolog</p>
+              <p className="text-xs text-[#6B7280]">{session.psychologistName}</p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
           <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
             <VideoIcon color="#488BBE" size={18} />

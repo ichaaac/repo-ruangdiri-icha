@@ -4,6 +4,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useMutation } from '@tanstack/react-query';
 import api from '../../../lib/api';
 import Breadcrumb from '../../../components/shared/Breadcrumb';
+import ProfilePictureUpload from '../../../components/shared/profile/ProfilePictureUpload';
 import { toast } from 'sonner';
 
 const getProfile = (user, userType) => {
@@ -25,6 +26,7 @@ const UserProfile = () => {
 
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [profileData, setProfileData] = useState({
     fullName: '',
     email: '',
@@ -51,9 +53,9 @@ const UserProfile = () => {
     setProfileData({
       fullName: user.fullName || '',
       email: user.email || '',
-      phone: user.phone || '',
+      phone: profile?.contact || user.phone || '',
       birthDate: formatDateForInput(profile?.birthDate),
-      address: user.address || '',
+      address: profile?.address || user.address || '',
       guardianName: profile?.guardianName || '',
       guardianContact: profile?.guardianContact || '',
     });
@@ -64,6 +66,7 @@ const UserProfile = () => {
     onSuccess: () => {
       toast.success('Profil berhasil diperbarui!');
       setIsEditing(false);
+      setSelectedPhoto(null);
       refetchUser();
     },
     onError: (err) => {
@@ -73,14 +76,23 @@ const UserProfile = () => {
 
   const handleProfileSubmit = (e) => {
     e.preventDefault();
-    updateProfile.mutate({
+    const data = {
       fullName: profileData.fullName,
       phone: profileData.phone,
       address: profileData.address,
       birthDate: profileData.birthDate || undefined,
       guardianName: profileData.guardianName || undefined,
       guardianContact: profileData.guardianContact || undefined,
-    });
+    };
+    if (selectedPhoto) {
+      const [header, b64] = selectedPhoto.split(',');
+      const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+      const bytes = atob(b64);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      data.profilePicture = new File([arr], `profile.${mime.split('/')[1]}`, { type: mime });
+    }
+    updateProfile.mutate(data);
   };
 
   const handlePasswordSubmit = async (e) => {
@@ -137,15 +149,13 @@ const UserProfile = () => {
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-[#488BBE] rounded-full flex items-center justify-center overflow-hidden">
-              {user?.profilePicture ? (
-                <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white text-2xl font-bold">
-                  {user?.fullName?.charAt(0)?.toUpperCase() || getUserTypeLabel()[0]}
-                </span>
-              )}
-            </div>
+            <ProfilePictureUpload
+              currentProfilePicture={user?.profilePictureUrl || user?.profilePicture}
+              organizationType={userType === 'student' ? 'school' : 'company'}
+              mode="client-only"
+              onImageSelect={(base64) => setSelectedPhoto(base64)}
+              isEditing={isEditing}
+            />
             <div>
               <h1 className="text-2xl font-bold text-[#488BBE] mb-1">Profil {getUserTypeLabel()}</h1>
               <p className="text-gray-600">{user?.fullName || 'Nama belum diatur'}</p>
@@ -183,7 +193,7 @@ const UserProfile = () => {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-800">Informasi Profil</h2>
                 <button
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={() => { setIsEditing(!isEditing); setSelectedPhoto(null); }}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                     isEditing
                       ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'

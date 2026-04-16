@@ -40,6 +40,20 @@ apiClient.interceptors.response.use(
 );
 
 // === FALLBACK DATA HELPERS ===
+
+/**
+ * Convert absolute upload URLs to relative /uploads/... paths.
+ * Both Vite dev proxy and Vercel production rewrite handle
+ * forwarding /uploads/* to the backend, so <img> tags work
+ * without needing custom headers (avoids ngrok interstitial).
+ */
+const normalizeUploadUrl = (url) => {
+  if (!url || typeof url !== "string") return url;
+  const match = url.match(/\/uploads\/.+/);
+  if (match) return match[0];
+  return url;
+};
+
 const createFallbackResponse = (data, message = "Fallback data") => ({
   status: "fallback",
   data,
@@ -107,6 +121,9 @@ const api = {
     getMe: async () => {
       try {
         const response = await apiClient.get("/users/me");
+        const d = response.data?.data;
+        if (d?.profilePictureUrl) d.profilePictureUrl = normalizeUploadUrl(d.profilePictureUrl);
+        if (d?.profilePicture?.includes?.("/uploads/")) d.profilePicture = normalizeUploadUrl(d.profilePicture);
         return response;
       } catch (error) {
         handleApiError(error, "user.getMe");
@@ -115,15 +132,20 @@ const api = {
 
     updateProfile: async (data) => {
       try {
-        const formData = new FormData();
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            formData.append(key, value instanceof File ? value : String(value));
-          }
-        });
-        const response = await apiClient.patch("/users/profile", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const hasFile = Object.values(data).some(v => v instanceof File);
+        if (hasFile) {
+          const formData = new FormData();
+          Object.entries(data).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              formData.append(key, value instanceof File ? value : String(value));
+            }
+          });
+          const response = await apiClient.patch("/users/profile", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          return response;
+        }
+        const response = await apiClient.patch("/users/profile", data);
         return response;
       } catch (error) {
         handleApiError(error, "user.updateProfile");
@@ -659,7 +681,14 @@ export const getStudentListForPermit = async (userCode, name) => {
 export const getMe = async () => {
   try {
     const response = await apiClient.get("/users/me");
-    return response.data;
+    const data = response.data;
+    if (data?.data?.profilePictureUrl) {
+      data.data.profilePictureUrl = normalizeUploadUrl(data.data.profilePictureUrl);
+    }
+    if (data?.data?.profilePicture && data.data.profilePicture.includes("/uploads/")) {
+      data.data.profilePicture = normalizeUploadUrl(data.data.profilePicture);
+    }
+    return data;
   } catch (error) {
     handleApiError(error, "getMe");
   }
@@ -674,7 +703,14 @@ export const getMeFresh = async () => {
         Pragma: "no-cache",
       },
     });
-    return response.data;
+    const data = response.data;
+    if (data?.data?.profilePictureUrl) {
+      data.data.profilePictureUrl = normalizeUploadUrl(data.data.profilePictureUrl);
+    }
+    if (data?.data?.profilePicture?.includes?.("/uploads/")) {
+      data.data.profilePicture = normalizeUploadUrl(data.data.profilePicture);
+    }
+    return data;
   } catch (error) {
     handleApiError(error, "getMeFresh");
   }

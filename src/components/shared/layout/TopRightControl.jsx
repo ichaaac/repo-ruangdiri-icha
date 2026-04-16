@@ -306,9 +306,9 @@ const TopRightControl = ({ transparent = false }) => {
               cursor: "pointer",
             }}
           >
-            {userData?.profilePicture && !fallbackAvatar ? (
+            {(userData?.profilePictureUrl || userData?.profilePicture) && !fallbackAvatar ? (
               <img
-                src={userData.profilePicture}
+                src={userData.profilePictureUrl || userData.profilePicture}
                 alt="Profile"
                 style={{
                   width: "100%",

@@ -576,19 +576,52 @@ const ChatInput = ({
     }
   }, [handleSendMessage, pendingFiles, messageText]);
 
+  // Time gate: auto-enable chat when scheduled time arrives
+  const [timeGatePassed, setTimeGatePassed] = useState(false);
+  useEffect(() => {
+    if (!selectedConversation?.sessionId || selectedConversation?.isTeamChat) return;
+    const sid = selectedConversation.sessionId;
+    const scheduledAt = sessionStorage.getItem(`chat_scheduledAt_${sid}`);
+    if (!scheduledAt) return;
+
+    const startTime = new Date(scheduledAt);
+    const now = new Date();
+    if (now >= startTime) {
+      setTimeGatePassed(true);
+      return;
+    }
+
+    const delay = startTime.getTime() - now.getTime();
+    const timer = setTimeout(() => setTimeGatePassed(true), delay);
+    return () => clearTimeout(timer);
+  }, [selectedConversation?.sessionId, selectedConversation?.isTeamChat]);
+
   // Check if chat input should be disabled
   const isChatDisabled = useMemo(() => {
     if (!selectedConversation) return true;
-    
+
     // AI chat is always enabled
     if (selectedConversation.isTeamChat) return false;
-    
+
     // Disable chat if only automated messages exist and session is not active
     const baseCanSend = typeof canSendMessage === 'function' ? canSendMessage() : canSendMessage;
     return !baseCanSend;
-  }, [selectedConversation, canSendMessage]);
+  }, [selectedConversation, canSendMessage, timeGatePassed]);
 
-  // Check capabilities
+  // Get time-gated placeholder message
+  const chatPlaceholder = useMemo(() => {
+    if (!isChatDisabled) return "Type a message here...";
+    if (!selectedConversation?.sessionId || selectedConversation?.isTeamChat) return "Chat is disabled...";
+    const scheduledAt = sessionStorage.getItem(`chat_scheduledAt_${selectedConversation.sessionId}`);
+    if (scheduledAt) {
+      const startTime = new Date(scheduledAt);
+      if (new Date() < startTime) {
+        const timeStr = startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        return `Chat akan aktif pada ${timeStr} WIB`;
+      }
+    }
+    return "Chat is disabled...";
+  }, [isChatDisabled, selectedConversation, timeGatePassed]);
   const canUploadFiles = useMemo(() => {
     if (isAIChat) return false;
     if (!selectedConversation) return false;
@@ -683,7 +716,7 @@ const ChatInput = ({
               value={messageText}
               onChange={(e) => onMessageChange(e.target.value)}
               onKeyDown={handleTextareaKeyDown}
-              placeholder={isChatDisabled ? "Chat is disabled..." : "Type a message here..."}
+              placeholder={chatPlaceholder}
               className="text-sm leading-6 text-neutral-600 bg-transparent border-none outline-none resize-none w-full min-h-[40px] max-h-[120px] placeholder-gray-400 overflow-y-auto"
               rows="1"
               disabled={isChatDisabled}

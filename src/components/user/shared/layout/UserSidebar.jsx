@@ -332,8 +332,8 @@ const UserSidebar = ({
               onClick={() => setProfileDropdownOpen(prev => !prev)}
             >
               <div className={`${isMobile ? "w-8 h-8" : "w-10 h-10"} rounded-full overflow-hidden flex-shrink-0 transition-all`}>
-                {userData?.profilePicture && !fallbackProfileImage ? (
-                  <img src={userData.profilePicture} alt="User" className="w-full h-full object-cover" onError={handleImageError} />
+                {(userData?.profilePictureUrl || userData?.profilePicture) && !fallbackProfileImage ? (
+                  <img src={userData.profilePictureUrl || userData.profilePicture} alt="User" className="w-full h-full object-cover" onError={handleImageError} />
                 ) : (
                   <div className="w-full h-full bg-[#488BBE] flex items-center justify-center text-white">
                     <span className={`${isMobile ? "text-xs" : "text-sm"} font-medium`}>{getInitial()}</span>
