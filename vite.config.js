@@ -20,6 +20,10 @@ export default defineConfig(({ command, mode }) => {
             target: 'http://localhost:3132',
             changeOrigin: true,
           },
+          '/uploads': {
+            target: 'http://localhost:3132',
+            changeOrigin: true,
+          },
         },
       },
     }),

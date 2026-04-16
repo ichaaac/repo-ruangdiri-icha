@@ -40,6 +40,23 @@ apiClient.interceptors.response.use(
 );
 
 // === FALLBACK DATA HELPERS ===
+
+/**
+ * Convert absolute upload URLs to relative paths for local dev.
+ * In production the URL is already correct (Cloud Run / GCS).
+ * In local dev the BE returns an ngrok URL which browsers can't load
+ * (interstitial page), so we strip it to "/uploads/..." and let
+ * the Vite proxy forward to localhost:3132.
+ */
+const normalizeUploadUrl = (url) => {
+  if (!url || typeof url !== "string") return url;
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    const match = url.match(/\/uploads\/.+/);
+    if (match) return match[0];
+  }
+  return url;
+};
+
 const createFallbackResponse = (data, message = "Fallback data") => ({
   status: "fallback",
   data,
@@ -664,7 +681,14 @@ export const getStudentListForPermit = async (userCode, name) => {
 export const getMe = async () => {
   try {
     const response = await apiClient.get("/users/me");
-    return response.data;
+    const data = response.data;
+    if (data?.data?.profilePictureUrl) {
+      data.data.profilePictureUrl = normalizeUploadUrl(data.data.profilePictureUrl);
+    }
+    if (data?.data?.profilePicture && data.data.profilePicture.includes("/uploads/")) {
+      data.data.profilePicture = normalizeUploadUrl(data.data.profilePicture);
+    }
+    return data;
   } catch (error) {
     handleApiError(error, "getMe");
   }
