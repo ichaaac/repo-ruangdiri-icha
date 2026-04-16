@@ -347,7 +347,7 @@ function Homepage() {
                         style={{
                           width: 20, height: 20, flexShrink: 0, marginLeft: 16,
                           transition: "transform 0.2s",
-                          transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                          transform: isOpen ? "rotate(0deg)" : "rotate(180deg)",
                         }}
                       />
                     </button>
