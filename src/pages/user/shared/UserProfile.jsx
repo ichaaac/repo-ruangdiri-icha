@@ -85,13 +85,12 @@ const UserProfile = () => {
       guardianContact: profileData.guardianContact || undefined,
     };
     if (selectedPhoto) {
-      // Convert base64 to File for upload
-      const byteString = atob(selectedPhoto.split(',')[1]);
-      const mimeType = selectedPhoto.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-      data.profilePicture = new File([ab], 'profile.jpg', { type: mimeType });
+      const [header, b64] = selectedPhoto.split(',');
+      const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+      const bytes = atob(b64);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      data.profilePicture = new File([arr], `profile.${mime.split('/')[1]}`, { type: mime });
     }
     updateProfile.mutate(data);
   };
@@ -151,7 +150,7 @@ const UserProfile = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-4">
             <ProfilePictureUpload
-              currentProfilePicture={user?.profilePicture}
+              currentProfilePicture={user?.profilePictureUrl || user?.profilePicture}
               organizationType={userType === 'student' ? 'school' : 'company'}
               mode="client-only"
               onImageSelect={(base64) => setSelectedPhoto(base64)}
