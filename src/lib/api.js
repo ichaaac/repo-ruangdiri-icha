@@ -42,18 +42,15 @@ apiClient.interceptors.response.use(
 // === FALLBACK DATA HELPERS ===
 
 /**
- * Convert absolute upload URLs to relative paths for local dev.
- * In production the URL is already correct (Cloud Run / GCS).
- * In local dev the BE returns an ngrok URL which browsers can't load
- * (interstitial page), so we strip it to "/uploads/..." and let
- * the Vite proxy forward to localhost:3132.
+ * Convert absolute upload URLs to relative /uploads/... paths.
+ * Both Vite dev proxy and Vercel production rewrite handle
+ * forwarding /uploads/* to the backend, so <img> tags work
+ * without needing custom headers (avoids ngrok interstitial).
  */
 const normalizeUploadUrl = (url) => {
   if (!url || typeof url !== "string") return url;
-  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    const match = url.match(/\/uploads\/.+/);
-    if (match) return match[0];
-  }
+  const match = url.match(/\/uploads\/.+/);
+  if (match) return match[0];
   return url;
 };
 

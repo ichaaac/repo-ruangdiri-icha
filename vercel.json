@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/uploads/:path*", "destination": "https://deprived-sara-illegitimately.ngrok-free.dev/uploads/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
