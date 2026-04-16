@@ -65,7 +65,7 @@ export const createScheduleApi = (organizationType = "school") => {
 
   // FIXED: Transform schedule data - PREVENT DOUBLE TIMEZONE CONVERSION
   const transformScheduleData = (schedules, orgType) => {
-    return schedules.map((schedule) => {
+    return schedules.filter(s => s.counselingStatus !== 'cancelled').map((schedule) => {
       // FIXED: Parse datetime correctly without double conversion
       let startDateTimeLocal, endDateTimeLocal, startTime, endTime, dateString;
       
