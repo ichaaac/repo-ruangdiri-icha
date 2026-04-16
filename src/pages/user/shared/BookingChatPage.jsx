@@ -496,8 +496,11 @@ const BookingChatPage = () => {
         if (problemDescription) {
           sessionStorage.setItem('chatInitialMessage', problemDescription);
         }
-        // Chat sessions are immediately active — no time gate needed
-        sessionStorage.removeItem(`chat_scheduledAt_${sid}`);
+        // Store scheduled start time so chat can enforce time gate
+        if (selectedDate && selectedTimeSlot) {
+          const scheduledAt = new Date(`${selectedDate}T${selectedTimeSlot.startTime}`).toISOString();
+          sessionStorage.setItem(`chat_scheduledAt_${sid}`, scheduledAt);
+        }
         navigate(`/user/${userType}/chat?sessionId=${sid}`, {
           replace: true,
         });
