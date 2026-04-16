@@ -199,7 +199,7 @@ export const chatsApi = {
             lastMessage: lastMessageText,
             time: timeToDisplay,
             isActive: session.isActive,
-            isChatEnabled: session.status === 'active' || session.status === 'pending',
+            isChatEnabled: session.status === 'active' && session.isActive === true,
             status: session.status,
             isTeamChat: false,
             unreadCount: unreadCount,

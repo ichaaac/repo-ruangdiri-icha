@@ -73,7 +73,8 @@ export const useBooking = (userType = 'student') => {
   const { data: existingBookings } = useQuery({
     queryKey: ['booking-history', 'active-check'],
     queryFn: () => bookingApi.getBookingHistory(),
-    staleTime: 30 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
     select: (res) => {
       const sessions = res?.data?.data || []
       return sessions.filter(s => ['scheduled', 'confirmed', 'pending'].includes(s.status))
@@ -392,6 +393,7 @@ export const useBooking = (userType = 'student') => {
       queryClient.invalidateQueries({ queryKey: ['psychologist-availability'] })
       queryClient.invalidateQueries({ queryKey: ['booked-slots'] })
       queryClient.invalidateQueries({ queryKey: ['studentDashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['counseling-queue'] })
     },
   })
 

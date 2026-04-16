@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import Breadcrumb from '@/components/shared/Breadcrumb';
 import { CHAT_TERMS } from '@/data/dummyBookingChat';
 import { useBooking } from '@/components/shared/booking/hooks/useBooking';

@@ -51,9 +51,9 @@ const UserProfile = () => {
     setProfileData({
       fullName: user.fullName || '',
       email: user.email || '',
-      phone: user.phone || '',
+      phone: profile?.contact || user.phone || '',
       birthDate: formatDateForInput(profile?.birthDate),
-      address: user.address || '',
+      address: profile?.address || user.address || '',
       guardianName: profile?.guardianName || '',
       guardianContact: profile?.guardianContact || '',
     });

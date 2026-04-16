@@ -115,15 +115,20 @@ const api = {
 
     updateProfile: async (data) => {
       try {
-        const formData = new FormData();
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            formData.append(key, value instanceof File ? value : String(value));
-          }
-        });
-        const response = await apiClient.patch("/users/profile", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const hasFile = Object.values(data).some(v => v instanceof File);
+        if (hasFile) {
+          const formData = new FormData();
+          Object.entries(data).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+              formData.append(key, value instanceof File ? value : String(value));
+            }
+          });
+          const response = await apiClient.patch("/users/profile", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          return response;
+        }
+        const response = await apiClient.patch("/users/profile", data);
         return response;
       } catch (error) {
         handleApiError(error, "user.updateProfile");

@@ -681,13 +681,11 @@ export const useMessages = (sessionId, ably = null) => {
       return true;
     }
     
-    // For counseling sessions
+    // For counseling sessions - only allow when session is truly active
     if (session) {
       const isActiveSession = session.status === 'active' && session.isActive === true;
-      const isChatEnabled = session.isChatEnabled === true;
-      const isReadyStatus = session.status === 'active' || session.status === 'ready';
-      
-      return isActiveSession || isChatEnabled || isReadyStatus;
+
+      return isActiveSession;
     }
     
     return false;
@@ -717,10 +715,8 @@ export const useMessages = (sessionId, ably = null) => {
     
     if (session.status === 'completed') return 'session_ended';
     if (session.status === 'active' && session.isActive === true) return 'ready';
-    if (session.isChatEnabled === true) return 'ready'; 
     if (session.status === 'pending') return 'chat_disabled';
-    if (session.status === 'ready') return 'ready';
-    
+
     return 'chat_disabled';
   }, [sessionId]);
 

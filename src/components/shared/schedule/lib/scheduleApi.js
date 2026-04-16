@@ -235,10 +235,10 @@ export const createScheduleApi = (organizationType = "school") => {
 
   // Transform counseling queue data
   const transformCounselingData = (counselings, orgType) => {
-    return counselings.map((counseling) => {
+    return counselings.filter(c => c.counselingStatus !== 'cancelled').map((counseling) => {
       const users = counseling.users || []
-      const patient = users.find(user => user.role !== 'psychologist')
-      const psychologist = users.find(user => user.role === 'psychologist')
+      const patient = users.find(user => user.role !== 'psychologist' && user.clientType !== 'psychologist') || users[0]
+      const psychologist = users.find(user => user.role === 'psychologist' || user.clientType === 'psychologist')
       const screening = patient?.screening
 
       const dateTimeFormatted = formatCounselingDateTime(counseling.startDateTime);
@@ -874,7 +874,7 @@ export const createScheduleApi = (organizationType = "school") => {
             ...response,
             data: {
               ...response.data,
-              data: transformCounselingData(response.data.data, organizationType),
+              data: transformCounselingData(response.data.data || [], organizationType),
             },
           }
         }
