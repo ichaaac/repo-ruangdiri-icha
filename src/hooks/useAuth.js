@@ -2,17 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useLocation } from "react-router-dom"
-import Pushy from 'pushy-sdk-web'
 import api, { getMe } from "../lib/api"
 import { chatsApi } from '../components/shared/chats/lib/chatsApi'
-
-const teardownPushy = async (userId) => {
-  try {
-    await Pushy.unsubscribe(`user-${userId}`)
-  } catch {
-    // silence — non-critical
-  }
-}
+import { notificationsAPI } from '../components/shared/notifications/lib/api'
 
 export const useAuth = () => {
   const queryClient = useQueryClient()
@@ -504,7 +496,7 @@ const getDashboardPath = (userData) => {
         console.error("Logout error:", error)
       }
     },
-    onSettled: () => {
+    onSettled: async () => {
       localStorage.removeItem("token")
       localStorage.removeItem("user")
       localStorage.removeItem("organizationType")
@@ -514,9 +506,7 @@ const getDashboardPath = (userData) => {
       localStorage.removeItem("e2e_account_keys")
       localStorage.removeItem("e2e_private_key")
       localStorage.removeItem("adminScope")
-      const userId = queryClient.getQueryData(["currentUser"])?.id
-      if (userId) teardownPushy(userId)
-
+      await notificationsAPI.deletePushSubscription()
       queryClient.clear()
       navigate("/login")
     },

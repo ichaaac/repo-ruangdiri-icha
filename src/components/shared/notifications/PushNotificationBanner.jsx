@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { LuBell, LuX } from 'react-icons/lu'
-import { usePushyPermission } from '@/hooks/usePushyPermission'
+import { useWebPushNotification } from '@/hooks/useWebPushNotification'
 
 const PushNotificationBanner = ({ userId }) => {
   const [visible, setVisible] = useState(false)
-  const { shouldShowBanner, requestPermission } = usePushyPermission(userId)
+  const { shouldShowBanner, requestPermission } = useWebPushNotification()
 
   useEffect(() => {
     if (!shouldShowBanner) return

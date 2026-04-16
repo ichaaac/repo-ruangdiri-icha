@@ -107,12 +107,28 @@ export const notificationsAPI = {
   async markallAsRead() {
     try {
       const response = await apiClient.post('/notifications/mark-all-as-read');
-      
+
       console.log('✅ markAllAsRead success:', response?.data);
       return response?.data?.data || response?.data;
     } catch (error) {
       console.error('❌ Mark All as Read Request Failed:', error);
       throw error;
+    }
+  },
+
+  async savePushSubscription(subscription) {
+    try {
+      await apiClient.post('/notifications/push-subscription', subscription);
+    } catch (error) {
+      console.error('Push subscription save failed:', error);
+    }
+  },
+
+  async deletePushSubscription() {
+    try {
+      await apiClient.delete('/notifications/push-subscription');
+    } catch {
+      // silent — logout should not be blocked
     }
   },
 };
