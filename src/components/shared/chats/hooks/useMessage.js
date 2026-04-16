@@ -675,19 +675,28 @@ export const useMessages = (sessionId, ably = null) => {
     if (!sessionId) {
       return false;
     }
-    
+
     // AI Team RuangDiri always available
     if (sessionId === 'team-ruangdiri') {
       return true;
     }
-    
+
     // For counseling sessions - only allow when session is truly active
     if (session) {
       const isActiveSession = session.status === 'active' && session.isActive === true;
+      if (!isActiveSession) return false;
 
-      return isActiveSession;
+      // Time gate: block chat before scheduled start time
+      const scheduledAt = sessionStorage.getItem(`chat_scheduledAt_${sessionId}`);
+      if (scheduledAt) {
+        const now = new Date();
+        const startTime = new Date(scheduledAt);
+        if (now < startTime) return false;
+      }
+
+      return true;
     }
-    
+
     return false;
   }, [sessionId]);
 

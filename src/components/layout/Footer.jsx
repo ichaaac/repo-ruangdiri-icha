@@ -82,7 +82,7 @@ const Footer = () => {
       <div style={{ maxWidth: 1440, margin: "0 auto", padding: "64px 72px 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 48, flexWrap: "wrap" }}>
           {/* Logo & Description */}
-          <div style={{ flex: "0 0 auto", maxWidth: 320 }}>
+          <div style={{ flex: "1 1 320px", maxWidth: 400 }}>
             <Link to="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
               <img src="/logo/ruang-diri-full.png" alt="Ruang Diri" style={{ height: 40, objectFit: "contain" }} />
             </Link>
@@ -91,8 +91,10 @@ const Footer = () => {
             </p>
           </div>
 
-          {/* Menu List */}
-          <div>
+          {/* Menu List + Kontak Kami grouped closer */}
+          <div style={{ display: "flex", gap: 80, flexWrap: "wrap" }}>
+            {/* Menu List */}
+            <div>
             <h4 style={{ ...FONT, fontWeight: 600, fontSize: 18, lineHeight: "25.2px", color: COLORS.label, marginBottom: 16 }}>
               Menu List
             </h4>
@@ -144,6 +146,7 @@ const Footer = () => {
                   {icon}
                 </div>
               ))}
+            </div>
             </div>
           </div>
         </div>

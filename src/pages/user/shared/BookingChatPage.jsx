@@ -492,10 +492,16 @@ const BookingChatPage = () => {
 
       // Chat booking with session created → redirect to chat
       if (result?.method === 'chat' && (result?.sessionId || result?.chatSessionId)) {
+        const sid = result.sessionId || result.chatSessionId;
         if (problemDescription) {
           sessionStorage.setItem('chatInitialMessage', problemDescription);
         }
-        navigate(`/user/${userType}/chat?sessionId=${result.sessionId || result.chatSessionId}`, {
+        // Store scheduled start time so chat can enforce time gate
+        if (selectedDate && selectedTimeSlot) {
+          const scheduledAt = new Date(`${selectedDate}T${selectedTimeSlot.startTime}`).toISOString();
+          sessionStorage.setItem(`chat_scheduledAt_${sid}`, scheduledAt);
+        }
+        navigate(`/user/${userType}/chat?sessionId=${sid}`, {
           replace: true,
         });
         return;

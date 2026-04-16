@@ -12,8 +12,9 @@ function ContactPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const msg = encodeURIComponent(`Halo, saya ${form.nama}.\n\n${form.pesan}\n\nEmail: ${form.email}\nTelepon: ${form.telepon}`);
-    window.open(`https://wa.me/6281542322127?text=${msg}`, "_blank");
+    const subject = encodeURIComponent(`Pesan dari ${form.nama} - Ruang Diri`);
+    const body = encodeURIComponent(`Halo,\n\nSaya ${form.nama}.\n\n${form.pesan}\n\nEmail: ${form.email}\nTelepon: ${form.telepon}`);
+    window.open(`https://mail.google.com/mail/?view=cm&to=icha@ariakarsa.com&su=${subject}&body=${body}`, "_blank");
   };
 
   return (
