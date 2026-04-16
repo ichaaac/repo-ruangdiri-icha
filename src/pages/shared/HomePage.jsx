@@ -223,6 +223,12 @@ function Homepage() {
             {/* Features layout - relative container with absolute items */}
             <div style={{ position: "relative", width: "100%", height: 500 }}>
 
+              {/* Snowflake decorations */}
+              <img src="/landing/vector-snowflake.svg" alt="" style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-30%)", width: 180, height: 190, opacity: 0.25, pointerEvents: "none", zIndex: 0 }} />
+              <img src="/landing/vector-snowflake.svg" alt="" style={{ position: "absolute", top: 60, right: -40, width: 300, height: 296, opacity: 0.2, pointerEvents: "none", zIndex: 0 }} />
+              <img src="/landing/vector-snowflake.svg" alt="" style={{ position: "absolute", bottom: -20, right: 80, width: 140, height: 142, opacity: 0.25, pointerEvents: "none", zIndex: 0 }} />
+              <img src="/landing/vector-snowflake.svg" alt="" style={{ position: "absolute", top: -40, left: -60, width: 260, height: 272, opacity: 0.2, pointerEvents: "none", zIndex: 0 }} />
+
               {/* Center: Logo with orbit circles */}
               <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: 548, height: 548 }}>
                 {[0, 34, 64.5].map((inset, i) => (
@@ -245,7 +251,7 @@ function Homepage() {
                 { item: keunggulanItems[3], style: { right: -30, top: 200, width: 376 } },
                 { item: keunggulanItems[4], style: { right: -10, top: 380, width: 392 } },
               ].map(({ item, style }, i) => (
-                <div key={i} style={{ position: "absolute", display: "flex", alignItems: "flex-start", gap: 12, ...style }}>
+                <div key={i} style={{ position: "absolute", display: "flex", alignItems: "flex-start", gap: 12, zIndex: 1, ...style }}>
                   <img src={item.icon} alt="" style={{ width: 72, height: 72, flexShrink: 0 }} />
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
                     <h4 style={{ fontWeight: 500, fontSize: 20, lineHeight: "1.4em", color: "#0F172B" }}>{item.title}</h4>
