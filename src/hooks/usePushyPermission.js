@@ -1,29 +1,36 @@
-import { useState, useEffect } from 'react'
-import Pushy from 'pushy-sdk-web'
+import { useState, useEffect } from "react";
+import Pushy from "pushy-sdk-web";
 
 export const usePushyPermission = (userId) => {
   const [permission, setPermission] = useState(
-    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
-  )
+    typeof Notification !== "undefined" ? Notification.permission : "denied",
+  );
 
   useEffect(() => {
-    if (typeof Notification !== 'undefined') {
-      setPermission(Notification.permission)
+    if (typeof Notification !== "undefined") {
+      setPermission(Notification.permission);
     }
-  }, [])
+  }, []);
 
   const requestPermission = async () => {
-    if (!userId) return
+    if (!userId) return;
+
+    const result = await Notification.requestPermission();
+    setPermission(result);
+    if (result !== "granted") return;
+
     try {
-      await Pushy.register({ serviceWorkerFile: '/service-worker.js' })
-      await Pushy.subscribe(`user-${userId}`)
-      setPermission('granted')
-    } catch {
-      setPermission(Notification.permission)
+      const token = await Pushy.register({
+        serviceWorkerFile: "service-worker.js",
+      });
+      console.log("Pushy Device Token:", token);
+      await Pushy.subscribe(`user-${userId}`);
+    } catch (err) {
+      console.error("Pushy register error:", err);
     }
-  }
+  };
 
-  const shouldShowBanner = permission === 'default'
+  const shouldShowBanner = permission === "default";
 
-  return { permission, requestPermission, shouldShowBanner }
-}
+  return { permission, requestPermission, shouldShowBanner };
+};
