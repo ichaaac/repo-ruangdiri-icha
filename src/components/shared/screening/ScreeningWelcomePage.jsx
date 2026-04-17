@@ -449,9 +449,9 @@ const WelcomeView = ({ onStart }) => {
             }}
           />
 
-          {/* Front layer: background-assesment2.png (student girl) */}
+          {/* Front layer: person image based on user type */}
           <img
-            src="/background-assesment2.png"
+            src={userType === "employee" ? "/background-assesment2-employee.png" : "/background-assesment2.png"}
             alt=""
             className="absolute right-0 bottom-0 pointer-events-none select-none max-md:opacity-30"
             style={{
