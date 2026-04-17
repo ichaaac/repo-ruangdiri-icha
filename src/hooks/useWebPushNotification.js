@@ -73,7 +73,12 @@ export const useWebPushNotification = () => {
     }
   };
 
-  const shouldShowBanner = permission === "default";
+  const isPushSupported =
+    typeof Notification !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window;
+
+  const shouldShowBanner = isPushSupported && permission === "default";
 
   return { permission, requestPermission, shouldShowBanner };
 };
