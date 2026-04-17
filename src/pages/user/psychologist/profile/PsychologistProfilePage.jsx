@@ -6,7 +6,7 @@ import { usePsychologistProfile } from "@/components/user/psychologist/profile/h
 import Breadcrumb from "@/components/shared/Breadcrumb";
 
 const PsychologistProfilePage = () => {
-  const { meQuery, initialValues, submit, isSubmitting, errorMessage } = usePsychologistProfile();
+  const { meQuery, initialValues, submit, isSubmitting } = usePsychologistProfile();
   const [values, setValues] = useState(initialValues);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -23,12 +23,10 @@ const PsychologistProfilePage = () => {
 
   const handleSave = useCallback(async () => {
     try {
-      console.log("Saving profile with values:", values);
       await submit(values);
       setIsEditing(false);
       toast.success("Profil berhasil disimpan");
     } catch (error) {
-      console.error("Error saving profile:", error);
       const message = error?.response?.data?.message || error?.message || "Gagal menyimpan profil";
       toast.error(message);
     }

@@ -1,44 +1,43 @@
-// src/components/user/psychologist/profile/hooks/usePsychologistProfile.js
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import psychologistProfileApi from "../lib/psychologistProfileApi";
+import api from "@/lib/api";
 
 const mapFromMe = (me) => {
   const p = me?.psychologistProfile || {};
+  const rawExpertise = p?.fieldOfExpertise;
+  const fieldOfExpertise = Array.isArray(rawExpertise)
+    ? rawExpertise[0] || ""
+    : rawExpertise || "";
+
   return {
-    profilePicture: me?.profilePicture || "",
+    profilePicture: me?.profilePictureUrl || me?.profilePicture || "",
     fullName: me?.fullName || "",
     email: me?.email || "",
     phone: me?.phone || "",
     sippNumber: p?.sippNumber || "",
     registrationNumber: p?.registrationNumber || "",
-    fieldOfExpertise: p?.fieldOfExpertise || "",
+    fieldOfExpertise,
     specialization: p?.specialization || "",
     typeOfPractice: p?.typeOfPractice || "",
     yearsOfExperience: p?.yearsOfExperience ?? "",
   };
 };
 
-const toPayload = (v) => {
+const toFlatPayload = (v) => {
   const payload = {
     fullName: v.fullName,
-    email: v.email,
-    phone: v.phone,
-    psychologistProfile: {
-      sippNumber: v.sippNumber || null,
-      registrationNumber: v.registrationNumber || null,
-      fieldOfExpertise: v.fieldOfExpertise || null,
-      specialization: v.specialization || null,
-      typeOfPractice: v.typeOfPractice || null,
-      yearsOfExperience:
-        v.yearsOfExperience === "" ? null : Number(v.yearsOfExperience),
-    },
+    phone: v.phone || undefined,
+    sippNumber: v.sippNumber || undefined,
+    registrationNumber: v.registrationNumber || undefined,
+    fieldOfExpertise: v.fieldOfExpertise || undefined,
+    specialization: v.specialization || undefined,
+    typeOfPractice: v.typeOfPractice || undefined,
+    yearsOfExperience: v.yearsOfExperience === "" ? undefined : Number(v.yearsOfExperience),
   };
 
-  // Tambahkan profile picture jika ada dan berupa base64
-  if (v.profilePicture && v.profilePicture.startsWith('data:')) {
-    payload.profilePicture = v.profilePicture;
+  // Profile picture — pass as File-like blob for FormData handling
+  if (v.profilePicture?.startsWith("data:")) {
+    payload._base64ProfilePicture = v.profilePicture;
   }
 
   return payload;
@@ -50,40 +49,30 @@ export const usePsychologistProfile = () => {
   const meQuery = useQuery({
     queryKey: ["me"],
     queryFn: async () => {
-      const res = await psychologistProfileApi.getProfile();
+      const res = await api.user.getMe();
       return res?.data?.data ?? res?.data ?? res;
     },
   });
 
-  const initialValues = useMemo(
-    () => mapFromMe(meQuery.data),
-    [meQuery.data]
-  );
+  const initialValues = useMemo(() => mapFromMe(meQuery.data), [meQuery.data]);
 
   const mutation = useMutation({
     mutationFn: async (values) => {
-      console.log("Submitting profile update with values:", values);
-      const payload = toPayload(values);
-      console.log("Payload to be sent:", payload);
-      
-      try {
-        const response = await psychologistProfileApi.updateProfile(payload);
-        console.log("Profile update response:", response);
-        return response;
-      } catch (error) {
-        console.error("Profile update error:", error);
-        console.error("Error response:", error.response?.data);
-        throw error;
+      const payload = toFlatPayload(values);
+
+      // If there's a base64 profile picture, convert to File for FormData
+      if (payload._base64ProfilePicture) {
+        const res = await fetch(payload._base64ProfilePicture);
+        const blob = await res.blob();
+        payload.profilePicture = new File([blob], "profile.jpg", { type: blob.type });
+        delete payload._base64ProfilePicture;
       }
+
+      return api.user.updateProfile(payload);
     },
-    onSuccess: async (response) => {
-      console.log("Profile update successful:", response);
+    onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["me"] });
       await qc.invalidateQueries({ queryKey: ["currentUser"] });
-    },
-    onError: (error) => {
-      const message = error?.response?.data?.message || "Gagal menyimpan profil.";
-      console.error("Profile update failed:", error);
     },
   });
 
@@ -92,8 +81,5 @@ export const usePsychologistProfile = () => {
     initialValues,
     submit: mutation.mutateAsync,
     isSubmitting: mutation.isPending,
-    errorMessage: mutation.isError
-      ? mutation.error?.response?.data?.message || "Gagal menyimpan profil."
-      : "",
   };
 };
