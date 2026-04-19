@@ -353,7 +353,7 @@ const BookingDaringPage = () => {
 
   const availableTimeSlots = booking.timeSlots || [];
   const isTimeSlotsLoading = booking.loading.timeSlots;
-  const isFormValid = selectedDate && selectedTimeSlot && !hasActiveBooking;
+  const isFormValid = selectedDate && selectedTimeSlot;
 
   useEffect(() => { setSelectedTimeSlot(null); }, [selectedDate]);
 
@@ -601,14 +601,6 @@ const BookingDaringPage = () => {
               ))}
             </div>
           </div>
-
-          {/* Active Booking Warning */}
-          {hasActiveBooking && (
-            <div style={{ margin: '0 0 16px', padding: 16, borderRadius: 12, backgroundColor: '#FFF3CD', border: '1px solid #FFEEBA' }}>
-              <p style={{ fontSize: 14, fontWeight: 600, color: '#856404', fontFamily: FONT, margin: 0 }}>Anda sudah memiliki sesi konseling aktif.</p>
-              <p style={{ fontSize: 12, color: '#856404', fontFamily: FONT, margin: '4px 0 0' }}>Batalkan atau selesaikan sesi sebelumnya untuk membuat janji baru.</p>
-            </div>
-          )}
 
           {/* Buttons */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>

@@ -531,14 +531,6 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         </div>
       </div>
 
-      {/* Active Booking Warning */}
-      {hasActiveBooking && (
-        <div className="mx-[59px] mb-4 p-4 rounded-lg bg-[#FFF3CD] border border-[#FFEEBA] max-md:mx-[30px]">
-          <p className="text-sm text-[#856404] font-semibold">Anda sudah memiliki sesi konseling aktif.</p>
-          <p className="text-xs text-[#856404] mt-1">Batalkan atau selesaikan sesi sebelumnya untuk membuat janji baru.</p>
-        </div>
-      )}
-
       {/* Action Buttons */}
       <div className="absolute right-[59px] bottom-[30px] flex justify-end items-center gap-2.5 max-md:left-[30px] max-md:right-[30px] max-md:bottom-[20px] max-md:justify-center">
         <button
@@ -549,11 +541,11 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
         </button>
         <button
           onClick={handleSubmit}
-          disabled={!isFormValid() || loading.creating || hasActiveBooking}
+          disabled={!isFormValid() || loading.creating}
           className="h-8 px-5 py-2.5 bg-[#488BBA] rounded-[5px] flex justify-center items-center gap-2.5 hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed max-md:flex-1"
         >
           <div className="text-white text-base font-semibold font-['Public_Sans'] max-md:text-sm">
-            {loading.creating ? "Memproses..." : hasActiveBooking ? "Sudah Ada Sesi Aktif" : "Buat Janji"}
+            {loading.creating ? "Memproses..." : "Buat Janji"}
           </div>
         </button>
       </div>

@@ -431,11 +431,6 @@ export const useBooking = (userType = 'student') => {
       throw new Error('Booking already in progress')
     }
 
-    // Prevent double booking: 1 person = 1 active booking
-    if (hasActiveBooking) {
-      throw new Error('Anda sudah memiliki sesi konseling aktif. Batalkan atau selesaikan sesi sebelumnya terlebih dahulu.')
-    }
-
     if (!selectedMethod || !selectedDate || !selectedTimeSlot) {
       throw new Error('Please fill in all required fields')
     }
