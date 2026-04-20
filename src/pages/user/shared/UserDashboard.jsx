@@ -396,15 +396,27 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
             </div>
           </div>
         )}
-        <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
-          <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
-            <VideoIcon color="#488BBE" size={18} />
+        {String(session.method || '').toLowerCase() === 'chat' ? (
+          <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+            <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
+              <span className="material-icons" style={{ color: '#488BBE', fontSize: 18 }}>chat</span>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p className="text-sm font-bold text-[#1F2937]">Chat</p>
+              <p className="text-xs text-[#6B7280]">Sesi konseling melalui fitur chat</p>
+            </div>
           </div>
-          <div style={{ minWidth: 0 }}>
-            <p className="text-sm font-bold text-[#1F2937]">{session.platform || 'Zoom Meeting'}</p>
-            <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Tautan Zoom belum tersedia. Akan segera dikirimkan oleh admin.'}</p>
+        ) : (
+          <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
+            <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
+              <VideoIcon color="#488BBE" size={18} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p className="text-sm font-bold text-[#1F2937]">{session.platform || 'Zoom Meeting'}</p>
+              <p className="text-xs text-[#6B7280] truncate">{session.zoomLink || 'Tautan Zoom belum tersedia. Akan segera dikirimkan oleh admin.'}</p>
+            </div>
           </div>
-        </div>
+        )}
         <div className="flex items-center gap-3" style={{ backgroundColor: '#ECF9FC', borderRadius: 12, padding: '10px 12px' }}>
           <div className="flex-shrink-0 flex items-center justify-center" style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#DAF7FF' }}>
             <ClockIcon color="#488BBE" size={18} />
