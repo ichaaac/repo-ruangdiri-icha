@@ -779,6 +779,7 @@ export const createBookingApi = (userType = "student") => {
             : rawData
 
           // Transform to the format expected by dashboard
+          console.log('[BookingHistory] raw userSessions:', userSessions.map(s => ({ id: s.id, startDateTime: s.startDateTime, counselingStatus: s.counselingStatus, users: s.users?.map(u => ({ id: u.id, role: u.role, counselingStatus: u.counselingStatus })) })))
           const transformed = userSessions.map(session => {
             const startDt = new Date(session.startDateTime)
             const dateStr = startDt.toISOString().split("T")[0]
@@ -796,15 +797,12 @@ export const createBookingApi = (userType = "student") => {
             const locationToMethod = { online: "online", offline: "offline", chat: "chat" }
             const method = locationToMethod[session.location] || session.location || "online"
 
-            // Use per-user counselingStatus from users array (more accurate for group schedules)
-            // Fall back to top-level counselingStatus, then derive from date
-            const now = new Date()
             const currentUserInSession = currentUserId
               ? session.users?.find(u => u.id === currentUserId)
               : null
             const status = currentUserInSession?.counselingStatus
               || session.counselingStatus
-              || (startDt > now ? "scheduled" : "completed")
+              || "scheduled"
 
             const statusDisplayMap = {
               scheduled: "Terjadwal",

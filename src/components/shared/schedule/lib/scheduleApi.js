@@ -431,8 +431,9 @@ export const createScheduleApi = (organizationType = "school") => {
         })
 
         if (response.data?.status === "success") {
+          console.log('[Schedules] raw data count:', response.data.data?.length, 'params:', formattedParams, 'sample:', response.data.data?.slice(0,3)?.map(s => ({ id: s.id, type: s.type, startDateTime: s.startDateTime, location: s.location })))
           const transformedData = transformScheduleData(response.data.data, organizationType);
-          
+
           return {
             ...response,
             data: {
@@ -870,6 +871,7 @@ export const createScheduleApi = (organizationType = "school") => {
         const response = await apiClient.get("/counselings/schedules/psychologist", { params })
 
         if (response.data?.status === "success") {
+          console.log('[CounselingQueue] raw data:', JSON.stringify(response.data.data?.slice(0,5), null, 2))
           return {
             ...response,
             data: {
