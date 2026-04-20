@@ -330,7 +330,7 @@ function Homepage() {
                 <p className="mt-2 text-base" style={{ fontWeight: 400, lineHeight: "1.8em", color: "#101415" }}>
                   Temukan jawaban dari hal-hal yang mungkin sedang kamu pikirkan sebelum memulai di Ruang Diri.
                 </p>
-                <img src="/landing/faq-illustration.svg" alt="" className="hidden lg:block mt-8 w-full max-w-[400px]" />
+                <img src="/landing/faq-illustration.png" alt="" className="hidden lg:block mt-8 w-full max-w-[400px]" />
               </div>
 
               {/* Accordion */}
