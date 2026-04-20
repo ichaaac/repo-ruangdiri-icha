@@ -166,7 +166,7 @@ const Footer = () => {
               </clipPath>
             </defs>
           </svg>
-          <span style={{ ...FONT, fontWeight: 400, fontSize: 16, lineHeight: "22.4px", color: "#0B1F3B" }}>
+          <span style={{ ...FONT, fontWeight: 400, fontSize: 14, lineHeight: "22.4px", color: "#9CA3AF" }}>
             2026 Ruang Diri. All right reserved.
           </span>
         </div>
