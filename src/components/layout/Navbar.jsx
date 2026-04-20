@@ -156,8 +156,8 @@ const Navbar = ({ activeSection, onSectionClick }) => {
 
       {/* Mobile header */}
       <div
-        className="mx-auto flex lg:hidden items-center justify-between"
-        style={{ padding: "16px 24px" }}
+        className="w-full flex lg:hidden items-center justify-between"
+        style={{ padding: "12px 20px" }}
       >
         <Link to="/" className="flex-shrink-0" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
           <img src="/logo/ruang-diri-full.png" alt="Ruang Diri" style={{ height: 32, objectFit: "contain" }} />
@@ -173,44 +173,46 @@ const Navbar = ({ activeSection, onSectionClick }) => {
         </button>
       </div>
 
-      {/* Mobile menu */}
-      <div
-        className={clsx(
-          "fixed inset-0 bg-white z-40 pt-[110px] px-6 transition-opacity duration-300 lg:hidden",
-          mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-      >
-        <ul className="flex flex-col gap-2 items-center">
-          {navItems.map((item) => (
-            <li key={item.id} className="w-full">
-              <button
-                onClick={() => handleNavClick(item)}
-                className="block w-full text-lg py-4 text-center border-b border-gray-100 cursor-pointer"
-                style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: activeSection === item.id ? 600 : 400,
-                  color: "#0F172B",
-                  background: "none",
-                  border: "none",
-                  borderBottom: "1px solid #f3f4f6",
-                }}
+      {/* Mobile menu — drops down from navbar, inside header so z-index is inherited */}
+      {mobileMenuOpen && (
+        <div
+          className="absolute top-full left-0 right-0 lg:hidden shadow-lg"
+          style={{ backgroundColor: "#FDFEFF", borderTop: "1px solid #E5E7EB" }}
+        >
+          <ul className="flex flex-col px-6 py-2">
+            {navItems.map((item) => (
+              <li key={item.id} className="w-full">
+                <button
+                  onClick={() => handleNavClick(item)}
+                  className="block w-full text-left py-4 cursor-pointer"
+                  style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontWeight: activeSection === item.id ? 600 : 400,
+                    color: activeSection === item.id ? "#227BCC" : "#0F172B",
+                    background: "none",
+                    border: "none",
+                    borderBottom: "1px solid #f3f4f6",
+                    fontSize: 16,
+                    width: "100%",
+                  }}
+                >
+                  {item.name}
+                </button>
+              </li>
+            ))}
+            <li className="w-full py-4 flex justify-center">
+              <Link
+                to="/login"
+                className="flex items-center justify-center gap-2 w-full max-w-[280px] py-3 rounded-full hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: "#227BCC", color: "#FDFEFF", fontSize: 16, fontWeight: 600, textDecoration: "none" }}
               >
-                {item.name}
-              </button>
+                <img src="/landing/login-icon.svg" alt="" className="w-4 h-4" />
+                Masuk
+              </Link>
             </li>
-          ))}
-          <li className="w-full pt-4 flex justify-center">
-            <Link
-              to="/login"
-              className="flex items-center justify-center gap-3 w-full max-w-[250px] py-4 rounded-full font-semibold hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: "#227BCC", color: "#FDFEFF", fontSize: 18 }}
-            >
-              <img src="/landing/login-icon.svg" alt="" className="w-5 h-5" />
-              Masuk
-            </Link>
-          </li>
-        </ul>
-      </div>
+          </ul>
+        </div>
+      )}
     </header>
   );
 };

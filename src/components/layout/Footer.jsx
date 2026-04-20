@@ -79,7 +79,7 @@ const Footer = () => {
 
   return (
     <footer style={{ backgroundColor: "#EDF2FF", width: "100%" }}>
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "64px 72px 0" }}>
+      <div className="mx-auto px-6 md:px-12 lg:px-[72px] pt-12 lg:pt-16" style={{ maxWidth: 1440 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 48, flexWrap: "wrap" }}>
           {/* Logo & Description */}
           <div style={{ flex: "1 1 320px", maxWidth: 400 }}>
@@ -154,10 +154,7 @@ const Footer = () => {
 
       {/* Copyright */}
       <div style={{ borderTop: "1px solid rgba(15,23,43,0.1)", marginTop: 48 }}>
-        <div style={{
-          maxWidth: 1440, margin: "0 auto", padding: "24px 72px",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-        }}>
+        <div className="mx-auto px-6 lg:px-[72px] py-6 flex items-center justify-center gap-2" style={{ maxWidth: 1440 }}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <g clipPath="url(#clip0_footer)">
               <path d="M10.0003 18.3332C14.6027 18.3332 18.3337 14.6022 18.3337 9.99984C18.3337 5.39746 14.6027 1.6665 10.0003 1.6665C5.39795 1.6665 1.66699 5.39746 1.66699 9.99984C1.66699 14.6022 5.39795 18.3332 10.0003 18.3332Z" stroke="#0B1F3B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
