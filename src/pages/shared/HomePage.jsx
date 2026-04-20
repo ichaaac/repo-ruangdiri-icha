@@ -317,7 +317,7 @@ function Homepage() {
           id="faq"
           ref={(el) => (sectionsRef.current.faq = el)}
           className="w-full"
-          style={{ backgroundColor: "#FDFEFF" }}
+          style={{ backgroundColor: "#F0F5FF" }}
         >
           <div className="mx-auto px-6 py-10 lg:px-20 lg:py-20" style={{ maxWidth: 1440 }}>
             <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
