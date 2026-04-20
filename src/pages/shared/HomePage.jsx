@@ -320,37 +320,37 @@ function Homepage() {
           style={{ backgroundColor: "#FDFEFF" }}
         >
           <div className="mx-auto px-6 py-10 lg:px-20 lg:py-16" style={{ maxWidth: 1440 }}>
-            <div className="flex flex-col lg:flex-row gap-8 lg:gap-16 items-start">
+            <div className="flex flex-col lg:flex-row gap-8 lg:gap-20 items-start">
 
               {/* Left */}
-              <div className="w-full lg:flex-none lg:max-w-[400px]">
+              <div className="w-full lg:flex-none" style={{ maxWidth: 420 }}>
                 <h2 className="text-xl lg:text-[32px]" style={{ fontWeight: 600, lineHeight: "1.4em", color: "#2563EB" }}>
                   Pertanyaan yang Sering Diajukan
                 </h2>
                 <p className="mt-3 text-sm lg:text-base" style={{ fontWeight: 400, lineHeight: "1.6em", color: "#101415" }}>
                   Temukan jawaban dari hal-hal yang mungkin sedang kamu pikirkan sebelum memulai di Ruang Diri.
                 </p>
-                <img src="/landing/faq-illustration.png" alt="" className="hidden lg:block mt-6 w-full max-w-[360px]" />
+                <img src="/landing/faq-illustration.png" alt="" className="hidden lg:block mt-6 w-full" style={{ maxWidth: 380 }} />
               </div>
 
               {/* Accordion */}
-              <div className="flex-1 flex flex-col w-full" style={{ gap: 0 }}>
+              <div className="flex-1 flex flex-col w-full">
                 {faqItems.map((item, i) => {
                   const isOpen = openFaq === i;
                   return (
                     <div
                       key={i}
                       style={{
-                        borderRadius: 16,
+                        borderRadius: isOpen ? 16 : 0,
                         backgroundColor: isOpen ? "#EDF2FF" : "transparent",
                         transition: "background-color 0.2s",
-                        marginBottom: 8,
+                        borderBottom: isOpen ? "none" : "1px solid #E5E7EB",
                       }}
                     >
                       <button
                         onClick={() => setOpenFaq(isOpen ? -1 : i)}
                         className="w-full flex items-center justify-between gap-4 text-left"
-                        style={{ padding: "16px 20px", cursor: "pointer", background: "none", border: "none" }}
+                        style={{ padding: "20px 16px", cursor: "pointer", background: "none", border: "none" }}
                       >
                         <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 16, lineHeight: "1.4em", color: "#0F172B", flex: 1 }}>
                           {item.q}
@@ -360,7 +360,7 @@ function Homepage() {
                         </div>
                       </button>
                       {isOpen && (
-                        <div style={{ padding: "0 20px 16px", fontWeight: 400, fontSize: 14, lineHeight: "1.6em", color: "#3F4555" }}>
+                        <div style={{ padding: "0 16px 20px", fontWeight: 400, fontSize: 14, lineHeight: "1.6em", color: "#3F4555" }}>
                           {item.a}
                         </div>
                       )}
