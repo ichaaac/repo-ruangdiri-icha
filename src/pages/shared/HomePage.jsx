@@ -344,7 +344,6 @@ function Homepage() {
                         borderRadius: isOpen ? 16 : 0,
                         backgroundColor: isOpen ? "#EDF2FF" : "transparent",
                         transition: "background-color 0.2s",
-                        borderBottom: isOpen ? "none" : "1px solid #E5E7EB",
                       }}
                     >
                       <button
