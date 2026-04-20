@@ -319,47 +319,50 @@ function Homepage() {
           className="w-full"
           style={{ backgroundColor: "#FDFEFF" }}
         >
-          <div className="mx-auto px-6 py-10 lg:px-20 lg:py-16" style={{ maxWidth: 1440 }}>
-            <div className="flex flex-col lg:flex-row gap-8 lg:gap-20 items-start">
+          <div className="mx-auto" style={{ maxWidth: 1440, padding: "72px" }}>
+            <div className="flex flex-col lg:flex-row items-start" style={{ gap: 56 }}>
 
               {/* Left */}
-              <div className="w-full lg:flex-none" style={{ maxWidth: 420 }}>
-                <h2 className="text-xl lg:text-[32px]" style={{ fontWeight: 600, lineHeight: "1.4em", color: "#2563EB" }}>
-                  Pertanyaan yang Sering Diajukan
-                </h2>
-                <p className="mt-3 text-sm lg:text-base" style={{ fontWeight: 400, lineHeight: "1.6em", color: "#101415" }}>
-                  Temukan jawaban dari hal-hal yang mungkin sedang kamu pikirkan sebelum memulai di Ruang Diri.
-                </p>
-                <img src="/landing/faq-illustration.png" alt="" className="hidden lg:block mt-6 w-full" style={{ maxWidth: 380 }} />
+              <div className="flex flex-col items-center w-full lg:flex-1" style={{ gap: 20 }}>
+                <div className="flex flex-col w-full" style={{ gap: 16 }}>
+                  <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 48, lineHeight: "1.4", color: "#2563EB" }}>
+                    Pertanyaan yang Sering Diajukan
+                  </h2>
+                  <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 20, lineHeight: "1.8", color: "#101415" }}>
+                    Temukan jawaban dari hal-hal yang mungkin sedang kamu pikirkan sebelum memulai di Ruang Diri.
+                  </p>
+                </div>
+                <img src="/landing/faq-illustration.png" alt="" className="hidden lg:block w-full" style={{ maxWidth: 450 }} />
               </div>
 
               {/* Accordion */}
-              <div className="flex-1 flex flex-col w-full">
+              <div className="flex flex-col items-center shrink-0" style={{ gap: 20, width: 680 }}>
                 {faqItems.map((item, i) => {
                   const isOpen = openFaq === i;
                   return (
                     <div
                       key={i}
+                      className="w-full"
                       style={{
-                        borderRadius: isOpen ? 16 : 0,
+                        borderRadius: 24,
                         backgroundColor: isOpen ? "#EDF2FF" : "transparent",
                         transition: "background-color 0.2s",
                       }}
                     >
                       <button
                         onClick={() => setOpenFaq(isOpen ? -1 : i)}
-                        className="w-full flex items-center justify-between gap-4 text-left"
-                        style={{ padding: "20px 16px", cursor: "pointer", background: "none", border: "none" }}
+                        className="w-full flex items-center justify-between text-left"
+                        style={{ padding: "24px 32px", cursor: "pointer", background: "none", border: "none", gap: 16 }}
                       >
-                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 16, lineHeight: "1.4em", color: "#0F172B", flex: 1 }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 24, lineHeight: "1.2", color: "#0F172B", flex: 1 }}>
                           {item.q}
                         </span>
-                        <div style={{ flexShrink: 0, width: 20, height: 20, transition: "transform 0.2s", transform: isOpen ? "rotate(0deg)" : "rotate(180deg)" }}>
-                          <img src="/landing/faq-chevron.svg" alt="" style={{ width: 20, height: 20 }} />
+                        <div style={{ flexShrink: 0, width: 28, height: 28, transition: "transform 0.2s", transform: isOpen ? "rotate(0deg)" : "rotate(180deg)" }}>
+                          <img src="/landing/faq-chevron.svg" alt="" style={{ width: 28, height: 28 }} />
                         </div>
                       </button>
                       {isOpen && (
-                        <div style={{ padding: "0 16px 20px", fontWeight: 400, fontSize: 14, lineHeight: "1.6em", color: "#3F4555" }}>
+                        <div style={{ padding: "0 32px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 16, lineHeight: "1.8", color: "#0F172B" }}>
                           {item.a}
                         </div>
                       )}
