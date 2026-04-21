@@ -77,13 +77,26 @@ const transformScreeningsToChart = (screenings) => {
   });
 };
 
+const isSessionExpired = (booking) => {
+  const now = new Date();
+  const sessionDate = new Date(booking.date);
+  const today = new Date(now.toDateString());
+  if (sessionDate > today) return false;
+  if (sessionDate < today) return true;
+  if (booking.endTime) {
+    const [h, m] = booking.endTime.split(":");
+    const endDateTime = new Date(sessionDate);
+    endDateTime.setHours(parseInt(h, 10), parseInt(m, 10), 0);
+    return now > endDateTime;
+  }
+  return false;
+};
+
 const transformToUpcomingSession = (bookings) => {
   if (!bookings?.length) return null;
 
-  const now = new Date();
-  const today = new Date(now.toDateString());
   const upcoming = bookings
-    .filter((b) => ["scheduled", "confirmed", "pending", "rescheduled"].includes(b.status) && new Date(b.date) >= today)
+    .filter((b) => ["scheduled", "confirmed", "pending", "rescheduled"].includes(b.status) && !isSessionExpired(b))
     .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
 
   if (!upcoming) return null;
@@ -118,10 +131,8 @@ const transformToHistory = (bookings) => {
 
   return bookings
     .filter((b) => {
-      // Cancelled and completed always go to history
       if (["completed", "cancelled"].includes(b.status)) return true
-      // Rescheduled only goes to history if the date is in the past
-      if (b.status === "rescheduled") return new Date(b.date) < new Date(new Date().toDateString())
+      if (["scheduled", "confirmed", "pending", "rescheduled"].includes(b.status)) return isSessionExpired(b)
       return false
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date))
