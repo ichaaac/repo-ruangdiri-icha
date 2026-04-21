@@ -658,6 +658,7 @@ const HistoryCard = ({ session }) => {
 const UserDashboard = () => {
   const { userType = 'student' } = useOutletContext() || {};
   const navigate = useNavigate();
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   const { chartData, upcomingSession, counselingHistory, isLoading, refetch } = useStudentDashboard(userType);
 
@@ -798,11 +799,24 @@ const UserDashboard = () => {
               iconElement={<HistoryIcon color="#9CA3AF" size={24} />}
             />
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              {counselingHistory.map((session) => (
-                <HistoryCard key={session.id} session={session} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                {(showAllHistory ? counselingHistory : counselingHistory.slice(0, 6)).map((session) => (
+                  <HistoryCard key={session.id} session={session} />
+                ))}
+              </div>
+              {counselingHistory.length > 6 && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={() => setShowAllHistory(!showAllHistory)}
+                    className="text-sm font-medium hover:opacity-80 transition-opacity"
+                    style={{ color: '#E8655B' }}
+                  >
+                    {showAllHistory ? 'Tampilkan Lebih Sedikit' : `Lihat Semua Riwayat (${counselingHistory.length})`}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
