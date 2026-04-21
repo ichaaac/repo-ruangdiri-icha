@@ -319,16 +319,18 @@ function Homepage() {
           className="w-full"
           style={{ backgroundColor: "#FDFEFF" }}
         >
-          <div className="mx-auto" style={{ maxWidth: 1440, padding: "72px" }}>
-            <div className="flex flex-col lg:flex-row items-start" style={{ gap: 56 }}>
+          <div className="mx-auto px-6 py-10 lg:px-[72px] lg:py-[72px]" style={{ maxWidth: 1440 }}>
+            <div className="flex flex-col lg:flex-row items-start lg:gap-[56px] gap-6">
 
               {/* Left */}
-              <div className="flex flex-col items-center w-full lg:flex-1" style={{ gap: 20 }}>
-                <div className="flex flex-col w-full" style={{ gap: 16 }}>
-                  <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 48, lineHeight: "1.4", color: "#2563EB" }}>
+              <div className="flex flex-col w-full lg:flex-1 gap-4 lg:gap-5">
+                <div className="flex flex-col gap-3 lg:gap-4">
+                  <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, lineHeight: "1.4", color: "#2563EB" }}
+                    className="text-2xl lg:text-[48px]">
                     Pertanyaan yang Sering Diajukan
                   </h2>
-                  <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 20, lineHeight: "1.8", color: "#101415" }}>
+                  <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, lineHeight: "1.8", color: "#101415" }}
+                    className="text-sm lg:text-[20px]">
                     Temukan jawaban dari hal-hal yang mungkin sedang kamu pikirkan sebelum memulai di Ruang Diri.
                   </p>
                 </div>
@@ -336,7 +338,7 @@ function Homepage() {
               </div>
 
               {/* Accordion */}
-              <div className="flex flex-col items-center shrink-0" style={{ gap: 20, width: 680 }}>
+              <div className="flex flex-col w-full lg:w-[680px] lg:shrink-0 gap-3 lg:gap-5">
                 {faqItems.map((item, i) => {
                   const isOpen = openFaq === i;
                   return (
@@ -344,7 +346,7 @@ function Homepage() {
                       key={i}
                       className="w-full"
                       style={{
-                        borderRadius: 24,
+                        borderRadius: 16,
                         backgroundColor: isOpen ? "#EDF2FF" : "transparent",
                         transition: "background-color 0.2s",
                       }}
@@ -352,17 +354,20 @@ function Homepage() {
                       <button
                         onClick={() => setOpenFaq(isOpen ? -1 : i)}
                         className="w-full flex items-center justify-between text-left"
-                        style={{ padding: "24px 32px", cursor: "pointer", background: "none", border: "none", gap: 16 }}
+                        style={{ padding: "16px 20px", cursor: "pointer", background: "none", border: "none", gap: 12 }}
                       >
-                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 24, lineHeight: "1.2", color: "#0F172B", flex: 1 }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, lineHeight: "1.2", color: "#0F172B", flex: 1 }}
+                          className="text-base lg:text-[24px]">
                           {item.q}
                         </span>
-                        <div style={{ flexShrink: 0, width: 28, height: 28, transition: "transform 0.2s", transform: isOpen ? "rotate(0deg)" : "rotate(180deg)" }}>
-                          <img src="/landing/faq-chevron.svg" alt="" style={{ width: 28, height: 28 }} />
+                        <div style={{ flexShrink: 0, transition: "transform 0.2s", transform: isOpen ? "rotate(0deg)" : "rotate(180deg)" }}
+                          className="w-5 h-5 lg:w-7 lg:h-7">
+                          <img src="/landing/faq-chevron.svg" alt="" className="w-full h-full" />
                         </div>
                       </button>
                       {isOpen && (
-                        <div style={{ padding: "0 32px 24px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, fontSize: 16, lineHeight: "1.8", color: "#0F172B" }}>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 400, lineHeight: "1.8", color: "#0F172B" }}
+                          className="px-5 pb-4 lg:px-8 lg:pb-6 text-sm lg:text-base">
                           {item.a}
                         </div>
                       )}
