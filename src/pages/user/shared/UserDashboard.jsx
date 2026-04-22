@@ -107,13 +107,19 @@ const SectionHeader = ({ title, subtitle, iconBg = '#ECF9FC', iconElement, class
   </div>
 );
 
-const ProgressChartCard = ({ data }) => {
+const ProgressChartCard = ({ data, isLoading }) => {
   const hasData = data?.some(d => d.value !== null && d.value !== undefined);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex-1 min-w-0 flex flex-col">
       <SectionHeader title="Grafik Progress" subtitle="Perkembangan kesehatan mental Anda" iconBg="#ECF9FC" iconElement={<ChartIcon color="#E8655B" size={24} />} />
       <div className="flex-1 min-h-[200px] relative">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <span className="material-icons animate-spin text-blue-500 text-2xl">sync</span>
+          </div>
+        ) : (
+          <>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data?.length ? data : emptyChartData} margin={{ top: 10, right: 20, left: 70, bottom: 10 }}>
             <defs>
@@ -153,6 +159,8 @@ const ProgressChartCard = ({ data }) => {
             </div>
           </div>
         )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -170,7 +178,7 @@ const InfoRow = ({ icon, alt, title, subtitle }) => (
   </div>
 );
 
-const CounselingSessionCard = ({ session, userType, onCancelled }) => {
+const CounselingSessionCard = ({ session, userType, onCancelled, isLoading }) => {
   const queryClient = useQueryClient();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -351,6 +359,17 @@ const CounselingSessionCard = ({ session, userType, onCancelled }) => {
     if (m === 'chat') return 'Chat';
     return m || 'Konseling';
   };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 w-full xl:w-[400px] xl:flex-shrink-0">
+        <SectionHeader title="Sesi Konseling" subtitle="Sesi mendatang" iconElement={<CalendarEmptyIcon color="#E8655B" size={24} />} />
+        <div className="flex justify-center items-center py-12">
+          <span className="material-icons animate-spin text-blue-500 text-2xl">sync</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!session) {
     return (
@@ -660,15 +679,7 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [showAllHistory, setShowAllHistory] = useState(false);
 
-  const { chartData, upcomingSession, counselingHistory, isLoading, refetch } = useStudentDashboard(userType);
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-white">
-        <span className="material-icons animate-spin text-blue-500 text-3xl">sync</span>
-      </div>
-    );
-  }
+  const { chartData, upcomingSession, counselingHistory, isChartLoading, isBookingsLoading, refetch } = useStudentDashboard(userType);
 
   return (
     <div className="min-h-screen bg-white">
@@ -775,8 +786,8 @@ const UserDashboard = () => {
 
         {/* Two-Column: Chart + Session */}
         <div className="flex flex-col xl:flex-row xl:items-stretch gap-6 mb-6">
-          <ProgressChartCard data={chartData} />
-          <CounselingSessionCard session={upcomingSession} userType={userType} onCancelled={refetch} />
+          <ProgressChartCard data={chartData} isLoading={isChartLoading} />
+          <CounselingSessionCard session={upcomingSession} userType={userType} onCancelled={refetch} isLoading={isBookingsLoading} />
         </div>
 
         {/* Riwayat Konseling */}
@@ -792,7 +803,11 @@ const UserDashboard = () => {
             </button>
           </div>
 
-          {counselingHistory.length === 0 ? (
+          {isBookingsLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <span className="material-icons animate-spin text-blue-500 text-2xl">sync</span>
+            </div>
+          ) : counselingHistory.length === 0 ? (
             <SectionEmptyState
               title="Belum ada riwayat konseling"
               subtitle="Saat ini Anda belum melakukan sesi konseling"

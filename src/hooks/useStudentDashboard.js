@@ -203,6 +203,8 @@ export const useStudentDashboard = (userType = "student") => {
     upcomingSession,
     counselingHistory,
     isLoading: screeningsQuery.isLoading || bookingsQuery.isLoading,
+    isChartLoading: screeningsQuery.isLoading,
+    isBookingsLoading: bookingsQuery.isLoading,
     isError: screeningsQuery.isError || bookingsQuery.isError,
     refetch: () => {
       screeningsQuery.refetch();
