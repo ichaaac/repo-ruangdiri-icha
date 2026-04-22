@@ -212,7 +212,7 @@ const TopRightControl = ({ transparent = false }) => {
         fontFamily: "'Plus Jakarta Sans', 'Public Sans', sans-serif",
         position: "sticky",
         top: 0,
-        zIndex: 40,
+        zIndex: 60,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16, height: 48 }}>
