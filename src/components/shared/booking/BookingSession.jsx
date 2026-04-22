@@ -126,15 +126,15 @@ const BookingSession = ({ userType = "student", selectedMethod, onBack, onSucces
 
       const result = await handleBookingSubmit()
 
-      // Handle chat booking redirect with pre-filled message
+      // Handle chat booking - show summary first, then user can navigate to chat
       if (result?.method === 'chat' && result?.sessionId) {
-        // Store initial message in sessionStorage to avoid URL length limits
         if (result?.notes) {
           sessionStorage.setItem('chatInitialMessage', result.notes)
         }
+        sessionStorage.setItem('chatSessionId', result.sessionId)
 
-        // Navigate to chat page with sessionId
-        navigate(`/user/${userType}/chat?sessionId=${result.sessionId}`, {
+        navigate(`/user/${userType}/booking-complete`, {
+          state: { bookingResult: result, methodOverride: currentSelectedMethod?.id },
           replace: true,
         })
         return

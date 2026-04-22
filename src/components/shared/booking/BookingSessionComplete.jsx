@@ -93,6 +93,17 @@ const BookingSessionComplete = () => {
     return bookingData?.psychologistName || '-'
   }
 
+  const isChat = String(bookingData?.method || '').toLowerCase() === 'chat'
+
+  const handleGoToChat = () => {
+    const sessionId = bookingData?.sessionId || sessionStorage.getItem('chatSessionId')
+    if (sessionId) {
+      navigate(`/user/${userType}/chat?sessionId=${sessionId}`, { replace: true })
+    } else {
+      navigate(`/user/${userType}/chat`, { replace: true })
+    }
+  }
+
   const handleBackToDashboard = () => {
     navigate(`/user/${userType}/dashboard`)
   }
@@ -253,8 +264,26 @@ const BookingSessionComplete = () => {
                 </div>
               )}
 
-              {/* Button */}
-              <button onClick={handleBackToDashboard}
+              {/* Buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {isChat && (
+                  <button onClick={handleGoToChat}
+                    style={{
+                      width: '100%', height: 44, borderRadius: 12, border: 'none',
+                      backgroundColor: '#488BBA', color: '#FDFEFF',
+                      fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                      fontFamily: FONT, lineHeight: '1.4',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      gap: 4, padding: '8px 16px',
+                      transition: 'opacity 0.2s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    Mulai Chat
+                  </button>
+                )}
+                <button onClick={handleBackToDashboard}
                 style={{
                   width: '100%', height: 44, borderRadius: 12, border: 'none',
                   backgroundColor: '#E8655B', color: '#FDFEFF',
