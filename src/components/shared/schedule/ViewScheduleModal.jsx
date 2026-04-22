@@ -1,7 +1,7 @@
 // src/components/shared/schedule/ViewScheduleModal.jsx
 
 import { useState, useEffect, useRef } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { createScheduleApi } from "./lib/scheduleApi"
 
@@ -35,6 +35,7 @@ const ViewScheduleModal = ({
   const [uploadedFiles, setUploadedFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const scheduleApi = createScheduleApi(organizationType)
 
@@ -175,6 +176,8 @@ const ViewScheduleModal = ({
       await scheduleApi.uploadAttachments(scheduleData.id, validFiles)
       toast.success("File berhasil diunggah")
       setUploadedFiles((prev) => [...prev, ...validFiles.map((f) => f.name)])
+      queryClient.invalidateQueries({ queryKey: ["schedule-detail", scheduleData.id] })
+      queryClient.invalidateQueries({ queryKey: ["schedules"] })
     } catch {
       toast.error("Gagal mengunggah file")
     } finally {

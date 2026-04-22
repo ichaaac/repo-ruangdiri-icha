@@ -1,5 +1,6 @@
 // src/components/shared/schedule/EditScheduleModal.jsx
 import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
 import { useScheduleForm } from "./hooks/useScheduleForm"
 import ScheduleFormFields from "./ScheduleFormFields"
 import AttachmentPreviewModal from "./AttachmentPreviewModal"
@@ -13,6 +14,7 @@ const EditScheduleModal = ({
   onCancelReturnToView,
   organizationType = "school",
 }) => {
+const queryClient = useQueryClient()
 const {
     formData,
     dropdowns,
@@ -204,6 +206,8 @@ const handleSubmit = async () => {
               })
 
               console.log("Attachments uploaded successfully")
+              queryClient.invalidateQueries({ queryKey: ["schedule-detail", initialData.id] })
+              queryClient.invalidateQueries({ queryKey: ["schedules"] })
               
               // FIXED: Only show toast if we haven't shown it already
               if (!hasShownSuccessToast) {
