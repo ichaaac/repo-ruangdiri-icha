@@ -298,6 +298,7 @@ const BookingSessionComplete = () => {
               >
                 Kembali ke Dashboard
               </button>
+              </div>
             </div>
           </div>
         </div>
