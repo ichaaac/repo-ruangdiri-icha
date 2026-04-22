@@ -616,8 +616,9 @@ const ChatInput = ({
     if (scheduledAt) {
       const startTime = new Date(scheduledAt);
       if (new Date() < startTime) {
+        const dateStr = startTime.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
         const timeStr = startTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        return `Chat akan aktif pada ${timeStr} WIB`;
+        return `Chat akan aktif pada ${dateStr}, ${timeStr} WIB`;
       }
     }
     return "Chat is disabled...";
