@@ -333,7 +333,7 @@ const SchedulePage = ({ type = "school", showTopRightControl = true }) => {
       <div
         className="transition-all duration-300"
         style={{
-          paddingTop: "120px",
+          paddingTop: showTopRightControl ? "120px" : "24px",
           paddingLeft: `${paddingLeft}px`,
           paddingRight: `${paddingRight}px`,
         }}
