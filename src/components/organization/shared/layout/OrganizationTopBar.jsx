@@ -121,7 +121,7 @@ const OrganizationTopBar = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "flex-end",
-        padding: "24px 40px",
+        padding: "12px 40px",
         fontFamily: "'Plus Jakarta Sans', 'Public Sans', sans-serif",
         position: "sticky",
         top: 0,
