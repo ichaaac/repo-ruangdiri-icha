@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createScheduleApi } from '../lib/scheduleApi.js';
+import { notificationsAPI } from '@/components/shared/notifications/lib/api';
 import { toast } from "sonner";
 
 const scheduleKeys = {
@@ -101,8 +102,18 @@ export const useSchedule = (type = "school") => {
     queryKey: scheduleKeys.notifications,
     queryFn: async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        return [];
+        const result = await notificationsAPI.getNotifications({ page: 1, limit: 10, type: 'all' });
+        return (result.notifications || []).map(n => ({
+          id: n.id,
+          name: n.title || 'Notifikasi',
+          message: n.title || n.message || '',
+          action: n.title || n.message || '',
+          time: n.createdAt,
+          createdAt: n.createdAt,
+          isRead: n.isRead || n.status === 'read',
+          type: n.type,
+          user: n.user || null,
+        }));
       } catch (error) {
         console.error('Error fetching notifications:', error);
         return [];
