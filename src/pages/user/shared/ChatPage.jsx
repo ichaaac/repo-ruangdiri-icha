@@ -320,14 +320,14 @@ const ChatPage = () => {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-20 bg-white px-6 pt-4" style={{ marginLeft: 'inherit' }}>
+      <div className="fixed top-0 left-0 right-0 z-20 bg-white px-6 pt-2" style={{ marginLeft: 'inherit' }}>
         <Breadcrumb items={[
           { label: "Home", to: `/user/${userType}/dashboard` },
           { label: "Chat Konseling" },
         ]} />
       </div>
       {/* Main Chat Container - Full height dengan independent scroll areas */}
-      <div className="w-full h-full pt-[90px] bg-white flex relative">
+      <div className="w-full h-full pt-[48px] bg-white flex relative">
         {/* Chat Sidebar - Independent scroll container */}
         <div 
           id="chat-sidebar"
