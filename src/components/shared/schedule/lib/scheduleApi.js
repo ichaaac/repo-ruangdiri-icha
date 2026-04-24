@@ -868,7 +868,10 @@ export const createScheduleApi = (organizationType = "school") => {
 
     async getCounselingQueue(params = {}) {
       try {
-        const response = await apiClient.get("/counselings/schedules/psychologist", { params })
+        const endpoint = (organizationType === 'company' || organizationType === 'school')
+          ? "/counselings/schedules/organization"
+          : "/counselings/schedules/psychologist"
+        const response = await apiClient.get(endpoint, { params })
 
         if (response.data?.status === "success") {
           console.log('[CounselingQueue] raw data:', JSON.stringify(response.data.data?.slice(0,5), null, 2))
