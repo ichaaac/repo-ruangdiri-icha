@@ -490,7 +490,7 @@ const BookingChatPage = () => {
     try {
       const result = await handleBookingSubmit();
 
-      // Chat booking with session created → redirect to chat
+      // Chat booking with session created → show summary order first
       if (result?.method === 'chat' && (result?.sessionId || result?.chatSessionId)) {
         const sid = result.sessionId || result.chatSessionId;
         if (problemDescription) {
@@ -501,7 +501,8 @@ const BookingChatPage = () => {
           const scheduledAt = new Date(`${selectedDate}T${selectedTimeSlot.startTime}`).toISOString();
           sessionStorage.setItem(`chat_scheduledAt_${sid}`, scheduledAt);
         }
-        navigate(`/user/${userType}/chat?sessionId=${sid}`, {
+        navigate(`/user/${userType}/booking-complete`, {
+          state: { bookingResult: result },
           replace: true,
         });
         return;
