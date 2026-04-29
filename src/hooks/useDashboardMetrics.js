@@ -53,15 +53,44 @@ export const useDashboardMetrics = (type = "student") => {
   return useQuery({
     queryKey: ["dashboardMainMetrics", type, currentDate.year, currentDate.month, scopeKey],
     queryFn: async () => {
-      const endpoint = type === "student" ? "/students/metrics/monthly-stats" : "/employees/metrics/monthly-stats"
+      const monthlyEndpoint = type === "student" ? "/students/metrics/monthly-stats" : "/employees/metrics/monthly-stats"
+      const listEndpoint = type === "student" ? "/organizations/students" : "/organizations/employees"
       try {
-        const params = new URLSearchParams(getAdminScopeParams())
-        const url = params.toString() ? `${endpoint}?${params}` : endpoint
-        const res = await apiClient.get(url)
-        if (res.data?.status === "fail" || !res.data?.data) {
-          return handleEmptyDataResponse("monthly");
+        const scopeParams = new URLSearchParams(getAdminScopeParams())
+        const scopeSuffix = scopeParams.toString() ? `&${scopeParams}` : ""
+        const monthlyUrl = scopeParams.toString() ? `${monthlyEndpoint}?${scopeParams}` : monthlyEndpoint
+
+        // Fetch monthly-stats (for chart data) + real all-time counts in parallel
+        // not_screened is computed as total - at_risk - monitored - stable
+        // because the list endpoint does not support filtering null screeningStatus
+        const [monthlyRes, totalRes, atRiskRes, monitoredRes, stableRes, notCounseledRes] = await Promise.all([
+          apiClient.get(monthlyUrl).catch(() => null),
+          apiClient.get(`${listEndpoint}?limit=1${scopeSuffix}`),
+          apiClient.get(`${listEndpoint}?screeningStatus=at_risk&limit=1${scopeSuffix}`),
+          apiClient.get(`${listEndpoint}?screeningStatus=monitored&limit=1${scopeSuffix}`),
+          apiClient.get(`${listEndpoint}?screeningStatus=stable&limit=1${scopeSuffix}`),
+          apiClient.get(`${listEndpoint}?counselingStatus=0&limit=1${scopeSuffix}`),
+        ])
+
+        const monthlyData = monthlyRes?.data?.data || {}
+        const totalCount = totalRes?.data?.metadata?.totalData || 0
+        const atRiskCount = atRiskRes?.data?.metadata?.totalData || 0
+        const monitoredCount = monitoredRes?.data?.metadata?.totalData || 0
+        const stableCount = stableRes?.data?.metadata?.totalData || 0
+        const notScreenedCount = Math.max(0, totalCount - atRiskCount - monitoredCount - stableCount)
+        const notCounseledCount = notCounseledRes?.data?.metadata?.totalData || 0
+
+        return {
+          status: "success",
+          data: {
+            ...monthlyData,
+            summary: {
+              atRisk: { count: atRiskCount, total: totalCount },
+              notScreened: { count: notScreenedCount, total: totalCount },
+              notCounseled: { count: notCounseledCount, total: totalCount },
+            },
+          },
         }
-        return res.data
       } catch (error) {
         if (error.response?.status === 404) {
           return handleEmptyDataResponse("monthly");
@@ -158,11 +187,9 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
   const scopeKey = getAdminScopeKey()
 
   return useInfiniteQuery({
-    queryKey: ["dashboardTabData", type, tabType, currentDate.year, currentDate.month, limit, scopeKey],
+    queryKey: ["dashboardTabData", type, tabType, limit, scopeKey],
     queryFn: async ({ pageParam = 1 }) => {
       const queryParams = new URLSearchParams()
-      queryParams.append("year", currentDate.year)
-      queryParams.append("month", currentDate.month)
       queryParams.append("page", pageParam.toString())
       queryParams.append("limit", limit.toString())
 
@@ -176,7 +203,7 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
 
       appendScopeParams(queryParams)
 
-      const endpoint = type === "student" ? "/organizations/students/period" : "/organizations/employees/period"
+      const endpoint = type === "student" ? "/organizations/students" : "/organizations/employees"
 
       try {
         const res = await apiClient.get(`${endpoint}?${queryParams}`)
@@ -185,7 +212,7 @@ export const useDashboardTabData = (type = "student", tabType = "at_risk", param
         }
         return {
           data: res.data?.data || { students: [], employees: [] },
-          metadata: res.data?.data?.metadata || { totalData: 0, hasNextPage: false, page: pageParam, limit },
+          metadata: res.data?.metadata || { totalData: 0, hasNextPage: false, page: pageParam, limit },
           pageParam,
         }
       } catch (error) {

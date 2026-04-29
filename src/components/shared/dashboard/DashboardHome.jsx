@@ -244,32 +244,35 @@ const DashboardHome = ({
 
   return (
     <div className="w-full min-h-screen overflow-x-hidden">
-      {/* Header */}
-      <div style={{ padding: "0 40px", marginTop: 24, paddingTop: 72 }}>
-        <h1
-          style={{
-            fontSize: 24,
-            lineHeight: "120%",
-            fontWeight: 400,
-            color: "#0B0F1A",
-          }}
-        >
-          Halo, {user?.fullName || authUser?.fullName || "Admin"}!
-        </h1>
-        <p
-          style={{
-            fontSize: 18,
-            lineHeight: "140%",
-            fontWeight: 400,
-            color: "#6F7480",
-            marginTop: 4,
-          }}
-        >
-          Selamat datang kembali! Berikut ringkasan data hari ini.
-        </p>
-      </div>
+      <div
+        className="flex flex-col"
+        style={{ padding: "40px", paddingTop: 40, gap: 32 }}
+      >
+        {/* Header */}
+        <div>
+          <h1
+            style={{
+              fontSize: 24,
+              lineHeight: "120%",
+              fontWeight: 500,
+              color: "#0B0F1A",
+            }}
+          >
+            Halo, {user?.fullName || authUser?.fullName || "Admin"}!
+          </h1>
+          <p
+            style={{
+              fontSize: 18,
+              lineHeight: "140%",
+              fontWeight: 400,
+              color: "#6F7480",
+              marginTop: 8,
+            }}
+          >
+            Selamat datang kembali! Berikut ringkasan data hari ini.
+          </p>
+        </div>
 
-      <div style={{ padding: "28px 40px 40px 40px" }}>
         {/* Summary Cards */}
         <div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
@@ -297,19 +300,20 @@ const DashboardHome = ({
             total={summary.notCounseled?.total || 0}
             icon="schedule"
             variant="neutral"
+            progressLabel="Progress"
             onLihatLaporan={() => navigate(`${basePath}/detail-laporan?type=belum-konseling`)}
           />
         </div>
 
         {/* Charts Section */}
-        <div style={{ marginTop: 32 }}>
+        <div className="flex flex-col" style={{ gap: 24 }}>
           <h2
             style={{
               fontSize: 24,
               lineHeight: "120%",
               fontWeight: 500,
               color: "#0B0F1A",
-              marginBottom: 20,
+              margin: 0,
             }}
           >
             Status Kesehatan Mental {config.entityName}
@@ -318,7 +322,7 @@ const DashboardHome = ({
           {/* Row 1: Overall donut + Bar chart */}
           <div
             className="grid grid-cols-1 lg:grid-cols-2"
-            style={{ gap: 20 }}
+            style={{ gap: 24 }}
           >
             <ChartCard
               title={
@@ -329,7 +333,7 @@ const DashboardHome = ({
                 </div>
               }
               chipSlot={<MonthChip label={dateDisplay} />}
-              className="h-[450px]"
+              className="min-h-[420px]"
             >
               {renderDonutChart(getOverallPieData(), 85, 110)}
             </ChartCard>
@@ -415,7 +419,7 @@ const DashboardHome = ({
                   )}
                 </div>
               }
-              className="h-[450px]"
+              className="min-h-[420px]"
             >
               <div className="w-full h-full relative">
                 <ResponsiveContainer width="100%" height="100%">
@@ -475,7 +479,7 @@ const DashboardHome = ({
           {/* Row 2: Screening donut + Counseling donut */}
           <div
             className="grid grid-cols-1 lg:grid-cols-2"
-            style={{ gap: 20, marginTop: 20 }}
+            style={{ gap: 24 }}
           >
             <ChartCard
               title={
@@ -484,7 +488,7 @@ const DashboardHome = ({
                 </h3>
               }
               chipSlot={<MonthChip label={dateDisplay} />}
-              className="h-[400px]"
+              className="min-h-[380px]"
             >
               {renderDonutChart(getScreeningData(), 70, 95)}
             </ChartCard>
@@ -496,7 +500,7 @@ const DashboardHome = ({
                 </h3>
               }
               chipSlot={<MonthChip label={dateDisplay} />}
-              className="h-[400px]"
+              className="min-h-[380px]"
             >
               {renderDonutChart(getCounselingData(), 70, 95)}
             </ChartCard>

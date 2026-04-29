@@ -6,7 +6,7 @@ const ChartCard = ({ title, chipSlot, children, className = "" }) => {
         background: "#FFFFFF",
         border: "1px solid #DADDE1",
         borderRadius: 12,
-        padding: "24px 24px",
+        padding: "20px 16px",
       }}
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-5">

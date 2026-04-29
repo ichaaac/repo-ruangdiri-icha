@@ -2,7 +2,6 @@ import { useState, useMemo } from "react"
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api"
-import { getCurrentDateInfo } from "../../../lib/date"
 import { useDashboard, usePdfReport } from "../../../hooks/useDashboardMetrics"
 import SummaryCard from "./SummaryCard"
 import Breadcrumb from "../Breadcrumb"
@@ -56,8 +55,6 @@ const DetailLaporanPage = () => {
 
   const [searchQuery, setSearchQuery] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const currentDate = getCurrentDateInfo()
-
   // Data summary dari API (sama seperti dashboard) — this is the source of truth for counts
   const { metrics, isLoading: metricsLoading } = useDashboard(type)
   const summary = metrics?.summary || {}
@@ -74,11 +71,9 @@ const DetailLaporanPage = () => {
 
   // Only fetch table data if summary says count > 0 (list endpoint filter is broader than summary)
   const { data: rawResponse, isLoading: tableLoading } = useQuery({
-    queryKey: ["detailLaporan", type, reportConfig.key, currentDate.year, currentDate.month, currentPage],
+    queryKey: ["detailLaporan", type, reportConfig.key, currentPage],
     queryFn: async () => {
       const params = new URLSearchParams()
-      params.append("year", currentDate.year)
-      params.append("month", currentDate.month)
       params.append("page", currentPage.toString())
       params.append("limit", ITEMS_PER_PAGE.toString())
 
@@ -91,8 +86,8 @@ const DetailLaporanPage = () => {
       }
 
       const endpoint = type === "student"
-        ? "/organizations/students/period"
-        : "/organizations/employees/period"
+        ? "/organizations/students"
+        : "/organizations/employees"
 
       const res = await apiClient.get(`${endpoint}?${params}`)
       return res.data
@@ -109,12 +104,12 @@ const DetailLaporanPage = () => {
     let items = []
     let meta = { totalData: 0, totalPages: 1, hasNextPage: false }
 
-    // Format 1: { data: { students: [...], metadata: {...} } }
+    // Format 1: { data: { employees: [...] }, metadata: {...} } — regular list endpoint
     if (rawResponse?.data?.[entityKey]) {
       items = rawResponse.data[entityKey]
-      meta = rawResponse.data?.metadata || meta
+      meta = rawResponse.metadata || rawResponse.data?.metadata || meta
     }
-    // Format 2: { students: [...], metadata: {...} } (no data wrapper)
+    // Format 2: { employees: [...], metadata: {...} } (no data wrapper)
     else if (rawResponse?.[entityKey]) {
       items = rawResponse[entityKey]
       meta = rawResponse?.metadata || meta
